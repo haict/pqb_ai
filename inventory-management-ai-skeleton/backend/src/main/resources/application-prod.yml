@@ -1,0 +1,21 @@
+# Môi trường production.
+# - Không bao giờ thêm classpath:db/dev-data vào spring.flyway.locations.
+# - Swagger UI / OpenAPI tắt cứng, không phụ thuộc biến môi trường.
+spring:
+  flyway:
+    locations: classpath:db/migration
+    clean-disabled: true
+
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+
+erp:
+  security:
+    public-api-docs: false
+
+logging:
+  level:
+    root: INFO

@@ -1,0 +1,94 @@
+# Cấu hình chung cho mọi môi trường. Giá trị theo môi trường đặt qua biến môi trường
+# (docs/08-environment.md). Không ghi secret vào file này.
+spring:
+  application:
+    name: erp
+  config:
+    # Cấu hình riêng của từng máy (DB local, profile), nằm ngoài repo nên không bị commit
+    # và không bị đóng gói vào WAR. Mẫu: backend/config/application-local.example.yml.
+    import: optional:file:${ERP_CONFIG_FILE:${user.home}/.erp/application-local.yml}
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    hikari:
+      maximum-pool-size: ${DB_POOL_SIZE:20}
+      # Chờ khóa dòng tối đa N giây rồi báo LOCK_TIMEOUT (423) thay vì treo 50 giây mặc định của InnoDB.
+      connection-init-sql: SET SESSION innodb_lock_wait_timeout = ${DB_LOCK_WAIT_TIMEOUT_SECONDS:10}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+  flyway:
+    locations: classpath:db/migration
+  data:
+    web:
+      pageable:
+        default-page-size: 20
+        max-page-size: 200
+  servlet:
+    multipart:
+      # D-41: tối đa 20 MB/file.
+      max-file-size: ${UPLOAD_MAX_FILE_SIZE:20MB}
+      max-request-size: ${UPLOAD_MAX_REQUEST_SIZE:25MB}
+  jackson:
+    time-zone: UTC
+
+server:
+  servlet:
+    # Thống nhất context path khi chạy Tomcat nhúng (Eclipse Spring Boot App, java -jar)
+    # với khi triển khai erp.war lên Tomcat ngoài (Tomcat bỏ qua thuộc tính này, dùng tên WAR).
+    context-path: /erp
+  error:
+    include-stacktrace: never
+    include-message: never
+    include-binding-errors: never
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+
+springdoc:
+  api-docs:
+    enabled: ${API_DOCS_ENABLED:false}
+  swagger-ui:
+    enabled: ${API_DOCS_ENABLED:false}
+
+erp:
+  api:
+    version: 0.1.0
+  security:
+    cors-allowed-origins: ${CORS_ALLOWED_ORIGINS:}
+    public-api-docs: false
+  auth:
+    # Secret ký JWT (HS256), tối thiểu 32 byte; bắt buộc đặt theo môi trường (ERP_JWT_SECRET).
+    jwt-secret: ${ERP_JWT_SECRET:}
+    access-token-ttl: 15m
+    # Phiên hết hạn khi không thao tác quá idle-timeout, và tối đa max-session-duration (BR-SYS-23).
+    session-idle-timeout: 30m
+    session-max-duration: 12h
+    refresh-cookie-name: ERP_REFRESH
+    refresh-cookie-secure: ${ERP_REFRESH_COOKIE_SECURE:true}
+    password:
+      min-length: 8
+      require-letter: true
+      require-digit: true
+    lockout:
+      max-failed-attempts: 5
+      lock-duration: 15m
+    # Tạo quản trị viên đầu tiên khi database chưa có người dùng (uat/prod). Bắt buộc đổi mật khẩu khi đăng nhập.
+    bootstrap-admin:
+      username: ${ERP_BOOTSTRAP_ADMIN_USERNAME:admin}
+      password: ${ERP_BOOTSTRAP_ADMIN_PASSWORD:}
+  idempotency:
+    ttl: 24h
+    cleanup-cron: "0 15 * * * *"

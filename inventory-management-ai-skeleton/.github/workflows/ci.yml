@@ -1,0 +1,61 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      # MySQL 8 thật cho test tích hợp (testing.md mục 1); schema hậu tố _test.
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_DATABASE: erp_test
+          MYSQL_USER: erp
+          MYSQL_PASSWORD: ci-only-password
+          MYSQL_ROOT_PASSWORD: ci-only-root-password
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 --silent"
+          --health-interval=10s --health-timeout=5s --health-retries=12
+    env:
+      ERP_TEST_DB_URL: jdbc:mysql://127.0.0.1:3306/erp_test?connectionTimeZone=UTC&characterEncoding=UTF-8
+      ERP_TEST_DB_USERNAME: erp
+      ERP_TEST_DB_PASSWORD: ci-only-password
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+      - name: Build và test
+        working-directory: backend
+        run: mvn -B clean verify
+      - name: Báo lỗi nếu test tích hợp bị bỏ qua
+        working-directory: backend
+        run: |
+          if grep -l 'skipped="[1-9]' target/surefire-reports/TEST-*.xml; then
+            echo "Có test bị bỏ qua trên CI"; exit 1
+          fi
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build

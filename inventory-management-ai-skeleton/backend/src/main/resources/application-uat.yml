@@ -1,0 +1,5 @@
+# Môi trường nghiệm thu. Mọi giá trị kết nối, secret đặt qua biến môi trường.
+# Không bật db/dev-data. API docs chỉ bật khi API_DOCS_ENABLED=true và vẫn yêu cầu đăng nhập.
+logging:
+  level:
+    root: INFO

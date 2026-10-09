@@ -1,0 +1,14 @@
+# Môi trường kiểm thử tự động. Datasource lấy từ ~/.erp/application-local.yml (on-profile: test) hoặc ERP_TEST_DB_URL.
+spring:
+  flyway:
+    locations: classpath:db/migration,classpath:db/dev-data
+    # Test tích hợp chạy trên schema riêng, được phép xóa sạch trước khi migrate.
+    clean-disabled: false
+
+springdoc:
+  api-docs:
+    enabled: true
+
+erp:
+  security:
+    cors-allowed-origins: http://localhost:5173

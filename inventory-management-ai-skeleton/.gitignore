@@ -1,0 +1,13 @@
+target/
+.idea/
+*.iml
+.classpath
+.project
+.settings/
+.vscode/
+.env
+*.log
+node_modules/
+dist/
+coverage/
+logs/

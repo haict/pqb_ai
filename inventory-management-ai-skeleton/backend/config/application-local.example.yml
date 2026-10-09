@@ -1,0 +1,25 @@
+# Mẫu cấu hình riêng của máy lập trình viên.
+# Sao chép thành ~/.erp/application-local.yml (Windows: C:\Users\<tên>\.erp\application-local.yml)
+# rồi điền tài khoản MySQL local. KHÔNG đặt file thật trong repo.
+# Đổi vị trí file bằng biến môi trường ERP_CONFIG_FILE.
+
+# Chạy ứng dụng (Eclipse + Tomcat, mvn spring-boot:run): profile dev, schema <tên>.
+spring:
+  profiles:
+    active: dev
+  datasource:
+    url: jdbc:mysql://localhost:3306/<schema_dev>?connectionTimeZone=UTC&characterEncoding=UTF-8
+    username: <tài khoản>
+    password: <mật khẩu>
+erp:
+  auth:
+    # Secret ký JWT, tối thiểu 32 ký tự ngẫu nhiên. Sinh: python -c "import secrets; print(secrets.token_urlsafe(48))"
+    jwt-secret: <chuỗi ngẫu nhiên>
+---
+# Test tích hợp (mvn clean verify): schema riêng, bắt buộc hậu tố _test vì test xóa sạch schema.
+spring:
+  config:
+    activate:
+      on-profile: test
+  datasource:
+    url: jdbc:mysql://localhost:3306/<schema_dev>_test?connectionTimeZone=UTC&characterEncoding=UTF-8

@@ -1,0 +1,25 @@
+# Môi trường phát triển trên máy cá nhân.
+# Không khai báo datasource ở đây: file theo profile có độ ưu tiên cao hơn file import, nên mọi giá trị
+# đặt ở đây sẽ ghi đè ~/.erp/application-local.yml. Datasource lấy từ file local hoặc biến môi trường DB_*.
+spring:
+  flyway:
+    # Dữ liệu mẫu chỉ ở dev/test, không bao giờ ở prod (database.md mục 2).
+    locations: classpath:db/migration,classpath:db/dev-data
+
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: true
+
+erp:
+  auth:
+    # Dev chạy http://localhost nên cookie không đặt cờ Secure.
+    refresh-cookie-secure: false
+  security:
+    cors-allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
+    public-api-docs: true
+
+logging:
+  level:
+    com.company.erp: DEBUG
