@@ -13,6 +13,43 @@ export interface NavGroup {
 
 export const NAV_GROUPS: NavGroup[] = [
   {
+    key: 'work',
+    label: 'Công việc',
+    items: [
+      { path: '/approvals', label: 'Việc chờ duyệt' },
+      { path: '/approval-delegations', label: 'Ủy quyền duyệt' },
+    ],
+  },
+  {
+    key: 'inventory',
+    label: 'Kho',
+    items: [
+      { path: '/inventory/stock', label: 'Tồn kho', permission: 'inventory:view' },
+      { path: '/inventory/documents', label: 'Chứng từ kho', permission: 'inventory:view' },
+      { path: '/inventory/lots', label: 'Lô, serial', permission: 'inventory:view' },
+      { path: '/inventory/stock-counts', label: 'Kiểm kê', permission: 'stock-count:view' },
+      { path: '/inventory/recalls', label: 'Thu hồi', permission: 'recall:view' },
+      {
+        path: '/inventory/stock-issue-policies',
+        label: 'Chính sách xuất vượt tồn',
+        permission: 'stock-policy:view',
+      },
+    ],
+  },
+  {
+    key: 'masterdata',
+    label: 'Danh mục',
+    items: [
+      { path: '/masterdata/products', label: 'Hàng hóa', permission: 'product:view' },
+      { path: '/masterdata/categories', label: 'Nhóm hàng', permission: 'catalog:view' },
+      { path: '/masterdata/partners', label: 'Đối tác', permission: 'partner:view' },
+      { path: '/masterdata/warehouses', label: 'Kho, vị trí', permission: 'warehouse:view' },
+      { path: '/masterdata/price-lists', label: 'Bảng giá', permission: 'price:view' },
+      { path: '/masterdata/compliance-documents', label: 'Hồ sơ, giấy phép', permission: 'compliance:view' },
+      { path: '/masterdata/catalogs', label: 'Danh mục chung', permission: 'catalog:view' },
+    ],
+  },
+  {
     key: 'system',
     label: 'Quản trị hệ thống',
     items: [
@@ -22,6 +59,11 @@ export const NAV_GROUPS: NavGroup[] = [
       { path: '/system/users', label: 'Người dùng', permission: 'user:view' },
       { path: '/system/roles', label: 'Vai trò và phân quyền', permission: 'role:view' },
       { path: '/system/login-logs', label: 'Nhật ký đăng nhập', permission: 'login-log:view' },
+      { path: '/system/fiscal-periods', label: 'Kỳ kế toán, kỳ kho', permission: 'period:view' },
+      { path: '/system/parameters', label: 'Tham số hệ thống', permission: 'parameter:view' },
+      { path: '/system/document-number-formats', label: 'Số chứng từ', permission: 'document-number:view' },
+      { path: '/system/document-types', label: 'Loại chứng từ', permission: 'approval-workflow:view' },
+      { path: '/system/approval-workflows', label: 'Luồng duyệt', permission: 'approval-workflow:view' },
     ],
   },
 ];

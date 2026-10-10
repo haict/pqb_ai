@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../../shared/auth/authContext';
-import { ALL, companyApi, roleApi } from './api';
+import { ALL, companyApi, documentTypeApi, roleApi } from './api';
 
 /** Công ty trong phạm vi người dùng, dùng cho ô chọn và hiển thị tên. */
 export function useCompanies() {
@@ -33,4 +33,19 @@ export function useActiveRoles() {
     queryFn: () => roleApi.list({ ...ALL, status: 'ACTIVE' }),
   });
   return query.data?.items ?? [];
+}
+
+/** Danh mục loại chứng từ (dùng chung mọi người dùng đã đăng nhập). */
+export function useDocumentTypes() {
+  const query = useQuery({
+    queryKey: ['document-types'],
+    queryFn: documentTypeApi.list,
+    staleTime: 5 * 60_000,
+  });
+  const items = query.data ?? [];
+  return {
+    items,
+    options: items.map((type) => ({ value: type.code, label: `${type.code} - ${type.name}` })),
+    nameOf: (code: string | null | undefined) => items.find((type) => type.code === code)?.name ?? code ?? '',
+  };
 }

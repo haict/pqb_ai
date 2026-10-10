@@ -66,6 +66,9 @@ springdoc:
 erp:
   api:
     version: 0.1.0
+  calendar:
+    # Múi giờ nghiệp vụ (D-15): xác định "hôm nay", ngày chứng từ, chu kỳ số chứng từ. Thời điểm vẫn lưu UTC.
+    time-zone: Asia/Ho_Chi_Minh
   security:
     cors-allowed-origins: ${CORS_ALLOWED_ORIGINS:}
     public-api-docs: false
@@ -85,6 +88,11 @@ erp:
     lockout:
       max-failed-attempts: 5
       lock-duration: 15m
+    # Giới hạn đăng nhập sai theo IP (security.md mục 7): chặn dò mật khẩu rải trên nhiều tài khoản.
+    # Đếm trong bộ nhớ của một máy chủ (D-32). Sau reverse proxy phải cấu hình IP thật (RemoteIpValve / forward-headers).
+    ip-rate-limit:
+      max-failures: 20
+      window: 15m
     # Tạo quản trị viên đầu tiên khi database chưa có người dùng (uat/prod). Bắt buộc đổi mật khẩu khi đăng nhập.
     bootstrap-admin:
       username: ${ERP_BOOTSTRAP_ADMIN_USERNAME:admin}

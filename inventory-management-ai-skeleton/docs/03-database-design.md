@@ -3,7 +3,7 @@
 | Thuộc tính | Giá trị |
 |---|---|
 | Phiên bản | 0.2 (DRAFT - phải duyệt trước khi viết migration) |
-| Ngày cập nhật | 2026-10-09 |
+| Ngày cập nhật | 2026-10-10 |
 | Database | MySQL 8.x, InnoDB, `utf8mb4_0900_ai_ci` |
 | Căn cứ | `docs/01-business-requirements.md` v0.6, `.claude/rules/database.md` |
 
@@ -15,8 +15,9 @@ Tài liệu này là **mô hình logic**. Cột chi tiết của từng bảng �
 |---|---|---|
 | V1 | `backend/src/main/resources/db/migration/V1__create_common_tables.sql` | `document_sequences`, `sys_idempotency_keys`, `sys_audit_logs` (đúng mục 4.13–4.15). Chưa có FK `company_id`/`branch_id`; đã thêm ở V2 |
 | V2 | `.../V2__create_organization_and_security.sql` | `companies`, `branches`, `departments`, `sys_users`, `sys_roles`, `sys_permissions`, `sys_user_roles`, `sys_role_permissions`, `sys_user_data_scopes`, `sys_refresh_tokens`, `sys_login_logs`; FK cho bảng V1; danh mục quyền M01 và 17 vai trò mặc định (mục 4.17) |
+| V3 | `.../V3__create_periods_parameters_numbering.sql` | `fiscal_periods`, `period_locks`, `sys_parameter_definitions`, `sys_parameters`, `document_number_formats` (mục 4.18–4.20); 3 tham số D-05; 7 quyền mới và gán quyền mặc định (docs/07 mục 3) |
 
-Dữ liệu mẫu dev/test: `db/dev-data/R__dev_organization_and_users.sql` (1 công ty, 2 chi nhánh, 3 phòng ban, 5 người dùng; docs/07 mục 5).
+Dữ liệu mẫu dev/test: `db/dev-data/R__dev_organization_and_users.sql` (1 công ty, 2 chi nhánh, 3 phòng ban, 6 người dùng, 12 kỳ tháng năm 2026; docs/07 mục 5).
 
 ## 1. Quy ước
 
@@ -72,11 +73,12 @@ Bảng số dư là bản đọc nhanh, tái tạo được từ sổ phụ:
 | `sys_users`, `sys_roles`, `sys_permissions`, `sys_user_roles`, `sys_role_permissions` | RBAC |
 | `sys_user_data_scopes` | Phạm vi dữ liệu: công ty / chi nhánh / kho / "chỉ dữ liệu của mình" |
 | `sys_refresh_tokens` | Refresh token (băm), thu hồi phiên |
-| `sys_parameters` | Tham số hệ thống theo công ty |
-| `document_sequences` | Bộ đếm số chứng từ theo (công ty, chi nhánh, loại, năm) |
+| `sys_parameter_definitions`, `sys_parameters` | Định nghĩa tham số; giá trị tham số theo công ty |
+| `document_number_formats` | Cấu hình số chứng từ theo công ty × loại, có ngày hiệu lực |
+| `document_sequences` | Bộ đếm số chứng từ theo (công ty, chi nhánh, loại, kỳ `YYYY`/`YYYYMM`) |
 | `approval_workflows`, `approval_workflow_steps` | Cấu hình ma trận duyệt |
 | `approval_requests`, `approval_history` | Yêu cầu duyệt và lịch sử |
-| `fiscal_periods`, `period_locks` | Kỳ tháng; khóa theo phân hệ (INVENTORY, DEBT, CASH, ACCOUNTING) |
+| `fiscal_periods`, `period_locks` | Kỳ tháng; khóa theo chi nhánh × phân hệ (INVENTORY, DEBT, CASH, ACCOUNTING) |
 | `sys_audit_logs`, `sys_login_logs` | Nhật ký thao tác, đăng nhập |
 | `sys_idempotency_keys` | Chống xử lý trùng |
 | `notifications` | Thông báo trong ứng dụng |
@@ -117,13 +119,10 @@ Bảng số dư là bản đọc nhanh, tái tạo được từ sổ phụ:
 |---|---|
 | `inventory_lots` | Lô: (product, lot_no) duy nhất, hạn dùng, ngày sản xuất, trạng thái chất lượng mặc định |
 | `inventory_serials` | Serial: (product, serial_no) duy nhất, vị trí hiện tại, trạng thái vòng đời |
-| `inventory_receipts`, `inventory_receipt_lines` | **Phiếu nhập kho** (mua, trả lại, thu hồi, thừa kiểm kê, đầu kỳ) |
-| `inventory_issues`, `inventory_issue_lines` | **Phiếu xuất kho** (bán, trả NCC, nội bộ, mượn, hủy, thiếu kiểm kê) |
-| `inventory_transfers`, `inventory_transfer_lines` | Chuyển kho |
+| `inventory_documents`, `inventory_document_lines`, `inventory_document_line_serials` | **Chứng từ kho** (V6, ADR-10): `document_type` = PNK nhập, PXK xuất nội bộ, PXH xuất hủy, PCK chuyển kho, PDC điều chỉnh (kể cả từ kiểm kê, `sub_type = COUNT`), PCL chuyển trạng thái chất lượng, PDK chứng từ đảo. Phiếu nhập / xuất của mua, bán (Giai đoạn 5, 6) dùng cùng bảng với loại mới |
+| `inventory_warehouse_states` | Trạng thái kho: phiếu kiểm kê đang chặn nhập xuất (D-11) |
 | `stock_counts`, `stock_count_lines` | Kiểm kê (snapshot + số đếm) |
-| `inventory_adjustments`, `inventory_adjustment_lines` | Điều chỉnh tồn |
-| `quality_status_changes`, `quality_status_change_lines` | Chuyển trạng thái chất lượng |
-| `recalls`, `recall_customers` | Thu hồi và tiến độ theo khách |
+| `recalls` | Thu hồi lô / serial; danh sách khách và tiến độ tính từ sổ kho (không lưu bảng riêng) |
 | `inventory_transactions` | **Sổ nhật ký kho** (bất biến) |
 | `inventory_balances` | Tồn thực tế chi tiết theo vị trí/lô/serial/trạng thái |
 | `inventory_stock_summaries` | Tổng theo (hàng, kho): tồn thực tế, khả dụng, giữ chỗ, đang về |
@@ -411,7 +410,7 @@ Index `(partner_id, due_date)`, `(status, due_date)`.
 `id, cost_calculation_run_id, inventory_transaction_id, unit_cost, amount, is_effective`. Mỗi `inventory_transaction_id` chỉ có một kết quả `is_effective = true` (unique theo cột sinh). Kết quả của kỳ đã khóa không bị thay thế (BR-CST-03).
 
 ### 4.13 `document_sequences`
-`company_id, branch_id, document_type, period_key (YYYY), next_value, version`. Unique `(company_id, branch_id, document_type, period_key)`; lấy số bằng `SELECT ... FOR UPDATE` trong transaction tạo/ghi sổ.
+`company_id, branch_id, document_type, period_key (YYYY hoặc YYYYMM theo chu kỳ đặt lại), next_value, version`. Unique `(company_id, branch_id, document_type, period_key)`; lấy số bằng `SELECT ... FOR UPDATE` trong transaction tạo/ghi sổ.
 
 ### 4.14 `sys_idempotency_keys`
 `id, user_id, idempotency_key, request_hash, endpoint, response_status, response_body (JSON), created_at, expires_at`. Unique `(user_id, idempotency_key)`.
@@ -433,11 +432,52 @@ Index `(partner_id, due_date)`, `(status, due_date)`.
 | `sys_refresh_tokens` | `user_id, family_id, token_hash` (SHA-256), `issued_at, session_expires_at, idle_expires_at, used_at, revoked_at, revoke_reason, created_ip, user_agent` | `uk token_hash`; idx `family_id`, `user_id` |
 | `sys_login_logs` | `occurred_at, event, username, user_id, ip_address, user_agent, request_id` | Chỉ INSERT; idx `occurred_at`, `(user_id, occurred_at)` |
 
-### 4.16 Chứng từ mẫu: `inventory_issues`, `inventory_issue_lines`
-- `inventory_issues`: cột chuẩn chứng từ + `issue_type (SALES, PURCHASE_RETURN, TRANSFER, INTERNAL, LOAN, SCRAP, COUNT_LOSS)`, `warehouse_id`, `partner_id`, `stock_policy_id` (khi xuất vượt khả dụng).
-- `inventory_issue_lines`: `issue_id, line_no, product_id, unit_id, conversion_factor, quantity, base_quantity, location_id, lot_id, serial_id, fefo_override_reason, source_type, source_id, source_line_id, contract_line_id`.
+### 4.18 Kỳ và khóa kỳ (V3, BR-SYS-30..32)
+| Bảng | Cột chính | Ràng buộc |
+|---|---|---|
+| `fiscal_periods` | `company_id, period_year, period_month, start_date, end_date` + audit, `version` | `uk (company_id, period_year, period_month)`; idx `(company_id, start_date, end_date)`. Năm tài chính = năm dương lịch `[Suy luận]` |
+| `period_locks` | `fiscal_period_id, branch_id, module (INVENTORY/DEBT/CASH/ACCOUNTING), locked, changed_by, changed_at, reason` + audit, `version` | `uk (fiscal_period_id, branch_id, module)`. Không có dòng hoặc `locked = FALSE`: kỳ đang mở. Dòng được tạo trước trong transaction riêng khi khóa/mở để khóa dòng không rơi vào khoảng trống (tránh deadlock). Lịch sử khóa/mở: `sys_audit_logs` (`LOCK_PERIOD`, `UNLOCK_PERIOD`) |
 
-Các chứng từ khác theo cùng mẫu.
+### 4.19 Tham số hệ thống (V3, BR-SYS-13)
+| Bảng | Cột chính | Ràng buộc |
+|---|---|---|
+| `sys_parameter_definitions` | `param_key` (PK), `module, name, description, value_type (INTEGER/DECIMAL/BOOLEAN/STRING/ENUM), default_value, min_value, max_value, allowed_values, lock_after_posting, sort_order` | Dữ liệu tham chiếu, chỉ thêm bằng migration |
+| `sys_parameters` | `company_id, param_key, param_value` + audit, `version` | `uk (company_id, param_key)`; FK tới định nghĩa. Không có dòng = dùng giá trị mặc định |
+
+Tham số đã có: `decimal.quantity-scale` (3), `decimal.unit-price-scale` (4), `decimal.amount-scale` (0) theo D-05. Giới hạn trên bằng số lẻ của kiểu cột. Chưa module nào đọc; module ghi sổ dùng khi triển khai.
+
+### 4.20 `document_number_formats` (V3, BR-SYS-10)
+`company_id, document_type, prefix, sequence_length (3–10), reset_cycle (YEARLY/MONTHLY), effective_from` + audit, `version`. Unique `(company_id, document_type, effective_from)`.
+- Định dạng số: `<prefix>-<mã chi nhánh>-<YYYY|YYYYMM>-<số thứ tự>`. Chi nhánh và kỳ luôn được in vì bộ đếm tách theo chi nhánh và kỳ, nên số không trùng giữa chi nhánh và chu kỳ.
+- Loại chưa có cấu hình: định dạng D-03 (mã loại làm tiền tố, 6 số, theo năm).
+- Loại chưa cấp số: cấu hình có hiệu lực ngay (`effective_from = 2000-01-01`). Đã cấp số: hiệu lực từ đầu tháng sau (theo tháng → theo tháng) hoặc đầu năm sau (các trường hợp khác), nên một năm không có cả bộ đếm theo năm và theo tháng.
+- Cấu hình đã có hiệu lực không sửa, không xóa; cấu hình đặt trước được sửa hoặc xóa.
+
+### 4.16 Chứng từ kho: `inventory_documents`, `inventory_document_lines` (V6, thay mẫu `inventory_issues` dự kiến)
+- `inventory_documents`: cột chuẩn chứng từ (`company_id, branch_id, document_no, document_date, posting_date, status`, người / thời điểm gửi, duyệt, ghi sổ, hủy, lý do) + `document_type`, `sub_type` (`RECALL_IN`, `COUNT`), `warehouse_id`, `destination_warehouse_id`, `transit_warehouse_id` (kho "đang vận chuyển" khi chuyển khác chi nhánh), `partner_id`, `reason_id`, `reason_text`, `recall_id`, `stock_count_id`, `issue_policy_id`, `reversal_of_id` / `reversed_by_id` (truy vết hai chiều chứng từ đảo), `received_by/at`, `receive_posting_date`, `total_amount`. Unique `(company_id, document_no)`.
+- Trạng thái: `DRAFT, SUBMITTED, APPROVED, REJECTED, IN_TRANSIT` (chuyển khác chi nhánh đã xuất, chưa nhận), `POSTED, CANCELLED, REVERSED`.
+- `inventory_document_lines`: `line_no, product_id, unit_id, conversion_factor, quantity, base_quantity, direction` (PDC), `location_id, destination_location_id, lot_id` hoặc `lot_no + manufacture_date + expiry_date` (lô mới khi nhập), `quality_status, target_quality_status` (PCL), `unit_cost, amount` (dòng nhập, D-51), `lot_override_reason` (chọn lô khác FEFO, BR-INV-21), `note`.
+- `inventory_document_line_serials (line_id, serial_no)`: serial của dòng.
+
+### 4.21 Phê duyệt và thông báo (V4, BR-SYS-11, BR-SYS-25)
+- `sys_document_types (code PK, module, name, approval_mode NONE|CONFIGURED|REQUIRED, self_approval_allowed)` (D-52).
+- `approval_workflows (company_id, document_type, branch_id, min_amount, min_discount_percent, priority, status)` + `approval_workflow_steps (workflow_id, step_no, approver_type ROLE|USER, role_id, user_id)`.
+- `approval_requests`: chụp các bước của luồng lúc gửi; `pending_flag` (cột sinh) + unique `(document_type, document_id, pending_flag)` chặn hai yêu cầu đang chờ. `approval_request_steps`, `approval_actions` (bất biến: người, thời điểm, hành động, ý kiến, người được ủy quyền thay).
+- `approval_delegations (delegator_user_id, delegate_user_id, document_type, valid_from, valid_to, status)`.
+- `notifications (user_id, category, title, body, link_type, link_id, event_key, read_at)`; unique `(user_id, event_key)` để gửi lại không trùng.
+
+### 4.22 Danh mục (V5, BR-MD-01..47)
+- Mã danh mục duy nhất theo công ty: `units, brands, manufacturers, partner_groups, reference_items (category), tax_rates, product_categories (parent_id), products, warehouses, price_lists, compliance_document_types`; `countries (code PK)`.
+- `products`: loại hàng, đơn vị cơ sở, cờ `lot_tracked / expiry_tracked / serial_tracked` (khóa khi đã phát sinh giao dịch kho, BR-MD-04), phân loại TTBYT, số đăng ký, điều kiện bảo quản. `product_units (product_id, unit_id, conversion_factor DECIMAL(19,6), effective_from)`; `product_stock_levels (product_id, warehouse_id, min_quantity, max_quantity)`.
+- `warehouses (branch_id, warehouse_type NORMAL|VIRTUAL, virtual_kind IN_TRANSIT|AT_CUSTOMER|IN_REPAIR|DEMO)`; `warehouse_locations (warehouse_id, code, zone_type, default_flag)` - mỗi kho đúng một vị trí mặc định (cột sinh + unique).
+- `partners` + `partner_roles, partner_contacts, partner_addresses`; `price_lists` + `price_list_items`; `compliance_documents (owner_type, owner_id, valid_to)`.
+
+### 4.23 Kho bổ sung (V6, V7)
+- `inventory_balances`: cột sinh `lot_key = COALESCE(lot_id, 0)`, `serial_key = COALESCE(serial_id, 0)` để unique `(product_id, warehouse_id, location_id, lot_key, serial_key, quality_status)` hoạt động khi lô / serial trống; `CHECK (on_hand_quantity >= 0)`.
+- `inventory_transactions`: `transaction_type` (OPENING, RECALL_IN, INTERNAL_ISSUE, SCRAP, TRANSFER_OUT/IN, ADJUST_IN/OUT, COUNT_GAIN/LOSS, STATUS_OUT/IN, REVERSAL), `direction IN|OUT`, `quantity > 0`, `unit_cost` (nhập), `reference_type/id/line_id/no`, `reversal_of_id` (dòng sổ gốc khi đảo). Chỉ INSERT.
+- `stock_counts (warehouse_id, count_date, status DRAFT|COUNTING|SUBMITTED|APPROVED|POSTED|CANCELLED, adjustment_document_id)` + `stock_count_lines (product, location, lot, serial, quality_status, snapshot_quantity, counted_quantity)`.
+- `recalls (product_id, lot_id | serial_id, reason, status)`; `stock_issue_policies (warehouse_id, product_id, max_quantity, used_quantity, used_by_document_id, valid_from, valid_to, status)` (D-53; `used_by_document_id` thêm ở V8, FK `inventory_documents`: mỗi chính sách một chứng từ); `inventory_reservations (product, warehouse, source_type/id/line_id, quantity, consumed, released, status)`.
+- V7: tham số `inventory.expiry-warning-days` (mặc định 90 `[Suy luận]`) cho cảnh báo hạn dùng.
 
 ## 5. Index chính
 | Truy vấn | Index |
@@ -448,6 +488,8 @@ Các chứng từ khác theo cùng mẫu.
 | Thẻ kho | `inventory_transactions (product_id, warehouse_id, posting_date)` |
 | Truy xuất lô/serial | `inventory_transactions (lot_id)`, `(serial_id)` |
 | Hàng sắp hết hạn | `inventory_lots (expiry_date)` + `inventory_balances (lot_id)` |
+| Chứng từ kho theo loại, trạng thái, ngày | `inventory_documents (company_id, document_type, status, document_date)` |
+| Chứng từ phụ thuộc khi đảo | `inventory_transactions (warehouse_id, product_id, lot_id, serial_id, posted_at)` |
 | Tuổi nợ | `receivables (partner_id, due_date)`, `(status, due_date)` |
 | Hóa đơn mua trùng | `uk_purchase_invoices_seller (seller_tax_code, invoice_series, invoice_no)` |
 | Tiến độ hợp đồng | `contract_lines (contract_id, product_id)` |
@@ -461,8 +503,8 @@ Các chứng từ khác theo cùng mẫu.
 | Tiếng Việt | Tên trong mã / DB |
 |---|---|
 | Phiếu nhận hàng | purchase_receipt |
-| Phiếu nhập kho | inventory_receipt |
-| Phiếu xuất kho | inventory_issue |
+| Chứng từ kho (nhập, xuất, chuyển, điều chỉnh, đổi trạng thái, đảo) | inventory_document (document_type PNK, PXK, PXH, PCK, PDC, PCL, PDK) |
+| Kiểm kê / thu hồi / chính sách xuất vượt tồn | stock_count / recall / stock_issue_policy |
 | Giao hàng | delivery |
 | Hóa đơn bán / mua | sales_invoice / purchase_invoice |
 | Phiếu thu / chi | cash_receipt / cash_payment |

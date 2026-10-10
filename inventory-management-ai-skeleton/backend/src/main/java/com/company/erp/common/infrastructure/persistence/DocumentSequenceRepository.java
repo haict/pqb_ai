@@ -12,6 +12,9 @@ import org.springframework.data.repository.query.Param;
 
 public interface DocumentSequenceRepository extends JpaRepository<DocumentSequence, Long> {
 
+    /** Loại chứng từ đã từng được cấp số trong công ty. */
+    boolean existsByCompanyIdAndDocumentType(Long companyId, String documentType);
+
     boolean existsByCompanyIdAndBranchIdAndDocumentTypeAndPeriodKey(Long companyId, Long branchId,
                                                                     String documentType, String periodKey);
 

@@ -101,3 +101,159 @@ export interface StatusFilter {
   keyword?: string;
   status?: RecordStatus;
 }
+
+/** Phân hệ khóa kỳ riêng (BR-SYS-30). */
+export type PeriodModule = 'INVENTORY' | 'DEBT' | 'CASH' | 'ACCOUNTING';
+
+export interface PeriodLockStatus {
+  module: PeriodModule;
+  locked: boolean;
+  changedAt: string | null;
+  changedBy: string | null;
+  reason: string | null;
+}
+
+export interface FiscalPeriod {
+  id: number;
+  companyId: number;
+  year: number;
+  month: number;
+  startDate: string;
+  endDate: string;
+  locks: PeriodLockStatus[];
+}
+
+export interface PeriodLockResult {
+  fiscalPeriodId: number;
+  module: PeriodModule;
+  locked: boolean;
+  branchIds: number[];
+}
+
+export type ParameterValueType = 'INTEGER' | 'DECIMAL' | 'BOOLEAN' | 'STRING' | 'ENUM';
+
+export interface SystemParameter {
+  key: string;
+  module: string;
+  name: string;
+  description: string | null;
+  valueType: ParameterValueType;
+  value: string;
+  defaultValue: string;
+  minValue: number | null;
+  maxValue: number | null;
+  allowedValues: string[];
+  lockAfterPosting: boolean;
+  locked: boolean;
+  customized: boolean;
+  version: number;
+}
+
+export type NumberResetCycle = 'YEARLY' | 'MONTHLY';
+export type DocumentNumberFormatStatus = 'CURRENT' | 'SCHEDULED' | 'SUPERSEDED';
+
+export interface DocumentNumberFormat {
+  id: number;
+  companyId: number;
+  documentType: string;
+  prefix: string;
+  sequenceLength: number;
+  resetCycle: NumberResetCycle;
+  effectiveFrom: string;
+  status: DocumentNumberFormatStatus;
+  version: number;
+}
+
+/** Phê duyệt (1D, BR-SYS-11). */
+export type ApprovalMode = 'NONE' | 'CONFIGURED' | 'REQUIRED';
+export type ApproverType = 'ROLE' | 'USER';
+export type ApprovalRequestStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
+export type ApprovalActionType = 'SUBMIT' | 'APPROVE' | 'REJECT' | 'CANCEL';
+
+export interface DocumentType {
+  code: string;
+  module: string;
+  name: string;
+  approvalMode: ApprovalMode;
+  selfApprovalAllowed: boolean;
+  version: number;
+  updatedAt: string | null;
+}
+
+export interface ApprovalStep {
+  stepNo: number;
+  approverType: ApproverType;
+  roleId: number | null;
+  roleName: string | null;
+  userId: number | null;
+  userName: string | null;
+}
+
+export interface ApprovalWorkflow {
+  id: number;
+  companyId: number;
+  documentType: string;
+  name: string;
+  branchId: number | null;
+  minAmount: number | null;
+  minDiscountPercent: number | null;
+  priority: number;
+  status: RecordStatus;
+  steps: ApprovalStep[];
+  version: number;
+  updatedAt: string;
+}
+
+export interface ApprovalAction {
+  action: ApprovalActionType;
+  stepNo: number | null;
+  actorName: string | null;
+  onBehalfOfName: string | null;
+  comment: string | null;
+  actedAt: string;
+}
+
+export interface ApprovalRequest {
+  id: number;
+  companyId: number;
+  branchId: number;
+  documentType: string;
+  documentId: number;
+  documentNo: string | null;
+  amount: number | null;
+  status: ApprovalRequestStatus;
+  currentStepPosition: number;
+  totalSteps: number;
+  requestedBy: number;
+  requestedByName: string | null;
+  requestedAt: string;
+  completedAt: string | null;
+  steps: ApprovalStep[];
+  actions: ApprovalAction[];
+}
+
+export interface Delegation {
+  id: number;
+  companyId: number;
+  delegatorUserId: number;
+  delegatorUsername: string | null;
+  delegateUserId: number;
+  delegateUsername: string | null;
+  documentType: string | null;
+  validFrom: string;
+  validTo: string;
+  status: 'ACTIVE' | 'REVOKED';
+  effective: boolean;
+  reason: string | null;
+}
+
+export interface AppNotification {
+  id: number;
+  category: string;
+  title: string;
+  message: string | null;
+  linkType: string | null;
+  linkId: number | null;
+  createdAt: string;
+  readAt: string | null;
+}

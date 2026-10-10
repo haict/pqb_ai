@@ -3,7 +3,7 @@
 | Thuộc tính | Giá trị |
 |---|---|
 | Phiên bản | 0.2 (DRAFT - hợp đồng API chi tiết chốt khi làm từng module) |
-| Ngày cập nhật | 2026-10-09 |
+| Ngày cập nhật | 2026-10-10 |
 | Base path | `/api/v1` |
 | Tài liệu sinh tự động | OpenAPI `/v3/api-docs`, Swagger UI `/swagger-ui.html` (tắt hoặc bảo vệ ở `prod`) |
 | Quy tắc | `.claude/rules/api.md` |
@@ -51,9 +51,10 @@ Danh sách:
 | 403 | `FORBIDDEN`, `SELF_APPROVAL_NOT_ALLOWED`, `PASSWORD_CHANGE_REQUIRED` | Không đủ quyền / tự duyệt / phải đổi mật khẩu trước khi dùng API khác |
 | 404 | `NOT_FOUND` | Không tồn tại hoặc ngoài phạm vi dữ liệu |
 | 405 | `METHOD_NOT_ALLOWED` | Phương thức HTTP không hỗ trợ |
-| 409 | `DUPLICATE_CODE`, `DUPLICATE_DOCUMENT`, `INVALID_DOCUMENT_STATE`, `CONCURRENT_MODIFICATION`, `IDEMPOTENCY_KEY_REUSED`, `REQUEST_IN_PROGRESS`, `HAS_DEPENDENT_DOCUMENTS`, `DATA_INTEGRITY_VIOLATION` | Xung đột. `REQUEST_IN_PROGRESS`: yêu cầu cùng `Idempotency-Key` đang xử lý song song. `DATA_INTEGRITY_VIOLATION`: ràng buộc DB chặn (lưới an toàn khi kiểm tra nghiệp vụ bỏ sót) |
-| 422 | `INSUFFICIENT_STOCK`, `LOT_EXPIRED`, `LOT_NOT_SELLABLE`, `SERIAL_UNAVAILABLE`, `PERIOD_LOCKED`, `CONTRACT_QUANTITY_EXCEEDED`, `CREDIT_LIMIT_EXCEEDED`, `PRICE_BELOW_FLOOR`, `OVER_ALLOCATION`, `CASH_BALANCE_NEGATIVE`, `STOCK_COUNT_IN_PROGRESS` | Vi phạm quy tắc nghiệp vụ |
+| 409 | `DUPLICATE_CODE`, `DUPLICATE_DOCUMENT`, `INVALID_DOCUMENT_STATE`, `CONCURRENT_MODIFICATION`, `IDEMPOTENCY_KEY_REUSED`, `REQUEST_IN_PROGRESS`, `HAS_DEPENDENT_DOCUMENTS`, `DATA_INTEGRITY_VIOLATION`, `INVALID_PERIOD_STATE`, `CONFIGURATION_IN_EFFECT`, `DATA_IN_USE` | Xung đột. `DATA_IN_USE`: danh mục đã được tham chiếu, không xóa / đổi được. `HAS_DEPENDENT_DOCUMENTS`: đảo chứng từ khi hàng đã được chứng từ khác xuất (thông báo liệt kê số chứng từ cần đảo trước). `REQUEST_IN_PROGRESS`: yêu cầu cùng `Idempotency-Key` đang xử lý song song. `DATA_INTEGRITY_VIOLATION`: ràng buộc DB chặn (lưới an toàn khi kiểm tra nghiệp vụ bỏ sót). `INVALID_PERIOD_STATE`: khóa kỳ đã khóa / mở kỳ đang mở. `CONFIGURATION_IN_EFFECT`: xóa cấu hình số chứng từ đã có hiệu lực |
+| 422 | `INSUFFICIENT_STOCK`, `LOT_EXPIRED`, `LOT_NOT_SELLABLE`, `SERIAL_UNAVAILABLE`, `PERIOD_LOCKED`, `PERIOD_NOT_DEFINED`, `PERIOD_ORDER_VIOLATION`, `PERIOD_CLOSE_PRECONDITION`, `PARAMETER_LOCKED`, `CONTRACT_QUANTITY_EXCEEDED`, `CREDIT_LIMIT_EXCEEDED`, `PRICE_BELOW_FLOOR`, `OVER_ALLOCATION`, `CASH_BALANCE_NEGATIVE`, `STOCK_COUNT_IN_PROGRESS`, `APPROVAL_NOT_CONFIGURED` | Vi phạm quy tắc nghiệp vụ. `STOCK_COUNT_IN_PROGRESS`: kho đang kiểm kê (D-11). `APPROVAL_NOT_CONFIGURED`: loại chứng từ bắt buộc duyệt nhưng chưa có luồng khớp (D-52). `LOT_EXPIRED` / `LOT_NOT_SELLABLE`: lô hết hạn / không ĐẠT hoặc bị khóa (BR-INV-04, BR-INV-23). `PERIOD_NOT_DEFINED`: ngày hạch toán chưa có kỳ. `PERIOD_ORDER_VIOLATION`: khóa/mở sai thứ tự tháng hoặc mở kỳ kho khi kỳ kế toán còn khóa. `PERIOD_CLOSE_PRECONDITION`: chưa đủ điều kiện khóa (BR-SYS-31). `PARAMETER_LOCKED`: tham số đã khóa vì đã phát sinh số liệu ghi sổ |
 | 423 | `LOCK_TIMEOUT` | Dữ liệu đang được xử lý, thử lại |
+| 429 | `TOO_MANY_REQUESTS` | Đăng nhập sai quá nhiều lần từ một IP (`erp.auth.ip-rate-limit`) |
 | 500 | `INTERNAL_ERROR` | Lỗi hệ thống |
 
 ### 1.5 Phân trang, sắp xếp, lọc
@@ -95,19 +96,23 @@ Ký hiệu: **[CT]** áp dụng mẫu chứng từ mục 1.6; **[DM]** áp dụn
 | `/companies`, `/branches`, `/departments` [DM] | **Đã triển khai (1A).** Lọc: `keyword`, `status`, `companyId` / `branchId`; sắp xếp `code, name, createdAt, updatedAt`. Ngoài phạm vi dữ liệu: 404 |
 | `/users` [DM], `POST /users/{id}/reset-password`, `PUT /users/{id}/roles`, `PUT /users/{id}/data-scopes` | **Đã triển khai (1A).** Không gán vai trò/phạm vi vượt quyền người thao tác; không tự sửa quyền của mình (403) |
 | `/roles` [DM], `PUT /roles/{id}/permissions`, `GET /permissions` | **Đã triển khai (1A).** Không ngừng hoạt động vai trò hệ thống |
-| `/document-sequences` | Cấu hình số chứng từ |
-| `/approval-workflows` [DM] | Ma trận duyệt |
-| `GET /approvals/pending`, `GET /approvals/{id}` | Việc chờ duyệt của tôi |
-| `/fiscal-periods`, `POST /fiscal-periods/{id}/lock`, `POST /fiscal-periods/{id}/unlock` | Khóa/mở theo phân hệ (`module`, `reason`) |
-| `/parameters` | Tham số hệ thống |
+| `GET /document-number-formats?companyId=&documentType=`, `POST /document-number-formats`, `DELETE /document-number-formats/{id}` | **Đã triển khai (1C).** Cấu hình số chứng từ (thay tên dự kiến `/document-sequences`). `POST` đặt cấu hình (`documentType, prefix, sequenceLength, resetCycle`), server quyết định `effectiveFrom`: chưa cấp số → hiệu lực ngay; đã cấp số → chu kỳ sau. `DELETE` chỉ cho cấu hình đặt trước. Cần phạm vi toàn công ty để sửa |
+| `/approval-workflows` [DM], `GET/PUT /document-types` | **Đã triển khai (1D).** Luồng duyệt theo loại chứng từ (chi nhánh, ngưỡng giá trị / chiết khấu, ưu tiên, các bước ROLE/USER); chế độ duyệt từng loại (D-52) |
+| `GET /approvals/pending`, `GET /approvals/{id}` | **Đã triển khai (1D).** Việc chờ duyệt của tôi (gồm phần được ủy quyền). Hành động duyệt / từ chối nằm ở endpoint của chứng từ (`POST /{resource}/{id}/approve|reject`) |
+| `/approval-delegations`, `POST /approval-delegations/{id}/revoke` | **Đã triển khai (1D).** Ủy quyền duyệt có thời hạn |
+| `GET /users/lookup?companyId=&keyword=` | **Đã triển khai (1D).** Tìm người dùng để chọn người duyệt / người được ủy quyền |
+| `GET /fiscal-periods?companyId=&year=&branchId=`, `POST /fiscal-periods/generate`, `POST /fiscal-periods/{id}/lock`, `POST /fiscal-periods/{id}/unlock` | **Đã triển khai (1C).** Danh sách: tối đa 12 kỳ kèm trạng thái khóa 4 phân hệ của một chi nhánh (không phân trang). `generate` (`companyId, year`): tạo 12 kỳ, cần phạm vi toàn công ty. `lock`/`unlock` (`module, branchIds[], reason`): mọi chi nhánh cùng thành công hoặc không; `unlock` bắt buộc `reason`, quyền `period:unlock`. Thứ tự: kỳ trước phải khóa trước; kỳ kế toán khóa sau kỳ kho; mở theo thứ tự ngược |
+| `GET /parameters?companyId=`, `PUT /parameters/{key}` | **Đã triển khai (1C).** `PUT` (`companyId, value, version`): `version` = 0 khi chưa có giá trị riêng; sai kiểu/giới hạn: 400 trên trường `value`; cần phạm vi toàn công ty |
 | `GET /audit-logs`, `GET /login-logs` | Chỉ đọc. `GET /login-logs` **đã triển khai (1A)**: lọc `username, event, from, to` |
 | `/attachments` (`POST` multipart, `GET /{id}/download`) | Giới hạn loại và dung lượng (D-41) |
-| `GET /notifications`, `POST /notifications/{id}/read` | |
+| `GET /notifications`, `GET /notifications/unread-count`, `POST /notifications/{id}/read`, `POST /notifications/read-all` | **Đã triển khai (1D).** Chỉ trong ứng dụng (D-49) |
 
 ### M02 - Danh mục
 `/product-categories`, `/products`, `/units`, `/products/{id}/units`, `/brands`, `/manufacturers`, `/countries`, `/partners` (lọc theo `role`), `/partners/{id}/contacts`, `/partners/{id}/addresses`, `/warehouses`, `/warehouses/{id}/locations`, `/tax-rates`, `/price-lists`, `/currencies`, `/exchange-rates`, `/payment-terms`, `/payment-methods`, `/delivery-methods`, `/contract-types`, `/reasons`, `/cost-items`, `/compliance-document-types`, `/compliance-documents` — tất cả [DM].
 
 `GET /compliance-documents/expiring?days=30` — giấy tờ sắp hết hạn.
+
+**Đã triển khai (Giai đoạn 2):** `/units`, `/brands`, `/manufacturers`, `/partner-groups`, `/countries`, `/reference-items` (thay `/reasons`, `/payment-terms`... bằng một danh mục có `category`), `/tax-rates`, `/product-categories`, `/products` (+ `POST /{id}/units`, `PUT /{id}/stock-levels`, `GET /import-template`, `POST /import`), `/partners` (+ `POST /partners/import`), `/warehouses` (+ `/{id}/locations`, `/warehouse-locations/{id}`), `/price-lists` (+ `PUT /{id}/items`), `/compliance-document-types`, `/compliance-documents`. Danh mục ngừng hoạt động bằng `PATCH /{id}/status` (lý do, `version`). Giá mua tham khảo ẩn khi thiếu `purchase-price:view`. Chưa làm: `/currencies`, `/exchange-rates` (dời tới module dùng ngoại tệ).
 
 ### M03 - Mua hàng
 | Tài nguyên | Ghi chú |
@@ -124,16 +129,22 @@ Ký hiệu: **[CT]** áp dụng mẫu chứng từ mục 1.6; **[DM]** áp dụn
 ### M04 - Kho
 | Tài nguyên | Ghi chú |
 |---|---|
-| `/inventory-receipts`, `/inventory-issues`, `/inventory-transfers`, `/inventory-adjustments`, `/quality-status-changes` [CT nhóm A] | |
-| `/stock-counts` [CT] | Thêm `POST /{id}/start-counting` (snapshot), `PUT /{id}/counts`, `POST /{id}/submit-review` |
-| `/recalls` [CT nhóm B] | `GET /{id}/affected-customers` |
-| `/stock-issue-policies` [CT] | Chính sách xuất vượt tồn khả dụng (D-40) |
-| `GET /inventory/stock` | Tồn: thực tế, khả dụng, giữ chỗ, đang về theo hàng/kho/vị trí/lô/serial/trạng thái |
-| `GET /inventory/available?productId=&warehouseId=` | Tồn khả dụng theo lô, gợi ý FEFO |
-| `GET /inventory/stock-card?productId=&warehouseId=&lotId=&from=&to=` | Thẻ kho |
-| `GET /inventory/lots/{id}/trace`, `GET /inventory/serials/{id}/trace` | Truy xuất lô/serial |
-| `GET /inventory/reservations` | Giữ chỗ |
-| `GET /inventory/alerts?type=BELOW_MIN\|SLOW_MOVING\|NEAR_EXPIRY` | Cảnh báo |
+**Đã triển khai (Giai đoạn 3).** So với dự kiến bản trước: bảy loại phiếu kho dùng chung tài nguyên `/inventory-documents` có `documentType` (ADR-10) thay cho `/inventory-receipts`, `/inventory-issues`, `/inventory-transfers`, `/inventory-adjustments`, `/quality-status-changes`; tên hành động kiểm kê đổi thành `start`, `submit`. Các endpoint dự kiến chưa từng phát hành nên không có client nào bị ảnh hưởng.
+
+| Tài nguyên | Ghi chú |
+|---|---|
+| `/inventory-documents` [CT nhóm A] | Lọc `companyId` (bắt buộc), `documentType, status, warehouseId, keyword, dateFrom, dateTo`; sắp xếp `documentDate, postingDate, documentNo, createdAt, updatedAt`. Hành động: `submit, approve, reject, cancel, post`, `receive` (nhận hàng chuyển khác chi nhánh, body `postingDate` tùy chọn), `reverse` (body `reason`, `postingDate`; trả chứng từ đảo PDK đã gửi duyệt). Quyền theo loại: `<loại>:view|create|approve|post` (docs/07 mục 2.3). Chi tiết trả `transactions` (sổ kho đã ghi), `approvals`, `allowedActions` |
+| `/stock-counts` [CT] | `POST /{id}/start` (chụp tồn, chặn nhập xuất kho), `PUT /{id}/counts` (`lines[]: lineId` hoặc dòng phát sinh `productId, locationId, lotId, serialId, qualityStatus`, `countedQuantity`), `submit, approve, reject` (quay về đang đếm), `post` (sinh PDC loại COUNT, mở khóa kho), `cancel` |
+| `/recalls` [CT nhóm B] | `submit, approve` (khóa lô / serial), `reject, cancel, close`. Chi tiết gồm `customers` (đã giao, đã thu hồi theo khách) thay cho `/affected-customers` |
+| `/stock-issue-policies` [CT] | `submit, approve, reject, cancel`. Phiếu xuất / chuyển kho tham chiếu `issuePolicyId`; chính sách phải đã duyệt và chưa dùng cho chứng từ khác (400 trên `issuePolicyId`; khi ghi sổ: 422 `INSUFFICIENT_STOCK`). Chính sách đã dùng không hủy được (409). Phản hồi có `usedByDocumentId` (D-53) |
+| `GET /inventory/stock-summaries?companyId=&warehouseId=&productId=` | Tồn thực tế, bán được, giữ chỗ, khả dụng, đang về theo (hàng, kho) |
+| `GET /inventory/stock-balances?...&lotId=&serialId=&qualityStatus=` | Tồn chi tiết theo vị trí / lô / serial / trạng thái |
+| `GET /inventory/transactions?companyId=&warehouseId=&productId=&lotId=&serialId=&referenceType=&referenceId=&dateFrom=&dateTo=` | Sổ kho; lọc theo lô / serial là truy xuất lô / serial. Chưa có số dư lũy kế từng dòng (thẻ kho đầy đủ: Giai đoạn 10) |
+| `GET /inventory/lots`, `GET /inventory/serials` | Lô kèm tồn và số ngày còn hạn; serial kèm vòng đời, kho hiện tại |
+| `POST /inventory/lots/{id}/block|unblock`, `POST /inventory/serials/{id}/block|unblock` | Quyền `lot:block`, bắt buộc `reason` |
+| `GET /inventory/fefo-suggestions?warehouseId=&productId=&quantity=` | Đề xuất lô theo FEFO |
+| `GET /inventory/alerts?companyId=&warehouseId=` | `EXPIRING` (trong `inventory.expiry-warning-days` ngày hoặc đã hết hạn còn tồn), `BELOW_MIN` (dưới định mức). Chưa có `SLOW_MOVING` |
+| Giữ chỗ | Chưa có endpoint: `InventoryReservationService.reserve/release` là API nội bộ cho phân hệ bán hàng / hợp đồng |
 
 ### M05 - Bán hàng
 | Tài nguyên | Ghi chú |

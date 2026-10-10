@@ -3,7 +3,7 @@
 | Thuộc tính | Giá trị |
 |---|---|
 | Phiên bản | 0.2 (DRAFT) |
-| Ngày cập nhật | 2026-10-09 |
+| Ngày cập nhật | 2026-10-10 |
 | Căn cứ | `docs/01-business-requirements.md` v0.6, `CLAUDE.md`, `.claude/rules/*` |
 
 ## 1. Mục tiêu kiến trúc
@@ -130,7 +130,11 @@ Gửi email, thông báo, đồng bộ hóa đơn điện tử chạy **sau comm
 | Hóa đơn (số còn phải thu/trả) | Khóa bi quan dòng hóa đơn khi phân bổ thanh toán |
 | Số dư quỹ | Khóa bi quan dòng số dư quỹ khi chi |
 | Chứng từ, danh mục (sửa) | Optimistic locking `@Version`, xung đột trả `409` |
-| Số chứng từ | Bảng bộ đếm, khóa dòng theo (công ty, loại, chu kỳ) |
+| Số chứng từ | Bảng bộ đếm, khóa dòng theo (công ty, chi nhánh, loại, kỳ `YYYY`/`YYYYMM`); dòng bộ đếm tạo trước trong transaction riêng. Cấu hình định dạng chỉ đổi từ chu kỳ sau (D-48) nên không cần khóa cấu hình khi cấp số |
+| Khóa kỳ ↔ ghi sổ (BR-SYS-30, AT-11) | `PeriodGuard.assertOpen` (bắt buộc trong transaction ghi sổ) đọc kỳ bằng `FOR SHARE`; khóa/mở kỳ lấy `FOR UPDATE` trên kỳ đích và kỳ liền kề theo thứ tự id. Hai bên loại trừ nhau: kỳ không thể bị khóa giữa lúc kiểm tra và commit chứng từ. Dòng `period_locks` tạo trước trong transaction riêng (sau khi khóa kỳ) để mọi khóa dòng rơi vào dòng đã tồn tại, tránh deadlock do gap lock |
+| Ghi sổ kho (BR-INV-20, AT-04) | Transaction ghi sổ chạy mức cô lập **READ COMMITTED**: đọc số dư mới nhất sau khi khóa, không có gap lock khi tạo dòng số dư mới. Thứ tự khóa cố định: (1) kỳ `FOR SHARE`; (2) trạng thái kho (`inventory_warehouse_states`) `FOR SHARE`; (3) tổng (hàng, kho) `FOR UPDATE` theo (hàng, kho) tăng dần, gồm cả cặp của kho nhận khi chuyển kho; (4) dòng tồn chi tiết `FOR UPDATE OF b` theo FEFO; (5) serial theo id tăng dần; (6) chính sách xuất vượt tồn. Giảm tồn bằng `UPDATE ... WHERE on_hand >= q`; tăng tồn bằng upsert `ON DUPLICATE KEY UPDATE`. Dòng tổng / serial đã có thì khóa ghi ngay (`SELECT ... FOR UPDATE`, hoặc `INSERT ... ON DUPLICATE KEY UPDATE` khi tạo mới), **không dùng `INSERT IGNORE` rồi `FOR UPDATE`**: cách đó lấy khóa chia sẻ rồi nâng lên khóa ghi, hai giao dịch cùng nâng sẽ deadlock (phát hiện bằng test AT-04) |
+| Kiểm kê ↔ ghi sổ (D-11) | Bắt đầu đếm lấy `FOR UPDATE` trên dòng trạng thái kho (chờ các lần ghi sổ đang chạy kết thúc) rồi đặt `counting_stock_count_id`; mọi lần ghi sổ đọc dòng này `FOR SHARE` và bị chặn (`STOCK_COUNT_IN_PROGRESS`) trừ phiếu điều chỉnh sinh từ chính phiếu kiểm kê |
+| Duyệt chứng từ (BR-SYS-11) | Yêu cầu duyệt tìm theo chứng từ rồi khóa theo khóa chính (`findByIdForUpdate`); unique `pending_flag` chặn hai yêu cầu đang chờ cho cùng chứng từ |
 | Gửi lại yêu cầu | `Idempotency-Key` + kiểm tra trạng thái |
 
 Thời gian chờ khóa (`innodb_lock_wait_timeout` / `jakarta.persistence.lock.timeout`) cấu hình ngắn; hết thời gian trả lỗi để người dùng thử lại.
@@ -200,5 +204,8 @@ Không dùng Docker. MySQL 8 local; backend chạy Eclipse + Tomcat 10.1 tại `
 | ADR-05 | WAR trên Tomcat 10.1 | Yêu cầu hạ tầng doanh nghiệp (D-39) |
 | ADR-06 | JWT + refresh token lưu server | Frontend tách rời; thu hồi được phiên |
 | ADR-07 | Báo cáo đọc trực tiếp từ sổ phụ/chứng từ | Truy ngược nguồn (BR-RPT-11); xem xét bảng tổng hợp khi hiệu năng không đạt |
+| ADR-08 | Ghi sổ kho ở READ COMMITTED, thứ tự khóa cố định (mục 6) | REPEATABLE READ mặc định của MySQL gây gap lock khi nhiều phiếu cùng tạo dòng số dư mới và đọc ảnh chụp cũ sau khi chờ khóa. Chứng minh bằng test AT-04. Duyệt 2026-10-10 |
+| ADR-09 | Đảo phụ thuộc giữa module bằng interface | Module cấp thấp (`system`, `masterdata`) khai báo interface (`PostingActivityProbe`, `PeriodCloseCheck`, `ProductUsageProbe`, `TrackedItemDirectory`, `WarehouseDirectory`); module kho triển khai. Không phát sinh phụ thuộc vòng (ArchUnit) |
+| ADR-10 | Một bảng chứng từ kho chung `inventory_documents` có `document_type` | Bảy loại phiếu kho (PNK, PXK, PXH, PCK, PDC, PCL, PDK) dùng chung cấu trúc đầu / dòng và một luồng ghi sổ; tránh lặp mã. Thay cho dự kiến bảng riêng từng loại ở docs/03 bản trước. API tương ứng `/inventory-documents`. Duyệt 2026-10-10 |
 
 Thay đổi kiến trúc phải cập nhật tài liệu này trước khi triển khai và được duyệt.

@@ -40,4 +40,12 @@ public interface UserRepository extends JpaRepository<User, Long>, JpaSpecificat
 
     @Query("select u.id from User u where u.companyId in :companyIds")
     List<Long> findIdsByCompanyIdIn(@Param("companyIds") Collection<Long> companyIds);
+
+    /** Người dùng đang hoạt động có vai trò (đang hoạt động) này. */
+    @Query("""
+            select distinct u.id from User u join u.roles r
+            where r.id = :roleId and u.status = com.company.erp.common.domain.RecordStatus.ACTIVE
+              and r.status = com.company.erp.common.domain.RecordStatus.ACTIVE
+            """)
+    List<Long> findActiveIdsByRoleId(@Param("roleId") Long roleId);
 }

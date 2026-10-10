@@ -23,6 +23,8 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <springdoc.version>2.8.17</springdoc.version>
         <archunit.version>1.4.1</archunit.version>
+        <!-- Đọc/ghi .xlsx khi nhập danh mục từ Excel (BR-UX-05). Spring Boot BOM không quản lý POI. -->
+        <poi.version>5.2.5</poi.version>
         <!-- Context path khi chạy trên Tomcat trong Eclipse (m2e-wtp): http://localhost:8080/erp -->
         <m2e.wtp.contextRoot>erp</m2e.wtp.contextRoot>
     </properties>
@@ -65,6 +67,11 @@
             <groupId>com.mysql</groupId>
             <artifactId>mysql-connector-j</artifactId>
             <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.poi</groupId>
+            <artifactId>poi-ooxml</artifactId>
+            <version>${poi.version}</version>
         </dependency>
         <dependency>
             <groupId>org.springdoc</groupId>

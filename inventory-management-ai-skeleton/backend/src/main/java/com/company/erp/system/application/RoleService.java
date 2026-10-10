@@ -19,6 +19,7 @@ import com.company.erp.system.domain.Permission;
 import com.company.erp.system.domain.Role;
 import com.company.erp.system.infrastructure.persistence.PermissionRepository;
 import com.company.erp.system.infrastructure.persistence.RoleRepository;
+import com.company.erp.system.infrastructure.persistence.UserRepository;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -39,13 +40,15 @@ public class RoleService {
     private final PermissionRepository permissionRepository;
     private final IdempotencyService idempotency;
     private final AuditLogService auditLog;
+    private final UserRepository userRepository;
 
     public RoleService(RoleRepository roleRepository, PermissionRepository permissionRepository,
-                       IdempotencyService idempotency, AuditLogService auditLog) {
+                       IdempotencyService idempotency, AuditLogService auditLog, UserRepository userRepository) {
         this.roleRepository = roleRepository;
         this.permissionRepository = permissionRepository;
         this.idempotency = idempotency;
         this.auditLog = auditLog;
+        this.userRepository = userRepository;
     }
 
     @Transactional(readOnly = true)
@@ -111,6 +114,9 @@ public class RoleService {
     @Transactional
     public RoleResponse assignPermissions(CurrentUser actor, Long id, AssignPermissionsRequest request) {
         Role role = find(id);
+        if (holdsRole(actor, role)) {
+            throw new BusinessException(ErrorCode.FORBIDDEN, "Không thể thay đổi quyền của vai trò bạn đang giữ.");
+        }
         Set<String> requested = Set.copyOf(request.permissionCodes());
         List<Permission> permissions = permissionRepository.findByCodeIn(requested);
         if (permissions.size() != requested.size()) {
@@ -118,7 +124,9 @@ public class RoleService {
             permissions.forEach(permission -> unknown.remove(permission.getCode()));
             throw BusinessException.invalidField("permissionCodes", "Quyền không tồn tại: " + unknown);
         }
-        List<String> beyondActor = requested.stream().filter(code -> !actor.hasPermission(code)).sorted().toList();
+        // Quản trị có quyền "gán mọi quyền" cấu hình được vai trò nghiệp vụ mà bản thân không dùng (docs/07 mục 2).
+        List<String> beyondActor = actor.hasPermission(AccessGrants.GRANT_ANY_PERMISSION) ? List.of()
+                : requested.stream().filter(code -> !actor.hasPermission(code)).sorted().toList();
         if (!beyondActor.isEmpty()) {
             throw new BusinessException(ErrorCode.FORBIDDEN, "Không thể gán quyền bạn không có: " + beyondActor);
         }
@@ -136,5 +144,12 @@ public class RoleService {
     private void audit(CurrentUser actor, String action, Role role, String reason, Object before, Object after) {
         auditLog.record(new AuditEntry(actor.id(), action, AuditActions.ROLE, role.getId(), role.getCode(), reason,
                 before, after, null, null));
+    }
+
+    /** Không tự nâng quyền của mình qua việc sửa quyền của vai trò mình đang giữ. */
+    private boolean holdsRole(CurrentUser actor, Role role) {
+        return userRepository.findWithAuthoritiesById(actor.id())
+                .map(user -> user.getRoles().stream().anyMatch(held -> held.getId().equals(role.getId())))
+                .orElse(false);
     }
 }

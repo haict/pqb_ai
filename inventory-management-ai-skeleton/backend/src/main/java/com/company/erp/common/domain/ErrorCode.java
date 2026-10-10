@@ -32,12 +32,20 @@ public enum ErrorCode {
     REQUEST_IN_PROGRESS(HttpStatus.CONFLICT, "Yêu cầu giống hệt đang được xử lý, vui lòng tải lại sau ít giây."),
     HAS_DEPENDENT_DOCUMENTS(HttpStatus.CONFLICT, "Có chứng từ phụ thuộc, cần xử lý trước."),
     DATA_INTEGRITY_VIOLATION(HttpStatus.CONFLICT, "Dữ liệu vi phạm ràng buộc toàn vẹn."),
+    DATA_IN_USE(HttpStatus.CONFLICT, "Dữ liệu đã được sử dụng, không thay đổi được."),
+    CONFIGURATION_IN_EFFECT(HttpStatus.CONFLICT, "Cấu hình đã có hiệu lực, không xóa được."),
+    INVALID_PERIOD_STATE(HttpStatus.CONFLICT, "Trạng thái kỳ không cho phép thao tác này."),
 
     INSUFFICIENT_STOCK(HttpStatus.UNPROCESSABLE_ENTITY, "Tồn khả dụng không đủ."),
     LOT_EXPIRED(HttpStatus.UNPROCESSABLE_ENTITY, "Lô hàng đã hết hạn."),
     LOT_NOT_SELLABLE(HttpStatus.UNPROCESSABLE_ENTITY, "Lô hàng không ở trạng thái được bán."),
     SERIAL_UNAVAILABLE(HttpStatus.UNPROCESSABLE_ENTITY, "Serial không khả dụng."),
     PERIOD_LOCKED(HttpStatus.UNPROCESSABLE_ENTITY, "Kỳ đã khóa."),
+    PERIOD_NOT_DEFINED(HttpStatus.UNPROCESSABLE_ENTITY, "Chưa tạo kỳ cho ngày hạch toán."),
+    PERIOD_ORDER_VIOLATION(HttpStatus.UNPROCESSABLE_ENTITY, "Phải khóa/mở kỳ theo đúng thứ tự thời gian."),
+    PERIOD_CLOSE_PRECONDITION(HttpStatus.UNPROCESSABLE_ENTITY, "Chưa đủ điều kiện khóa kỳ."),
+    APPROVAL_NOT_CONFIGURED(HttpStatus.UNPROCESSABLE_ENTITY, "Chưa cấu hình luồng duyệt cho chứng từ này."),
+    PARAMETER_LOCKED(HttpStatus.UNPROCESSABLE_ENTITY, "Tham số đã khóa vì đã phát sinh số liệu ghi sổ."),
     CONTRACT_QUANTITY_EXCEEDED(HttpStatus.UNPROCESSABLE_ENTITY, "Vượt số lượng còn lại của hợp đồng."),
     CREDIT_LIMIT_EXCEEDED(HttpStatus.UNPROCESSABLE_ENTITY, "Vượt hạn mức tín dụng."),
     PRICE_BELOW_FLOOR(HttpStatus.UNPROCESSABLE_ENTITY, "Giá thấp hơn giá sàn."),
@@ -46,6 +54,8 @@ public enum ErrorCode {
     STOCK_COUNT_IN_PROGRESS(HttpStatus.UNPROCESSABLE_ENTITY, "Kho đang kiểm kê."),
 
     LOCK_TIMEOUT(HttpStatus.LOCKED, "Dữ liệu đang được xử lý, vui lòng thử lại."),
+
+    TOO_MANY_REQUESTS(HttpStatus.TOO_MANY_REQUESTS, "Quá nhiều lần thử, vui lòng thử lại sau."),
 
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "Lỗi hệ thống, vui lòng thử lại hoặc liên hệ quản trị.");
 

@@ -9,7 +9,8 @@ import java.util.Set;
  * @param fullCompanyIds công ty được truy cập toàn bộ (phạm vi COMPANY)
  * @param companyIds     mọi công ty có ít nhất một chi nhánh được truy cập
  * @param branchIds      mọi chi nhánh được truy cập (gồm chi nhánh của {@code fullCompanyIds})
- * @param warehouseIds   kho được gán riêng (phạm vi WAREHOUSE)
+ * @param warehouseIds   kho được gán riêng (phạm vi WAREHOUSE); chi nhánh và công ty của kho này không nằm trong
+ *                       {@code branchIds} nhưng công ty có trong {@code companyIds} (xem danh mục dùng chung)
  * @param ownDataOnly    chỉ thấy dữ liệu do mình phụ trách (áp dụng ở module nghiệp vụ)
  */
 public record DataScope(
@@ -36,5 +37,10 @@ public record DataScope(
 
     public boolean canAccessBranch(Long branchId) {
         return branchId != null && branchIds.contains(branchId);
+    }
+
+    /** Kho thuộc chi nhánh trong phạm vi, hoặc được gán riêng theo kho. */
+    public boolean canAccessWarehouse(Long warehouseId, Long warehouseBranchId) {
+        return canAccessBranch(warehouseBranchId) || (warehouseId != null && warehouseIds.contains(warehouseId));
     }
 }

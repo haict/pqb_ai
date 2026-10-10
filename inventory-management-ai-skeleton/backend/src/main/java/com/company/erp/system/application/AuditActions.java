@@ -11,12 +11,22 @@ final class AuditActions {
     static final String ASSIGN_ROLES = "ASSIGN_ROLES";
     static final String ASSIGN_SCOPES = "ASSIGN_SCOPES";
     static final String ASSIGN_PERMISSIONS = "ASSIGN_PERMISSIONS";
+    static final String DELETE = "DELETE";
+    static final String LOCK_PERIOD = "LOCK_PERIOD";
+    static final String UNLOCK_PERIOD = "UNLOCK_PERIOD";
+    static final String REVOKE = "REVOKE";
 
     static final String COMPANY = "COMPANY";
     static final String BRANCH = "BRANCH";
     static final String DEPARTMENT = "DEPARTMENT";
     static final String USER = "USER";
     static final String ROLE = "ROLE";
+    static final String FISCAL_PERIOD = "FISCAL_PERIOD";
+    static final String PARAMETER = "PARAMETER";
+    static final String DOCUMENT_NUMBER_FORMAT = "DOCUMENT_NUMBER_FORMAT";
+    static final String APPROVAL_WORKFLOW = "APPROVAL_WORKFLOW";
+    static final String DOCUMENT_TYPE = "DOCUMENT_TYPE";
+    static final String APPROVAL_DELEGATION = "APPROVAL_DELEGATION";
 
     private AuditActions() {
     }

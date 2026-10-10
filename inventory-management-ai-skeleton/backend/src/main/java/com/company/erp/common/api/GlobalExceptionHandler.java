@@ -21,6 +21,9 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.MultipartException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 /**
@@ -72,11 +75,20 @@ public class GlobalExceptionHandler {
             HttpMessageNotReadableException.class,
             MethodArgumentTypeMismatchException.class,
             MissingServletRequestParameterException.class,
-            MissingRequestHeaderException.class
+            MissingRequestHeaderException.class,
+            MissingServletRequestPartException.class,
+            MultipartException.class
     })
     ResponseEntity<ErrorResponse> handleMalformed(Exception ex) {
         log.debug("Yêu cầu sai định dạng: {}", ex.getMessage());
         return build(ErrorCode.MALFORMED_REQUEST, ErrorCode.MALFORMED_REQUEST.defaultMessage(), List.of());
+    }
+
+    /** File tải lên vượt giới hạn (D-41, BR-SYS-22). */
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    ResponseEntity<ErrorResponse> handleUploadTooLarge(MaxUploadSizeExceededException ex) {
+        String message = "File vượt dung lượng cho phép.";
+        return build(ErrorCode.VALIDATION_ERROR, message, List.of(new ErrorResponse.FieldError("file", message)));
     }
 
     @ExceptionHandler(NoResourceFoundException.class)

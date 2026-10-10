@@ -3,10 +3,11 @@
 | Thuộc tính | Giá trị |
 |---|---|
 | Phiên bản | 0.7 (DRAFT - đã chốt toàn bộ quyết định ở mục 20) |
-| Ngày cập nhật | 2026-10-09 |
+| Ngày cập nhật | 2026-10-10 |
 | Doanh nghiệp | Công ty TNHH Công nghệ B2K (Hà Nội) |
 | Loại hình | Thương mại / phân phối: máy móc, thiết bị y tế, vật tư y tế, hóa chất - thuốc thử xét nghiệm; tham gia đấu thầu cung cấp cho cơ sở y tế |
 | Nguồn | (1) Đặc tả yêu cầu dự án do chủ dự án cung cấp ngày 2026-10-09; (2) ảnh hiện trạng MISA SME 2026 R5 Enterprise (`docs/HienTrang/01..19.jpg`); (3) tài liệu tham khảo `docs/HienTrang/để lập 1 phần mềm theo dõi xuất nhập tồn.docx` |
+| Thay đổi bổ sung 2026-10-10 | Chốt D-45..D-48 (chi tiết khóa kỳ, cấu hình số chứng từ) khi làm Giai đoạn 1C; D-49..D-53 khi làm 1D, Giai đoạn 2, 3 |
 | Thay đổi so với 0.6 | Chốt toàn bộ quyết định còn "Mở" và "Chốt tạm" theo khuyến nghị; quy tắc kế toán/pháp lý cấu hình được, KTT/pháp chế rà soát trước UAT |
 | Thay đổi so với 0.5 | Chủ dự án chốt quyết định theo đề xuất (mục 20, cột Trạng thái); thêm D-42 (thư viện bổ sung), D-43 (gói gốc Java) |
 | Thay đổi so với 0.4 | Tái cấu trúc theo **10 phân hệ** của đặc tả dự án (M01..M10). Tách **Đấu thầu** thành phân hệ riêng. Tách **phiếu nhận hàng** và **phiếu nhập kho**; tách **đơn bán, xuất kho, giao hàng, ghi nhận doanh thu, hóa đơn**. Thêm: ma trận ảnh hưởng chứng từ (5.3), bốn loại tồn (5.4), chống xử lý trùng (5.6), đa chi nhánh và phạm vi dữ liệu ở P1, yêu cầu báo giá NCC, so sánh báo giá, đổi hàng, đại lý, kỳ kho, bút toán tự động ở P1, dashboard truy ngược, yêu cầu giao diện, kịch bản nghiệm thu (mục 18), tài liệu bàn giao (mục 19), quyết định D-33..D-41 |
@@ -328,7 +329,7 @@ Ký hiệu: `+` tăng, `−` giảm, `·` không ảnh hưởng. Giá trị kế
 ### 6.2 Cấu hình nghiệp vụ
 | Mã | Yêu cầu | GĐ |
 |---|---|---|
-| BR-SYS-10 | **Cấu hình số chứng từ**: tiền tố, năm, chi nhánh, độ dài số thứ tự, chu kỳ đặt lại; số duy nhất theo loại chứng từ, công ty và chu kỳ; không nhảy số trùng khi nhiều người tạo cùng lúc (D-03) [ĐT]. | P1 |
+| BR-SYS-10 | **Cấu hình số chứng từ**: tiền tố, năm, chi nhánh, độ dài số thứ tự, chu kỳ đặt lại; số duy nhất theo loại chứng từ, công ty và chu kỳ; không nhảy số trùng khi nhiều người tạo cùng lúc (D-03); sửa cấu hình theo D-48 [ĐT]. | P1 |
 | BR-SYS-11 | **Cấu hình luồng phê duyệt**: theo loại chứng từ, chi nhánh, ngưỡng giá trị, chiết khấu; một hoặc nhiều cấp; người duyệt theo vai trò hoặc người cụ thể; ủy quyền duyệt có thời hạn [ĐT]. | P1 |
 | BR-SYS-12 | Cấu hình trạng thái nghiệp vụ hiển thị và các bước bắt buộc/tùy chọn theo loại chứng từ, trong khuôn khổ vòng đời mục 5.1 [ĐT]. | P1 |
 | BR-SYS-13 | Tham số hệ thống: số chữ số thập phân, phương pháp giá vốn, ngưỡng cảnh báo, ngưỡng duyệt, mẫu in. Thay đổi tham số ghi nhật ký; tham số ảnh hưởng số liệu đã ghi sổ bị khóa sau khi phát sinh. | P1 |
@@ -337,9 +338,9 @@ Ký hiệu: `+` tăng, `−` giảm, `·` không ảnh hưởng. Giá trị kế
 ### 6.3 Kỳ kế toán và kỳ kho
 | Mã | Yêu cầu | GĐ |
 |---|---|---|
-| BR-SYS-30 | **Kỳ kế toán** và **kỳ kho** theo tháng, khóa riêng theo công ty/chi nhánh và theo phân hệ (kho, công nợ, quỹ, kế toán) [ĐT]. | P1 |
+| BR-SYS-30 | **Kỳ kế toán** và **kỳ kho** theo tháng, khóa riêng theo công ty/chi nhánh và theo phân hệ (kho, công nợ, quỹ, kế toán); chi tiết D-46, D-47 [ĐT]. | P1 |
 | BR-SYS-31 | Khóa kỳ kho phải sau khi đã tính giá vốn kỳ đó; khóa kỳ kế toán phải sau khi khóa kỳ kho. Hệ thống kiểm tra điều kiện trước khi khóa. | P1 |
-| BR-SYS-32 | Mở lại kỳ đã khóa phải được Kế toán trưởng hoặc Giám đốc duyệt, có lý do, ghi nhật ký. | P1 |
+| BR-SYS-32 | Mở lại kỳ đã khóa phải được Kế toán trưởng hoặc Giám đốc duyệt, có lý do, ghi nhật ký (cách làm: D-45). | P1 |
 
 ### 6.4 Nhật ký và bảo mật
 | Mã | Yêu cầu | GĐ |
@@ -903,6 +904,15 @@ Ngày 2026-10-09 (lần 2) chủ dự án chốt toàn bộ quyết định còn
 | D-42 | Thư viện bổ sung | ArchUnit (kiểm tra ranh giới module), TanStack Query (cache dữ liệu server ở frontend), springdoc-openapi | Đã chốt |
 | D-43 | Gói gốc Java | `com.company.erp`; đổi khi có tên chính thức | Đã chốt |
 | D-44 | Docker | Không dùng Docker / Docker Compose / Testcontainers. Dev và test dùng MySQL 8 local; backend chạy Eclipse + Tomcat 10.1. Test tích hợp vẫn chạy trên MySQL thật (schema `_test`). Chốt 2026-10-09 theo yêu cầu chủ dự án | Đã chốt |
+| D-45 | Cách mở lại kỳ đã khóa (BR-SYS-32) | Người có quyền `period:unlock` (mặc định Kế toán trưởng, Giám đốc) mở trực tiếp; bắt buộc lý do, ghi audit; hành động mở là sự phê duyệt. Có thể chuyển sang luồng đề nghị → duyệt khi làm ma trận duyệt (1D). Chốt 2026-10-10 | Đã chốt |
+| D-46 | Thứ tự khóa/mở kỳ | Tháng N chỉ khóa khi tháng N-1 (nếu có) đã khóa; mở lại theo thứ tự ngược. Ngày hạch toán rơi vào kỳ chưa tạo bị chặn. Chốt 2026-10-10 | Đã chốt |
+| D-47 | Phạm vi khóa kỳ (BR-SYS-30) | Khóa theo chi nhánh × phân hệ; giao diện hỗ trợ khóa nhiều/tất cả chi nhánh một lần. Kỳ kế toán của chi nhánh chỉ khóa khi kỳ kho cùng tháng của chi nhánh đó đã khóa. Chốt 2026-10-10 | Đã chốt |
+| D-49 | Kênh thông báo P1 (BR-SYS-25) | Chỉ thông báo trong ứng dụng (chuông trên header, danh sách thông báo); email làm sau. Chốt 2026-10-10 theo lựa chọn của chủ dự án | Đã chốt |
+| D-50 | Nhập danh mục từ Excel (BR-UX-05, BR-MIG-01) | Làm ngay ở Giai đoạn 2 bằng Apache POI (`poi-ooxml`); nhập "tất cả hoặc không", lỗi trả theo dòng. Chốt 2026-10-10 | Đã chốt |
+| D-51 | Giá trị nhập / xuất kho trước khi có giá vốn | Phiếu nhập kho bắt buộc đơn giá (lưu vào sổ kho); giá xuất để trống, do tính giá vốn (Giai đoạn 4/8) điền. Chốt 2026-10-10 | Đã chốt |
+| D-52 | Chế độ duyệt theo loại chứng từ (BR-SYS-11, D-04) | Mỗi loại chứng từ có chế độ `NONE` (không duyệt), `CONFIGURED` (duyệt khi có luồng khớp), `REQUIRED` (bắt buộc có luồng, thiếu thì báo lỗi `APPROVAL_NOT_CONFIGURED`). Mặc định kho: PNK, PCK `CONFIGURED`; PXK, PXH, PDC, PCL, PDK, PKK, PTH, CSX `REQUIRED`; doanh nghiệp đổi ở màn hình Loại chứng từ. Cảnh báo hạn dùng mặc định 90 ngày (tham số `inventory.expiry-warning-days`). Chốt 2026-10-10 làm giá trị mặc định | Đã chốt |
+| D-53 | Chính sách xuất vượt tồn khả dụng: cách áp dụng (BR-GEN-31) | Chính sách là chứng từ riêng (CSX) theo kho (và hàng, nếu chọn), có hạn mức số lượng và thời hạn, Giám đốc duyệt. Theo D-40, **mỗi chính sách chỉ dùng cho một chứng từ xuất**: chứng từ thứ hai không tham chiếu được; chính sách đã dùng không hủy được; lưu chứng từ đã dùng để truy vết. Chốt 2026-10-10 | Đã chốt |
+| D-48 | Sửa cấu hình số chứng từ đã cấp số (BR-SYS-10) | Thay đổi chỉ có hiệu lực từ chu kỳ sau (đầu tháng sau nếu đặt lại theo tháng; đầu năm sau nếu theo năm hoặc đổi chu kỳ); chưa cấp số thì hiệu lực ngay. Chi nhánh và kỳ luôn in trong số. Chốt 2026-10-10 | Đã chốt |
 
 ---
 

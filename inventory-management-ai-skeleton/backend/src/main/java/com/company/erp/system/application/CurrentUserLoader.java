@@ -11,6 +11,7 @@ import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,10 +21,13 @@ public class CurrentUserLoader {
 
     private final UserRepository userRepository;
     private final BranchRepository branchRepository;
+    private final ObjectProvider<WarehouseDirectory> warehouseDirectory;
 
-    public CurrentUserLoader(UserRepository userRepository, BranchRepository branchRepository) {
+    public CurrentUserLoader(UserRepository userRepository, BranchRepository branchRepository,
+                             ObjectProvider<WarehouseDirectory> warehouseDirectory) {
         this.userRepository = userRepository;
         this.branchRepository = branchRepository;
+        this.warehouseDirectory = warehouseDirectory;
     }
 
     /**
@@ -36,6 +40,12 @@ public class CurrentUserLoader {
                 .filter(User::isActive)
                 .filter(user -> user.credentialsVersion() == credentialsVersion)
                 .map(this::toCurrentUser);
+    }
+
+    /** Người dùng đang hoạt động (không kiểm tra phiên đăng nhập), dùng khi xét người duyệt thay. */
+    @Transactional(readOnly = true)
+    public Optional<CurrentUser> findActive(Long userId) {
+        return userRepository.findWithAuthoritiesById(userId).filter(User::isActive).map(this::toCurrentUser);
     }
 
     @Transactional(readOnly = true)
@@ -67,8 +77,12 @@ public class CurrentUserLoader {
         if (!assignedBranchIds.isEmpty()) {
             companyIds.addAll(branchRepository.findCompanyIdsByIdIn(assignedBranchIds));
         }
-        return new DataScope(fullCompanyIds, companyIds, branchIds, idsOf(user, DataScopeType.WAREHOUSE),
-                user.isOwnDataOnly());
+        Set<Long> warehouseIds = idsOf(user, DataScopeType.WAREHOUSE);
+        if (!warehouseIds.isEmpty()) {
+            warehouseDirectory.ifAvailable(directory -> directory.findAll(warehouseIds)
+                    .forEach(warehouse -> companyIds.add(warehouse.companyId())));
+        }
+        return new DataScope(fullCompanyIds, companyIds, branchIds, warehouseIds, user.isOwnDataOnly());
     }
 
     private static Set<Long> idsOf(User user, DataScopeType type) {

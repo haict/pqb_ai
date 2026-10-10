@@ -58,6 +58,7 @@ public class UserAdminService {
     private final IdempotencyService idempotency;
     private final AuditLogService auditLog;
     private final Clock clock;
+    private final WarehouseDirectory warehouseDirectory;
 
     public UserAdminService(UserRepository userRepository,
                             RoleRepository roleRepository,
@@ -67,7 +68,8 @@ public class UserAdminService {
                             AuthSessionTransactions sessions,
                             IdempotencyService idempotency,
                             AuditLogService auditLog,
-                            Clock clock) {
+                            Clock clock,
+                            WarehouseDirectory warehouseDirectory) {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
         this.branchRepository = branchRepository;
@@ -77,6 +79,7 @@ public class UserAdminService {
         this.idempotency = idempotency;
         this.auditLog = auditLog;
         this.clock = clock;
+        this.warehouseDirectory = warehouseDirectory;
     }
 
     @Transactional(readOnly = true)
@@ -233,9 +236,8 @@ public class UserAdminService {
             if (role.getStatus() != RecordStatus.ACTIVE) {
                 throw BusinessException.invalidField("roleIds", "Vai trò '" + role.getCode() + "' đã ngừng hoạt động.");
             }
-            boolean withinActorPermissions = role.getPermissions().stream()
-                    .map(Permission::getCode)
-                    .allMatch(actor::hasPermission);
+            boolean withinActorPermissions = actor.hasPermission(AccessGrants.GRANT_ANY_PERMISSION)
+                    || role.getPermissions().stream().map(Permission::getCode).allMatch(actor::hasPermission);
             if (!withinActorPermissions) {
                 throw new BusinessException(ErrorCode.FORBIDDEN,
                         "Không thể gán vai trò '" + role.getCode() + "' có quyền vượt quá quyền của bạn.");
@@ -249,8 +251,10 @@ public class UserAdminService {
             boolean allowed = switch (scope.type()) {
                 case COMPANY -> actor.dataScope().hasFullCompanyAccess(scope.scopeId());
                 case BRANCH -> actor.dataScope().canAccessBranch(scope.scopeId());
-                case WAREHOUSE -> throw BusinessException.invalidField("dataScopes",
-                        "Phạm vi theo kho chưa hỗ trợ (bảng kho được tạo ở Giai đoạn 2).");
+                case WAREHOUSE -> warehouseDirectory.find(scope.scopeId())
+                        .map(warehouse -> actor.dataScope().canAccessWarehouse(warehouse.id(), warehouse.branchId()))
+                        .orElseThrow(() -> BusinessException.invalidField("dataScopes",
+                                "Kho #" + scope.scopeId() + " không tồn tại."));
             };
             if (!allowed) {
                 throw new BusinessException(ErrorCode.FORBIDDEN,

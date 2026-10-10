@@ -1,7 +1,7 @@
 import { Alert, Form, Modal, type FormInstance } from 'antd';
 import { useEffect, useState, type ReactNode } from 'react';
 import { useIdempotencyKey } from '../api/useIdempotencyKey';
-import { applyServerErrors } from '../forms';
+import { applyServerErrors, validated } from '../forms';
 
 interface Props<T extends object> {
   open: boolean;
@@ -45,7 +45,10 @@ export function FormModal<T extends object>({
   }, [open, renew, form]);
 
   const submit = async () => {
-    const values = await form.validateFields();
+    const values = await validated(form);
+    if (!values) {
+      return;
+    }
     setSubmitting(true);
     setError(null);
     try {

@@ -37,35 +37,36 @@
 - [x] 1A: Công ty, chi nhánh, phòng ban (kho thuộc M02, Giai đoạn 2)
 - [x] 1A: Người dùng, vai trò, quyền; đăng nhập JWT + refresh token xoay vòng; khóa tài khoản; nhật ký đăng nhập
 - [x] 1A: Phạm vi dữ liệu công ty/chi nhánh; chặn truy cập chéo (AT-10 phần backend). Phạm vi kho: Giai đoạn 2
-- [ ] Ma trận duyệt, `approval_requests`; tách biệt nhiệm vụ
-- [ ] Kỳ kế toán, kỳ kho; khóa/mở kỳ (AT-11 phần khung)
-- [ ] Tham số hệ thống; cấu hình số chứng từ
+- [x] 1D: Ma trận duyệt, `approval_requests`, ủy quyền duyệt; tách biệt nhiệm vụ (D-52)
+- [x] 1C: Kỳ kế toán, kỳ kho; khóa/mở kỳ theo chi nhánh × phân hệ (AT-11 phần khung; D-45..D-47)
+- [x] 1C: Tham số hệ thống (D-05); cấu hình số chứng từ (D-48); 3 màn hình quản trị
 - [x] 1B: Frontend: đăng nhập, tự làm mới phiên, đổi mật khẩu, layout (sidebar theo quyền, header người dùng, chi nhánh làm việc), quản trị công ty / chi nhánh / phòng ban / người dùng / vai trò / nhật ký đăng nhập
-- [ ] Thông báo trong ứng dụng (BR-SYS-25): làm cùng ma trận duyệt (1D)
+- [x] 1D: Thông báo trong ứng dụng (BR-SYS-25, D-49)
 - [x] `docs/07-authorization.md`
-- [ ] Giới hạn tần suất đăng nhập theo IP (docs/07 mục 7)
+- [x] 1D: Giới hạn tần suất đăng nhập theo IP (docs/07 mục 1.2)
 
 ## Giai đoạn 2 - Danh mục (M02)
-- [ ] Nhóm hàng, hàng hóa (loại hàng, cờ lô/hạn/serial, pháp lý, bảo quản, định mức)
-- [ ] Đơn vị tính, quy đổi
-- [ ] Nhãn hiệu, nhà sản xuất, xuất xứ
-- [ ] Đối tác (khách, NCC, đại lý, bên mời thầu), liên hệ, địa chỉ, điều khoản
-- [ ] Kho, vị trí, kho ảo
-- [ ] Thuế suất, bảng giá, giá sàn
-- [ ] Loại hồ sơ, hồ sơ/giấy phép có hạn
-- [ ] Danh mục phụ (điều khoản, phương thức, lý do, khoản mục)
-- [ ] Nhập danh mục từ Excel (BR-UX-05, BR-MIG-01)
+- [x] Nhóm hàng, hàng hóa (loại hàng, cờ lô/hạn/serial, pháp lý, bảo quản, định mức)
+- [x] Đơn vị tính, quy đổi
+- [x] Nhãn hiệu, nhà sản xuất, xuất xứ
+- [x] Đối tác (khách, NCC, đại lý, bên mời thầu), liên hệ, địa chỉ, điều khoản
+- [x] Kho, vị trí, kho ảo
+- [x] Thuế suất, bảng giá, giá sàn
+- [x] Loại hồ sơ, hồ sơ/giấy phép có hạn
+- [x] Danh mục phụ (điều khoản, phương thức, lý do, khoản mục) - một danh mục `reference_items` theo `category`
+- [x] Nhập danh mục từ Excel (BR-UX-05, BR-MIG-01; hàng hóa, đối tác; D-50)
+- [ ] Tiền tệ, tỷ giá: dời tới module dùng ngoại tệ
 
 ## Giai đoạn 3 - Lõi kho (M04)
-- [ ] Lô, serial
-- [ ] `inventory_transactions`, `inventory_balances`, `inventory_stock_summaries`, `inventory_reservations`
-- [ ] `InventoryPostingService`: khóa theo thứ tự, kiểm tra tồn khả dụng, FEFO/FIFO
-- [ ] Phiếu nhập, xuất, chuyển kho; xuất nội bộ, hủy
-- [ ] Đảo chứng từ kho
-- [ ] Chuyển trạng thái chất lượng, khóa lô, thu hồi
-- [ ] Kiểm kê, điều chỉnh
-- [ ] Chính sách xuất vượt tồn khả dụng
-- [ ] Test: AT-02, AT-04, AT-09 (phần kho), AT-13; test tính nhất quán balance = ledger
+- [x] Lô, serial
+- [x] `inventory_transactions`, `inventory_balances`, `inventory_stock_summaries`, `inventory_reservations` (giữ chỗ: dịch vụ nội bộ, chưa có màn hình)
+- [x] `InventoryPostingService`: khóa theo thứ tự, kiểm tra tồn khả dụng, FEFO (FIFO cấu hình được: chưa làm)
+- [x] Phiếu nhập, xuất, chuyển kho (cùng / khác chi nhánh); xuất nội bộ, hủy
+- [x] Đảo chứng từ kho
+- [x] Chuyển trạng thái chất lượng, khóa lô, thu hồi
+- [x] Kiểm kê, điều chỉnh
+- [x] Chính sách xuất vượt tồn khả dụng (D-53: một chính sách một chứng từ)
+- [x] Test: AT-02, AT-03 (FEFO phần kho), AT-04, AT-09 (phần kho), AT-10, AT-11, AT-13; test tính nhất quán balance = ledger
 
 ## Giai đoạn 4 - Kế toán lõi và công nợ (M08 phần lõi, M07)
 - [ ] Hệ thống tài khoản, quy tắc hạch toán, `JournalPostingService`; quy tắc theo D-34, D-35 nằm trong `posting_rules` (cấu hình)

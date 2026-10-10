@@ -33,6 +33,7 @@ public class AuthService {
     private final PasswordPolicy passwordPolicy;
     private final LoginLogWriter loginLog;
     private final AuditLogService auditLog;
+    private final LoginRateLimiter rateLimiter;
     private final Clock clock;
 
     public AuthService(AuthSessionTransactions sessions,
@@ -43,6 +44,7 @@ public class AuthService {
                        PasswordPolicy passwordPolicy,
                        LoginLogWriter loginLog,
                        AuditLogService auditLog,
+                       LoginRateLimiter rateLimiter,
                        Clock clock) {
         this.sessions = sessions;
         this.currentUserLoader = currentUserLoader;
@@ -52,13 +54,18 @@ public class AuthService {
         this.passwordPolicy = passwordPolicy;
         this.loginLog = loginLog;
         this.auditLog = auditLog;
+        this.rateLimiter = rateLimiter;
         this.clock = clock;
     }
 
     /** Không đặt @Transactional: lần đăng nhập sai phải được commit trước khi trả lỗi. */
     public SessionTokens login(LoginRequest request, ClientInfo client) {
+        rateLimiter.checkAllowed(client.ipAddress());
         return sessions.login(request.username().trim(), request.password(), client)
-                .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_CREDENTIALS));
+                .orElseThrow(() -> {
+                    rateLimiter.recordFailure(client.ipAddress());
+                    return new BusinessException(ErrorCode.INVALID_CREDENTIALS);
+                });
     }
 
     public SessionTokens refresh(String rawRefreshToken, ClientInfo client) {

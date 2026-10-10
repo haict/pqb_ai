@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.company.erp.support.MySqlIntegrationTest;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -34,16 +35,16 @@ class DocumentNumberServiceIntegrationTest {
     @Test
     @DisplayName("BR-SYS-10: cấp số tăng dần, đặt lại theo năm và tách theo chi nhánh")
     void allocatesSequentialNumbersPerScope() {
-        assertThat(next(new DocumentNumberRequest(1L, 1L, "HN", "PNK", 2026))).isEqualTo("PNK-HN-2026-000001");
-        assertThat(next(new DocumentNumberRequest(1L, 1L, "HN", "PNK", 2026))).isEqualTo("PNK-HN-2026-000002");
-        assertThat(next(new DocumentNumberRequest(1L, 1L, "HN", "PNK", 2027))).isEqualTo("PNK-HN-2027-000001");
-        assertThat(next(new DocumentNumberRequest(1L, 2L, "HCM", "PNK", 2026))).isEqualTo("PNK-HCM-2026-000001");
+        assertThat(next(new DocumentNumberRequest(1L, 1L, "HN", "PNK", LocalDate.of(2026, 10, 15)))).isEqualTo("PNK-HN-2026-000001");
+        assertThat(next(new DocumentNumberRequest(1L, 1L, "HN", "PNK", LocalDate.of(2026, 10, 15)))).isEqualTo("PNK-HN-2026-000002");
+        assertThat(next(new DocumentNumberRequest(1L, 1L, "HN", "PNK", LocalDate.of(2027, 10, 15)))).isEqualTo("PNK-HN-2027-000001");
+        assertThat(next(new DocumentNumberRequest(1L, 2L, "HCM", "PNK", LocalDate.of(2026, 10, 15)))).isEqualTo("PNK-HCM-2026-000001");
     }
 
     @Test
     @DisplayName("Transaction rollback không tiêu hao số")
     void rollbackDoesNotConsumeNumber() {
-        DocumentNumberRequest request = new DocumentNumberRequest(1L, 1L, "HN", "RBK", 2026);
+        DocumentNumberRequest request = new DocumentNumberRequest(1L, 1L, "HN", "RBK", LocalDate.of(2026, 10, 15));
         assertThat(next(request)).isEqualTo("RBK-HN-2026-000001");
 
         transactionTemplate.executeWithoutResult(status -> {
@@ -57,7 +58,7 @@ class DocumentNumberServiceIntegrationTest {
     @Test
     @DisplayName("Bắt buộc gọi trong transaction nghiệp vụ")
     void requiresTransaction() {
-        assertThatThrownBy(() -> service.nextNumber(new DocumentNumberRequest(1L, 1L, "HN", "PNK", 2026)))
+        assertThatThrownBy(() -> service.nextNumber(new DocumentNumberRequest(1L, 1L, "HN", "PNK", LocalDate.of(2026, 10, 15))))
                 .isInstanceOf(IllegalTransactionStateException.class);
     }
 
@@ -66,7 +67,7 @@ class DocumentNumberServiceIntegrationTest {
     void concurrentAllocationIsUniqueAndGapless() throws Exception {
         int threads = 8;
         int perThread = 10;
-        DocumentNumberRequest request = new DocumentNumberRequest(1L, 1L, "HN", "CONC", 2026);
+        DocumentNumberRequest request = new DocumentNumberRequest(1L, 1L, "HN", "CONC", LocalDate.of(2026, 10, 15));
         Set<String> numbers = ConcurrentHashMap.newKeySet();
         CountDownLatch start = new CountDownLatch(1);
         ExecutorService executor = Executors.newFixedThreadPool(threads);

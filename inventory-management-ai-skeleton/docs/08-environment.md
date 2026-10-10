@@ -53,7 +53,11 @@ Cấu hình gốc (`application.yml`) không có profile mặc định và an to
 | `ERP_BOOTSTRAP_ADMIN_USERNAME` | Không | `admin` | Tên quản trị viên đầu tiên |
 | `ERP_BOOTSTRAP_ADMIN_PASSWORD` | Lần cài đầu (uat/prod) | — | Tạo quản trị viên đầu tiên khi DB chưa có người dùng; bỏ biến này sau khi cài |
 
-Thời hạn phiên, chính sách mật khẩu, khóa tài khoản: `erp.auth.*` trong `application.yml` (docs/07 mục 1).
+Thời hạn phiên, chính sách mật khẩu, khóa tài khoản, giới hạn đăng nhập theo IP (`erp.auth.ip-rate-limit.max-failures`, `window`): `erp.auth.*` trong `application.yml` (docs/07 mục 1). Profile `test` đặt `max-failures` rất lớn để các test đăng nhập sai không chặn nhau.
+
+Tham số nghiệp vụ (không phải biến môi trường) nằm trong bảng `sys_parameters`, sửa ở màn hình Tham số hệ thống: `decimal.*` (D-05), `inventory.expiry-warning-days` (cảnh báo hạn dùng, V7).
+
+Múi giờ nghiệp vụ `erp.calendar.time-zone` (mặc định `Asia/Ho_Chi_Minh`, D-15): xác định "hôm nay" cho ngày chứng từ và chu kỳ số chứng từ. Thời điểm vẫn lưu UTC.
 
 ## 5. Thiết lập máy phát triển
 ### 5.1 MySQL local
@@ -87,6 +91,7 @@ npm ci
 npm run dev        # http://localhost:5173
 ```
 Frontend gọi `/erp/api/v1/...` cùng origin như production; Vite chuyển tiếp `/erp` sang `ERP_BACKEND_URL` (mặc định `http://localhost:8080`). Nhờ vậy cookie refresh token (`Path=/erp/api/v1/auth`) khớp đường dẫn trình duyệt.
+Proxy giữ nguyên header `Host` (`changeOrigin: false`), giống reverse proxy production: backend thấy `Origin` trùng `Host` nên coi là cùng origin, không áp CORS; mở bằng `localhost`, `127.0.0.1` hay IP LAN đều được. Reverse proxy ở UAT/production cũng phải giữ nguyên `Host` (hoặc cấu hình `CORS_ALLOWED_ORIGINS` đúng domain), nếu không backend trả `403` cho request có `Origin`.
 
 ### 5.4 Test
 ```bash

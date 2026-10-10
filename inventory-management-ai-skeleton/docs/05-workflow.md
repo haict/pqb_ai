@@ -129,11 +129,32 @@ flowchart LR
     U --> M[Chứng từ gốc → REVERSED<br/>giữ nguyên lịch sử]
 ```
 
+Đã làm cho chứng từ kho (Giai đoạn 3): thao tác "Đảo" lập chứng từ đảo PDK và gửi duyệt ngay; kiểm tra chứng từ phụ thuộc và kỳ khóa diễn ra **khi ghi sổ PDK** (lúc đó mới khóa số dư). Hàng của chứng từ gốc đã bị chứng từ khác xuất thì ghi sổ PDK báo `HAS_DEPENDENT_DOCUMENTS` kèm số chứng từ cần đảo trước. Hủy PDK thì chứng từ gốc đảo lại được.
+
+### 6.1 Chứng từ kho (Giai đoạn 3)
+```mermaid
+stateDiagram-v2
+    [*] --> DRAFT
+    DRAFT --> SUBMITTED: gửi duyệt
+    SUBMITTED --> APPROVED: duyệt đủ bước / loại không cần duyệt
+    SUBMITTED --> REJECTED: từ chối (lý do)
+    REJECTED --> SUBMITTED: sửa, gửi lại
+    APPROVED --> POSTED: ghi sổ
+    APPROVED --> IN_TRANSIT: ghi sổ chuyển kho khác chi nhánh
+    IN_TRANSIT --> POSTED: kho đích nhận hàng
+    DRAFT --> CANCELLED
+    SUBMITTED --> CANCELLED
+    APPROVED --> CANCELLED
+    POSTED --> REVERSED: chứng từ đảo PDK được ghi sổ
+```
+Chuyển kho khác chi nhánh: ghi sổ xuất khỏi kho nguồn và nhập vào kho "đang vận chuyển" của chi nhánh nguồn; người thuộc kho đích xác nhận nhận hàng thì xuất khỏi kho đang vận chuyển, nhập kho đích (đúng lô, serial, trạng thái).
+
 ## 7. Kiểm kê
 ```
-DRAFT -> COUNTING (snapshot tồn theo lô/serial; chặn ghi sổ nhập/xuất trong phạm vi)
-      -> REVIEW (nhập số đếm, tính chênh lệch)
-      -> APPROVED -> POSTED (sinh chứng từ điều chỉnh thừa/thiếu)
+DRAFT -> COUNTING (bắt đầu đếm: snapshot tồn theo vị trí/lô/serial/trạng thái; chặn ghi sổ nhập/xuất của kho)
+      -> nhập số đếm (khi COUNTING; hàng tìm thấy ngoài sổ thêm dòng với tồn sổ sách 0)
+      -> SUBMITTED (đủ số đếm) -> APPROVED -> POSTED (sinh phiếu điều chỉnh PDC loại COUNT theo chênh lệch, mở khóa kho)
+SUBMITTED -> COUNTING khi bị từ chối (vẫn khóa kho); hủy ở bất kỳ bước chưa ghi sổ thì mở khóa kho
 ```
 
 ## 8. Khóa kỳ cuối tháng

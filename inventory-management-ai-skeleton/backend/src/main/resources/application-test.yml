@@ -12,3 +12,7 @@ springdoc:
 erp:
   security:
     cors-allowed-origins: http://localhost:5173
+  auth:
+    # Test tích hợp đăng nhập sai nhiều lần từ cùng địa chỉ 127.0.0.1; giới hạn theo IP có unit test riêng.
+    ip-rate-limit:
+      max-failures: 100000

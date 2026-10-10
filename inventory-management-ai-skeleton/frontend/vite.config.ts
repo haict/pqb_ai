@@ -11,8 +11,10 @@ export default defineConfig({
     port: 5173,
     // Frontend gọi cùng origin với đường dẫn /erp/... giống production, nên cookie refresh token
     // (Path=/erp/api/v1/auth) khớp đường dẫn trình duyệt. Vite chuyển tiếp /erp sang backend.
+    // Giữ nguyên Host như reverse proxy production: backend thấy Origin trùng Host nên coi là cùng origin,
+    // không áp CORS dù mở bằng localhost, 127.0.0.1 hay IP LAN.
     proxy: {
-      '/erp': backendUrl,
+      '/erp': { target: backendUrl, changeOrigin: false },
     },
   },
   build: {

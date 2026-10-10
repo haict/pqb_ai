@@ -12,6 +12,7 @@ import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth, useCan } from '../shared/auth/authContext';
 import { ServerStatusBadge } from '../shared/components/ServerStatusBadge';
 import { visibleNavGroups } from './navigation';
+import { NotificationBell } from './NotificationBell';
 
 const { Header, Sider, Content } = Layout;
 
@@ -87,6 +88,7 @@ export function AppLayout() {
           </Space>
           <Space size="large" wrap>
             <ServerStatusBadge />
+            <NotificationBell />
             <Dropdown menu={{ items: userMenu, onClick: onUserMenu }} trigger={['click']}>
               <Button type="text" icon={<UserOutlined />}>
                 {user?.fullName} <DownOutlined />
