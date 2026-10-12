@@ -28,6 +28,10 @@ class DocumentPostingPlanner {
 
     static final String RECALL_IN = "RECALL_IN";
     static final String COUNT = "COUNT";
+    /** Loại nghiệp vụ của phiếu kho do chứng từ nguồn module khác sinh ({@link StockOutService}, {@link StockInService}). */
+    static final String SALE = "SALE";
+    static final String PURCHASE_RETURN = "PURCHASE_RETURN";
+    static final String SALES_RETURN = "SALES_RETURN";
 
     private final MasterDataQueryService masterData;
     private final TrackedItemResolver items;
@@ -45,10 +49,8 @@ class DocumentPostingPlanner {
             ProductInfo product = products.get(line.getProductId());
             switch (document.getDocumentType()) {
                 case PNK -> movements.addAll(receipt(document, line, product, actorId, receiptStatus(document, line,
-                        product), RECALL_IN.equals(document.getSubType()) ? TransactionType.RECALL_IN
-                        : TransactionType.OPENING));
-                case PXK -> movements.addAll(issue(document, line, product, TransactionType.INTERNAL_ISSUE,
-                        StockMovement.OutRule.SELLABLE, null));
+                        product), receiptType(document)));
+                case PXK -> movements.addAll(sourceIssue(document, line, product));
                 case PXH -> movements.addAll(issue(document, line, product, TransactionType.SCRAP,
                         StockMovement.OutRule.DISPOSABLE, null));
                 case PDC -> movements.addAll(adjustment(document, line, product, actorId));
@@ -175,6 +177,29 @@ class DocumentPostingPlanner {
         return List.of(new StockMovement(line.getId(), MovementDirection.OUT, type, product.id(),
                 document.getWarehouseId(), line.getLocationId(), line.getLotId(), null, status, line.getBaseQuantity(),
                 null, rule, null, justified));
+    }
+
+    /**
+     * Phiếu xuất: nội bộ / xuất bán (chỉ hàng ĐẠT, kiểm tra tồn khả dụng); trả nhà cung cấp hàng không ĐẠT thì xuất
+     * đúng trạng thái của dòng (hàng cách ly trả lại, BR-PUR-14).
+     */
+    private List<StockMovement> sourceIssue(InventoryDocument document, InventoryDocumentLine line,
+                                            ProductInfo product) {
+        if (PURCHASE_RETURN.equals(document.getSubType())) {
+            QualityStatus status = line.getQualityStatus() == null ? QualityStatus.PASSED : line.getQualityStatus();
+            return issue(document, line, product, TransactionType.PURCHASE_RETURN, status == QualityStatus.PASSED
+                    ? StockMovement.OutRule.SELLABLE : StockMovement.OutRule.EXACT_STATUS,
+                    status == QualityStatus.PASSED ? null : status);
+        }
+        return issue(document, line, product, SALE.equals(document.getSubType()) ? TransactionType.SALES_ISSUE
+                : TransactionType.INTERNAL_ISSUE, StockMovement.OutRule.SELLABLE, null);
+    }
+
+    private static TransactionType receiptType(InventoryDocument document) {
+        if (RECALL_IN.equals(document.getSubType())) {
+            return TransactionType.RECALL_IN;
+        }
+        return SALES_RETURN.equals(document.getSubType()) ? TransactionType.SALES_RETURN : TransactionType.OPENING;
     }
 
     private List<StockMovement> adjustment(InventoryDocument document, InventoryDocumentLine line,

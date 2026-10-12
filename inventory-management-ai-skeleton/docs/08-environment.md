@@ -25,6 +25,8 @@
 | `uat` | Nghiệm thu | **Không** | Chỉ khi `API_DOCS_ENABLED=true`, cần đăng nhập | Console + file xoay vòng |
 | `prod` | Production | **Không** (cấm cứng) | Tắt cứng | Console + file xoay vòng |
 
+Thư mục `db/dev-local` (chỉ dev, tùy chọn): dữ liệu tiện thử nghiệm trên máy cá nhân (admin toàn quyền); không nằm trong profile `test`, không bao giờ ở `uat`/`prod`. File dùng placeholder `${flyway:timestamp}` để chạy lại mỗi lần khởi động `[Chưa kiểm chứng]`.
+
 Cấu hình gốc (`application.yml`) không có profile mặc định và an toàn cho production (không dữ liệu mẫu, không Swagger).
 
 ## 3. File cấu hình riêng của máy

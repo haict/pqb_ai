@@ -69,30 +69,33 @@
 - [x] Test: AT-02, AT-03 (FEFO phần kho), AT-04, AT-09 (phần kho), AT-10, AT-11, AT-13; test tính nhất quán balance = ledger
 
 ## Giai đoạn 4 - Kế toán lõi và công nợ (M08 phần lõi, M07)
-- [ ] Hệ thống tài khoản, quy tắc hạch toán, `JournalPostingService`; quy tắc theo D-34, D-35 nằm trong `posting_rules` (cấu hình)
-- [ ] Sổ công nợ, `receivables`, `payables`, phân bổ thanh toán
-- [ ] Quỹ, ngân hàng, phiếu thu, phiếu chi, chuyển tiền, tạm ứng
-- [ ] Đối trừ, điều chỉnh công nợ, biên bản đối chiếu
-- [ ] Test: AT-08
+Kế hoạch duyệt 2026-10-10: làm lần lượt 4A (kế toán lõi) → 4B (sổ công nợ, công nợ đầu kỳ) → 4C (quỹ, ngân hàng, phân bổ) → 4D (đối trừ, điều chỉnh, đối chiếu, tạm ứng, kiểm kê quỹ). Bút toán phiếu kho dời Giai đoạn 8 (cùng giá vốn); dòng tiền dự kiến dời Giai đoạn 10.
+- [x] 4A: Hệ thống tài khoản (cây, nhập Excel), quy tắc hạch toán (`posting_rules`, ADR-11), `JournalPostingService` (ghi, đảo, kiểm tra kỳ kế toán), màn hình Hệ thống tài khoản / Quy tắc hạch toán / Bút toán; quy tắc theo D-34, D-35 nhập vào `posting_rules` khi có chứng từ tương ứng
+- [x] 4B: Sổ công nợ (`debt_items` phải thu / phải trả theo chứng từ nguồn, `debt_ledger_entries`), công nợ đầu kỳ theo hóa đơn (duyệt, ghi sổ, đảo), `DebtPostingService` cho Giai đoạn 5, 6, tuổi nợ theo mốc tham số, sổ chi tiết công nợ; màn hình Công nợ phải thu / phải trả / đầu kỳ
+- [x] 4C: Quỹ, tài khoản ngân hàng (`cash_accounts`), chứng từ thu chi một bảng (PT, PC, BC, UNC, CTN, ADR-13), phân bổ thanh toán (tự động hóa đơn đến hạn sớm nhất trước / chỉ định), trả trước, duyệt chi theo ngưỡng, quỹ tiền mặt không âm, sổ quỹ, dòng tiền thực tế, bút toán theo quy tắc hạch toán; màn hình Thu chi / Sổ quỹ, dòng tiền / Quỹ; test AT-08 (phần thu một phần, nhiều hóa đơn)
+- [x] 4D: Bù trừ (trả trước với hóa đơn, phải thu với phải trả), điều chỉnh công nợ có duyệt, bảng / biên bản đối chiếu (phần còn lại của AT-08), tạm ứng / thanh toán tạm ứng / hoàn ứng (ADR-14), kiểm kê quỹ; màn hình tương ứng
+- [ ] Thu hàng loạt nhiều khách (BR-AR-08), nhập sao kê (BR-CSH-07, P2)
 
 ## Giai đoạn 5 - Mua hàng (M03)
-- [ ] Đề nghị mua, yêu cầu báo giá, so sánh báo giá
-- [ ] Đơn mua, theo dõi tiến độ
-- [ ] Phiếu nhận hàng, nhập kho (kể cả thao tác nhanh)
-- [ ] Hóa đơn mua, hóa đơn về sau, đối chiếu ba chiều
-- [ ] Chi phí mua hàng và phân bổ
-- [ ] Trả hàng NCC
-- [ ] Test: AT-01, AT-02
+Kế hoạch duyệt 2026-10-10 ("duyệt, tự chốt"): 5A đề nghị mua, đơn mua, hàng đang về → 5B nhận hàng, nhập kho → 5C hóa đơn mua, công nợ phải trả → 5D chi phí mua, trả hàng NCC, giảm giá → 5E yêu cầu báo giá, so sánh, lịch sử NCC. Đề nghị mua từ đơn bán / giữ chỗ khi hàng về / mua giao thẳng dời Giai đoạn 6; từ hợp đồng dời Giai đoạn 7; từ định mức dời Giai đoạn 10.
+- [x] 5A: Đề nghị mua (lập tay, duyệt khi có luồng, đóng phần còn lại), đơn mua (duyệt theo ngưỡng, theo đề nghị, tiến độ từng dòng, đóng phần còn lại), hàng đang về (ADR-15); màn hình Đề nghị mua hàng / Đơn mua hàng
+- [x] 5B: Phiếu nhận hàng theo đơn mua (kiểm nhận đạt / cách ly / trả lại, lô / hạn / serial, dung sai nhận vượt có duyệt), nhập kho thành PNK riêng có nguồn (`StockInService`), nhận và nhập trong một thao tác (D-36), đảo; màn hình Phiếu nhận hàng; AT-01, AT-02
+- [x] 5C: Hóa đơn mua n-n với phiếu nhận hàng, dịch vụ, hàng khuyến mại, chống trùng, đối chiếu ba chiều (cảnh báo), công nợ phải trả + bút toán theo quy tắc, chênh lệch giá theo dòng phiếu nhận (`purchase_cost_entries`), đảo; màn hình Hóa đơn mua
+- [x] 5D: Trả hàng NCC (đúng lô / serial theo phiếu nhận, hàng chưa / đã có hóa đơn; giảm tồn, công nợ phải trả, bút toán), giảm giá hàng mua (giảm công nợ và giá trị nhập), phân bổ chi phí mua theo giá trị / số lượng (`LANDED_COST`), đảo và chặn đảo khi có chứng từ phụ thuộc; `StockOutService` và giữ chỗ dùng được cho Giai đoạn 6; màn hình Trả hàng / giảm giá, Phân bổ chi phí mua
+- [ ] Yêu cầu báo giá, so sánh báo giá, lịch sử / đánh giá NCC (5E, chưa làm)
+- [x] Test: AT-01, AT-02
 
 ## Giai đoạn 6 - Bán hàng (M05)
-- [ ] Bảng giá, chính sách chiết khấu, khuyến mại
-- [ ] Báo giá, duyệt giá
-- [ ] Đơn bán, hạn mức tín dụng, giữ chỗ
-- [ ] Xuất kho theo đơn, giao hàng nhiều đợt, biên bản giao nhận
-- [ ] Hóa đơn bán (tham chiếu hóa đơn điện tử MISA)
-- [ ] Trả hàng, đổi hàng, hàng lỗi
-- [ ] Lịch thu tiền; thao tác bán nhanh
-- [ ] Test: AT-03, AT-05, AT-06
+Người dùng giao làm hết Giai đoạn 6 theo khuyến cáo (2026-10-10): 6A giá, báo giá → 6B đơn bán → 6C giao hàng → 6D hóa đơn bán → 6E trả hàng, đổi hàng, hàng lỗi → 6F bán nhanh, lịch thu tiền, báo cáo doanh số (ADR-16).
+- [x] 6A: Lấy giá theo thứ tự (bảng giá riêng của khách → nhóm / đại lý → niêm yết), giá sàn, chiết khấu đại lý mặc định; báo giá nhiều phiên bản, duyệt giá dưới sàn / chiết khấu vượt ngưỡng, gửi khách, chấp nhận / từ chối, hết hạn, in báo giá
+- [x] 6B: Đơn bán, chuyển từ báo giá, duyệt theo hạn mức tín dụng / nợ quá hạn, cảnh báo tồn khả dụng, giữ / nhả hàng có hạn, đóng phần còn lại, đề nghị mua phần thiếu
+- [x] 6C: Phiếu giao hàng: xuất kho theo đơn (FEFO, lô chỉ định có lý do, dùng hàng đã giữ, hạn dùng tối thiểu theo khách D-07), giao nhiều đợt, đang giao / khách nhận / giao thất bại, biên bản giao nhận (in)
+- [x] 6D: Hóa đơn bán từ nhiều phiếu giao + dịch vụ, số HĐĐT MISA chống trùng, công nợ phải thu, bút toán doanh thu, đảo
+- [x] 6E: Trả hàng bán đúng lô / serial vào cách ly, giảm doanh thu / công nợ; giảm giá hàng bán; đổi hàng; tiếp nhận hàng lỗi
+- [x] 6F: Bán nhanh (đơn → giao → hóa đơn), lịch thu tiền theo đợt, báo cáo doanh số theo nhân viên / khách / hàng / chi nhánh có truy ngược chứng từ
+- [ ] Khuyến mại theo chính sách (mua X tặng Y), chiết khấu đơn / thanh toán / theo doanh số kỳ (BR-SAL-35 phần chính sách, P2 cho doanh số kỳ); hàng tặng hiện nhập tay từng dòng
+- [ ] Giá vốn, lợi nhuận gộp (Giai đoạn 8); phiếu thu trong bán nhanh; đề nghị lắp đặt (BR-SAL-24, Giai đoạn 9)
+- [x] Test: AT-03, AT-05, AT-06 (cùng AT-09, AT-10, AT-12 phần bán hàng, AT-13)
 
 ## Giai đoạn 7 - Đấu thầu (M06)
 - [ ] Gói thầu, hồ sơ dự thầu, hàng dự thầu, giá dự thầu

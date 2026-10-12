@@ -122,6 +122,15 @@ public class StockLedgerJdbc {
         }
     }
 
+    /** Cộng hàng đang về của dòng tổng đã khóa; trả {@code false} khi kết quả sẽ âm (không cập nhật). */
+    public boolean addIncoming(Long productId, Long warehouseId, BigDecimal delta, Instant now) {
+        return jdbc.update("""
+                UPDATE inventory_stock_summaries
+                SET incoming_quantity = incoming_quantity + ?, version = version + 1, updated_at = ?
+                WHERE product_id = ? AND warehouse_id = ? AND incoming_quantity + ? >= 0
+                """, delta, Timestamp.from(now), productId, warehouseId, delta) == 1;
+    }
+
     /**
      * Khóa ghi các dòng tồn khớp điều kiện, theo thứ tự FEFO: hạn dùng sớm nhất trước, lô / vị trí / id tăng dần.
      * {@code null} ở tham số lọc nghĩa là không lọc theo cột đó.

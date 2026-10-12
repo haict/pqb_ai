@@ -1,5 +1,30 @@
 import type { ReactNode } from 'react';
 import { createBrowserRouter } from 'react-router-dom';
+import { AccountsPage } from '../modules/accounting/pages/AccountsPage';
+import { JournalEntriesPage } from '../modules/accounting/pages/JournalEntriesPage';
+import { PostingRulesPage } from '../modules/accounting/pages/PostingRulesPage';
+import { CashAccountsPage } from '../modules/finance/pages/CashAccountsPage';
+import { CashBookPage } from '../modules/finance/pages/CashBookPage';
+import { CashCountsPage } from '../modules/finance/pages/CashCountsPage';
+import { CashDocumentsPage } from '../modules/finance/pages/CashDocumentsPage';
+import { DebtAdjustmentsPage } from '../modules/finance/pages/DebtAdjustmentsPage';
+import { DebtOffsetsPage } from '../modules/finance/pages/DebtOffsetsPage';
+import { DebtOpeningsPage } from '../modules/finance/pages/DebtOpeningsPage';
+import { DebtReconciliationsPage } from '../modules/finance/pages/DebtReconciliationsPage';
+import { DebtsPage } from '../modules/finance/pages/DebtsPage';
+import { CostAllocationsPage } from '../modules/purchasing/pages/CostAllocationsPage';
+import { PurchaseInvoicesPage } from '../modules/purchasing/pages/PurchaseInvoicesPage';
+import { PurchaseOrdersPage } from '../modules/purchasing/pages/PurchaseOrdersPage';
+import { PurchaseReceiptsPage } from '../modules/purchasing/pages/PurchaseReceiptsPage';
+import { PurchaseRequisitionsPage } from '../modules/purchasing/pages/PurchaseRequisitionsPage';
+import { PurchaseReturnsPage } from '../modules/purchasing/pages/PurchaseReturnsPage';
+import { SalesComplaintsPage } from '../modules/sales/pages/SalesComplaintsPage';
+import { SalesDeliveriesPage } from '../modules/sales/pages/SalesDeliveriesPage';
+import { SalesInvoicesPage } from '../modules/sales/pages/SalesInvoicesPage';
+import { SalesOrdersPage } from '../modules/sales/pages/SalesOrdersPage';
+import { SalesQuotesPage } from '../modules/sales/pages/SalesQuotesPage';
+import { SalesReportPage } from '../modules/sales/pages/SalesReportPage';
+import { SalesReturnsPage } from '../modules/sales/pages/SalesReturnsPage';
 import { registerInventoryDocumentRoutes } from '../modules/inventory/documentRoutes';
 import { InventoryDocumentDetailPage } from '../modules/inventory/pages/InventoryDocumentDetailPage';
 import { InventoryDocumentsPage } from '../modules/inventory/pages/InventoryDocumentsPage';
@@ -65,6 +90,25 @@ export const router = createBrowserRouter([
       { index: true, element: <HomePage /> },
       { path: 'approvals', element: <ApprovalsPage /> },
       { path: 'inventory/stock', element: guarded('inventory:view', <StockPage />) },
+      {
+        path: 'purchasing/requisitions',
+        element: guarded('purchase-requisition:view', <PurchaseRequisitionsPage />),
+      },
+      { path: 'purchasing/orders', element: guarded('purchase-order:view', <PurchaseOrdersPage />) },
+      { path: 'purchasing/receipts', element: guarded('purchase-receipt:view', <PurchaseReceiptsPage />) },
+      { path: 'purchasing/invoices', element: guarded('purchase-invoice:view', <PurchaseInvoicesPage />) },
+      { path: 'purchasing/returns', element: guarded('purchase-return:view', <PurchaseReturnsPage />) },
+      {
+        path: 'purchasing/cost-allocations',
+        element: guarded('purchase-cost-allocation:view', <CostAllocationsPage />),
+      },
+      { path: 'sales/quotes', element: guarded('sales-quote:view', <SalesQuotesPage />) },
+      { path: 'sales/orders', element: guarded('sales-order:view', <SalesOrdersPage />) },
+      { path: 'sales/deliveries', element: guarded('sales-delivery:view', <SalesDeliveriesPage />) },
+      { path: 'sales/invoices', element: guarded('sales-invoice:view', <SalesInvoicesPage />) },
+      { path: 'sales/returns', element: guarded('sales-return:view', <SalesReturnsPage />) },
+      { path: 'sales/complaints', element: guarded('sales-complaint:view', <SalesComplaintsPage />) },
+      { path: 'sales/report', element: guarded('sales-report:view', <SalesReportPage />) },
       { path: 'inventory/documents', element: guarded(INVENTORY_DOCUMENT_VIEW, <InventoryDocumentsPage />) },
       {
         path: 'inventory/documents/:id',
@@ -77,6 +121,36 @@ export const router = createBrowserRouter([
         path: 'inventory/stock-issue-policies',
         element: guarded('stock-policy:view', <StockIssuePoliciesPage />),
       },
+      {
+        path: 'finance/receivables',
+        element: guarded('debt:view', <DebtsPage key="ar" debtType="RECEIVABLE" />),
+      },
+      { path: 'finance/payables', element: guarded('debt:view', <DebtsPage key="ap" debtType="PAYABLE" />) },
+      { path: 'finance/debt-openings', element: guarded('debt-opening:view', <DebtOpeningsPage />) },
+      { path: 'finance/cash-documents', element: guarded('cash-document:view', <CashDocumentsPage />) },
+      { path: 'finance/cash-book', element: guarded('cash-book:view', <CashBookPage />) },
+      { path: 'finance/cash-accounts', element: guarded('cash-account:view', <CashAccountsPage />) },
+      { path: 'finance/cash-counts', element: guarded('cash-count:view', <CashCountsPage />) },
+      {
+        path: 'finance/advances',
+        element: guarded('debt:view', <DebtsPage key="advance" debtType="ADVANCE" />),
+      },
+      { path: 'finance/debt-offsets', element: guarded('debt-offset:view', <DebtOffsetsPage />) },
+      {
+        path: 'finance/debt-adjustments',
+        element: guarded('debt-adjustment:view', <DebtAdjustmentsPage key="DCCN" documentType="DCCN" />),
+      },
+      {
+        path: 'finance/advance-settlements',
+        element: guarded('debt-adjustment:view', <DebtAdjustmentsPage key="TTTU" documentType="TTTU" />),
+      },
+      {
+        path: 'finance/reconciliations',
+        element: guarded('debt-reconciliation:view', <DebtReconciliationsPage />),
+      },
+      { path: 'accounting/journal-entries', element: guarded('journal:view', <JournalEntriesPage />) },
+      { path: 'accounting/accounts', element: guarded('account:view', <AccountsPage />) },
+      { path: 'accounting/posting-rules', element: guarded('posting-rule:view', <PostingRulesPage />) },
       { path: 'masterdata/products', element: guarded('product:view', <ProductsPage />) },
       { path: 'masterdata/categories', element: guarded('catalog:view', <CategoriesPage />) },
       { path: 'masterdata/partners', element: guarded('partner:view', <PartnersPage />) },

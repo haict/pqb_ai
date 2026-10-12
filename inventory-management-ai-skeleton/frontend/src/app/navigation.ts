@@ -21,6 +21,39 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
+    key: 'purchasing',
+    label: 'Mua hàng',
+    items: [
+      {
+        path: '/purchasing/requisitions',
+        label: 'Đề nghị mua hàng',
+        permission: 'purchase-requisition:view',
+      },
+      { path: '/purchasing/orders', label: 'Đơn mua hàng', permission: 'purchase-order:view' },
+      { path: '/purchasing/receipts', label: 'Phiếu nhận hàng', permission: 'purchase-receipt:view' },
+      { path: '/purchasing/invoices', label: 'Hóa đơn mua', permission: 'purchase-invoice:view' },
+      { path: '/purchasing/returns', label: 'Trả hàng / giảm giá', permission: 'purchase-return:view' },
+      {
+        path: '/purchasing/cost-allocations',
+        label: 'Phân bổ chi phí mua',
+        permission: 'purchase-cost-allocation:view',
+      },
+    ],
+  },
+  {
+    key: 'sales',
+    label: 'Bán hàng',
+    items: [
+      { path: '/sales/quotes', label: 'Báo giá', permission: 'sales-quote:view' },
+      { path: '/sales/orders', label: 'Đơn bán hàng', permission: 'sales-order:view' },
+      { path: '/sales/deliveries', label: 'Giao hàng', permission: 'sales-delivery:view' },
+      { path: '/sales/invoices', label: 'Hóa đơn bán', permission: 'sales-invoice:view' },
+      { path: '/sales/returns', label: 'Trả hàng / giảm giá bán', permission: 'sales-return:view' },
+      { path: '/sales/complaints', label: 'Hàng lỗi khách báo', permission: 'sales-complaint:view' },
+      { path: '/sales/report', label: 'Báo cáo doanh số', permission: 'sales-report:view' },
+    ],
+  },
+  {
     key: 'inventory',
     label: 'Kho',
     items: [
@@ -34,6 +67,41 @@ export const NAV_GROUPS: NavGroup[] = [
         label: 'Chính sách xuất vượt tồn',
         permission: 'stock-policy:view',
       },
+    ],
+  },
+  {
+    key: 'finance',
+    label: 'Công nợ, quỹ',
+    items: [
+      { path: '/finance/cash-documents', label: 'Thu chi, ngân hàng', permission: 'cash-document:view' },
+      { path: '/finance/cash-book', label: 'Sổ quỹ, dòng tiền', permission: 'cash-book:view' },
+      { path: '/finance/cash-counts', label: 'Kiểm kê quỹ', permission: 'cash-count:view' },
+      { path: '/finance/receivables', label: 'Công nợ phải thu', permission: 'debt:view' },
+      { path: '/finance/payables', label: 'Công nợ phải trả', permission: 'debt:view' },
+      { path: '/finance/advances', label: 'Công nợ tạm ứng', permission: 'debt:view' },
+      { path: '/finance/debt-offsets', label: 'Bù trừ công nợ', permission: 'debt-offset:view' },
+      { path: '/finance/debt-adjustments', label: 'Điều chỉnh công nợ', permission: 'debt-adjustment:view' },
+      {
+        path: '/finance/advance-settlements',
+        label: 'Thanh toán tạm ứng',
+        permission: 'debt-adjustment:view',
+      },
+      {
+        path: '/finance/reconciliations',
+        label: 'Đối chiếu công nợ',
+        permission: 'debt-reconciliation:view',
+      },
+      { path: '/finance/debt-openings', label: 'Công nợ đầu kỳ', permission: 'debt-opening:view' },
+      { path: '/finance/cash-accounts', label: 'Quỹ, tài khoản ngân hàng', permission: 'cash-account:view' },
+    ],
+  },
+  {
+    key: 'accounting',
+    label: 'Kế toán',
+    items: [
+      { path: '/accounting/journal-entries', label: 'Bút toán', permission: 'journal:view' },
+      { path: '/accounting/accounts', label: 'Hệ thống tài khoản', permission: 'account:view' },
+      { path: '/accounting/posting-rules', label: 'Quy tắc hạch toán', permission: 'posting-rule:view' },
     ],
   },
   {

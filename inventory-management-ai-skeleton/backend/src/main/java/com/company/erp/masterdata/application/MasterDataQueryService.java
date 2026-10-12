@@ -18,14 +18,17 @@ import com.company.erp.masterdata.infrastructure.persistence.ProductRepository;
 import com.company.erp.masterdata.infrastructure.persistence.ProductStockLevelRepository;
 import com.company.erp.masterdata.infrastructure.persistence.ProductUnitRepository;
 import com.company.erp.masterdata.infrastructure.persistence.ReferenceItemRepository;
+import com.company.erp.masterdata.infrastructure.persistence.TaxRateRepository;
 import com.company.erp.masterdata.infrastructure.persistence.WarehouseLocationRepository;
 import com.company.erp.masterdata.infrastructure.persistence.WarehouseRepository;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -38,19 +41,60 @@ public class MasterDataQueryService {
 
     public record ProductInfo(Long id, Long companyId, String code, String name, ProductType productType,
                               Long baseUnitId, boolean lotTracked, boolean expiryTracked, boolean serialTracked,
-                              QualityStatus initialQualityStatus, boolean active, boolean stockTracked) {
+                              QualityStatus initialQualityStatus, boolean active, boolean stockTracked,
+                              Long defaultTaxRateId) {
+
+        /** Mã loại hàng dạng chuỗi (điều kiện quy tắc hạch toán) cho module khác. */
+        public String productTypeCode() {
+            return productType.name();
+        }
     }
 
     public record WarehouseInfo(Long id, Long companyId, Long branchId, String code, String name,
                                 WarehouseType warehouseType, VirtualWarehouseKind virtualKind, boolean active) {
+
+        /** Kho vật lý (không phải kho ảo), cho module khác kiểm tra mà không phụ thuộc enum của danh mục. */
+        public boolean physical() {
+            return warehouseType == WarehouseType.NORMAL;
+        }
     }
 
     public record LocationInfo(Long id, Long warehouseId, String code, String name, LocationZone zoneType,
                                boolean defaultLocation, boolean active) {
     }
 
+    /**
+     * Đối tác; {@code paymentTermDays} / {@code supplierPaymentTermDays}: số ngày nợ khi là khách hàng / nhà cung cấp
+     * (BR-AR-02), {@code null} khi chưa khai báo; {@code taxCode}: mã số thuế.
+     */
     public record PartnerInfo(Long id, Long companyId, String code, String name, Set<PartnerRole> roles,
-                              Long salesUserId, boolean active) {
+                              Long salesUserId, boolean active, Integer paymentTermDays,
+                              Integer supplierPaymentTermDays, String taxCode) {
+
+        /** Mã vai trò dạng chuỗi, để module khác kiểm tra mà không phụ thuộc enum của danh mục. */
+        public Set<String> roleCodes() {
+            return roles.stream().map(Enum::name).collect(Collectors.toSet());
+        }
+    }
+
+    /** Thuế suất (%) có hiệu lực từ {@code validFrom} đến {@code validTo} ({@code null} = không thời hạn). */
+    public record CustomerProfile(Long id, Long companyId, String code, String name, boolean active,
+                                  Set<String> roleCodes, Long partnerGroupId, Long priceListId,
+                                  BigDecimal creditLimit, Integer paymentTermDays, Long salesUserId, String taxCode,
+                                  String address, BigDecimal agentDiscountPercent,
+                                  Integer minRemainingShelfLifeDays) {
+    }
+
+    public record ProductDocumentInfo(Long id, String originCountryCode, String model, String specification,
+                                      String registrationNo, Integer warrantyMonths) {
+    }
+
+    public record TaxRateInfo(Long id, Long companyId, String code, String name, BigDecimal rate, LocalDate validFrom,
+                              LocalDate validTo, boolean active) {
+
+        public boolean effectiveOn(LocalDate date) {
+            return active && !date.isBefore(validFrom) && (validTo == null || !date.isAfter(validTo));
+        }
     }
 
     public record StockLevelInfo(Long productId, Long warehouseId, BigDecimal minQuantity, BigDecimal maxQuantity) {
@@ -58,6 +102,11 @@ public class MasterDataQueryService {
 
     public record ReferenceInfo(Long id, Long companyId, ReferenceCategory category, String code, String name,
                                 boolean active) {
+
+        /** Mã nhóm danh mục dạng chuỗi cho module khác (không phụ thuộc enum domain của danh mục). */
+        public String categoryCode() {
+            return category.name();
+        }
     }
 
     private final ProductRepository productRepository;
@@ -67,12 +116,14 @@ public class MasterDataQueryService {
     private final WarehouseLocationRepository locationRepository;
     private final PartnerRepository partnerRepository;
     private final ReferenceItemRepository referenceItemRepository;
+    private final TaxRateRepository taxRateRepository;
 
     public MasterDataQueryService(ProductRepository productRepository, ProductUnitRepository productUnitRepository,
                                   ProductStockLevelRepository stockLevelRepository,
                                   WarehouseRepository warehouseRepository,
                                   WarehouseLocationRepository locationRepository, PartnerRepository partnerRepository,
-                                  ReferenceItemRepository referenceItemRepository) {
+                                  ReferenceItemRepository referenceItemRepository,
+                                  TaxRateRepository taxRateRepository) {
         this.productRepository = productRepository;
         this.productUnitRepository = productUnitRepository;
         this.stockLevelRepository = stockLevelRepository;
@@ -80,6 +131,17 @@ public class MasterDataQueryService {
         this.locationRepository = locationRepository;
         this.partnerRepository = partnerRepository;
         this.referenceItemRepository = referenceItemRepository;
+        this.taxRateRepository = taxRateRepository;
+    }
+
+    /** Mã loại hàng hợp lệ, dùng làm điều kiện quy tắc hạch toán (BR-ACC-02). */
+    public static boolean isProductType(String code) {
+        return Arrays.stream(ProductType.values()).anyMatch(type -> type.name().equals(code));
+    }
+
+    /** Mã vai trò đối tác hợp lệ, dùng làm điều kiện quy tắc hạch toán (BR-ACC-02). */
+    public static boolean isPartnerRole(String code) {
+        return Arrays.stream(PartnerRole.values()).anyMatch(role -> role.name().equals(code));
     }
 
     @Transactional(readOnly = true)
@@ -181,16 +243,54 @@ public class MasterDataQueryService {
     }
 
     @Transactional(readOnly = true)
+    public List<PartnerInfo> partners(Collection<Long> ids) {
+        return partnerRepository.findAllById(ids).stream().map(MasterDataQueryService::toInfo).toList();
+    }
+
+    /**
+     * Hồ sơ bán hàng của khách: nhóm, bảng giá riêng, hạn mức tín dụng (đại lý: hạn mức đại lý nếu có), hạn thanh
+     * toán, nhân viên phụ trách, chiết khấu đại lý, hạn dùng còn lại tối thiểu (D-07).
+     */
+    @Transactional(readOnly = true)
+    public Optional<CustomerProfile> customerProfile(Long id) {
+        return partnerRepository.findById(id).map(partner -> new CustomerProfile(partner.getId(),
+                partner.getCompanyId(), partner.getCode(), partner.getName(), partner.isActive(),
+                partner.getRoles().stream().map(Enum::name).collect(Collectors.toSet()), partner.getPartnerGroupId(),
+                partner.getPriceListId(), partner.getAgentCreditLimit() != null
+                && partner.getRoles().contains(PartnerRole.AGENT) ? partner.getAgentCreditLimit()
+                : partner.getCreditLimit(), partner.getPaymentTermDays(), partner.getSalesUserId(),
+                partner.getTaxCode(), partner.getAddress(), partner.getAgentDiscountPercent(),
+                partner.getMinRemainingShelfLifeDays()));
+    }
+
+    /** Thông tin hồ sơ hàng cho báo giá / biên bản giao nhận (xuất xứ, số lưu hành, quy cách, bảo hành). */
+    @Transactional(readOnly = true)
+    public List<ProductDocumentInfo> productDocuments(Collection<Long> ids) {
+        return productRepository.findAllById(ids).stream()
+                .map(product -> new ProductDocumentInfo(product.getId(), product.getOriginCountryCode(),
+                        product.getModel(), product.getSpecification(), product.getRegistrationNo(),
+                        product.getWarrantyMonths()))
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
     public Optional<ReferenceInfo> referenceItem(Long id) {
         return referenceItemRepository.findById(id).map(item -> new ReferenceInfo(item.getId(), item.getCompanyId(),
                 item.getCategory(), item.getCode(), item.getName(), item.isActive()));
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<TaxRateInfo> taxRate(Long id) {
+        return taxRateRepository.findById(id).map(rate -> new TaxRateInfo(rate.getId(), rate.getCompanyId(),
+                rate.getCode(), rate.getName(), rate.getRate(), rate.getValidFrom(), rate.getValidTo(),
+                rate.isActive()));
     }
 
     private static ProductInfo toInfo(Product product) {
         return new ProductInfo(product.getId(), product.getCompanyId(), product.getCode(), product.getName(),
                 product.getProductType(), product.getBaseUnitId(), product.isLotTracked(), product.isExpiryTracked(),
                 product.isSerialTracked(), product.initialQualityStatus(), product.isActive(),
-                product.isStockTracked());
+                product.isStockTracked(), product.getDefaultTaxRateId());
     }
 
     private static WarehouseInfo toInfo(Warehouse warehouse) {
@@ -206,6 +306,7 @@ public class MasterDataQueryService {
 
     private static PartnerInfo toInfo(Partner partner) {
         return new PartnerInfo(partner.getId(), partner.getCompanyId(), partner.getCode(), partner.getName(),
-                partner.getRoles(), partner.getSalesUserId(), partner.isActive());
+                partner.getRoles(), partner.getSalesUserId(), partner.isActive(), partner.getPaymentTermDays(),
+                partner.getSupplierPaymentTermDays(), partner.getTaxCode());
     }
 }

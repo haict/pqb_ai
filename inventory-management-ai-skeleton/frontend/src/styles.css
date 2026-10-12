@@ -8,3 +8,20 @@ body,
 body {
   background: #f5f7fa;
 }
+
+/* In báo giá, biên bản giao nhận (BR-SAL-04, BR-SAL-22): chỉ in vùng .print-area. */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .print-area,
+  .print-area * {
+    visibility: visible;
+  }
+  .print-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+  }
+}

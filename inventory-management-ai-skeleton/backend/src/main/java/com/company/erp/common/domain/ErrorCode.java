@@ -50,8 +50,13 @@ public enum ErrorCode {
     CREDIT_LIMIT_EXCEEDED(HttpStatus.UNPROCESSABLE_ENTITY, "Vượt hạn mức tín dụng."),
     PRICE_BELOW_FLOOR(HttpStatus.UNPROCESSABLE_ENTITY, "Giá thấp hơn giá sàn."),
     OVER_ALLOCATION(HttpStatus.UNPROCESSABLE_ENTITY, "Số phân bổ vượt số còn lại."),
+    SOURCE_QUANTITY_EXCEEDED(HttpStatus.UNPROCESSABLE_ENTITY, "Vượt số lượng còn lại của chứng từ nguồn."),
     CASH_BALANCE_NEGATIVE(HttpStatus.UNPROCESSABLE_ENTITY, "Số dư quỹ không đủ."),
     STOCK_COUNT_IN_PROGRESS(HttpStatus.UNPROCESSABLE_ENTITY, "Kho đang kiểm kê."),
+    POSTING_RULE_NOT_FOUND(HttpStatus.UNPROCESSABLE_ENTITY, "Chưa cấu hình quy tắc hạch toán cho nghiệp vụ này."),
+    POSTING_RULE_INCOMPLETE(HttpStatus.UNPROCESSABLE_ENTITY, "Quy tắc hạch toán thiếu tài khoản."),
+    ACCOUNT_NOT_POSTABLE(HttpStatus.UNPROCESSABLE_ENTITY, "Tài khoản không được hạch toán trực tiếp."),
+    UNBALANCED_JOURNAL(HttpStatus.UNPROCESSABLE_ENTITY, "Bút toán không cân Nợ - Có."),
 
     LOCK_TIMEOUT(HttpStatus.LOCKED, "Dữ liệu đang được xử lý, vui lòng thử lại."),
 

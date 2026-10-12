@@ -92,7 +92,8 @@ class InventoryDocumentMapper {
                 documentNo(document.getReversedById()), document.getTotalAmount(), document.getCreatedBy(),
                 document.getCreatedAt(), document.getSubmittedAt(), document.getApprovedAt(), document.getPostedAt(),
                 document.getReceivedAt(), document.getReceivePostingDate(), document.getCancelledAt(),
-                document.getCancelReason(), document.getVersion(), lines, ledger,
+                document.getCancelReason(), document.getSourceType(), document.getSourceId(), document.getSourceNo(),
+                document.getVersion(), lines, ledger,
                 approvalService.history(document.getDocumentType().name(), document.getId()),
                 allowedActions(document, viewer));
     }
@@ -169,7 +170,8 @@ class InventoryDocumentMapper {
             }
             case IN_TRANSIT -> addIf(actions, canPost, "receive");
             case POSTED -> {
-                if (type != InventoryDocumentType.PDK && document.getReversedById() == null) {
+                if (type != InventoryDocumentType.PDK && document.getReversedById() == null
+                        && document.getSourceType() == null) {
                     addIf(actions, viewer.hasPermission(REVERSAL_PERMISSION), "reverse");
                 }
             }

@@ -2,6 +2,8 @@ package com.company.erp.masterdata.application;
 
 import com.company.erp.common.application.IdempotencyService;
 import com.company.erp.common.application.IdempotentCommand;
+import com.company.erp.common.application.excel.ExcelSupport;
+import com.company.erp.common.application.excel.RowErrors;
 import com.company.erp.common.domain.BusinessException;
 import com.company.erp.masterdata.application.dto.ImportResultResponse;
 import com.company.erp.masterdata.domain.CodeNameEntity;
@@ -24,12 +26,9 @@ import com.company.erp.masterdata.infrastructure.persistence.UnitRepository;
 import com.company.erp.system.application.CurrentUser;
 import java.io.IOException;
 import java.math.BigDecimal;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.HashSet;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -119,7 +118,7 @@ public class MasterDataImportService {
                                                MultipartFile file) {
         guard.requireCompany(actor, companyId);
         IdempotentCommand command = new IdempotentCommand(actor.id(), idempotencyKey, "POST /api/v1/products/import",
-                Map.of("companyId", companyId, "sha256", sha256(file)));
+                Map.of("companyId", companyId, "sha256", ExcelSupport.sha256(file)));
         return idempotency.execute(command, ImportResultResponse.class, () -> {
             List<Product> products = parseProducts(companyId, file);
             productRepository.saveAllAndFlush(products);
@@ -135,7 +134,7 @@ public class MasterDataImportService {
                                                MultipartFile file) {
         guard.requireCompany(actor, companyId);
         IdempotentCommand command = new IdempotentCommand(actor.id(), idempotencyKey, "POST /api/v1/partners/import",
-                Map.of("companyId", companyId, "sha256", sha256(file)));
+                Map.of("companyId", companyId, "sha256", ExcelSupport.sha256(file)));
         return idempotency.execute(command, ImportResultResponse.class, () -> {
             List<Partner> partners = parsePartners(companyId, file);
             partnerRepository.saveAllAndFlush(partners);
@@ -152,7 +151,7 @@ public class MasterDataImportService {
         Set<String> codesInFile = new HashSet<>();
         try (Workbook workbook = ExcelSupport.open(file)) {
             Sheet sheet = workbook.getSheetAt(0);
-            requireRowCount(sheet);
+            ExcelSupport.requireRowCount(sheet);
             for (int index = 1; index <= sheet.getLastRowNum(); index++) {
                 Row row = sheet.getRow(index);
                 if (ExcelSupport.isBlankRow(row, PRODUCT_HEADERS.size())) {
@@ -167,7 +166,7 @@ public class MasterDataImportService {
         } catch (IOException ex) {
             throw BusinessException.invalidField("file", "Không đọc được file Excel (.xlsx).");
         }
-        requireNotEmpty(products.isEmpty() && codesInFile.isEmpty());
+        ExcelSupport.requireNotEmpty(products.isEmpty() && codesInFile.isEmpty());
         errors.throwIfAny();
         return products;
     }
@@ -224,7 +223,7 @@ public class MasterDataImportService {
         Set<String> codesInFile = new HashSet<>();
         try (Workbook workbook = ExcelSupport.open(file)) {
             Sheet sheet = workbook.getSheetAt(0);
-            requireRowCount(sheet);
+            ExcelSupport.requireRowCount(sheet);
             for (int index = 1; index <= sheet.getLastRowNum(); index++) {
                 Row row = sheet.getRow(index);
                 if (ExcelSupport.isBlankRow(row, PARTNER_HEADERS.size())) {
@@ -239,7 +238,7 @@ public class MasterDataImportService {
         } catch (IOException ex) {
             throw BusinessException.invalidField("file", "Không đọc được file Excel (.xlsx).");
         }
-        requireNotEmpty(partners.isEmpty() && codesInFile.isEmpty());
+        ExcelSupport.requireNotEmpty(partners.isEmpty() && codesInFile.isEmpty());
         errors.throwIfAny();
         return partners;
     }
@@ -333,26 +332,6 @@ public class MasterDataImportService {
         } catch (IllegalArgumentException ex) {
             errors.add(field, label + " '" + text + "' không hợp lệ.");
             return null;
-        }
-    }
-
-    private static void requireRowCount(Sheet sheet) {
-        if (sheet.getLastRowNum() > ExcelSupport.MAX_ROWS) {
-            throw BusinessException.invalidField("file", "File vượt " + ExcelSupport.MAX_ROWS + " dòng dữ liệu.");
-        }
-    }
-
-    private static void requireNotEmpty(boolean empty) {
-        if (empty) {
-            throw BusinessException.invalidField("file", "File không có dòng dữ liệu nào.");
-        }
-    }
-
-    private static String sha256(MultipartFile file) {
-        try {
-            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(file.getBytes()));
-        } catch (IOException | NoSuchAlgorithmException ex) {
-            throw BusinessException.invalidField("file", "Không đọc được file.");
         }
     }
 }

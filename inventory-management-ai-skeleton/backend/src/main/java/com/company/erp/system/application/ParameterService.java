@@ -11,6 +11,7 @@ import com.company.erp.system.domain.ParameterDefinition;
 import com.company.erp.system.infrastructure.persistence.CompanyRepository;
 import com.company.erp.system.infrastructure.persistence.ParameterDefinitionRepository;
 import com.company.erp.system.infrastructure.persistence.ParameterRepository;
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -47,12 +48,21 @@ public class ParameterService {
     /** Giá trị số nguyên của tham số cho công ty: giá trị riêng nếu đã đặt, ngược lại giá trị mặc định. */
     @Transactional(readOnly = true)
     public int integerValue(Long companyId, String key) {
-        String value = parameterRepository.findByCompanyIdAndKey(companyId, key)
+        return Integer.parseInt(rawValue(companyId, key));
+    }
+
+    /** Giá trị thập phân (ngưỡng tiền) của tham số cho công ty: giá trị riêng nếu đã đặt, ngược lại mặc định. */
+    @Transactional(readOnly = true)
+    public BigDecimal decimalValue(Long companyId, String key) {
+        return new BigDecimal(rawValue(companyId, key));
+    }
+
+    private String rawValue(Long companyId, String key) {
+        return parameterRepository.findByCompanyIdAndKey(companyId, key)
                 .map(Parameter::getValue)
                 .orElseGet(() -> definitionRepository.findById(key)
                         .map(ParameterDefinition::getDefaultValue)
                         .orElseThrow(() -> new IllegalStateException("Tham số chưa được khai báo: " + key)));
-        return Integer.parseInt(value);
     }
 
     /** Toàn bộ tham số của công ty (danh mục nhỏ, cố định theo migration, không phân trang). */

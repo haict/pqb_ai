@@ -1,10 +1,8 @@
 package com.company.erp.inventory;
 
-import static com.company.erp.support.ApiTestSupport.createUser;
 import static com.company.erp.support.ApiTestSupport.json;
 import static com.company.erp.support.ApiTestSupport.login;
 import static com.company.erp.support.ApiTestSupport.newKey;
-import static com.company.erp.support.ApiTestSupport.unique;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -17,29 +15,23 @@ import com.company.erp.inventory.application.InventoryReservationService;
 import com.company.erp.inventory.application.dto.ReservationRequest;
 import com.company.erp.support.ApiTestSupport.Session;
 import com.company.erp.support.MySqlIntegrationTest;
-import com.jayway.jsonpath.JsonPath;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
-import org.springframework.test.web.servlet.ResultActions;
-import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
@@ -49,41 +41,17 @@ import org.springframework.transaction.support.TransactionTemplate;
  */
 @MySqlIntegrationTest
 @AutoConfigureMockMvc
-class InventoryIntegrationTest {
+class InventoryIntegrationTest extends InventoryIntegrationSupport {
 
-    private static final String DOCS = "/api/v1/inventory-documents";
-
-    private final MockMvc mockMvc;
-    private final JdbcTemplate jdbc;
     private final InventoryReservationService reservations;
     private final TransactionTemplate transactions;
-
-    private Session admin;
-    private Session manager;
-    private Session director;
-    private long unitId;
-    private long categoryId;
 
     @Autowired
     InventoryIntegrationTest(MockMvc mockMvc, JdbcTemplate jdbc, InventoryReservationService reservations,
                              TransactionTemplate transactions) {
-        this.mockMvc = mockMvc;
-        this.jdbc = jdbc;
+        super(mockMvc, jdbc);
         this.reservations = reservations;
         this.transactions = transactions;
-    }
-
-    @BeforeEach
-    void setUp() throws Exception {
-        admin = login(mockMvc, "admin");
-        String managerName = unique("invm").toLowerCase();
-        String directorName = unique("invd").toLowerCase();
-        createUser(jdbc, managerName, "WAREHOUSE_MANAGER", "COMPANY", 1, 1, false);
-        createUser(jdbc, directorName, "DIRECTOR", "COMPANY", 1, 1, false);
-        manager = login(mockMvc, managerName);
-        director = login(mockMvc, directorName);
-        unitId = id("SELECT id FROM units WHERE company_id = 1 AND code = 'CAI'");
-        categoryId = id("SELECT id FROM product_categories WHERE company_id = 1 AND code = 'VT'");
     }
 
     @Test
@@ -381,168 +349,5 @@ class InventoryIntegrationTest {
         send(manager, post("/api/v1/stock-issue-policies/" + policy + "/cancel"), "{\"reason\":\"Thử hủy\"}",
                 newKey()).andExpect(status().isConflict());
         assertLedgerConsistent(product);
-    }
-
-    // ---- dữ liệu ----
-
-    private long warehouse(long branchId) throws Exception {
-        String code = unique("W");
-        MvcResult result = send(admin, post("/api/v1/warehouses"), "{\"branchId\":" + branchId + ",\"code\":\"" + code
-                + "\",\"name\":\"Kho test " + code + "\",\"warehouseType\":\"NORMAL\"}", newKey())
-                .andExpect(status().isCreated()).andReturn();
-        return jsonValue(result, "$.data.id", Integer.class);
-    }
-
-    private long product(boolean lot, boolean expiry, boolean serial) throws Exception {
-        String code = unique("P");
-        String body = "{\"companyId\":1,\"code\":\"" + code + "\",\"name\":\"Hàng " + code + "\",\"categoryId\":"
-                + categoryId + ",\"productType\":\"CONSUMABLE\",\"baseUnitId\":" + unitId + ",\"lotTracked\":" + lot
-                + ",\"expiryTracked\":" + expiry + ",\"serialTracked\":" + serial + "}";
-        return jsonValue(send(admin, post("/api/v1/products"), body, newKey()).andExpect(status().isCreated()).andReturn(),
-                "$.data.id", Integer.class);
-    }
-
-    private String receiptLine(long product, int quantity, String lotNo, String expiry, List<String> serials) {
-        StringBuilder line = new StringBuilder("{\"productId\":" + product + ",\"unitId\":" + unitId
-                + ",\"quantity\":" + quantity + ",\"unitCost\":1000");
-        if (lotNo != null) {
-            line.append(",\"lotNo\":\"").append(lotNo).append("\",\"expiryDate\":\"").append(expiry).append('"');
-        }
-        if (serials != null) {
-            line.append(",\"serialNumbers\":[\"").append(String.join("\",\"", serials)).append("\"]");
-        }
-        return line.append('}').toString();
-    }
-
-    private String issueLine(long product, int quantity, Long lotId, String overrideReason) {
-        return "{\"productId\":" + product + ",\"unitId\":" + unitId + ",\"quantity\":" + quantity
-                + (lotId == null ? "" : ",\"lotId\":" + lotId)
-                + (overrideReason == null ? "" : ",\"lotOverrideReason\":\"" + overrideReason + "\"") + "}";
-    }
-
-    private static String document(String type, long warehouse, List<String> lines, String date) {
-        return "{\"documentType\":\"" + type + "\",\"documentDate\":\"" + date + "\",\"warehouseId\":" + warehouse
-                + ",\"reasonText\":\"Kiểm thử\",\"lines\":[" + String.join(",", lines) + "]}";
-    }
-
-    // ---- quy trình ----
-
-    private long create(Session session, String type, long warehouse, List<String> lines) throws Exception {
-        return create(session, type, warehouse, lines, "2026-10-05");
-    }
-
-    private long create(Session session, String type, long warehouse, List<String> lines, String date)
-            throws Exception {
-        MvcResult result = send(session, post(DOCS), document(type, warehouse, lines, date), newKey())
-                .andExpect(status().isCreated()).andReturn();
-        return jsonValue(result, "$.data.id", Integer.class);
-    }
-
-    private long createAndPost(Session session, String type, long warehouse, List<String> lines) throws Exception {
-        long id = create(session, type, warehouse, lines);
-        submitAndApprove(id);
-        action(session, id, "post", null).andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.status").value("POSTED"));
-        return id;
-    }
-
-    private void submit(long id) throws Exception {
-        action(manager, id, "submit", null).andExpect(status().isOk());
-    }
-
-    private void submitAndApprove(long id) throws Exception {
-        submit(id);
-        if ("SUBMITTED".equals(docStatus(id))) {
-            approve(director, id);
-        }
-        assertThat(docStatus(id)).isEqualTo("APPROVED");
-    }
-
-    private void approve(Session session, long id) throws Exception {
-        action(session, id, "approve", "{}").andExpect(status().isOk());
-    }
-
-    private long reverse(long id) throws Exception {
-        MvcResult result = action(manager, id, "reverse", "{\"reason\":\"Ghi sai\",\"postingDate\":\"2026-10-09\"}")
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.data.documentType").value("PDK"))
-                .andExpect(jsonPath("$.data.status").value("SUBMITTED"))
-                .andReturn();
-        return jsonValue(result, "$.data.id", Integer.class);
-    }
-
-    private ResultActions action(Session session, long id, String action, String body) throws Exception {
-        return actionWithKey(session, id, action, body, newKey());
-    }
-
-    private ResultActions actionWithKey(Session session, long id, String action, String body, String key)
-            throws Exception {
-        MockHttpServletRequestBuilder request = as(session, post(DOCS + "/" + id + "/" + action))
-                .header(IdempotentCommand.HEADER, key);
-        if (body != null) {
-            request.contentType(MediaType.APPLICATION_JSON).content(body);
-        }
-        return mockMvc.perform(request);
-    }
-
-    // ---- kiểm tra ----
-
-    private String docStatus(long documentId) {
-        return jdbc.queryForObject("SELECT status FROM inventory_documents WHERE id = ?", String.class, documentId);
-    }
-
-    private BigDecimal onHand(long product, long warehouse) {
-        return jdbc.queryForObject("SELECT COALESCE(SUM(on_hand_quantity), 0) FROM inventory_balances "
-                + "WHERE product_id = ? AND warehouse_id = ?", BigDecimal.class, product, warehouse);
-    }
-
-    /** Số dư chi tiết = tổng sổ nhật ký theo từng khóa tồn; tổng (hàng, kho) = tổng số dư chi tiết. */
-    private void assertLedgerConsistent(long product) {
-        List<Map<String, Object>> mismatches = jdbc.queryForList("""
-                SELECT l.warehouse_id, l.location_id, l.lot_id, l.serial_id, l.quality_status, l.qty,
-                       COALESCE(b.on_hand_quantity, 0) AS balance
-                FROM (SELECT warehouse_id, location_id, lot_id, serial_id, quality_status,
-                             SUM(CASE WHEN direction = 'IN' THEN quantity ELSE -quantity END) AS qty
-                      FROM inventory_transactions WHERE product_id = ?
-                      GROUP BY warehouse_id, location_id, lot_id, serial_id, quality_status) l
-                LEFT JOIN inventory_balances b ON b.product_id = ? AND b.warehouse_id = l.warehouse_id
-                     AND b.location_id = l.location_id AND b.lot_key = COALESCE(l.lot_id, 0)
-                     AND b.serial_key = COALESCE(l.serial_id, 0) AND b.quality_status = l.quality_status
-                WHERE l.qty <> COALESCE(b.on_hand_quantity, 0)
-                """, product, product);
-        assertThat(mismatches).isEmpty();
-        List<Map<String, Object>> summaryMismatches = jdbc.queryForList("""
-                SELECT s.warehouse_id FROM inventory_stock_summaries s
-                WHERE s.product_id = ? AND s.on_hand_quantity <> (SELECT COALESCE(SUM(b.on_hand_quantity), 0)
-                      FROM inventory_balances b WHERE b.product_id = s.product_id AND b.warehouse_id = s.warehouse_id)
-                """, product);
-        assertThat(summaryMismatches).isEmpty();
-        assertThat(count("SELECT COUNT(*) FROM inventory_balances WHERE on_hand_quantity < 0")).isZero();
-    }
-
-    private long id(String sql) {
-        return jdbc.queryForObject(sql, Long.class);
-    }
-
-    private long count(String sql) {
-        return jdbc.queryForObject(sql, Long.class);
-    }
-
-    private ResultActions send(Session session, MockHttpServletRequestBuilder request, String body, String key)
-            throws Exception {
-        return mockMvc.perform(as(session, request).header(IdempotentCommand.HEADER, key)
-                .contentType(MediaType.APPLICATION_JSON).content(body));
-    }
-
-    private static MockHttpServletRequestBuilder as(Session session, MockHttpServletRequestBuilder request) {
-        return request.header(HttpHeaders.AUTHORIZATION, session.bearer());
-    }
-
-    private static <T> T jsonValue(MvcResult result, String path, Class<T> type) throws Exception {
-        Object value = JsonPath.read(result.getResponse().getContentAsString(), path);
-        if (type == Integer.class && value instanceof Number number) {
-            return type.cast(number.intValue());
-        }
-        return type.cast(value);
     }
 }

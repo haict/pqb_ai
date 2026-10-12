@@ -2,7 +2,7 @@
 
 | Thuộc tính | Giá trị |
 |---|---|
-| Phiên bản | 0.2 (DRAFT - phải duyệt trước khi viết migration) |
+| Phiên bản | 0.6 (đến Giai đoạn 4D) |
 | Ngày cập nhật | 2026-10-10 |
 | Database | MySQL 8.x, InnoDB, `utf8mb4_0900_ai_ci` |
 | Căn cứ | `docs/01-business-requirements.md` v0.6, `.claude/rules/database.md` |
@@ -61,7 +61,7 @@ Các bảng sau **chỉ INSERT** (không UPDATE/DELETE qua ứng dụng):
 Bảng số dư là bản đọc nhanh, tái tạo được từ sổ phụ:
 - `inventory_balances`
 - `inventory_stock_summaries`
-- `receivables.remaining_amount`, `payables.remaining_amount`
+- `debt_items.remaining_amount` (thay `receivables` / `payables`, ADR-12)
 - `cash_accounts.balance`
 
 ## 2. Danh sách bảng theo module
@@ -157,17 +157,19 @@ Bảng số dư là bản đọc nhanh, tái tạo được từ sổ phụ:
 ### M07 - `finance`
 | Bảng | Mục đích |
 |---|---|
-| `receivables` | Khoản phải thu theo hóa đơn: số gốc, đã thu, còn lại, hạn |
-| `payables` | Khoản phải trả theo hóa đơn |
+| `debt_items` | Khoản công nợ (phải thu / phải trả, cột `debt_type`) theo chứng từ nguồn: số gốc, đã thanh toán, còn lại, hạn (V10; thay hai bảng `receivables`, `payables` dự kiến vì cùng cấu trúc, ADR-12) |
 | `debt_ledger_entries` | **Sổ chi tiết công nợ** (bất biến) |
+| `debt_opening_documents`, `debt_opening_lines` | Chứng từ công nợ đầu kỳ (CNDK) theo từng hóa đơn cũ (V10) |
 | `cash_accounts` | Quỹ tiền mặt, tài khoản ngân hàng |
-| `cash_receipts`, `cash_receipt_lines` | Phiếu thu, giấy báo có |
-| `cash_payments`, `cash_payment_lines` | Phiếu chi, ủy nhiệm chi |
-| `cash_transfers` | Chuyển tiền nội bộ |
+| `cash_documents`, `cash_document_lines` | Chứng từ thu chi: phiếu thu, phiếu chi, giấy báo có, ủy nhiệm chi, chuyển tiền nội bộ (V11; một bảng thay `cash_receipts`, `cash_payments`, `cash_transfers` dự kiến, ADR-13) |
 | `payment_allocations` | Phân bổ thanh toán vào hóa đơn |
 | `cash_ledger_entries` | **Sổ quỹ / sổ tiền gửi** (bất biến) |
-| `debt_adjustments` | Điều chỉnh công nợ khi đối chiếu, có duyệt |
-| `employee_advances` | Tạm ứng, hoàn ứng |
+| `debt_prepayments` | Số dư tiền trả trước chưa bù trừ theo (chi nhánh, loại công nợ, đối tượng), khóa được (V12) |
+| `debt_offset_documents`, `debt_offset_lines` | Bù trừ công nợ: trả trước với hóa đơn, phải thu với phải trả (V12) |
+| `debt_adjustment_documents`, `debt_adjustment_lines` | Điều chỉnh công nợ có duyệt (DCCN) và thanh toán tạm ứng (TTTU) (V12; thay `debt_adjustments` dự kiến) |
+| `debt_reconciliations` | Biên bản đối chiếu công nợ: số dư hệ thống chốt và số đối tượng xác nhận (V12) |
+| `cash_counts` | Kiểm kê quỹ tiền mặt (V12) |
+| (không có `employee_advances`) | Tạm ứng là khoản công nợ `debt_type = ADVANCE` sinh từ phiếu chi tạm ứng (ADR-14) |
 
 ### M08 - `accounting`
 | Bảng | Mục đích |
@@ -238,7 +240,7 @@ erDiagram
     inventory_receipt_lines ||--o{ purchase_invoice_lines : "hóa đơn"
     purchase_invoices ||--|| payables : "công nợ"
     payables ||--o{ payment_allocations : ""
-    cash_payments ||--o{ payment_allocations : ""
+    cash_documents ||--o{ payment_allocations : "phiếu chi / UNC"
 ```
 
 ### 3.4 Chuỗi bán hàng và đấu thầu
@@ -262,7 +264,7 @@ erDiagram
     delivery_lines ||--o{ sales_invoice_lines : "hóa đơn"
     sales_invoices ||--|| receivables : "công nợ"
     receivables ||--o{ payment_allocations : ""
-    cash_receipts ||--o{ payment_allocations : ""
+    cash_documents ||--o{ payment_allocations : "phiếu thu / báo có"
 ```
 
 ### 3.5 Kho và kế toán
@@ -279,6 +281,22 @@ erDiagram
     cost_calculation_runs ||--o{ inventory_cost_results : ""
     journal_entries ||--o{ journal_entry_lines : ""
     chart_of_accounts ||--o{ journal_entry_lines : ""
+```
+
+### 3.6 Quỹ, ngân hàng và công nợ (V10, V11)
+```mermaid
+erDiagram
+    cash_accounts ||--o{ cash_documents : "quỹ chính"
+    cash_accounts ||--o{ cash_documents : "quỹ nhận (chuyển tiền)"
+    cash_documents ||--o{ cash_document_lines : ""
+    cash_document_lines }o--o| debt_items : "phân bổ chỉ định"
+    cash_document_lines }o--o| chart_of_accounts : "tài khoản đối ứng"
+    cash_documents ||--o{ payment_allocations : "nguồn"
+    debt_items ||--o{ payment_allocations : ""
+    cash_documents ||--o{ cash_ledger_entries : "sổ quỹ"
+    cash_accounts ||--o{ cash_ledger_entries : ""
+    cash_documents ||--o{ debt_ledger_entries : "giảm công nợ, trả trước"
+    cash_accounts }o--|| chart_of_accounts : "tài khoản tiền"
 ```
 
 ## 4. Data dictionary - bảng lõi
@@ -382,7 +400,13 @@ Tồn khả dụng = `sellable_quantity − reserved_quantity` (tính, không l�
 
 CHECK `delivered_quantity ≤ max_quantity`. Khóa `FOR UPDATE` khi xuất/giao theo hợp đồng (AT-07).
 
-### 4.8 `receivables` / `payables`
+### 4.8 `debt_items` (V10, thay `receivables` / `payables`)
+- `id, company_id, branch_id, debt_type (RECEIVABLE/PAYABLE), partner_id, source_type, source_id, source_line_id, source_line_key` (cột sinh), `source_no, invoice_no, document_date, due_date, original_amount, settled_amount, remaining_amount` (cột sinh = gốc − đã thanh toán), `sales_user_id, description, status (OPEN/PARTIAL/SETTLED/REVERSED)`, cột audit, `version`.
+- Unique `(company_id, debt_type, source_type, source_id, source_line_key)`: gửi lại không tạo khoản trùng. `CHECK 0 <= settled_amount <= original_amount`, `original_amount > 0`, `due_date >= document_date`.
+- Index `(partner_id, due_date)`, `(company_id, debt_type, status, due_date)`.
+- `contract_id` thêm khi làm Giai đoạn 7.
+
+Thiết kế ban đầu (giữ để tham chiếu):
 | Cột | Kiểu | Mô tả |
 |---|---|---|
 | id, company_id, branch_id, partner_id | | |
@@ -395,16 +419,108 @@ CHECK `delivered_quantity ≤ max_quantity`. Khóa `FOR UPDATE` khi xuất/giao 
 
 Index `(partner_id, due_date)`, `(status, due_date)`.
 
-### 4.9 `debt_ledger_entries` (bất biến)
-`id, company_id, branch_id, partner_id, debt_type (AR/AP), posting_date, entry_type (INVOICE, RECEIPT, PAYMENT, RETURN, DISCOUNT, OFFSET, ADJUSTMENT, REVERSAL), debit_amount, credit_amount, receivable_id / payable_id, reference_type, reference_id, reference_no, reversal_of_id, created_by, created_at`.
+### 4.9 `debt_ledger_entries` (bất biến, V10)
+`id, company_id, branch_id, debt_type (RECEIVABLE/PAYABLE), partner_id, debt_item_id` (NULL cho tiền trả trước chưa phân bổ, Giai đoạn 4C), `posting_date, entry_type (OPENING, INVOICE, RECEIPT, PAYMENT, RETURN, DISCOUNT, OFFSET, ADJUSTMENT, PREPAYMENT, REVERSAL), debit_amount, credit_amount` (đúng một vế > 0), `reference_type, reference_id, reference_line_id, reference_no, description, reversal_of_id, created_by, created_at`.
+- Phải thu tăng ở vế Nợ, phải trả tăng ở vế Có. Số dư theo đối tượng = Σ Nợ − Σ Có (phải thu) hoặc Σ Có − Σ Nợ (phải trả); test kiểm tra số dư = Σ còn lại của khoản công nợ.
+- Index `(company_id, debt_type, partner_id, posting_date)`, `(reference_type, reference_id)`, `(debt_item_id)`.
 
-### 4.10 `payment_allocations`
-`id, payment_type (RECEIPT/PAYMENT), payment_id, receivable_id / payable_id, allocated_amount, discount_amount, posting_date, status (ACTIVE/REVERSED), reversal_of_id, created_by, created_at`.
+### 4.9a `debt_opening_documents`, `debt_opening_lines` (V10)
+- Đầu: `company_id, branch_id, document_no` (loại `CNDK`), `debt_type, document_date, posting_date, description, total_amount, status` (nhóm A + `REVERSED`), người / thời điểm gửi, duyệt, ghi sổ, đảo, `reverse_date, reason`, audit, `version`.
+- Dòng: `document_id, line_no` (unique), `partner_id, invoice_no, invoice_date, due_date, amount (> 0), sales_user_id, note`.
+- V10 cũng thêm loại chứng từ `CNDK` (bắt buộc duyệt), tham số `finance.aging-bucket-{1,2,3}-days` (30 / 60 / 90 `[Giả định]`), quyền `debt:view`, `debt-opening:*`.
 
-### 4.11 `journal_entries`, `journal_entry_lines`
-- `journal_entries`: `id, company_id, branch_id, entry_no, posting_date, source_type, source_id, source_no, entry_kind (AUTO/MANUAL/COST/CLOSING), status, reversal_of_id, audit`.
-- `journal_entry_lines`: `id, journal_entry_id, account_id, debit_amount, credit_amount, partner_id, product_id, warehouse_id`, các cột phân tích.
-- Ràng buộc nghiệp vụ: Σ Nợ = Σ Có (kiểm tra ở service + test).
+### 4.10 `payment_allocations` (V11)
+- `id, company_id, branch_id, debt_item_id, source_type, source_id, source_line_id, source_no` (nguồn tổng quát: phiếu thu / chi, đối trừ ở 4D), `posting_date, amount (> 0), status (ACTIVE/REVERSED), reversed_by, reversed_at, created_by, created_at`.
+- Index `(debt_item_id, status)`, `(source_type, source_id)`.
+- Ghi khi phân bổ thanh toán (`DebtPostingService.settle`): cộng `debt_items.settled_amount` trong cùng transaction sau khi khóa khoản công nợ. Đảo chứng từ nguồn: `REVERSED` và trừ lại `settled_amount`.
+- Thiết kế ban đầu (`payment_type, payment_id, receivable_id / payable_id, discount_amount, reversal_of_id`) thay bằng nguồn tổng quát theo ADR-12; chiết khấu thanh toán làm ở Giai đoạn 6 khi có hóa đơn.
+
+### 4.10a `cash_accounts` (V11, BR-CSH-01, BR-MD-46)
+- `id, company_id, branch_id, code` (unique theo công ty), `name, account_type (CASH/BANK), gl_account_id` (FK `chart_of_accounts`: tài khoản tiền chi tiết), `bank_name, bank_account_no` (bắt buộc với BANK), `currency_code` (`VND`; ngoại tệ ở P2, BR-AP-03), `balance, status`, cột audit, `version`.
+- `balance` là bản đọc nhanh của sổ quỹ, chỉ đổi khi ghi sổ / đảo chứng từ thu chi (khóa `FOR UPDATE`). `CHECK (account_type <> 'CASH' OR balance >= 0)`: quỹ tiền mặt không âm (BR-CSH-03); tài khoản ngân hàng không chặn âm `[Giả định]`.
+- Quỹ còn số dư không ngừng hoạt động được. Index `(branch_id, status)`.
+
+### 4.10b `cash_documents`, `cash_document_lines` (V11, BR-CSH-02, ADR-13)
+- Đầu: `company_id, branch_id, document_no, document_type` (FK `sys_document_types`: PT, PC, BC, UNC, CTN), `purpose (CUSTOMER_RECEIPT, SUPPLIER_PAYMENT, OTHER_RECEIPT, OTHER_PAYMENT, INTERNAL_TRANSFER)`, `document_date, posting_date, cash_account_id, target_cash_account_id` (chỉ chuyển tiền), `partner_id, counterparty_name` (người nộp / nhận), `allocation_mode (AUTO/MANUAL`, chỉ thu tiền khách / trả nhà cung cấp), `description, total_amount, allocated_amount, prepayment_amount` (ghi khi ghi sổ), `status` (nhóm A), người / thời điểm gửi, duyệt, ghi sổ, đảo, `reverse_date, reason`, audit, `version`.
+  - `CHECK`: `total_amount > 0`; `allocated_amount + prepayment_amount <= total_amount`; quỹ nhận có khi và chỉ khi chuyển tiền; thu tiền khách / trả nhà cung cấp bắt buộc đối tượng và cách phân bổ.
+  - Index `(company_id, branch_id, status, document_date)`, `(partner_id, document_date)`.
+- Dòng: `document_id, line_no` (unique), `debt_item_id` (phân bổ chỉ định) **hoặc** `account_id` (tài khoản đối ứng của thu chi khác), `cost_item_id` (khoản mục, `reference_items` nhóm `COST_ITEM`), `amount (> 0), description`.
+- Loại chứng từ ↔ quỹ: PT, PC dùng quỹ tiền mặt; BC, UNC dùng tài khoản ngân hàng; CTN mọi loại. Quỹ chính cùng chi nhánh với chứng từ; quỹ nhận cùng công ty.
+
+### 4.10c `cash_ledger_entries` (bất biến, V11)
+- `id, company_id, branch_id, cash_account_id, posting_date, transaction_code` (= `purpose`), `debit_amount` (tiền vào), `credit_amount` (tiền ra), đúng một vế > 0, `partner_id, counterparty_name, reference_type, reference_id, reference_line_id, reference_no, description, reversal_of_id, created_by, created_at`.
+- Số dư quỹ = Σ Nợ − Σ Có; test khẳng định bằng `cash_accounts.balance`. Chuyển tiền sinh một dòng ra ở quỹ chuyển và một dòng vào ở quỹ nhận.
+- Index `(cash_account_id, posting_date)`, `(reference_type, reference_id)`, `(company_id, posting_date)`.
+- V11 cũng thêm loại chứng từ PT, BC (`NONE`), PC, UNC, CTN (`CONFIGURED`), tham số `finance.payment-approval-threshold` (DECIMAL, mặc định 20.000.000 `[Giả định]`), quyền `cash-account:*`, `cash-document:*`, `cash-book:view`, và bỏ `CHECK ck_posting_rules_accounts` (quy tắc được để trống cả hai vế, mục 4.11a).
+
+### 4.10d Giai đoạn 4D (V12): trả trước, bù trừ, điều chỉnh, đối chiếu, kiểm kê quỹ
+- `debt_items`, `debt_ledger_entries`, `debt_opening_documents`: `debt_type` thêm `ADVANCE` (tạm ứng nhân viên, TK 141, tăng ở vế Nợ, ADR-14). `cash_documents.purpose` thêm `EMPLOYEE_ADVANCE` (chi tạm ứng: sinh khoản công nợ tạm ứng, hạn = ngày hạch toán + tham số `finance.advance-due-days`, mặc định 30 `[Giả định]`) và `ADVANCE_RETURN` (hoàn ứng bằng tiền: phân bổ vào khoản tạm ứng).
+- `debt_prepayments`: `company_id, branch_id, debt_type, partner_id` (unique), `amount (>= 0), updated_at`. Bản đọc nhanh của dòng sổ chi tiết công nợ không gắn khoản công nợ (ghi trả trước tăng, bù trừ trả trước giảm); V12 tái tạo từ sổ chi tiết. Test khẳng định `amount` = − Σ (theo chiều tự nhiên) dòng sổ không gắn khoản công nợ.
+- `debt_offset_documents` (loại `DTCN`, `CONFIGURED`): cột chung chứng từ nhóm A + `offset_type (PREPAYMENT/AR_AP)`, `debt_type` (chỉ PREPAYMENT), `partner_id, total_amount`. `debt_offset_lines`: `debt_item_id, amount (> 0), description`. Bù trừ trả trước không sinh bút toán (cùng tài khoản công nợ); phải thu - phải trả sinh bút toán `AR_AP_OFFSET`.
+- `debt_adjustment_documents` (loại `DCCN` bắt buộc duyệt, `TTTU` `CONFIGURED`): `document_type, debt_type` (TTTU chỉ `ADVANCE`), `partner_id, reconciliation_id` (biên bản đối chiếu lệch, tùy chọn), `total_amount`. `debt_adjustment_lines`: `direction (INCREASE/DECREASE)`, `debt_item_id` (bắt buộc khi giảm), `account_id` (tài khoản đối ứng), `cost_item_id, amount, invoice_no, due_date` (khi tăng), `description`. Bút toán mỗi dòng theo mã `<loại công nợ>_<INCREASE|DECREASE>`.
+- `debt_reconciliations` (số theo loại `BBDC`): `branch_id` (NULL = toàn công ty), `debt_type, partner_id, period_from, as_of_date, system_balance` (chốt từ sổ chi tiết đến hết ngày đối chiếu), `confirmed_balance, status (PENDING/MATCHED/DIFFERENT/CANCELLED), contact_name, confirmed_by, confirmed_at, note`, audit, `version`.
+- `cash_counts` (loại `KKQ`, bắt buộc duyệt): cột chung chứng từ nhóm A + `cash_account_id` (quỹ tiền mặt), `counted_amount (>= 0), book_balance, difference_amount` (chốt khi ghi sổ: số dư sổ quỹ đến hết ngày kiểm kê). Chênh lệch ghi sổ quỹ `CASH_SURPLUS` / `CASH_SHORTAGE` và bút toán.
+- V12 cũng thêm loại chứng từ `DTCN, DCCN, TTTU, BBDC, KKQ`, tham số `finance.advance-due-days`, quyền `debt-offset:*`, `debt-adjustment:*`, `debt-reconciliation:*`, `cash-count:*`.
+
+### 4.10e Giai đoạn 5A (V13): đề nghị mua, đơn mua hàng
+Chứng từ nhóm B (ADR-15): cột chung `company_id, branch_id, document_no` (unique theo công ty), `document_date, description, status (DRAFT/SUBMITTED/REJECTED/APPROVED/IN_PROGRESS/COMPLETED/CLOSED/CANCELLED), submitted_by/at, approved_by/at, closed_by/at, reason`, audit, `version`. Số lượng tiến độ theo **đơn vị cơ sở**.
+- `purchase_requisitions` (loại `DNM`, `CONFIGURED`: duyệt khi có luồng): `required_date, requester_id (sys_users), source_type (MANUAL)`. Nguồn từ đơn bán / hợp đồng / định mức thêm ở Giai đoạn 6, 7, 10.
+- `purchase_requisition_lines`: `product_id, unit_id, conversion_factor, quantity, base_quantity, ordered_quantity` (cộng khi đơn mua tham chiếu được duyệt, trừ khi đơn đó bị hủy), `closed_quantity` (đóng phần còn lại), `suggested_supplier_id, required_date, note`. Còn lại = cơ sở − đã đặt − đã đóng.
+- `purchase_orders` (loại `DMH`, `CONFIGURED` + ngưỡng tham số `purchasing.order-approval-threshold`, mặc định 50.000.000 đ `[Giả định]`): `supplier_id` (đối tác vai trò SUPPLIER), `warehouse_id` (kho vật lý cùng chi nhánh), `expected_date, payment_term_days` (trống: theo NCC), `currency_code` (P1 chỉ VND, D-24), `exchange_rate, amount` (Σ số lượng × đơn giá), `discount_amount, tax_amount, total_amount` = tiền hàng − chiết khấu + thuế; `CHECK` các số tiền ≥ 0.
+- `purchase_order_lines`: `product_id, unit_id, conversion_factor, quantity, base_quantity, unit_price, discount_percent (0..100), discount_amount, amount, tax_rate_id, tax_rate` (chốt thuế suất tại ngày đơn), `tax_amount, expected_date, requisition_line_id`; tiến độ (BR-PUR-05) `received_quantity, stocked_quantity, rejected_quantity, invoiced_quantity, closed_quantity` (5B, 5C cập nhật). Tiền làm tròn đến đồng (D-05), do server tính. Còn thiếu = cơ sở − đã nhập − đã đóng = phần đóng góp vào hàng đang về.
+- `inventory_stock_summaries.incoming_quantity` (đã có từ V6) nay được ghi: + số đặt khi đơn mua duyệt; − phần còn thiếu khi hủy đơn đã duyệt / đóng phần còn lại; − khi nhập kho (5B). Chỉ hàng quản lý tồn (không tính dịch vụ).
+- V13 thêm loại chứng từ `DNM, DMH`, tham số `purchasing.order-approval-threshold`, quyền `purchase-requisition:*`, `purchase-order:*`.
+
+### 4.10f Giai đoạn 5B (V14): phiếu nhận hàng, nhập kho theo phiếu nhận hàng
+- `inventory_documents` thêm `source_type, source_id, source_no` (chứng từ nguồn của module khác, hiện `PNH`; index `(source_type, source_id)`); `inventory_document_lines` thêm `source_line_id` (dòng phiếu nhận hàng). Truy vết hai chiều: phiếu nhận hàng lưu `inventory_document_id`.
+- `purchase_receipts` (loại `PNH`, `CONFIGURED`: chỉ qua luồng duyệt khi nhận vượt dung sai): cột chung chứng từ mua hàng (ADR-15) + `posting_date, purchase_order_id, supplier_id, warehouse_id` (theo đơn mua), `delivery_note_no` (số phiếu giao của NCC), `over_tolerance` (kết quả xét dung sai lúc gửi duyệt), `inventory_document_id, stocked_by, stocked_at` (nhập kho), `posted_by/at, reversed_by/at, reverse_date`. Trạng thái `DRAFT/SUBMITTED/REJECTED/APPROVED/POSTED/CANCELLED/REVERSED`.
+- `purchase_receipt_lines`: `order_line_id, product_id, unit_id, conversion_factor` (theo dòng đơn mua), `quantity, base_quantity, inspection_result (ACCEPTED/QUARANTINE/RETURN), reject_reason` (bắt buộc khi lỗi), `location_id, lot_no, manufacture_date, expiry_date, unit_cost` (đơn giá tạm tính theo đơn mua = tiền sau chiết khấu / số lượng, BR-PUR-10), `note`. Một dòng một lô, một kết quả; nhiều dòng có thể cùng dòng đơn mua. `purchase_receipt_serials (line_id, serial_no)`.
+- Ghi sổ phiếu: + `received_quantity`, + `rejected_quantity` (cách ly + trả lại) của dòng đơn mua. Nhập kho: PNK cho dòng đạt (trạng thái chất lượng ban đầu của hàng, D-09) và cách ly (`QUARANTINE`); + `stocked_quantity`; − hàng đang về theo số còn thiếu giảm. Hàng trả lại không nhập kho, vẫn là còn thiếu (NCC giao bù) cho đến khi đóng.
+- V14 thêm loại chứng từ `PNH`, tham số `purchasing.receipt-over-tolerance-percent` (0% `[Giả định]`), quyền `purchase-receipt:view/create/approve/post/reverse`.
+
+### 4.10g Giai đoạn 5C (V15): hóa đơn mua, điều chỉnh giá trị nhập
+- `purchase_invoices` (loại `HDM`, `CONFIGURED`): cột chung chứng từ mua hàng + `posting_date, supplier_id, seller_tax_code` (mặc định MST nhà cung cấp), `invoice_series, invoice_no, invoice_date, due_date` (mặc định ngày hóa đơn + hạn thanh toán của đơn mua / nhà cung cấp), `duplicate_key` (MST|ký hiệu|số viết hoa; unique `(company_id, duplicate_key)`, NULL khi hủy / đảo), `amount, tax_amount, total_amount`, `posted_by/at, reversed_by/at, reverse_date`.
+- `purchase_invoice_lines`: `receipt_line_id` (hàng hóa: dòng phiếu nhận đã nhập kho, một dòng phiếu nhận chỉ một lần trên một hóa đơn) hoặc trống (dịch vụ, BR-PUR-16), `order_line_id, product_id, unit_id, conversion_factor, quantity, base_quantity, unit_price, amount` (= số lượng × đơn giá, làm tròn đồng), `tax_rate_id, tax_rate, tax_amount, promotional` (hàng khuyến mại: giá trị 0 `[Giả định]`), `description`.
+- `purchase_receipt_lines.invoiced_quantity` (đơn vị cơ sở, không vượt số đã nhập kho của dòng); `purchase_order_lines.service_line` (dòng dịch vụ: còn thiếu tính theo số đã nhận hóa đơn thay vì số đã nhập kho).
+- `purchase_cost_entries` (chỉ INSERT, đảo bằng dòng âm `reversal_of_id`): `receipt_line_id, product_id, warehouse_id, entry_type (INVOICE_PRICE / LANDED_COST / DISCOUNT), posting_date, base_quantity, amount`, tham chiếu chứng từ. Hóa đơn ghi `INVOICE_PRICE` = thành tiền hóa đơn − đơn giá tạm tính × số lượng (BR-PUR-10). Giai đoạn 8 dùng để tính lại giá vốn; 5D ghi chi phí mua phân bổ, giảm giá.
+- Ghi sổ hóa đơn: khoản công nợ `PAYABLE` nguồn `HDM` (một khoản cho cả hóa đơn, tổng gồm thuế, D-34); bút toán theo quy tắc `HDM`: `PURCHASE` (theo loại hàng; dev: hàng hóa Nợ 1561, dịch vụ Nợ 6422 / Có 331), `PURCHASE_VAT` (dev Nợ 1331 / Có 331) `[Chưa kiểm chứng]`.
+- V15 thêm loại chứng từ `HDM`, tham số `purchasing.price-tolerance-percent` (0% `[Giả định]`), quyền `purchase-invoice:view/create/approve/post/reverse`.
+
+### 4.10h Giai đoạn 5D (V16): trả hàng NCC, giảm giá hàng mua, phân bổ chi phí mua
+- `purchase_receipt_lines.returned_quantity` (tổng đã trả NCC), `returned_invoiced_quantity` (phần thuộc hàng đã có hóa đơn). Số còn chưa nhận hóa đơn = đã nhập − đã nhận hóa đơn − (đã trả − đã trả có hóa đơn).
+- `purchase_invoice_lines.returned_quantity`, `adjusted_amount` (giá trị đã giảm do trả hàng / giảm giá, trước thuế), `allocated_amount` (đã phân bổ chi phí, chỉ dòng dịch vụ); `CHECK adjusted + allocated <= amount`.
+- `purchase_returns` (loại `THN` trả hàng / `GGM` giảm giá, cùng bảng): cột chung chứng từ mua + `document_type, posting_date, supplier_id, purchase_invoice_id` (bắt buộc với GGM; với THN có khi hàng đã có hóa đơn), `warehouse_id` (THN: kho của phiếu nhận), `inventory_document_id` (phiếu xuất trả PXK), `amount, tax_amount, total_amount`.
+- `purchase_return_lines`: `receipt_line_id, invoice_line_id, product_id, unit_id, conversion_factor, quantity, base_quantity` (trống với giảm giá), `lot_no, quality_status` (hàng xuất trả), `unit_price` (đơn giá hóa đơn, hoặc giá tạm tính khi chưa có hóa đơn), `amount, tax_rate_id, tax_rate, tax_amount`; `purchase_return_serials`.
+- `purchase_cost_allocations` (loại `PBC`): `posting_date, allocation_method (VALUE / QUANTITY), amount`; `purchase_cost_allocation_sources` (dòng dịch vụ hóa đơn mua `invoice_line_id`, `amount`); `purchase_cost_allocation_targets` (dòng phiếu nhận `receipt_line_id`, `base_quantity`, `basis_value` = giá trị nhập tạm tính, `allocated_amount` làm tròn đồng, dòng cuối nhận phần dư).
+- Ghi sổ trả hàng có hóa đơn / giảm giá: giảm khoản công nợ `PAYABLE` của hóa đơn (phân bổ loại `RETURN` / `DISCOUNT`; vượt số còn nợ thì ghi trả trước của nhà cung cấp); bút toán quy tắc `THN` (`PURCHASE_RETURN`, `_VAT`), `GGM` (`PURCHASE_DISCOUNT` theo loại hàng, `_VAT`) `[Chưa kiểm chứng]`. Trả hàng chưa có hóa đơn chỉ giảm tồn. Giảm giá ghi `purchase_cost_entries` loại `DISCOUNT` (âm) theo dòng phiếu nhận; phân bổ ghi `LANDED_COST`, bút toán `PBC` `LANDED_COST` (dev Nợ 1562 / Có 6422).
+- Module kho: `inventory_transactions.transaction_type` thêm `PURCHASE_RETURN`, `SALES_ISSUE`, `SALES_RETURN`; phiếu kho do chứng từ nguồn sinh có `sub_type` `PURCHASE_RETURN` / `SALE` (PXK), `SALES_RETURN` (PNK). Giữ chỗ dùng `consumed_quantity` khi xuất theo chứng từ nguồn.
+- V16 thêm loại chứng từ `THN`, `GGM`, `PBC` (`CONFIGURED`), quyền `purchase-return:*`, `purchase-cost-allocation:*`.
+
+### 4.12s Giai đoạn 6 (V17..V21): bán hàng
+- **V17** `sales_quotes` (BG): khách, người liên hệ, `valid_until` (mặc định + `sales.quote-validity-days`), điều kiện giao / bảo hành / thanh toán, `revision_no`, `previous_quote_id`, `sales_user_id`, tổng tiền, `approval_reasons`, `sales_order_id`, `sent_at`, `responded_at`; trạng thái DRAFT / SUBMITTED / REJECTED / APPROVED / SENT / ACCEPTED / DECLINED / EXPIRED / CLOSED / CANCELLED. `sales_quote_lines`: hàng, đơn vị, số lượng, `list_price` (giá đề xuất), `floor_price`, `price_source`, `unit_price`, `discount_percent`, `discount_amount`, `amount`, thuế, `promotional`.
+- **V17** `sales_orders` (DBH): khách, báo giá, địa chỉ / người nhận, kho xuất, `payment_term_days`, `reserve_stock`, `reserved_until`, `sales_user_id`, tổng tiền, `approval_reasons`. `sales_order_lines`: cột giá như dòng báo giá + `service_line`, `expected_date`, tiến độ (đơn vị cơ sở) `issued / delivered / invoiced / returned / closed_quantity`. `sales_order_payment_terms`: đợt, `%`, số tiền, `due_basis` (ORDER_DATE / DELIVERY / INVOICE / ACCEPTANCE), `due_days`. `purchase_requisitions.source_id, source_no`, nguồn SALES_ORDER. Tham số `sales.discount-approval-percent` (10%), `sales.quote-validity-days` (30), `sales.reservation-days` (7, D-37) `[Giả định]`.
+- **V18** `sales_deliveries` (GH): đơn, khách, kho, địa chỉ, người nhận, vận chuyển, `source_return_id` (đổi hàng), `delivery_status` (PENDING / IN_TRANSIT / DELIVERED / FAILED), `inventory_document_id` (PXK), `received_date`, `received_by`, `signed_document_ref`. `sales_delivery_lines`: dòng đơn, số lượng, lô chỉ định, lý do chọn lô khác FEFO, `invoiced_quantity`, `returned_quantity`, `returned_invoiced_quantity`; `sales_delivery_serials`; `sales_delivery_items` (hàng thực xuất: lô, hạn dùng, serial, trạng thái, số lượng).
+- **V19** `sales_invoices` (HDB): khách, người mua / MST / địa chỉ, `invoice_date`, `due_date`, số hóa đơn điện tử MISA (`einvoice_series`, `einvoice_no`, `einvoice_date`, `tax_authority_code`, `einvoice_key` unique theo công ty, NULL khi hủy / đảo), `sales_user_id`, tổng tiền. `sales_invoice_lines`: `delivery_line_id` (hàng hóa) hoặc chỉ `order_line_id` (dịch vụ), cột giá theo dòng đơn, `returned_quantity`, `adjusted_amount`.
+- **V20** `sales_returns` (TLB / GGB): khách, hóa đơn (bắt buộc với GGB), kho nhập lại, phiếu nhập PNK (`SALES_RETURN`), tổng tiền. `sales_return_lines`: dòng giao, dòng hóa đơn, dòng đơn, số lượng, lô, hạn dùng, trạng thái nhập lại (mặc định CÁCH LY), đơn giá, thành tiền, thuế; `sales_return_serials`. `sales_complaints` (KN): khách, phiếu giao / hóa đơn, hàng, lô, serial, mô tả, kết quả kiểm tra, quyết định, phiếu trả hàng, trạng thái OPEN / INSPECTED / RESOLVED / CANCELLED.
+- **V21** quyền `sales-quick-sale:execute`, `sales-report:view`.
+- Ghi sổ: hóa đơn bán → khoản công nợ `RECEIVABLE` nguồn `HDB` (một khoản cho cả hóa đơn, nhân viên kinh doanh), bút toán quy tắc `HDB` `SALES` (theo loại hàng; dev Nợ 131 / Có 5111, dịch vụ 5113), `SALES_VAT` (Có 3331). Trả hàng / giảm giá → giảm khoản công nợ của hóa đơn (phân bổ RETURN / DISCOUNT, vượt ghi trả trước), bút toán `TLB` / `GGB` (dev Nợ 5111 hoặc 5113, 3331 / Có 131) `[Chưa kiểm chứng]`.
+
+### 4.11 `journal_entries`, `journal_entry_lines` (V9)
+- `journal_entries`: `id, company_id, branch_id, entry_no` (loại số chứng từ `BT`, unique theo công ty), `posting_date, entry_kind (AUTO/MANUAL/COST/CLOSING), source_type, source_id, source_no, description, total_amount (> 0), status (POSTED/REVERSED), reversal_of_id, reversal_key` (cột sinh `COALESCE(reversal_of_id, 0)`), `created_by, created_at, updated_at, version`.
+  - Unique `(company_id, source_type, source_id, reversal_key)`: mỗi chứng từ nguồn tối đa một bút toán gốc và một bút toán đảo cho mỗi bút toán gốc (AT-13).
+  - Index `(company_id, posting_date)`, `(company_id, source_no)`.
+- `journal_entry_lines` (chỉ INSERT): `id, journal_entry_id, line_no, account_id, debit_amount, credit_amount, transaction_code, posting_rule_id` (quy tắc đã dùng, truy vết ADR-11), `partner_id, product_id, warehouse_id, department_id, employee_id, source_line_id, description`.
+  - `CHECK`: đúng một vế > 0, vế kia = 0.
+  - Index `(account_id, journal_entry_id)`, `(partner_id)`.
+- Ràng buộc nghiệp vụ: Σ Nợ = Σ Có (kiểm tra trong `JournalEntry.create` + test `AccountingIntegrationTest`).
+
+### 4.11a `chart_of_accounts`, `posting_rules` (V9, BR-ACC-01, 02, ADR-11)
+- `chart_of_accounts`: `id, company_id, code` (unique theo công ty, mã con bắt đầu bằng mã cha), `name, parent_id, account_level` (1..10), `balance_side (DEBIT/CREDIT/BOTH), postable` (FALSE khi có tài khoản con: tài khoản tổng hợp), `partner_required` (bắt buộc chi tiết theo đối tượng), `status`, cột audit, `version`. Index `(parent_id)`.
+- `posting_rules`: `id, company_id, document_type` (FK `sys_document_types`), `transaction_code, product_type, partner_role` (điều kiện, NULL = mọi giá trị), `debit_account_id, credit_account_id` (NULL = tài khoản do chứng từ truyền; `CHECK` ít nhất một vế), `valid_from, valid_to, description, status`, cột audit, `version`.
+  - Unique `(company_id, document_type, transaction_code, product_type_key, partner_role_key, valid_from)` với cột sinh `*_key = COALESCE(..., '')`.
+  - Chọn quy tắc: còn hiệu lực ngày hạch toán, khớp điều kiện; quy tắc nhiều điều kiện hơn thắng, rồi quy tắc bắt đầu muộn hơn.
+- V9 không nạp hệ thống tài khoản hay quy tắc mặc định (BR mục 13); dữ liệu mẫu TT133 `[Chưa kiểm chứng]` ở `db/dev-data/R__dev_phase4_accounting.sql`, quy tắc mẫu cho chứng từ thu chi, quỹ mẫu, luồng duyệt chi mẫu ở `R__dev_phase4c_cash.sql`.
+- V11 bỏ `CHECK` "ít nhất một vế": quy tắc để trống cả hai vế nghĩa là chứng từ quyết định cả hai tài khoản (thu chi khác, chuyển tiền nội bộ); quy tắc vẫn bắt buộc tồn tại (sửa đổi ADR-11).
 
 ### 4.12 `inventory_cost_results`
 `id, cost_calculation_run_id, inventory_transaction_id, unit_cost, amount, is_effective`. Mỗi `inventory_transaction_id` chỉ có một kết quả `is_effective = true` (unique theo cột sinh). Kết quả của kỳ đã khóa không bị thay thế (BR-CST-03).

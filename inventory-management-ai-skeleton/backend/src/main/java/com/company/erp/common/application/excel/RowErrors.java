@@ -1,4 +1,4 @@
-package com.company.erp.masterdata.application;
+package com.company.erp.common.application.excel;
 
 import com.company.erp.common.domain.BusinessException;
 import com.company.erp.common.domain.ErrorCode;
@@ -10,7 +10,7 @@ import java.util.List;
  * Lỗi theo dòng khi nhập Excel. Trường lỗi dạng {@code rows[<số dòng Excel>].<cột>} để giao diện hiển thị đúng dòng.
  * Giữ tối đa {@link #MAX_ERRORS} lỗi để phản hồi không quá lớn.
  */
-final class RowErrors {
+public final class RowErrors {
 
     private static final int MAX_ERRORS = 200;
 
@@ -18,11 +18,11 @@ final class RowErrors {
     private int total;
     private int currentRow;
 
-    void row(int excelRowNumber) {
+    public void row(int excelRowNumber) {
         this.currentRow = excelRowNumber;
     }
 
-    void add(String column, String message) {
+    public void add(String column, String message) {
         total++;
         if (violations.size() < MAX_ERRORS) {
             violations.add(new FieldViolation("rows[" + currentRow + "]." + column, "Dòng " + currentRow + ": " + message));
@@ -30,7 +30,7 @@ final class RowErrors {
     }
 
     /** Có lỗi thì dừng toàn bộ lần nhập, không ghi dòng nào. */
-    void throwIfAny() {
+    public void throwIfAny() {
         if (total > 0) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR,
                     "File có " + total + " lỗi, chưa nhập dòng nào. Sửa file rồi nhập lại.", violations);

@@ -1,4 +1,4 @@
-package com.company.erp.masterdata.application;
+package com.company.erp.common.application.excel;
 
 import com.company.erp.common.domain.BusinessException;
 import java.io.ByteArrayInputStream;
@@ -6,9 +6,12 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.math.BigDecimal;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
@@ -25,10 +28,10 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.web.multipart.MultipartFile;
 
 /** Đọc / ghi file Excel (.xlsx) cho nhập danh mục (BR-UX-05). Kiểm tra loại thật của file (BR-SYS-22). */
-final class ExcelSupport {
+public final class ExcelSupport {
 
     /** Số dòng dữ liệu tối đa mỗi lần nhập. */
-    static final int MAX_ROWS = 5000;
+    public static final int MAX_ROWS = 5000;
     private static final byte[] ZIP_MAGIC = {0x50, 0x4B, 0x03, 0x04};
     private static final Set<String> TRUE_VALUES = Set.of("c", "có", "co", "x", "1", "true", "yes");
     private static final Set<String> FALSE_VALUES = Set.of("", "k", "không", "khong", "0", "false", "no");
@@ -39,7 +42,7 @@ final class ExcelSupport {
     }
 
     /** Mở file .xlsx; file không phải .xlsx thật (kiểm tra chữ ký ZIP) hoặc hỏng thì báo lỗi trên trường file. */
-    static Workbook open(MultipartFile file) {
+    public static Workbook open(MultipartFile file) {
         if (file == null || file.isEmpty()) {
             throw BusinessException.invalidField("file", "Chọn file Excel (.xlsx) cần nhập.");
         }
@@ -57,7 +60,7 @@ final class ExcelSupport {
         }
     }
 
-    static byte[] toBytes(Workbook workbook) {
+    public static byte[] toBytes(Workbook workbook) {
         try (workbook; ByteArrayOutputStream output = new ByteArrayOutputStream()) {
             workbook.write(output);
             return output.toByteArray();
@@ -67,7 +70,7 @@ final class ExcelSupport {
     }
 
     /** Sheet mẫu: dòng tiêu đề in đậm và sheet hướng dẫn giá trị hợp lệ. */
-    static Workbook template(String sheetName, List<String> headers, List<List<String>> guide) {
+    public static Workbook template(String sheetName, List<String> headers, List<List<String>> guide) {
         Workbook workbook = new XSSFWorkbook();
         Sheet sheet = workbook.createSheet(sheetName);
         CellStyle bold = workbook.createCellStyle();
@@ -93,7 +96,7 @@ final class ExcelSupport {
         return workbook;
     }
 
-    static boolean isBlankRow(Row row, int columns) {
+    public static boolean isBlankRow(Row row, int columns) {
         if (row == null) {
             return true;
         }
@@ -106,7 +109,7 @@ final class ExcelSupport {
     }
 
     /** Giá trị ô dạng chuỗi đã bỏ khoảng trắng hai đầu; ô trống trả chuỗi rỗng. */
-    static String text(Row row, int column) {
+    public static String text(Row row, int column) {
         Cell cell = row == null ? null : row.getCell(column);
         if (cell == null) {
             return "";
@@ -118,12 +121,12 @@ final class ExcelSupport {
         return FORMATTER.formatCellValue(cell).trim();
     }
 
-    static String nullable(Row row, int column) {
+    public static String nullable(Row row, int column) {
         String value = text(row, column);
         return value.isEmpty() ? null : value;
     }
 
-    static boolean flag(Row row, int column, RowErrors errors, String field) {
+    public static boolean flag(Row row, int column, RowErrors errors, String field) {
         String value = text(row, column).toLowerCase(Locale.ROOT);
         if (TRUE_VALUES.contains(value)) {
             return true;
@@ -134,7 +137,7 @@ final class ExcelSupport {
         return false;
     }
 
-    static Integer integer(Row row, int column, RowErrors errors, String field) {
+    public static Integer integer(Row row, int column, RowErrors errors, String field) {
         BigDecimal value = decimal(row, column, errors, field);
         if (value == null) {
             return null;
@@ -147,7 +150,7 @@ final class ExcelSupport {
         }
     }
 
-    static BigDecimal decimal(Row row, int column, RowErrors errors, String field) {
+    public static BigDecimal decimal(Row row, int column, RowErrors errors, String field) {
         String value = text(row, column);
         if (value.isEmpty()) {
             return null;
@@ -160,7 +163,7 @@ final class ExcelSupport {
         }
     }
 
-    static LocalDate date(Row row, int column, RowErrors errors, String field) {
+    public static LocalDate date(Row row, int column, RowErrors errors, String field) {
         Cell cell = row.getCell(column);
         if (cell == null || text(row, column).isEmpty()) {
             return null;
@@ -173,6 +176,28 @@ final class ExcelSupport {
         } catch (DateTimeParseException ex) {
             errors.add(field, "Ngày phải có dạng ngày/tháng/năm: " + text(row, column));
             return null;
+        }
+    }
+
+    /** Số dòng dữ liệu không vượt {@link #MAX_ROWS}. */
+    public static void requireRowCount(Sheet sheet) {
+        if (sheet.getLastRowNum() > MAX_ROWS) {
+            throw BusinessException.invalidField("file", "File vượt " + MAX_ROWS + " dòng dữ liệu.");
+        }
+    }
+
+    public static void requireNotEmpty(boolean empty) {
+        if (empty) {
+            throw BusinessException.invalidField("file", "File không có dòng dữ liệu nào.");
+        }
+    }
+
+    /** Dấu vân tay nội dung file, dùng làm nội dung so khớp của Idempotency-Key khi nhập. */
+    public static String sha256(MultipartFile file) {
+        try {
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(file.getBytes()));
+        } catch (IOException | NoSuchAlgorithmException ex) {
+            throw BusinessException.invalidField("file", "Không đọc được file.");
         }
     }
 

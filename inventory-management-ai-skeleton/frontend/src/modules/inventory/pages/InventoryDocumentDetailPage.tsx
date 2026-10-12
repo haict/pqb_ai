@@ -198,6 +198,11 @@ export function InventoryDocumentDetailPage() {
         {document.receivePostingDate && (
           <Descriptions.Item label="Ngày nhận">{formatDate(document.receivePostingDate)}</Descriptions.Item>
         )}
+        {document.sourceNo && (
+          <Descriptions.Item label="Chứng từ nguồn">
+            {document.sourceType === 'PNH' ? `Phiếu nhận hàng ${document.sourceNo}` : document.sourceNo}
+          </Descriptions.Item>
+        )}
         <Descriptions.Item label="Lý do">{document.reasonText}</Descriptions.Item>
         <Descriptions.Item label="Ghi chú">{document.note}</Descriptions.Item>
         <Descriptions.Item label="Giá trị">{formatNumber(document.totalAmount, 0)}</Descriptions.Item>

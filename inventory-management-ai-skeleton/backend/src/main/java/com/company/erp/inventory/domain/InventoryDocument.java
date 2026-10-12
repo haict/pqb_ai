@@ -98,6 +98,15 @@ public class InventoryDocument extends AuditableEntity {
     @Column(name = "issue_policy_id")
     private Long issuePolicyId;
 
+    @Column(name = "source_type", updatable = false)
+    private String sourceType;
+
+    @Column(name = "source_id", updatable = false)
+    private Long sourceId;
+
+    @Column(name = "source_no", updatable = false)
+    private String sourceNo;
+
     @Column(name = "reversal_of_id", updatable = false)
     private Long reversalOfId;
 
@@ -166,6 +175,13 @@ public class InventoryDocument extends AuditableEntity {
                          Long destinationWarehouseId, Long transitWarehouseId, Long partnerId, Long reasonId,
                          String reasonText, String note, Long recallId, Long stockCountId, Long issuePolicyId,
                          Long reversalOfId) {
+
+        /** Loại nghiệp vụ do hệ thống gán cho phiếu sinh từ chứng từ nguồn module khác. */
+        public Header withSubType(String value) {
+            return new Header(value, documentDate, postingDate, warehouseId, destinationWarehouseId,
+                    transitWarehouseId, partnerId, reasonId, reasonText, note, recallId, stockCountId, issuePolicyId,
+                    reversalOfId);
+        }
     }
 
     /** Sửa đầu chứng từ và thay toàn bộ dòng; chỉ ở DRAFT, REJECTED (BR-GEN-01). */
@@ -173,6 +189,15 @@ public class InventoryDocument extends AuditableEntity {
         requireStatus(EDITABLE, "sửa");
         applyHeader(header);
         replaceLines(newLines);
+    }
+
+    /**
+     * Bỏ toàn bộ dòng trước khi sửa. Phải flush trước khi thêm dòng mới: Hibernate chèn dòng mới trước khi xóa dòng
+     * cũ, làm vi phạm unique (document_id, line_no).
+     */
+    public void clearLines() {
+        requireStatus(EDITABLE, "sửa");
+        lines.clear();
     }
 
     public void replaceLines(List<InventoryDocumentLine> newLines) {
@@ -254,6 +279,17 @@ public class InventoryDocument extends AuditableEntity {
     /** Chứng từ đảo bị hủy / từ chối hẳn: bỏ liên kết để có thể lập lại. */
     public void unlinkReversal() {
         this.reversedById = null;
+    }
+
+    /**
+     * Gắn chứng từ nguồn của module khác (ví dụ phiếu nhận hàng); chỉ khi lập. Chứng từ có nguồn chỉ đảo qua chứng từ
+     * nguồn để chỉ tiêu nguồn được cập nhật cùng lúc (BR-GEN-21).
+     */
+    public void linkSource(String type, Long id, String number) {
+        requireStatus(EDITABLE, "gắn chứng từ nguồn");
+        this.sourceType = type;
+        this.sourceId = id;
+        this.sourceNo = number;
     }
 
     public void markReversed() {
@@ -359,6 +395,18 @@ public class InventoryDocument extends AuditableEntity {
 
     public Long getIssuePolicyId() {
         return issuePolicyId;
+    }
+
+    public String getSourceType() {
+        return sourceType;
+    }
+
+    public Long getSourceId() {
+        return sourceId;
+    }
+
+    public String getSourceNo() {
+        return sourceNo;
     }
 
     public Long getReversalOfId() {

@@ -12,6 +12,7 @@ import java.util.Set;
 /**
  * Chi tiết chứng từ kho: dòng, sổ nhật ký đã ghi, lịch sử duyệt, liên kết chứng từ đảo (BR-GEN-09).
  * {@code allowedActions}: hành động người dùng có thể thực hiện, chỉ để ẩn/hiện nút; server vẫn kiểm tra.
+ * {@code sourceType/sourceId/sourceNo}: chứng từ nguồn của module khác (phiếu nhận hàng), nếu có.
  */
 public record InventoryDocumentResponse(
         Long id,
@@ -47,6 +48,9 @@ public record InventoryDocumentResponse(
         LocalDate receivePostingDate,
         Instant cancelledAt,
         String cancelReason,
+        String sourceType,
+        Long sourceId,
+        String sourceNo,
         int version,
         List<InventoryLineResponse> lines,
         List<InventoryTransactionResponse> transactions,

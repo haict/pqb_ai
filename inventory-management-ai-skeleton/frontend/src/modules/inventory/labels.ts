@@ -35,6 +35,12 @@ export const STATUS_TAGS: Record<string, { label: string; color: string }> = {
   COUNTING: { label: 'Đang đếm', color: 'orange' },
   ACTIVE: { label: 'Đang thu hồi', color: 'magenta' },
   CLOSED: { label: 'Đã đóng', color: 'default' },
+  IN_PROGRESS: { label: 'Đang thực hiện', color: 'processing' },
+  COMPLETED: { label: 'Hoàn thành', color: 'green' },
+  SENT: { label: 'Đã gửi khách', color: 'cyan' },
+  ACCEPTED: { label: 'Khách chấp nhận', color: 'green' },
+  DECLINED: { label: 'Khách từ chối', color: 'volcano' },
+  EXPIRED: { label: 'Hết hạn', color: 'default' },
 };
 
 export const DOCUMENT_STATUSES: InventoryDocumentStatus[] = [
@@ -84,10 +90,21 @@ export const ACTION_LABELS: Record<string, string> = {
   reverse: 'Đảo chứng từ',
   start: 'Bắt đầu đếm',
   close: 'Đóng',
+  'stock-in': 'Nhập kho',
+  send: 'Đã gửi khách',
+  accept: 'Khách chấp nhận',
+  decline: 'Khách từ chối',
+  revise: 'Phiên bản mới',
+  reserve: 'Giữ hàng',
+  release: 'Nhả hàng',
+  ship: 'Đang giao',
+  fail: 'Giao thất bại',
+  'create-purchase-request': 'Đề nghị mua phần thiếu',
+  'create-exchange-delivery': 'Lập phiếu giao đổi hàng',
 };
 
 /** Hành động bắt buộc lý do (api.md mục 3). */
-export const REASON_ACTIONS = new Set(['reject', 'cancel', 'reverse', 'close']);
+export const REASON_ACTIONS = new Set(['reject', 'cancel', 'reverse', 'close', 'decline', 'fail']);
 
 /** Định dạng số lượng / tiền theo Việt Nam; không làm tròn số liệu do server tính. */
 export function formatNumber(value: number | null | undefined, maximumFractionDigits = 3): string {

@@ -153,7 +153,8 @@ public class InventoryDocumentService {
             throw BusinessException.invalidField("version", "Phải gửi version khi sửa.");
         }
         document.verifyVersion(request.version());
-        if (request.documentType() != document.getDocumentType() || document.getStockCountId() != null) {
+        if (request.documentType() != document.getDocumentType() || document.getStockCountId() != null
+                || document.getSourceType() != null) {
             throw BusinessException.invalidField("documentType", "Không đổi được loại chứng từ, hoặc chứng từ do hệ "
                     + "thống sinh không sửa được.");
         }
@@ -162,6 +163,8 @@ public class InventoryDocumentService {
         if (!built.branchId().equals(document.getBranchId())) {
             throw BusinessException.invalidField("warehouseId", "Kho phải thuộc chi nhánh của chứng từ.");
         }
+        document.clearLines();
+        documentRepository.saveAndFlush(document);
         document.edit(built.header(), built.lines());
         documentRepository.saveAndFlush(document);
         InventoryDocumentResponse response = mapper.toResponse(document, actor);
@@ -254,6 +257,10 @@ public class InventoryDocumentService {
                 throw new BusinessException(ErrorCode.INVALID_DOCUMENT_STATE, "Không đảo chứng từ đảo.");
             }
             original.requireReversible();
+            if (original.getSourceType() != null) {
+                throw new BusinessException(ErrorCode.INVALID_DOCUMENT_STATE, "Chứng từ " + original.getDocumentNo()
+                        + " sinh từ " + original.getSourceNo() + "; đảo chứng từ nguồn để cập nhật chỉ tiêu nguồn.");
+            }
             LocalDate postingDate = request.postingDate() != null ? request.postingDate() : calendar.today();
             InventoryDocument reversal = new InventoryDocument(original.getCompanyId(), original.getBranchId(),
                     InventoryDocumentType.PDK, numbering.next(original.getCompanyId(), original.getBranchId(),

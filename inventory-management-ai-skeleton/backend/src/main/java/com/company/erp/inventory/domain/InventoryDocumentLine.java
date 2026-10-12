@@ -90,6 +90,9 @@ public class InventoryDocumentLine {
     @Column(name = "note", length = 500)
     private String note;
 
+    @Column(name = "source_line_id")
+    private Long sourceLineId;
+
     @ElementCollection
     @CollectionTable(name = "inventory_document_line_serials", joinColumns = @JoinColumn(name = "line_id"))
     @Column(name = "serial_no", length = 100)
@@ -212,6 +215,15 @@ public class InventoryDocumentLine {
 
     public String getNote() {
         return note;
+    }
+
+    /** Dòng chứng từ nguồn của module khác (truy vết hai chiều, BR mục 5.6). */
+    public void linkSourceLine(Long sourceLineId) {
+        this.sourceLineId = sourceLineId;
+    }
+
+    public Long getSourceLineId() {
+        return sourceLineId;
     }
 
     public List<String> getSerialNumbers() {

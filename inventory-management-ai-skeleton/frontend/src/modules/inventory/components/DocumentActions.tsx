@@ -29,7 +29,7 @@ const DEFAULT_ORDER = [
   'close',
   'cancel',
 ];
-const DATE_ACTIONS = new Set(['reverse', 'receive']);
+const DATE_ACTIONS = new Set(['reverse', 'receive', 'fail']);
 
 /**
  * Nút thao tác chứng từ theo trạng thái và quyền (server trả {@code allowedActions}; server vẫn kiểm tra lại).

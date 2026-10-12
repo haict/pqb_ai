@@ -97,6 +97,51 @@ public class InventoryReservation extends AuditableEntity {
         return remaining;
     }
 
+    /**
+     * Xuất kho theo chứng từ nguồn dùng phần giữ chỗ: trừ tối đa phần còn lại; hết thì CONSUMED. Trả số đã dùng để giảm
+     * tổng giữ chỗ.
+     */
+    public BigDecimal consume(BigDecimal requested) {
+        if (status != ReservationStatus.ACTIVE) {
+            return BigDecimal.ZERO;
+        }
+        BigDecimal used = requested.min(remaining()).max(BigDecimal.ZERO);
+        this.consumedQuantity = consumedQuantity.add(used);
+        if (remaining().signum() == 0) {
+            this.status = ReservationStatus.CONSUMED;
+        }
+        return used;
+    }
+
+    /**
+     * Hoàn phần đã dùng khi đảo phiếu xuất: giữ chỗ còn hiệu lực / đã dùng hết thì giữ lại phần đó (trả số cần cộng lại
+     * vào tổng giữ chỗ); giữ chỗ đã nhả thì phần hoàn coi như nhả luôn (trả 0).
+     */
+    public BigDecimal restore(BigDecimal quantityToRestore) {
+        BigDecimal back = quantityToRestore.min(consumedQuantity).max(BigDecimal.ZERO);
+        this.consumedQuantity = consumedQuantity.subtract(back);
+        if (status == ReservationStatus.RELEASED) {
+            this.releasedQuantity = releasedQuantity.add(back);
+            return BigDecimal.ZERO;
+        }
+        if (back.signum() > 0) {
+            this.status = ReservationStatus.ACTIVE;
+        }
+        return back;
+    }
+
+    public BigDecimal getConsumedQuantity() {
+        return consumedQuantity;
+    }
+
+    public Instant getExpiresAt() {
+        return expiresAt;
+    }
+
+    public Long getSourceLineId() {
+        return sourceLineId;
+    }
+
     public Long getId() {
         return id;
     }
