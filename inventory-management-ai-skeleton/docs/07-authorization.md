@@ -160,28 +160,16 @@ Luồng duyệt mẫu công nợ đầu kỳ (chỉ dev/test, `R__dev_phase4_acc
 
 Luồng duyệt mẫu (chỉ dev/test, `R__dev_phase3_inventory.sql`): mọi loại chứng từ kho bắt buộc duyệt do vai trò `DIRECTOR` duyệt một bước; chứng từ đảo do `CHIEF_ACCOUNTANT` duyệt.
 
-### 2.8 Quyền mua hàng (M03, Giai đoạn 5A, migration V13)
+### 2.8 Quyền mua hàng (M03, V13, gộp chứng từ D-54 ở V22)
+V22 xóa `purchase-requisition:*`, `purchase-receipt:*`, `purchase-invoice:*`, `purchase-order:close`; thêm `purchase-order:post`, `purchase-order:reverse`.
+
 | Quyền | Ý nghĩa | Vai trò mặc định `[Suy luận]` |
 |---|---|---|
-| `purchase-requisition:view`, `:create` | Xem; lập, sửa, gửi, hủy đề nghị mua | `PURCHASING_STAFF`, `SALES_MANAGER`, `SALES_STAFF`, `TENDER_STAFF`, `WAREHOUSE_MANAGER` (xem: thêm `DIRECTOR`, `BRANCH_DIRECTOR`) |
-| `purchase-requisition:approve` | Duyệt, từ chối đề nghị mua | `DIRECTOR`, `BRANCH_DIRECTOR` |
-| `purchase-requisition:close` | Đóng phần chưa đặt | `PURCHASING_STAFF` |
-| `purchase-order:view` | Xem đơn mua, tiến độ | mua hàng, kinh doanh, đấu thầu, kho, kế toán, thủ quỹ, giám đốc |
-| `purchase-order:create`, `:close` | Lập, sửa, gửi, hủy; đóng phần còn lại | `PURCHASING_STAFF` |
+| `purchase-order:view` | Xem đơn mua | mua hàng, kinh doanh, đấu thầu, kho, kế toán, thủ quỹ, giám đốc |
+| `purchase-order:create` | Lập, sửa, gửi, hủy đơn mua (kèm hóa đơn NCC, lô / hạn / serial) | `PURCHASING_STAFF` |
 | `purchase-order:approve` | Duyệt, từ chối đơn mua (từ ngưỡng) | `DIRECTOR`, `BRANCH_DIRECTOR` |
-
-| `purchase-receipt:view` | Xem phiếu nhận hàng | kho, mua hàng, giám đốc, kế toán |
-| `purchase-receipt:create` | Lập, sửa, gửi, hủy phiếu nhận hàng | `WAREHOUSE_MANAGER`, `WAREHOUSE_STAFF`, `PURCHASING_STAFF` |
-| `purchase-receipt:approve` | Duyệt nhận vượt dung sai | `WAREHOUSE_MANAGER`, `DIRECTOR`, `BRANCH_DIRECTOR` |
-| `purchase-receipt:post` | Xác nhận nhận hàng, nhập kho, thao tác nhanh nhận và nhập | `WAREHOUSE_MANAGER`, `WAREHOUSE_STAFF` |
-| `purchase-receipt:reverse` | Đảo phiếu nhận hàng (kể cả phiếu nhập kho) | `WAREHOUSE_MANAGER`, `CHIEF_ACCOUNTANT` |
-
-| `purchase-invoice:view` | Xem hóa đơn mua | kế toán, mua hàng, giám đốc, thủ quỹ |
-| `purchase-invoice:create` | Lập, sửa, gửi, hủy hóa đơn mua | `CHIEF_ACCOUNTANT`, `AR_ACCOUNTANT`, `TAX_ACCOUNTANT`, `PURCHASING_STAFF` |
-| `purchase-invoice:approve` | Duyệt hóa đơn mua (khi cấu hình luồng) | `CHIEF_ACCOUNTANT`, `DIRECTOR`, `BRANCH_DIRECTOR` |
-| `purchase-invoice:post` | Ghi sổ hóa đơn mua | `CHIEF_ACCOUNTANT`, `AR_ACCOUNTANT`, `TAX_ACCOUNTANT` |
-| `purchase-invoice:reverse` | Đảo hóa đơn mua | `CHIEF_ACCOUNTANT` |
-
+| `purchase-order:post` | Ghi sổ đơn mua (nhập kho, công nợ phải trả, bút toán) | `WAREHOUSE_MANAGER`, `WAREHOUSE_STAFF`, `CHIEF_ACCOUNTANT`, `AR_ACCOUNTANT`, `TAX_ACCOUNTANT` |
+| `purchase-order:reverse` | Đảo đơn mua đã ghi sổ | `CHIEF_ACCOUNTANT` |
 | `purchase-return:view` | Xem trả hàng / giảm giá hàng mua | kế toán, mua hàng, kho, giám đốc |
 | `purchase-return:create` | Lập, sửa, gửi, hủy | `CHIEF_ACCOUNTANT`, `AR_ACCOUNTANT`, `TAX_ACCOUNTANT`, `PURCHASING_STAFF` |
 | `purchase-return:approve` | Duyệt (khi cấu hình luồng) | `CHIEF_ACCOUNTANT`, `DIRECTOR`, `BRANCH_DIRECTOR` |
@@ -192,30 +180,27 @@ Luồng duyệt mẫu (chỉ dev/test, `R__dev_phase3_inventory.sql`): mọi lo�
 | `purchase-cost-allocation:approve` | Duyệt (khi cấu hình luồng) | `CHIEF_ACCOUNTANT`, `DIRECTOR`, `BRANCH_DIRECTOR` |
 | `purchase-cost-allocation:reverse` | Đảo | `CHIEF_ACCOUNTANT` |
 
-- Luồng duyệt mẫu dev/test (`R__dev_phase5_purchasing.sql`): DNM, PNH (nhận vượt dung sai) do `BRANCH_DIRECTOR` duyệt, DMH do `DIRECTOR` duyệt, một bước.
-- Nhập kho theo phiếu nhận hàng cần quyền `purchase-receipt:post` và phạm vi kho nhận; không cần quyền phiếu nhập kho riêng.
+- Luồng duyệt mẫu dev/test (`R__dev_phase5_purchasing.sql`): DMH do `DIRECTOR` duyệt, một bước.
+- Ghi sổ đơn mua cần `purchase-order:post` và phạm vi kho nhập của đơn; không cần quyền phiếu nhập kho riêng. Vai trò mặc định của `:post` `[Giả định]`, cần chủ dự án xác nhận.
 
-### 2.9 Quyền bán hàng (M05, Giai đoạn 6, migration V17..V21)
+### 2.9 Quyền bán hàng (M05, V17..V21, gộp chứng từ D-54 ở V23)
+V23 xóa `sales-quote:*`, `sales-delivery:*`, `sales-invoice:*`, `sales-quick-sale:execute`, `sales-order:close`; thêm `sales-order:post`, `sales-order:deliver`, `sales-order:reverse`.
+
 | Quyền | Ý nghĩa | Vai trò mặc định `[Suy luận]` |
 |---|---|---|
-| `sales-quote:view`, `:create` | Xem; lập, sửa, gửi duyệt, gửi khách, ghi nhận khách chấp nhận / từ chối, phiên bản mới | `SALES_MANAGER`, `SALES_STAFF`, `DIRECTOR`, `BRANCH_DIRECTOR` |
-| `sales-quote:approve` | Duyệt giá dưới sàn / chiết khấu vượt ngưỡng | `SALES_MANAGER`, `DIRECTOR`, `BRANCH_DIRECTOR` |
-| `sales-order:view` | Xem đơn bán | kinh doanh, đấu thầu, kho, giao hàng, kế toán, thủ quỹ, mua hàng, giám đốc |
-| `sales-order:create`, `:close` | Lập, sửa, gửi, hủy, giữ / nhả hàng, đề nghị mua phần thiếu; đóng phần còn lại | `SALES_MANAGER`, `SALES_STAFF` |
+| `sales-order:view` | Xem đơn bán, tra giá | kinh doanh, đấu thầu, kho, giao hàng, kế toán, thủ quỹ, mua hàng, giám đốc |
+| `sales-order:create` | Lập, sửa, gửi, hủy, giữ / nhả hàng | `SALES_MANAGER`, `SALES_STAFF` |
 | `sales-order:approve` | Duyệt đơn (giá, hạn mức tín dụng) | `SALES_MANAGER`, `DIRECTOR`, `BRANCH_DIRECTOR` |
-| `sales-delivery:view`, `:create` | Xem; lập phiếu giao | kho, kinh doanh (xem: thêm giao hàng, kế toán, giám đốc) |
-| `sales-delivery:post` | Xuất kho theo phiếu giao | `WAREHOUSE_MANAGER`, `WAREHOUSE_STAFF` |
-| `sales-delivery:deliver` | Đang giao, khách nhận, giao thất bại | `DELIVERY_STAFF`, kho, kinh doanh |
-| `sales-delivery:reverse` | Đảo phiếu giao | `WAREHOUSE_MANAGER`, `CHIEF_ACCOUNTANT` |
-| `sales-invoice:view`, `:create`, `:post` | Hóa đơn bán, số HĐĐT, ghi sổ | `CHIEF_ACCOUNTANT`, `AR_ACCOUNTANT`, `TAX_ACCOUNTANT` (xem: kinh doanh, thủ quỹ, giám đốc) |
-| `sales-invoice:approve`, `:reverse` | Duyệt (khi cấu hình luồng); đảo | duyệt: `CHIEF_ACCOUNTANT`, giám đốc; đảo: `CHIEF_ACCOUNTANT` |
+| `sales-order:post` | Ghi sổ đơn bán (xuất kho, doanh thu, công nợ, bút toán); ghi số hóa đơn điện tử | `WAREHOUSE_MANAGER`, `WAREHOUSE_STAFF`, `CHIEF_ACCOUNTANT`, `AR_ACCOUNTANT`, `TAX_ACCOUNTANT` |
+| `sales-order:deliver` | Đang giao, khách nhận | `DELIVERY_STAFF`, `WAREHOUSE_MANAGER`, `WAREHOUSE_STAFF`, `SALES_MANAGER`, `SALES_STAFF` |
+| `sales-order:reverse` | Đảo đơn bán (lập sai, giao thất bại) | `WAREHOUSE_MANAGER`, `CHIEF_ACCOUNTANT` |
 | `sales-return:*` | Trả hàng / giảm giá bán: lập (kinh doanh, kế toán), duyệt (`SALES_MANAGER`, giám đốc), ghi sổ (kế toán, kho), đảo (`CHIEF_ACCOUNTANT`) | |
 | `sales-complaint:view`, `:create`, `:resolve` | Hàng lỗi khách báo: tiếp nhận (kinh doanh), kiểm tra / quyết định (`SALES_MANAGER`, `QA`, `TECHNICIAN`, giám đốc) | |
-| `sales-quick-sale:execute` | Bán nhanh (vẫn cần quyền từng bước) | `SALES_MANAGER`, `WAREHOUSE_MANAGER`, `AR_ACCOUNTANT`, `CHIEF_ACCOUNTANT` |
 | `sales-report:view` | Báo cáo doanh số | `SALES_MANAGER`, `DIRECTOR`, `BRANCH_DIRECTOR`, `CHIEF_ACCOUNTANT`, `AR_ACCOUNTANT` |
 
-- "Chỉ dữ liệu của mình" (`own_data_only`, BR-SYS-04): nhân viên chỉ chọn khách mình phụ trách, chỉ xem báo giá / đơn / phiếu giao / hóa đơn / trả hàng / phiếu hàng lỗi mình phụ trách hoặc mình lập (ngoài phạm vi: 404).
-- Luồng duyệt mẫu dev/test (`R__dev_phase6_sales.sql`): BG, DBH do `SALES_MANAGER` duyệt một bước; chỉ áp dụng khi có lý do phải duyệt (giá, tín dụng).
+- "Chỉ dữ liệu của mình" (`own_data_only`, BR-SYS-04): nhân viên chỉ chọn khách mình phụ trách, chỉ xem đơn / trả hàng / phiếu hàng lỗi mình phụ trách hoặc mình lập (ngoài phạm vi: 404).
+- Luồng duyệt mẫu dev/test (`R__dev_phase6_sales.sql`): DBH do `SALES_MANAGER` duyệt một bước; chỉ áp dụng khi có lý do phải duyệt (giá, tín dụng).
+- Vai trò mặc định của `:post`, `:deliver`, `:reverse` `[Giả định]`, cần chủ dự án xác nhận.
 
 ## 3. Phạm vi dữ liệu (BR-SYS-04, BR-SYS-06)
 | Loại | Ý nghĩa |
@@ -259,7 +244,7 @@ Mật khẩu chung: `Erp@2026` (`db/dev-data/R__dev_organization_and_users.sql`)
 | `muahang.hn` | PURCHASING_STAFF | BRANCH 1 (HN) (thêm ở Giai đoạn 5) |
 | `truongkd.hn` | SALES_MANAGER | BRANCH 1 (HN) (thêm ở Giai đoạn 6) |
 | `giaohang.hn` | DELIVERY_STAFF | BRANCH 1 (HN) (thêm ở Giai đoạn 6) |
-| `banhang.hn` | SALES_MANAGER + WAREHOUSE_MANAGER + AR_ACCOUNTANT (kiêm nhiệm, bán nhanh) | BRANCH 1 (HN) (thêm ở Giai đoạn 6) |
+| `banhang.hn` | SALES_MANAGER + WAREHOUSE_MANAGER + AR_ACCOUNTANT (kiêm nhiệm) | BRANCH 1 (HN) (thêm ở Giai đoạn 6) |
 
 Chỉ máy dev (profile `dev`, không có ở test): `db/dev-local/R__dev_admin_full_access.sql` gán `admin` vai trò `DEV_FULL_ACCESS` (mọi quyền) và mọi vai trò đang hoạt động để thử nhanh giao diện. Cần thêm `classpath:db/dev-local` vào `spring.flyway.locations` của `application-dev.yml` (người dùng tự thêm). Test phân quyền vẫn dùng `admin` chỉ có quyền M01.
 

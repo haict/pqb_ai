@@ -9,15 +9,13 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 
 /**
- * Tiếp nhận hàng lỗi khách báo (BR-SAL-34): khách, phiếu giao / hóa đơn gốc (tùy chọn), hàng, lô, serial, số lượng,
- * mô tả lỗi. Sửa gửi {@code version} khi chưa kiểm tra.
+ * Tiếp nhận hàng lỗi khách báo (BR-SAL-34): khách, đơn bán gốc (tùy chọn), hàng, lô, serial, số lượng, mô tả lỗi. Sửa gửi {@code version} khi chưa kiểm tra.
  */
 public record SalesComplaintRequest(
         @NotNull Long branchId,
         @NotNull Long customerId,
         @NotNull LocalDate receivedDate,
-        Long deliveryId,
-        Long salesInvoiceId,
+        Long salesOrderId,
         @NotNull Long productId,
         @Size(max = 50) String lotNo,
         @Size(max = 100) String serialNo,

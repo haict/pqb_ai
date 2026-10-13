@@ -57,30 +57,30 @@ JOIN price_lists l ON l.company_id = 1 AND l.code = t.code
 JOIN products p ON p.company_id = 1 AND p.code = 'VT_ONG_01'
 JOIN units u ON u.company_id = 1 AND u.code = 'HOP';
 
--- Luồng duyệt mẫu: báo giá và đơn bán phải duyệt (giá dưới sàn, chiết khấu vượt ngưỡng, vượt hạn mức) do Trưởng phòng kinh
--- doanh duyệt một bước.
+-- Luồng duyệt mẫu: đơn bán phải duyệt (giá dưới sàn, chiết khấu vượt ngưỡng, vượt hạn mức) do Trưởng phòng kinh doanh
+-- duyệt một bước.
 INSERT INTO approval_workflows (company_id, document_type, name, branch_id, priority, status, created_at, updated_at)
 SELECT 1, t.code, CONCAT('Mẫu - Duyệt ', t.code), NULL, 0, 'ACTIVE', UTC_TIMESTAMP(3), UTC_TIMESTAMP(3)
-FROM (SELECT 'BG' AS code UNION ALL SELECT 'DBH') t
+FROM (SELECT 'DBH' AS code) t
 WHERE NOT EXISTS (SELECT 1 FROM approval_workflows w
                   WHERE w.company_id = 1 AND w.document_type = t.code AND w.name = CONCAT('Mẫu - Duyệt ', t.code));
 
 INSERT IGNORE INTO approval_workflow_steps (workflow_id, step_no, approver_type, role_id, user_id)
 SELECT w.id, 1, 'ROLE', r.id, NULL
 FROM approval_workflows w JOIN sys_roles r ON r.code = 'SALES_MANAGER'
-WHERE w.company_id = 1 AND w.document_type IN ('BG', 'DBH') AND w.name LIKE 'Mẫu - Duyệt %';
+WHERE w.company_id = 1 AND w.document_type = 'DBH' AND w.name LIKE 'Mẫu - Duyệt %';
 
--- Quy tắc hạch toán mẫu hóa đơn bán (D-35) [Chưa kiểm chứng]: doanh thu hàng hóa Nợ 131 / Có 5111, dịch vụ Có 5113, thuế
--- GTGT đầu ra Có 3331. Giá vốn ghi ở Giai đoạn 8. Kế toán trưởng cấu hình lại trước UAT.
+-- Quy tắc hạch toán mẫu ghi sổ đơn bán (D-35, D-54) [Chưa kiểm chứng]: doanh thu hàng hóa Nợ 131 / Có 5111, dịch vụ Có
+-- 5113, thuế GTGT đầu ra Có 3331. Giá vốn ghi ở Giai đoạn 8. Kế toán trưởng cấu hình lại trước UAT.
 INSERT IGNORE INTO posting_rules (company_id, document_type, transaction_code, product_type, partner_role,
     debit_account_id, credit_account_id, valid_from, valid_to, description, status, created_at, updated_at)
 SELECT 1, t.document_type, t.transaction_code, t.product_type, NULL, d.id, c.id, '2020-01-01', NULL, t.description,
        'ACTIVE', UTC_TIMESTAMP(3), UTC_TIMESTAMP(3)
 FROM (
-    SELECT 'HDB' AS document_type, 'SALES' AS transaction_code, NULL AS product_type, '131' AS debit_code,
+    SELECT 'DBH' AS document_type, 'SALES' AS transaction_code, NULL AS product_type, '131' AS debit_code,
            '5111' AS credit_code, 'Mẫu - Doanh thu bán hàng hóa' AS description
-    UNION ALL SELECT 'HDB', 'SALES', 'SERVICE', '131', '5113', 'Mẫu - Doanh thu cung cấp dịch vụ'
-    UNION ALL SELECT 'HDB', 'SALES_VAT', NULL, '131', '3331', 'Mẫu - Thuế GTGT đầu ra'
+    UNION ALL SELECT 'DBH', 'SALES', 'SERVICE', '131', '5113', 'Mẫu - Doanh thu cung cấp dịch vụ'
+    UNION ALL SELECT 'DBH', 'SALES_VAT', NULL, '131', '3331', 'Mẫu - Thuế GTGT đầu ra'
 ) t
 JOIN chart_of_accounts d ON d.company_id = 1 AND d.code = t.debit_code
 JOIN chart_of_accounts c ON c.company_id = 1 AND c.code = t.credit_code;
@@ -102,7 +102,7 @@ FROM (
 JOIN chart_of_accounts d ON d.company_id = 1 AND d.code = t.debit_code
 JOIN chart_of_accounts c ON c.company_id = 1 AND c.code = t.credit_code;
 
--- Nhân viên bán hàng cửa hàng HN kiêm nhiệm kinh doanh, kho, kế toán công nợ (D-08) để dùng bán nhanh (BR-SAL-42).
+-- Nhân viên bán hàng cửa hàng HN kiêm nhiệm kinh doanh, kho, kế toán công nợ (D-08): lập, ghi sổ đơn bán một mình.
 INSERT IGNORE INTO sys_users
     (company_id, default_branch_id, username, full_name, password_hash, status, own_data_only,
      credentials_changed_at, created_at, updated_at)

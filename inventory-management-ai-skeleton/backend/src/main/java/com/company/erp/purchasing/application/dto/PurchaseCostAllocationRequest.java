@@ -9,8 +9,8 @@ import java.time.LocalDate;
 import java.util.List;
 
 /**
- * Lập / sửa phân bổ chi phí mua hàng (BR-PUR-12): các dòng chi phí và các phiếu nhận hàng đã nhập kho nhận phân bổ
- * (mọi dòng nhập kho của các phiếu đó). Server tính phân bổ; sửa gửi {@code version}.
+ * Lập / sửa phân bổ chi phí mua hàng (BR-PUR-12): các dòng chi phí (dòng dịch vụ của đơn mua đã ghi sổ) và các đơn
+ * mua đã ghi sổ nhận phân bổ (mọi dòng hàng hóa của các đơn đó). Server tính phân bổ; sửa gửi {@code version}.
  */
 public record PurchaseCostAllocationRequest(
         @NotNull Long branchId,
@@ -19,6 +19,6 @@ public record PurchaseCostAllocationRequest(
         @NotNull CostAllocationMethod method,
         @Size(max = 500) String description,
         @NotEmpty @Valid @Size(max = 50) List<CostAllocationSourceRequest> sources,
-        @NotEmpty @Size(max = 50) List<@NotNull Long> receiptIds,
+        @NotEmpty @Size(max = 50) List<@NotNull Long> orderIds,
         Integer version) {
 }

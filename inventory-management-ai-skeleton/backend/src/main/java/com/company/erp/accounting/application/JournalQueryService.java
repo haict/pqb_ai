@@ -37,6 +37,10 @@ public class JournalQueryService {
     static final String VIEW = "journal:view";
     private static final Set<String> SORTABLE = Set.of("postingDate", "entryNo", "createdAt");
 
+    /** Mã tài khoản Nợ / Có (không trùng, tăng dần) của bút toán gốc một chứng từ nguồn, cho mẫu in chứng từ. */
+    public record SourceAccounts(List<String> debitCodes, List<String> creditCodes) {
+    }
+
     public record JournalFilter(Long companyId, Long branchId, LocalDate dateFrom, LocalDate dateTo,
                                 String sourceType, String keyword, Long accountId, JournalEntryStatus status) {
     }
@@ -118,6 +122,30 @@ public class JournalQueryService {
                 .filter(entry -> access.canAccessBranch(actor, entry.getCompanyId(), entry.getBranchId()))
                 .map(this::toResponse)
                 .toList();
+    }
+
+    /**
+     * Tài khoản của bút toán gốc (không tính bút toán đảo) theo chứng từ nguồn, chỉ các dòng hạch toán của những dòng
+     * chứng từ nguồn cho trước. API cho module khác in chứng từ: module gọi tự kiểm tra quyền xem chứng từ nguồn.
+     */
+    @Transactional(readOnly = true)
+    public SourceAccounts accountsBySource(Long companyId, String sourceType, Long sourceId,
+                                           Set<Long> sourceLineIds) {
+        List<JournalEntryLine> lines = journalRepository.findAll((root, query, cb) -> cb.and(
+                        cb.equal(root.get("companyId"), companyId), cb.equal(root.get("sourceType"), sourceType),
+                        cb.equal(root.get("sourceId"), sourceId), cb.isNull(root.get("reversalOfId"))))
+                .stream().flatMap(entry -> entry.getLines().stream())
+                .filter(line -> sourceLineIds.contains(line.getSourceLineId()))
+                .toList();
+        Map<Long, String> codes = accountRepository.findByIdIn(lines.stream().map(JournalEntryLine::getAccountId)
+                .collect(Collectors.toSet())).stream().collect(Collectors.toMap(Account::getId, Account::getCode));
+        return new SourceAccounts(accountCodes(lines, codes, true), accountCodes(lines, codes, false));
+    }
+
+    private static List<String> accountCodes(List<JournalEntryLine> lines, Map<Long, String> codes, boolean debit) {
+        return lines.stream()
+                .filter(line -> (debit ? line.getDebitAmount() : line.getCreditAmount()).signum() > 0)
+                .map(line -> codes.get(line.getAccountId())).distinct().sorted().toList();
     }
 
     private JournalEntryResponse toResponse(JournalEntry entry) {

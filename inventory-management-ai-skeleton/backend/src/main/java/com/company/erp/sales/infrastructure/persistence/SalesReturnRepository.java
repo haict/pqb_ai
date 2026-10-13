@@ -17,11 +17,11 @@ public interface SalesReturnRepository extends JpaRepository<SalesReturn, Long>,
     @Query("select d from SalesReturn d where d.id = :id")
     Optional<SalesReturn> findByIdForUpdate(@Param("id") Long id);
 
-    /** Số đã trả (chứng từ đã ghi sổ) theo dòng phiếu giao và lô: không trả vượt số đã xuất của lô (BR-SAL-32). */
+    /** Số đã trả (chứng từ đã ghi sổ) theo dòng đơn bán và lô: không trả vượt số đã xuất của lô (BR-SAL-32). */
     @Query("""
             select coalesce(sum(l.baseQuantity), 0) from SalesReturn d join d.lines l
             where d.status = com.company.erp.sales.domain.SalesDocumentStatus.POSTED
-              and l.deliveryLineId = :deliveryLineId and ((:lotNo is null and l.lotNo is null) or l.lotNo = :lotNo)
+              and l.orderLineId = :orderLineId and ((:lotNo is null and l.lotNo is null) or l.lotNo = :lotNo)
             """)
-    BigDecimal returnedForLot(@Param("deliveryLineId") Long deliveryLineId, @Param("lotNo") String lotNo);
+    BigDecimal returnedForLot(@Param("orderLineId") Long orderLineId, @Param("lotNo") String lotNo);
 }

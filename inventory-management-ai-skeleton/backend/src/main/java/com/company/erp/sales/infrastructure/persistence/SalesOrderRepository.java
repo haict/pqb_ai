@@ -25,15 +25,11 @@ public interface SalesOrderRepository extends JpaRepository<SalesOrder, Long>, J
     @Query("select distinct d from SalesOrder d join d.lines l where l.id in :lineIds")
     List<SalesOrder> findByLineIds(@Param("lineIds") Collection<Long> lineIds);
 
-    /** Đơn đã duyệt (còn mở hoặc đã hoàn thành) của khách trong chi nhánh: dòng dịch vụ còn xuất hóa đơn được. */
+    /** Đơn bán khác (chưa hủy / đảo) đã dùng cùng số hóa đơn điện tử (BR-SAL-31). */
     @Query("""
-            select d from SalesOrder d
-            where d.companyId = :companyId and d.branchId = :branchId and d.customerId = :customerId
-              and d.status in (com.company.erp.sales.domain.SalesDocumentStatus.APPROVED,
-                               com.company.erp.sales.domain.SalesDocumentStatus.IN_PROGRESS,
-                               com.company.erp.sales.domain.SalesDocumentStatus.COMPLETED)
-            order by d.documentDate, d.id
+            select d.documentNo from SalesOrder d
+            where d.companyId = :companyId and d.einvoiceKey = :key and (:id is null or d.id <> :id)
             """)
-    List<SalesOrder> findApprovedByCustomer(@Param("companyId") Long companyId, @Param("branchId") Long branchId,
-                                            @Param("customerId") Long customerId);
+    Optional<String> findEinvoiceDuplicate(@Param("companyId") Long companyId, @Param("key") String key,
+                                           @Param("id") Long id);
 }

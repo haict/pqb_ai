@@ -4,9 +4,9 @@ package com.company.erp.sales.domain;
 public enum PaymentDueBasis {
     /** Từ ngày đơn bán. */
     ORDER_DATE,
-    /** Sau khi giao hàng (ngày khách nhận lần giao gần nhất). */
+    /** Sau ngày khách nhận hàng. */
     DELIVERY,
-    /** Sau ngày hóa đơn. */
+    /** Sau ngày hóa đơn (ngày hóa đơn điện tử, chưa có thì ngày ghi sổ đơn). */
     INVOICE,
     /** Sau nghiệm thu (hợp đồng, Giai đoạn 7). */
     ACCEPTANCE

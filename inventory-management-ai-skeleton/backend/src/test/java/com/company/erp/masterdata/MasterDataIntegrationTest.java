@@ -207,6 +207,16 @@ class MasterDataIntegrationTest {
                 .andExpect(status().isOk()).andReturn();
         List<String> supplierCodes = json(suppliers, "$.data.items[*].code");
         assertThat(supplierCodes).contains("NCC_01").doesNotContain(own);
+
+        // Nhà cung cấp bắt buộc MST và địa chỉ (đơn mua lấy theo danh mục, không nhập tay)
+        String supplier = partner(unique("NCC"), "null").replace("\"CUSTOMER\"", "\"SUPPLIER\"");
+        send(admin, post("/api/v1/partners"), supplier, newKey()).andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[0].field").value("taxCode"));
+        send(admin, post("/api/v1/partners"), supplier.replace("\"roles\"", "\"taxCode\":\"0300000002\",\"roles\""),
+                newKey()).andExpect(status().isBadRequest()).andExpect(jsonPath("$.errors[0].field").value("address"));
+        send(admin, post("/api/v1/partners"), supplier.replace("\"roles\"",
+                "\"taxCode\":\"0300000002\",\"address\":\"Hà Nội\",\"roles\""), newKey())
+                .andExpect(status().isCreated()).andExpect(jsonPath("$.data.address").value("Hà Nội"));
     }
 
     @Test

@@ -14,7 +14,6 @@ import com.company.erp.masterdata.application.MasterDataQueryService.WarehouseIn
 import com.company.erp.system.application.CurrentUser;
 import com.company.erp.system.application.OrganizationQueryService;
 import com.company.erp.system.application.OrganizationQueryService.BranchRef;
-import com.company.erp.system.application.OrganizationQueryService.UserRef;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Collection;
@@ -122,6 +121,11 @@ class PurchasingAccess {
         return base.setScale(QUANTITY_SCALE);
     }
 
+    /** Chuỗi bỏ khoảng trắng hai đầu; rỗng thành {@code null}. */
+    static String trim(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
+    }
+
     /** Kho nhận hàng: kho vật lý đang hoạt động, thuộc chi nhánh của chứng từ. */
     WarehouseInfo receivingWarehouse(Long branchId, Long warehouseId, String field) {
         WarehouseInfo warehouse = masterData.warehouse(warehouseId)
@@ -145,12 +149,6 @@ class PurchasingAccess {
         return rate;
     }
 
-    /** Người dùng cùng công ty (người đề nghị). */
-    UserRef user(Long companyId, Long userId, String field) {
-        return organization.user(userId).filter(found -> found.companyId().equals(companyId))
-                .orElseThrow(() -> BusinessException.invalidField(field, "Người dùng không tồn tại."));
-    }
-
     /** Tra một lần cho cả danh sách (chống N+1); map nhận khóa {@code null} (trả {@code null}). */
     Map<Long, PartnerInfo> partners(Collection<Long> ids) {
         Set<Long> distinct = distinct(ids);
@@ -168,12 +166,6 @@ class PurchasingAccess {
         Set<Long> distinct = distinct(ids);
         return distinct.isEmpty() ? new HashMap<>() : masterData.warehouses(distinct).stream()
                 .collect(Collectors.toMap(WarehouseInfo::id, Function.identity()));
-    }
-
-    Map<Long, UserRef> users(Collection<Long> ids) {
-        Set<Long> distinct = distinct(ids);
-        return distinct.isEmpty() ? new HashMap<>() : organization.users(distinct).stream()
-                .collect(Collectors.toMap(UserRef::id, Function.identity()));
     }
 
     private static Set<Long> distinct(Collection<Long> ids) {

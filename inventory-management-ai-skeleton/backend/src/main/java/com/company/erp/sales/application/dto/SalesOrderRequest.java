@@ -10,15 +10,16 @@ import java.time.LocalDate;
 import java.util.List;
 
 /**
- * Lập / sửa đơn bán. {@code paymentTermDays} trống: theo khách. {@code reserveStock}: giữ hàng khi duyệt (D-37).
- * {@code paymentTerms}: lịch thu tiền nhiều đợt (tổng 100%), có thể trống. Sửa gửi {@code version}; chi nhánh, khách
- * không đổi sau khi lập.
+ * Lập / sửa đơn bán (D-54). {@code postingDate} trống: bằng ngày chứng từ (ngày xuất kho, ghi doanh thu).
+ * {@code paymentTermDays} trống: theo khách. {@code reserveStock}: giữ hàng khi duyệt (D-37). {@code paymentTerms}:
+ * lịch thu tiền nhiều đợt (tổng 100%), có thể trống. Sửa gửi {@code version}; chi nhánh, khách không đổi sau khi lập.
  */
 public record SalesOrderRequest(
         @NotNull Long branchId,
         @NotNull Long customerId,
         @NotNull Long warehouseId,
         @NotNull LocalDate documentDate,
+        LocalDate postingDate,
         @Size(max = 200) String contactName,
         @Size(max = 500) String deliveryAddress,
         @Size(max = 200) String receiverName,

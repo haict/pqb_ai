@@ -9,7 +9,6 @@ import {
   Drawer,
   Form,
   Input,
-  InputNumber,
   Select,
   Space,
   Table,
@@ -22,6 +21,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { ApiError } from '../../../shared/api/apiError';
 import { useServerTable } from '../../../shared/api/useServerTable';
 import { useCan } from '../../../shared/auth/authContext';
+import { DecimalInput } from '../../../shared/components/DecimalInput';
 import { FormModal } from '../../../shared/components/FormModal';
 import { useCompanyId, useWarehouses } from '../../masterdata/lookups';
 import { ApprovalHistory } from '../../system/components/ApprovalHistory';
@@ -102,9 +102,8 @@ function CountDrawer({ id, onClose }: { id: number; onClose(): void }) {
       align: 'right',
       render: (value: number | null, line) =>
         editable ? (
-          <InputNumber
+          <DecimalInput
             min={0}
-            precision={3}
             value={counted[line.id] ?? value}
             onChange={(next) => setCounted((current) => ({ ...current, [line.id]: next }))}
           />

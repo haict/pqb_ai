@@ -13,8 +13,8 @@ import java.time.Instant;
 import java.time.LocalDate;
 
 /**
- * Điều chỉnh giá trị nhập theo dòng phiếu nhận hàng (chỉ INSERT, đảo bằng dòng âm): chênh lệch giá hóa đơn so với giá
- * tạm tính (BR-PUR-10), chi phí mua phân bổ (BR-PUR-12). Giai đoạn 8 dùng để tính lại giá vốn (BR-CST-02).
+ * Điều chỉnh giá trị nhập theo dòng đơn mua (chỉ INSERT, đảo bằng dòng âm): chi phí mua phân bổ (BR-PUR-12), giảm giá
+ * hàng mua (BR-PUR-14). Giai đoạn 8 dùng để tính lại giá vốn (BR-CST-02).
  */
 @Entity
 @Table(name = "purchase_cost_entries")
@@ -22,7 +22,6 @@ public class PurchaseCostEntry {
 
     /** Loại điều chỉnh. */
     public enum EntryType {
-        INVOICE_PRICE,
         LANDED_COST,
         DISCOUNT
     }
@@ -38,8 +37,8 @@ public class PurchaseCostEntry {
     @Column(name = "company_id", nullable = false, updatable = false)
     private Long companyId;
 
-    @Column(name = "receipt_line_id", nullable = false, updatable = false)
-    private Long receiptLineId;
+    @Column(name = "order_line_id", nullable = false, updatable = false)
+    private Long orderLineId;
 
     @Column(name = "product_id", nullable = false, updatable = false)
     private Long productId;
@@ -85,11 +84,11 @@ public class PurchaseCostEntry {
     }
 
     @SuppressWarnings("java:S107")
-    public PurchaseCostEntry(Long companyId, PurchaseReceiptLine line, Long warehouseId, EntryType entryType,
+    public PurchaseCostEntry(Long companyId, PurchaseOrderLine line, Long warehouseId, EntryType entryType,
                              LocalDate postingDate, BigDecimal amount, Reference reference, Long actorId,
                              Instant now) {
         this.companyId = companyId;
-        this.receiptLineId = line.getId();
+        this.orderLineId = line.getId();
         this.productId = line.getProductId();
         this.warehouseId = warehouseId;
         this.entryType = entryType;
@@ -104,11 +103,11 @@ public class PurchaseCostEntry {
         this.createdAt = now;
     }
 
-    /** Dòng đảo: cùng dòng phiếu nhận, số tiền ngược dấu, tham chiếu dòng gốc. */
+    /** Dòng đảo: cùng dòng đơn mua, số tiền ngược dấu, tham chiếu dòng gốc. */
     public PurchaseCostEntry reversed(LocalDate date, Long actorId, Instant now) {
         PurchaseCostEntry reversal = new PurchaseCostEntry();
         reversal.companyId = companyId;
-        reversal.receiptLineId = receiptLineId;
+        reversal.orderLineId = orderLineId;
         reversal.productId = productId;
         reversal.warehouseId = warehouseId;
         reversal.entryType = entryType;
@@ -129,8 +128,8 @@ public class PurchaseCostEntry {
         return id;
     }
 
-    public Long getReceiptLineId() {
-        return receiptLineId;
+    public Long getOrderLineId() {
+        return orderLineId;
     }
 
     public EntryType getEntryType() {

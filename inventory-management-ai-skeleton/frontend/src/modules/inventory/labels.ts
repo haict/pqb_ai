@@ -91,20 +91,22 @@ export const ACTION_LABELS: Record<string, string> = {
   start: 'Bắt đầu đếm',
   close: 'Đóng',
   'stock-in': 'Nhập kho',
-  send: 'Đã gửi khách',
-  accept: 'Khách chấp nhận',
-  decline: 'Khách từ chối',
-  revise: 'Phiên bản mới',
   reserve: 'Giữ hàng',
   release: 'Nhả hàng',
   ship: 'Đang giao',
-  fail: 'Giao thất bại',
-  'create-purchase-request': 'Đề nghị mua phần thiếu',
-  'create-exchange-delivery': 'Lập phiếu giao đổi hàng',
+  'create-exchange-order': 'Lập đơn bán đổi hàng',
+};
+
+/** Chứng từ nguồn của phiếu kho sinh từ phân hệ khác (D-54). */
+export const SOURCE_TYPES: Record<string, string> = {
+  DMH: 'Đơn mua',
+  DBH: 'Đơn bán',
+  THN: 'Trả hàng nhà cung cấp',
+  TLB: 'Hàng bán bị trả lại',
 };
 
 /** Hành động bắt buộc lý do (api.md mục 3). */
-export const REASON_ACTIONS = new Set(['reject', 'cancel', 'reverse', 'close', 'decline', 'fail']);
+export const REASON_ACTIONS = new Set(['reject', 'cancel', 'reverse', 'close']);
 
 /** Định dạng số lượng / tiền theo Việt Nam; không làm tròn số liệu do server tính. */
 export function formatNumber(value: number | null | undefined, maximumFractionDigits = 3): string {

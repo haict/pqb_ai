@@ -129,6 +129,7 @@ public class Partner extends CodeNameEntity {
         if (details.roles() == null || details.roles().isEmpty()) {
             throw BusinessException.invalidField("roles", "Đối tác phải có ít nhất một vai trò.");
         }
+        requireSupplierIdentity(details);
         rename(details.name());
         this.legacyCode = details.legacyCode();
         this.shortName = details.shortName();
@@ -154,6 +155,19 @@ public class Partner extends CodeNameEntity {
         this.agentDiscountPercent = details.agentDiscountPercent();
         this.agentRegion = details.agentRegion();
         this.agentCreditLimit = details.agentCreditLimit();
+    }
+
+    /** Đơn mua lấy MST, địa chỉ người bán theo nhà cung cấp, không nhập tay trên đơn. */
+    private static void requireSupplierIdentity(PartnerDetails details) {
+        if (!details.roles().contains(PartnerRole.SUPPLIER)) {
+            return;
+        }
+        if (details.taxCode() == null || details.taxCode().isBlank()) {
+            throw BusinessException.invalidField("taxCode", "Nhà cung cấp phải có mã số thuế.");
+        }
+        if (details.address() == null || details.address().isBlank()) {
+            throw BusinessException.invalidField("address", "Nhà cung cấp phải có địa chỉ.");
+        }
     }
 
     public void replaceContacts(List<PartnerContact> contacts) {

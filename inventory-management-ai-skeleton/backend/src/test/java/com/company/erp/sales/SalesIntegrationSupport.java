@@ -3,6 +3,7 @@ package com.company.erp.sales;
 import static com.company.erp.support.ApiTestSupport.login;
 import static com.company.erp.support.ApiTestSupport.newKey;
 import static com.company.erp.support.ApiTestSupport.unique;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -28,7 +29,6 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
 abstract class SalesIntegrationSupport {
 
     static final String DATE = "2026-10-05";
-    static final String QUOTES = "/api/v1/sales-quotes";
     static final String ORDERS = "/api/v1/sales-orders";
 
     protected final MockMvc mockMvc;
@@ -135,15 +135,42 @@ abstract class SalesIntegrationSupport {
         }
     }
 
+    /** Lập (người lập {@code creator}), gửi duyệt / duyệt và ghi sổ đơn bán (thủ kho); trả id. */
+    long postedOrder(Session creator, String body) throws Exception {
+        long order = jsonId(send(creator, post(ORDERS), body, newKey()).andExpect(status().isCreated()).andReturn());
+        submitAndApproveOrder(order);
+        act(keeper, ORDERS, order, "post", null).andExpect(jsonPath("$.data.status").value("POSTED"));
+        return order;
+    }
+
+    /** Còn phải thu của khoản công nợ sinh từ đơn bán. */
+    BigDecimal receivable(long order) {
+        return jdbc.queryForObject("SELECT original_amount - settled_amount FROM debt_items WHERE source_type = 'DBH' "
+                + "AND source_id = ?", BigDecimal.class, order);
+    }
+
+    /** Dòng bút toán gốc "N|C:tài khoản:số tiền"; khẳng định cân Nợ = Có (kể cả bút toán đảo). */
+    List<String> journal(String type, long source) {
+        List<String> lines = jdbc.queryForList("""
+                SELECT CONCAT(IF(l.debit_amount > 0, 'N', 'C'), ':', a.code, ':',
+                              CAST(l.debit_amount + l.credit_amount AS DECIMAL(19,0)))
+                FROM journal_entry_lines l
+                JOIN journal_entries e ON e.id = l.journal_entry_id
+                JOIN chart_of_accounts a ON a.id = l.account_id
+                WHERE e.source_type = ? AND e.source_id = ? AND e.reversal_of_id IS NULL
+                ORDER BY l.line_no
+                """, String.class, type, source);
+        BigDecimal net = jdbc.queryForObject("SELECT COALESCE(SUM(l.debit_amount) - SUM(l.credit_amount), 0) FROM "
+                + "journal_entry_lines l JOIN journal_entries e ON e.id = l.journal_entry_id WHERE "
+                + "e.source_type = ? AND e.source_id = ?", BigDecimal.class, type, source);
+        assertThat(net).isEqualByComparingTo("0");
+        return lines;
+    }
+
     static String line(long product, long unit, String quantity, String price, String discount) {
         return "{\"productId\":" + product + ",\"unitId\":" + unit + ",\"quantity\":" + quantity
                 + (price == null ? "" : ",\"unitPrice\":" + price)
                 + (discount == null ? "" : ",\"discountPercent\":" + discount) + "}";
-    }
-
-    static String quote(long customer, List<String> lines) {
-        return "{\"branchId\":1,\"customerId\":" + customer + ",\"documentDate\":\"" + DATE
-                + "\",\"validUntil\":\"2099-12-31\",\"lines\":[" + String.join(",", lines) + "]}";
     }
 
     static String order(long customer, long warehouse, boolean reserve, List<String> lines) {

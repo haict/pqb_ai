@@ -30,10 +30,10 @@ import { DocumentStatusTag } from '../../inventory/components/StatusTags';
 import { formatDate, formatNumber, statusLabel } from '../../inventory/labels';
 import { useCompanyId } from '../../masterdata/lookups';
 import { useMyBranches } from '../../system/lookups';
-import { costAllocationApi, purchaseReceiptApi } from '../api';
+import { costAllocationApi, purchaseOrderApi } from '../api';
 import { PurchaseDocumentDrawer } from '../components/PurchaseDocumentDrawer';
 import { SourceJournal } from '../components/SourceJournal';
-import { ALLOCATION_METHODS, postingActions, RECEIPT_STATUSES } from '../labels';
+import { ALLOCATION_METHODS, postingActions, PURCHASE_STATUSES } from '../labels';
 import type {
   CostAllocationMethod,
   CostAllocationSource,
@@ -48,15 +48,15 @@ interface AllocationForm {
   postingDate?: Dayjs;
   method: CostAllocationMethod;
   description?: string;
-  sources: { invoiceLineId?: number; amount?: number }[];
-  receiptIds: number[];
+  sources: { orderLineId?: number; amount?: number }[];
+  orderIds: number[];
 }
 
-const FIELDS = ['branchId', 'documentDate', 'postingDate', 'method', 'description', 'sources', 'receiptIds'];
+const FIELDS = ['branchId', 'documentDate', 'postingDate', 'method', 'description', 'sources', 'orderIds'];
 
 const sourceColumns: TableColumnsType<CostAllocationSource> = [
   { title: '#', dataIndex: 'lineNo', width: 45 },
-  { title: 'Hóa đơn', render: (_, row) => `${row.invoiceDocumentNo ?? ''} (${row.invoiceLabel ?? ''})` },
+  { title: 'Đơn mua', render: (_, row) => `${row.orderNo ?? ''} (${row.invoiceLabel ?? ''})` },
   { title: 'Nhà cung cấp', dataIndex: 'supplierName', width: 200 },
   { title: 'Dịch vụ', render: (_, row) => `${row.productCode ?? ''} - ${row.productName ?? ''}` },
   { title: 'Số tiền phân bổ', dataIndex: 'amount', width: 140, align: 'right', render: formatMoney },
@@ -64,7 +64,7 @@ const sourceColumns: TableColumnsType<CostAllocationSource> = [
 
 const targetColumns: TableColumnsType<CostAllocationTarget> = [
   { title: '#', dataIndex: 'lineNo', width: 45 },
-  { title: 'Phiếu nhận', dataIndex: 'receiptNo', width: 170 },
+  { title: 'Đơn mua', dataIndex: 'orderNo', width: 170 },
   { title: 'Hàng hóa', render: (_, row) => `${row.productCode ?? ''} - ${row.productName ?? ''}` },
   {
     title: 'SL cơ sở',
@@ -78,8 +78,9 @@ const targetColumns: TableColumnsType<CostAllocationTarget> = [
 ];
 
 /**
- * Phân bổ chi phí mua hàng (BR-PUR-12, 16): chi phí dịch vụ (vận chuyển, bảo hiểm...) của hóa đơn mua phân bổ vào các
- * phiếu nhận hàng theo giá trị hoặc số lượng; ghi sổ điều chỉnh giá trị nhập (giá vốn tính lại ở Giai đoạn 8).
+ * Phân bổ chi phí mua hàng (BR-PUR-12, 16): chi phí dịch vụ (vận chuyển, bảo hiểm...) của đơn mua đã ghi sổ phân bổ
+ * vào hàng hóa của các đơn mua đã ghi sổ theo giá trị hoặc số lượng; ghi sổ điều chỉnh giá trị nhập (giá vốn tính lại ở
+ * Giai đoạn 8).
  */
 export function CostAllocationsPage() {
   const can = useCan();
@@ -105,7 +106,7 @@ export function CostAllocationsPage() {
       method: values.method,
       description: values.description,
       sources: values.sources ?? [],
-      receiptIds: values.receiptIds ?? [],
+      orderIds: values.orderIds ?? [],
     };
     if (editing === 'new') {
       const created = await costAllocationApi.create(input, key);
@@ -128,17 +129,17 @@ export function CostAllocationsPage() {
           method: editing.method,
           description: editing.description ?? undefined,
           sources: editing.sources.map((source) => ({
-            invoiceLineId: source.invoiceLineId,
+            orderLineId: source.orderLineId,
             amount: source.amount,
           })),
-          receiptIds: editing.receiptIds,
+          orderIds: editing.orderIds,
         }
       : {
           branchId: branches.items[0]?.id,
           documentDate: dayjs(),
           method: 'VALUE',
           sources: [{}],
-          receiptIds: [],
+          orderIds: [],
         };
 
   const columns: TableColumnsType<PurchaseCostAllocation> = [
@@ -181,7 +182,7 @@ export function CostAllocationsPage() {
             style={{ width: 160 }}
             value={status}
             onChange={setStatus}
-            options={RECEIPT_STATUSES.map((value) => ({ value, label: statusLabel(value) }))}
+            options={PURCHASE_STATUSES.map((value) => ({ value, label: statusLabel(value) }))}
           />
         }
         createLabel="Lập phân bổ"
@@ -220,17 +221,17 @@ export function CostAllocationsPage() {
               </Descriptions>
               <Typography.Title level={5}>Chi phí</Typography.Title>
               <Table<CostAllocationSource>
-                rowKey="invoiceLineId"
+                rowKey="orderLineId"
                 size="small"
                 pagination={false}
                 columns={sourceColumns}
                 dataSource={document.sources}
               />
               <Typography.Title level={5} style={{ marginTop: 16 }}>
-                Phân bổ vào phiếu nhận hàng
+                Phân bổ vào hàng hóa của đơn mua
               </Typography.Title>
               <Table<CostAllocationTarget>
-                rowKey="receiptLineId"
+                rowKey="orderLineId"
                 size="small"
                 pagination={false}
                 columns={targetColumns}
@@ -275,9 +276,9 @@ function AllocationFields({
     queryFn: () => costAllocationApi.costLines({ branchId: branchId as number }),
     enabled: typeof branchId === 'number',
   });
-  const receipts = useQuery({
-    queryKey: ['purchase-receipts', 'posted', branchId],
-    queryFn: () => purchaseReceiptApi.list({ page: 0, size: 100, companyId, branchId, status: 'POSTED' }),
+  const orders = useQuery({
+    queryKey: ['purchase-orders', 'posted', branchId],
+    queryFn: () => purchaseOrderApi.list({ page: 0, size: 100, companyId, branchId, status: 'POSTED' }),
     enabled: typeof branchId === 'number',
   });
   const lines = costLines.data ?? [];
@@ -293,7 +294,7 @@ function AllocationFields({
             <Select
               disabled={!isNew}
               options={branchOptions}
-              onChange={() => form.setFieldsValue({ sources: [{}], receiptIds: [] })}
+              onChange={() => form.setFieldsValue({ sources: [{}], orderIds: [] })}
             />
           </Form.Item>
         </Col>
@@ -327,7 +328,7 @@ function AllocationFields({
           </Form.Item>
         </Col>
       </Row>
-      <Typography.Title level={5}>Chi phí (dòng dịch vụ của hóa đơn mua đã ghi sổ)</Typography.Title>
+      <Typography.Title level={5}>Chi phí (dòng dịch vụ của đơn mua đã ghi sổ)</Typography.Title>
       <Form.List name="sources">
         {(fields, { add, remove }) => (
           <>
@@ -335,7 +336,7 @@ function AllocationFields({
               <Row gutter={8} key={field.key}>
                 <Col xs={24} md={16}>
                   <Form.Item
-                    name={[field.name, 'invoiceLineId']}
+                    name={[field.name, 'orderLineId']}
                     rules={[{ required: true, message: 'Chọn dòng chi phí' }]}
                   >
                     <Select
@@ -344,13 +345,13 @@ function AllocationFields({
                       loading={costLines.isLoading}
                       placeholder="Dòng chi phí"
                       options={lines.map((line) => ({
-                        value: line.invoiceLineId,
-                        label: `${line.invoiceDocumentNo ?? ''} · ${line.supplierName ?? ''} · ${
+                        value: line.orderLineId,
+                        label: `${line.orderNo ?? ''} · ${line.supplierName ?? ''} · ${
                           line.productName ?? ''
                         } (còn ${formatMoney(line.remainingAmount ?? 0)})`,
                       }))}
                       onChange={(value: number) => {
-                        const line = lines.find((candidate) => candidate.invoiceLineId === value);
+                        const line = lines.find((candidate) => candidate.orderLineId === value);
                         form.setFieldValue(
                           ['sources', field.name, 'amount'],
                           line?.remainingAmount ?? undefined,
@@ -381,20 +382,20 @@ function AllocationFields({
         )}
       </Form.List>
       <Form.Item
-        name="receiptIds"
-        label="Phiếu nhận hàng nhận phân bổ (đã nhập kho)"
-        rules={[{ required: true, message: 'Chọn phiếu nhận hàng' }]}
+        name="orderIds"
+        label="Đơn mua nhận phân bổ (đã ghi sổ, có hàng hóa)"
+        rules={[{ required: true, message: 'Chọn đơn mua' }]}
       >
         <Select
           mode="multiple"
           showSearch
           optionFilterProp="label"
-          loading={receipts.isLoading}
-          options={(receipts.data?.items ?? [])
-            .filter((receipt) => receipt.stockedAt)
-            .map((receipt) => ({
-              value: receipt.id,
-              label: `${receipt.documentNo} · ${receipt.supplierName ?? ''} · ${formatDate(receipt.documentDate)}`,
+          loading={orders.isLoading}
+          options={(orders.data?.items ?? [])
+            .filter((order) => order.inventoryDocumentId)
+            .map((order) => ({
+              value: order.id,
+              label: `${order.documentNo} · ${order.supplierName ?? ''} · ${formatDate(order.postingDate)}`,
             }))}
         />
       </Form.Item>

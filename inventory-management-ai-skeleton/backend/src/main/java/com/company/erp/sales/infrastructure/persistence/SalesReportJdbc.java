@@ -11,13 +11,13 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
 /**
- * Truy vấn tổng hợp doanh số (BR-SAL-51) từ chứng từ đã ghi sổ: hóa đơn bán (doanh thu), trả hàng / giảm giá hàng bán
+ * Truy vấn tổng hợp doanh số (BR-SAL-51) từ chứng từ đã ghi sổ: đơn bán (doanh thu), trả hàng / giảm giá hàng bán
  * (giảm trừ), theo ngày hạch toán. Nhóm theo nhân viên, khách, hàng, chi nhánh. Cột nhóm lấy từ danh sách cố định.
  */
 @Repository
 public class SalesReportJdbc {
 
-    /** Số liệu một nhóm: khóa, số hóa đơn, doanh thu, giảm trừ, thuế (thuế giảm trừ đã trừ). */
+    /** Số liệu một nhóm: khóa, số đơn bán đã ghi sổ, doanh thu, giảm trừ, thuế (thuế giảm trừ đã trừ). */
     public record Row(Long key, long invoiceCount, BigDecimal revenue, BigDecimal deductions, BigDecimal tax) {
     }
 
@@ -37,7 +37,7 @@ public class SalesReportJdbc {
                 SELECT k, SUM(cnt) AS cnt, SUM(revenue) AS revenue, SUM(deductions) AS deductions, SUM(tax) AS tax FROM (
                   SELECT %s AS k, COUNT(DISTINCT i.id) AS cnt, SUM(l.amount) AS revenue, 0 AS deductions,
                          SUM(l.tax_amount) AS tax
-                  FROM sales_invoices i JOIN sales_invoice_lines l ON l.invoice_id = i.id
+                  FROM sales_orders i JOIN sales_order_lines l ON l.order_id = i.id
                   WHERE i.company_id = ? AND i.status IN ('POSTED', 'REVERSED') AND i.posting_date BETWEEN ? AND ?
                     AND (i.status = 'POSTED' OR i.reverse_date > ?) AND (? IS NULL OR i.branch_id = ?)
                   GROUP BY %s
@@ -46,7 +46,6 @@ public class SalesReportJdbc {
                   FROM sales_returns r JOIN sales_return_lines rl ON rl.return_id = r.id
                   WHERE r.company_id = ? AND r.status IN ('POSTED', 'REVERSED') AND r.posting_date BETWEEN ? AND ?
                     AND (r.status = 'POSTED' OR r.reverse_date > ?) AND (? IS NULL OR r.branch_id = ?)
-                    AND r.sales_invoice_id IS NOT NULL
                   GROUP BY %s
                 ) t GROUP BY k ORDER BY SUM(revenue) - SUM(deductions) DESC
                 """.formatted(invoiceKey(grouping), invoiceKey(grouping), returnKey(grouping), returnKey(grouping));
@@ -56,12 +55,12 @@ public class SalesReportJdbc {
                 .toArray());
     }
 
-    /** Hóa đơn, trả hàng / giảm giá cấu thành nhóm {@code key} (BR mục 5, truy ngược số liệu). */
+    /** Đơn bán, trả hàng / giảm giá cấu thành nhóm {@code key} (BR mục 5, truy ngược số liệu). */
     public List<Source> sources(Long companyId, Long branchId, LocalDate from, LocalDate to, SalesReportGrouping grouping,
                                 Long key) {
         String sql = """
-                SELECT 'HDB' AS type, i.id, i.document_no, i.posting_date, i.customer_id, SUM(l.amount) AS amount
-                FROM sales_invoices i JOIN sales_invoice_lines l ON l.invoice_id = i.id
+                SELECT 'DBH' AS type, i.id, i.document_no, i.posting_date, i.customer_id, SUM(l.amount) AS amount
+                FROM sales_orders i JOIN sales_order_lines l ON l.order_id = i.id
                 WHERE i.company_id = ? AND i.status IN ('POSTED', 'REVERSED') AND i.posting_date BETWEEN ? AND ?
                   AND (i.status = 'POSTED' OR i.reverse_date > ?) AND (? IS NULL OR i.branch_id = ?) AND %s <=> ?
                 GROUP BY i.id, i.document_no, i.posting_date, i.customer_id
@@ -70,7 +69,7 @@ public class SalesReportJdbc {
                 FROM sales_returns r JOIN sales_return_lines rl ON rl.return_id = r.id
                 WHERE r.company_id = ? AND r.status IN ('POSTED', 'REVERSED') AND r.posting_date BETWEEN ? AND ?
                   AND (r.status = 'POSTED' OR r.reverse_date > ?) AND (? IS NULL OR r.branch_id = ?)
-                  AND r.sales_invoice_id IS NOT NULL AND %s <=> ?
+                  AND %s <=> ?
                 GROUP BY r.document_type, r.id, r.document_no, r.posting_date, r.customer_id
                 ORDER BY 4, 3
                 """.formatted(invoiceKey(grouping), returnKey(grouping));

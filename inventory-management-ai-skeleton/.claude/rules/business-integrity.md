@@ -48,9 +48,9 @@
 - Cung cấp truy vết hai chiều nguồn ↔ đích.
 
 ## 8. Tách sự kiện nghiệp vụ
-- Mua: đơn mua, phiếu nhận hàng, phiếu nhập kho, hóa đơn mua, chứng từ thanh toán là các chứng từ riêng.
-- Bán: đơn bán, phiếu xuất kho, giao hàng, ghi nhận doanh thu, hóa đơn bán là các sự kiện riêng.
-- "Thao tác nhanh" được phép sinh nhiều chứng từ trong một lần nhưng mỗi chứng từ vẫn riêng biệt và liên kết.
+- Mua (D-54): đơn mua là chứng từ ghi sổ (mang hóa đơn NCC); phiếu nhập kho sinh khi ghi sổ đơn và liên kết; chứng từ thanh toán riêng.
+- Bán (D-54): đơn bán là chứng từ ghi sổ (xuất kho, doanh thu, công nợ, hóa đơn cùng lúc); phiếu xuất kho sinh khi ghi sổ đơn và liên kết; giao hàng là trạng thái theo dõi trên đơn; phiếu thu riêng.
+- Chứng từ sinh tự động (phiếu kho) vẫn riêng biệt, liên kết hai chiều với chứng từ nguồn, đảo theo chứng từ nguồn.
 
 ## 9. Kỳ kế toán, kỳ kho, giá vốn
 - Không ghi sổ, đảo, sửa chứng từ thuộc kỳ đã khóa.

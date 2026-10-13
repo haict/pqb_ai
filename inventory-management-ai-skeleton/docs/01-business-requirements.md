@@ -2,11 +2,12 @@
 
 | Thuộc tính | Giá trị |
 |---|---|
-| Phiên bản | 0.7 (DRAFT - đã chốt toàn bộ quyết định ở mục 20) |
-| Ngày cập nhật | 2026-10-10 |
+| Phiên bản | 0.8 (DRAFT - đã chốt toàn bộ quyết định ở mục 20) |
+| Ngày cập nhật | 2026-10-12 |
 | Doanh nghiệp | Công ty TNHH Công nghệ B2K (Hà Nội) |
 | Loại hình | Thương mại / phân phối: máy móc, thiết bị y tế, vật tư y tế, hóa chất - thuốc thử xét nghiệm; tham gia đấu thầu cung cấp cho cơ sở y tế |
 | Nguồn | (1) Đặc tả yêu cầu dự án do chủ dự án cung cấp ngày 2026-10-09; (2) ảnh hiện trạng MISA SME 2026 R5 Enterprise (`docs/HienTrang/01..19.jpg`); (3) tài liệu tham khảo `docs/HienTrang/để lập 1 phần mềm theo dõi xuất nhập tồn.docx` |
+| Thay đổi so với 0.7 (2026-10-12) | **D-54 gộp chứng từ mua / bán**: đơn mua hàng là chứng từ ghi sổ duy nhất của nghiệp vụ mua (mang hóa đơn NCC, lô / hạn dùng / serial; ghi sổ = nhập kho + công nợ + bút toán); đơn bán hàng là chứng từ ghi sổ duy nhất của nghiệp vụ bán (ghi sổ = xuất kho + doanh thu + công nợ + bút toán; số hóa đơn điện tử; theo dõi giao hàng). Bỏ đề nghị mua, yêu cầu / so sánh báo giá NCC, phiếu nhận hàng, hóa đơn mua riêng, báo giá bán, phiếu giao hàng, hóa đơn bán riêng, bán nhanh. Sửa mục 1, 5.1, 5.3, 8, 10, 18, 20 |
 | Thay đổi bổ sung 2026-10-10 | Chốt D-45..D-48 (chi tiết khóa kỳ, cấu hình số chứng từ) khi làm Giai đoạn 1C; D-49..D-53 khi làm 1D, Giai đoạn 2, 3 |
 | Thay đổi so với 0.6 | Chốt toàn bộ quyết định còn "Mở" và "Chốt tạm" theo khuyến nghị; quy tắc kế toán/pháp lý cấu hình được, KTT/pháp chế rà soát trước UAT |
 | Thay đổi so với 0.5 | Chủ dự án chốt quyết định theo đề xuất (mục 20, cột Trạng thái); thêm D-42 (thư viện bổ sung), D-43 (gói gốc Java) |
@@ -29,8 +30,8 @@ Xây dựng hệ thống ERP thay thế dần MISA SME, quản lý xuyên suốt
 
 | Chuỗi | Luồng |
 |---|---|
-| **Mua hàng** | Yêu cầu mua hàng → Đơn mua hàng → Nhận hàng → Nhập kho → Hóa đơn mua hàng → Công nợ nhà cung cấp → Thanh toán |
-| **Bán hàng** | Khách hàng → Báo giá → Đơn bán hàng → Kiểm tra tồn kho → Xuất kho → Giao hàng → Hóa đơn bán hàng → Công nợ khách hàng → Thu tiền |
+| **Mua hàng** | Đơn mua hàng (kèm hóa đơn nhà cung cấp; ghi sổ = nhập kho + công nợ nhà cung cấp) → Thanh toán (D-54) |
+| **Bán hàng** | Khách hàng → Đơn bán hàng (kiểm tra tồn, giữ hàng; ghi sổ = xuất kho + doanh thu + công nợ khách hàng; số hóa đơn điện tử) → Giao hàng (theo dõi) → Thu tiền (D-54) |
 | **Đấu thầu** | Gói thầu → Hồ sơ dự thầu → Kết quả trúng thầu → Hợp đồng → Phân bổ hàng hóa → Giao hàng theo tiến độ → Nghiệm thu → Đối soát và thu tiền |
 
 Ngoài ba chuỗi trên, hệ thống quản lý dịch vụ kỹ thuật (bảo hành, sửa chữa thiết bị), kiểm soát chất lượng theo lô/hạn dùng/serial, kế toán và giá vốn.
@@ -179,10 +180,10 @@ Tiền lương, CRM đầy đủ, mobile app riêng (giao diện web responsive 
 | Quản trị hệ thống | Tổ chức, người dùng, vai trò, tham số, cấu hình số chứng từ và luồng duyệt |
 | Giám đốc | Xem toàn bộ; duyệt hợp đồng, giá dưới giá sàn, chiết khấu vượt ngưỡng, vượt hạn mức tín dụng, hủy hàng, thu hồi lô, chính sách xuất vượt tồn khả dụng |
 | Giám đốc chi nhánh | Như Giám đốc nhưng trong phạm vi chi nhánh được giao |
-| Trưởng phòng kinh doanh | Duyệt báo giá, đơn bán trong ngưỡng; quản lý nhân viên kinh doanh |
-| Nhân viên kinh doanh | Lập báo giá, đơn bán; theo dõi giao hàng và công nợ khách mình phụ trách |
+| Trưởng phòng kinh doanh | Duyệt đơn bán (giá, hạn mức) trong ngưỡng; quản lý nhân viên kinh doanh |
+| Nhân viên kinh doanh | Lập đơn bán; theo dõi giao hàng và công nợ khách mình phụ trách |
 | Nhân viên đấu thầu / pháp chế | Gói thầu, hồ sơ dự thầu, hồ sơ pháp lý doanh nghiệp và sản phẩm, công khai giá |
-| Nhân viên mua hàng | Đề nghị mua, yêu cầu báo giá, so sánh báo giá, đơn mua, theo dõi hàng về |
+| Nhân viên mua hàng | Lập đơn mua (kèm hóa đơn NCC), theo dõi hàng về (D-54) |
 | Quản lý kho | Duyệt chứng từ kho, kiểm kê, chuyển kho, khóa kỳ kho |
 | Thủ kho / Nhân viên kho | Nhận hàng, kiểm đếm, nhập, xuất, ghi nhận lô/hạn/serial |
 | Phụ trách chất lượng (QA) | Hồ sơ chất lượng, chuyển trạng thái lô, thu hồi |
@@ -201,7 +202,7 @@ Tiền lương, CRM đầy đủ, mobile app riêng (giao diện web responsive 
 ## 5. Quy tắc nghiệp vụ chung (bắt buộc)
 
 ### 5.1 Trạng thái chứng từ [ĐT]
-**Nhóm A - chứng từ ghi sổ** (phiếu nhập, phiếu xuất, chuyển kho, điều chỉnh, kiểm kê, hóa đơn mua, hóa đơn bán, phiếu thu, phiếu chi, bút toán tổng hợp):
+**Nhóm A - chứng từ ghi sổ** (phiếu nhập, phiếu xuất, chuyển kho, điều chỉnh, kiểm kê, đơn mua, đơn bán, trả hàng / giảm giá mua bán, phân bổ chi phí mua, phiếu thu, phiếu chi, bút toán tổng hợp; D-54):
 ```
 DRAFT (Nháp) -> SUBMITTED (Chờ duyệt) -> APPROVED (Đã duyệt) -> POSTED (Đã ghi sổ)
 SUBMITTED -> REJECTED (Bị từ chối) -> DRAFT
@@ -209,13 +210,13 @@ DRAFT / REJECTED / APPROVED (chưa ghi sổ) -> CANCELLED (Đã hủy)
 POSTED -> REVERSED (Đã đảo) - chỉ qua chứng từ đảo
 ```
 
-**Nhóm B - chứng từ điều phối** (đề nghị mua, yêu cầu báo giá, đơn mua, báo giá bán, đơn bán, giao hàng, gói thầu, hợp đồng):
+**Nhóm B - chứng từ điều phối** (gói thầu, hợp đồng; sau D-54 đơn mua, đơn bán là chứng từ ghi sổ nhóm A):
 ```
 DRAFT -> SUBMITTED -> APPROVED -> IN_PROGRESS (Đang thực hiện) -> COMPLETED (Hoàn tất) / CLOSED (Đóng phần còn lại)
 SUBMITTED -> REJECTED -> DRAFT
 DRAFT / REJECTED / APPROVED (chưa phát sinh chứng từ sau) -> CANCELLED
 ```
-Trạng thái riêng của từng loại (ví dụ báo giá "Đã gửi", gói thầu "Trúng / Trượt") mô tả trong phân hệ.
+Trạng thái riêng của từng loại (ví dụ trạng thái giao hàng của đơn bán, gói thầu "Trúng / Trượt") mô tả trong phân hệ.
 
 | Mã | Yêu cầu | GĐ |
 |---|---|---|
@@ -227,7 +228,7 @@ Trạng thái riêng của từng loại (ví dụ báo giá "Đã gửi", gói 
 | BR-GEN-06 | Duyệt, ghi sổ, hủy, đảo, điều chỉnh đều **kiểm tra quyền phía server** và ghi nhật ký [ĐT]. | P1 |
 | BR-GEN-07 | Mọi thay đổi quan trọng lưu người thực hiện, thời điểm, **lý do**, dữ liệu trước/sau [ĐT]. | P1 |
 | BR-GEN-08 | Đính kèm file cho chứng từ và danh mục (giới hạn loại, kích thước: BR-SYS-22). | P1 |
-| BR-GEN-09 | **Truy vết hai chiều** từ chứng từ nguồn đến chứng từ đích: đề nghị mua → đơn mua → nhận hàng → nhập kho → hóa đơn → phiếu chi; gói thầu → hợp đồng → đơn bán → xuất kho → giao hàng → nghiệm thu → hóa đơn → phiếu thu [ĐT]. | P1 |
+| BR-GEN-09 | **Truy vết hai chiều** từ chứng từ nguồn đến chứng từ đích: đơn mua → phiếu nhập kho → trả hàng / phân bổ chi phí → phiếu chi; gói thầu → hợp đồng → đơn bán → phiếu xuất kho → nghiệm thu → trả hàng → phiếu thu (D-54) [ĐT]. | P1 |
 | BR-GEN-10 | Không ghi sổ hoặc đảo chứng từ có ngày hạch toán thuộc **kỳ đã khóa** (BR-SYS-30). | P1 |
 | BR-GEN-11 | In chứng từ theo mẫu cấu hình, có logo, thông tin công ty, chữ ký như mẫu hiện tại [HT-04], [HT-12]; số tiền bằng chữ tiếng Việt. | P1 |
 | BR-GEN-12 | Mỗi chứng từ có ngày chứng từ và ngày hạch toán; ngày hạch toán quyết định kỳ. | P1 |
@@ -245,22 +246,22 @@ Ký hiệu: `+` tăng, `−` giảm, `·` không ảnh hưởng. Giá trị kế
 | Chứng từ (khi) | Tồn thực tế | Giữ chỗ | Hàng đang về | Công nợ | Doanh thu | Giá vốn | Quỹ / NH | Chỉ tiêu nguồn |
 |---|---|---|---|---|---|---|---|---|
 | Đơn mua (APPROVED) | · | · | + | · | · | · | · | · |
-| Phiếu nhận hàng (POSTED) | · | · | · | · | · | · | · | Đơn mua: + đã nhận, ghi nhận SL lỗi |
-| Phiếu nhập kho mua (POSTED) | + | · | − | Phải trả `*` | · | · | · | Đơn mua: + đã nhập |
-| Hóa đơn mua (POSTED) | · | · | · | Phải trả + `*` | · | Điều chỉnh giá nhập nếu chênh giá | · | Đơn mua: + đã nhận HĐ |
-| Phiếu chi trả NCC (POSTED) | · | · | · | Phải trả − | · | · | − | Hóa đơn: + đã trả |
-| Trả hàng NCC (POSTED) | − | · | · | Phải trả − | · | · | · | Phiếu nhập: + đã trả |
-| Đơn bán (APPROVED) | · | + (nếu cấu hình) | · | · | · | · | · | Hợp đồng: + đã đặt |
-| Phiếu xuất kho bán (POSTED) | − | − | · | · | · `*` | + `*` | · | Đơn bán, hợp đồng: + đã xuất |
-| Giao hàng (khách xác nhận) | · | · | · | · | + `*` | · | · | Đơn bán, hợp đồng: + đã giao |
-| Hóa đơn bán (POSTED) | · | · | · | Phải thu + | + `*` | · | · | Đơn bán, hợp đồng: + đã xuất HĐ |
-| Phiếu thu (POSTED) | · | · | · | Phải thu − | · | · | + | Hóa đơn: + đã thu |
-| Trả hàng bán (POSTED) | + (CÁCH LY) | · | · | Phải thu − | − | − | · | Hóa đơn, hợp đồng: − đã giao |
+| Đơn mua (POSTED, D-54) | + (phiếu nhập kho liên kết) | · | − | Phải trả + `*` | · | · | · | · |
+| Phiếu chi trả NCC (POSTED) | · | · | · | Phải trả − | · | · | − | Đơn mua: + đã trả |
+| Trả hàng NCC (POSTED) | − (phiếu xuất trả) | · | · | Phải trả − | · | · | · | Đơn mua: + đã trả lại, + đã giảm |
+| Giảm giá hàng mua (POSTED) | · | · | · | Phải trả − | · | Điều chỉnh giá trị nhập | · | Đơn mua: + đã giảm |
+| Phân bổ chi phí mua (POSTED) | · | · | · | · | · | Điều chỉnh giá trị nhập | · | Đơn mua dịch vụ: + đã phân bổ |
+| Đơn bán (APPROVED) | · | + (nếu chọn giữ hàng) | · | · | · | · | · | Hợp đồng: + đã đặt |
+| Đơn bán (POSTED, D-54) | − (phiếu xuất kho liên kết) | − | · | Phải thu + | + `*` | + `*` | · | Hợp đồng: + đã giao |
+| Khách nhận hàng (trên đơn bán) | · | · | · | · | · | · | · | Đơn bán: trạng thái giao |
+| Phiếu thu (POSTED) | · | · | · | Phải thu − | · | · | + | Đơn bán: + đã thu |
+| Trả hàng bán (POSTED) | + (CÁCH LY) | · | · | Phải thu − | − | − | · | Đơn bán: + đã trả lại; hợp đồng: − đã giao |
+| Giảm giá hàng bán (POSTED) | · | · | · | Phải thu − | − | · | · | Đơn bán: + đã giảm |
 | Chuyển kho (POSTED) | − nguồn / + đích | · | · | · | · | · | · | · |
 | Kiểm kê, điều chỉnh (POSTED) | ± | · | · | · | · | Chênh lệch giá trị | · | · |
 | Chứng từ đảo | Ngược chứng từ gốc | | | | | | | Ngược chứng từ gốc |
 
-`[Suy luận]` Hiện tại một chứng từ MISA làm đồng thời xuất kho, hóa đơn, ghi doanh thu (H-31). ERP phải tách các bước này, nhưng vẫn cho phép **thao tác nhanh** sinh nhiều chứng từ trong một lần (BR-SAL-42).
+Theo D-54 (2026-10-12), giống cách làm trên MISA (H-31): ghi sổ đơn bán làm đồng thời xuất kho, ghi doanh thu, công nợ; ghi sổ đơn mua làm đồng thời nhập kho, công nợ. Phiếu kho vẫn là chứng từ riêng của phân hệ kho, sinh tự động và liên kết hai chiều với đơn.
 
 ### 5.4 Các loại tồn [ĐT]
 | Chỉ tiêu | Định nghĩa |
@@ -386,7 +387,7 @@ Ký hiệu: `+` tăng, `−` giảm, `·` không ảnh hưởng. Giá trị kế
 | BR-MD-31 | Khách hàng: mã, tên, loại khách (Bệnh viện công / Trung tâm y tế / Phòng khám - BV tư / Nhà thuốc / Doanh nghiệp / Đại lý / Cá nhân), nhóm, MST, địa chỉ hóa đơn, nhiều địa chỉ giao, nhiều người liên hệ, nhân viên kinh doanh, chi nhánh phụ trách. | P1 |
 | BR-MD-32 | Điều khoản khách: số ngày nợ, **hạn mức tín dụng**, bảng giá, hạn dùng còn lại tối thiểu khi giao. | P1 |
 | BR-MD-33 | **Đại lý**: chính sách chiết khấu đại lý, khu vực phân phối, hạn mức. | P1 |
-| BR-MD-34 | Nhà cung cấp: mã, tên, quốc gia, MST, địa chỉ, liên hệ, điều khoản thanh toán, tiền tệ, hãng phân phối. | P1 |
+| BR-MD-34 | Nhà cung cấp: mã, tên, quốc gia, **MST, địa chỉ (bắt buộc)**, liên hệ, điều khoản thanh toán, tiền tệ, hãng phân phối. Đơn mua hiển thị MST, địa chỉ người bán theo danh mục nhà cung cấp, không sửa trên đơn (2026-10-13). | P1 |
 | BR-MD-35 | Bên mời thầu / chủ đầu tư: dùng chung danh mục khách hàng, có cờ "Bên mời thầu" (BR-TND-01). | P1 |
 
 ### 7.4 Kho, giá, thuế, tiền tệ và danh mục khác
@@ -407,34 +408,36 @@ Ký hiệu: `+` tăng, `−` giảm, `·` không ảnh hưởng. Giá trị kế
 
 ### 8.1 Luồng và phân biệt chứng từ [ĐT]
 ```
-Đề nghị mua -> (Yêu cầu báo giá NCC -> So sánh báo giá) -> Đơn mua hàng (duyệt)
-   -> Phiếu nhận hàng (kiểm đếm, hàng lỗi) -> Phiếu nhập kho -> Hóa đơn mua -> Công nợ phải trả -> Phiếu chi / UNC
+Đơn mua hàng (duyệt theo ngưỡng; kèm hóa đơn NCC, lô / hạn dùng / serial)
+   -> Ghi sổ: phiếu nhập kho (tự sinh, liên kết) + công nợ phải trả + bút toán -> Phiếu chi / UNC
+   -> (khi cần) Trả hàng / giảm giá hàng mua, phân bổ chi phí mua
 ```
+D-54 (2026-10-12): đơn mua là chứng từ ghi sổ duy nhất của nghiệp vụ mua. Mỗi lần nhận hàng (kèm hóa đơn) là một đơn mua; không theo dõi nhận nhiều đợt cho một đơn.
+
 | Chứng từ | Ý nghĩa | Ảnh hưởng |
 |---|---|---|
-| Đơn mua hàng | Cam kết mua với NCC | Hàng đang về |
-| Phiếu nhận hàng | Ghi nhận hàng thực tế đến, kiểm đếm, hàng lỗi | Không đổi tồn |
-| Phiếu nhập kho | Đưa hàng đạt vào kho theo lô/serial | Tồn thực tế |
-| Hóa đơn mua | Chứng từ thuế của NCC | Công nợ phải trả, giá trị nhập |
+| Đơn mua hàng (đã duyệt) | Cam kết mua với NCC | Hàng đang về |
+| Đơn mua hàng (đã ghi sổ) | Hàng về kho, hóa đơn NCC | Tồn thực tế (phiếu nhập kho liên kết), công nợ phải trả, giá trị nhập, bút toán |
+| Trả hàng / giảm giá hàng mua | Trả lại NCC đúng lô / serial, hoặc NCC giảm giá | Tồn, công nợ, giá trị nhập |
 | Phiếu chi / UNC | Thanh toán | Quỹ / ngân hàng, công nợ |
 
 ### 8.2 Yêu cầu
 | Mã | Yêu cầu | GĐ |
 |---|---|---|
-| BR-PUR-01 | **Đề nghị mua**: thủ công, từ đơn bán thiếu hàng, từ hợp đồng trúng thầu, từ cảnh báo dưới định mức; có duyệt. | P1 |
-| BR-PUR-02 | **Yêu cầu báo giá NCC**: gửi cho nhiều NCC từ đề nghị mua; ghi nhận báo giá trả về (giá, thời gian giao, điều kiện, hiệu lực) [ĐT]. | P1 |
-| BR-PUR-03 | **So sánh báo giá**: bảng so sánh theo dòng hàng; chọn NCC có lý do; sinh đơn mua từ báo giá được chọn [ĐT]. | P1 |
-| BR-PUR-04 | **Đơn mua hàng**: NCC, hàng, số lượng, đơn giá, chiết khấu, thuế, ngày giao dự kiến, điều khoản thanh toán, tiền tệ; có duyệt theo ngưỡng. | P1 |
-| BR-PUR-05 | Theo dõi **giao hàng từng phần** theo dòng: đặt / đã nhận / đã nhập / lỗi / còn thiếu / đã nhận hóa đơn [ĐT]. Đóng phần còn lại có lý do. | P1 |
+| BR-PUR-01 | ~~Đề nghị mua~~: **bỏ theo D-54**. Nhu cầu mua từ đơn bán thiếu hàng / hợp đồng trúng thầu / cảnh báo dưới định mức chuyển thành đơn mua nháp (Giai đoạn 7). | Bỏ |
+| BR-PUR-02 | ~~Yêu cầu báo giá NCC~~: **bỏ theo D-54** (xuất phát từ đề nghị mua). | Bỏ |
+| BR-PUR-03 | ~~So sánh báo giá~~: **bỏ theo D-54**. | Bỏ |
+| BR-PUR-04 | **Đơn mua hàng** (D-54): NCC, kho nhập, ngày hạch toán, hàng, số lượng, đơn giá, chiết khấu, thuế, lô / hạn dùng / serial / vị trí theo dòng (hàng nhiều lô: mỗi lô một dòng), dòng dịch vụ, ngày giao dự kiến, hạn thanh toán, tiền tệ, hóa đơn NCC (không bắt buộc); có duyệt theo ngưỡng. | P1 |
+| BR-PUR-05 | Theo dõi theo dòng đơn mua đã ghi sổ: đã trả NCC, giá trị đã giảm, chi phí đã phân bổ, còn trả được. Không còn nhận nhiều đợt / đóng phần còn lại (D-54). | P1 |
 | BR-PUR-06 | **Đơn mua theo đơn bán / hợp đồng**: khi hàng về thì giữ chỗ cho đơn bán hoặc hợp đồng đó (H-35). | P1 |
-| BR-PUR-07 | **Phiếu nhận hàng**: số lượng thực nhận, số lượng lỗi, lý do lỗi, ảnh, biên bản; nhận vượt số đặt trên dung sai phải duyệt [ĐT]. | P1 |
-| BR-PUR-08 | **Phiếu nhập kho** theo đơn mua (qua phiếu nhận hàng) hoặc theo nghiệp vụ được phép (mục 9.3); ghi lô, hạn dùng, serial, vị trí. Hàng lỗi vào trạng thái CÁCH LY hoặc không nhập và trả NCC. Cho phép **lập phiếu nhận hàng và nhập kho trong một thao tác** (D-36). | P1 |
-| BR-PUR-09 | **Hóa đơn mua**: số, ký hiệu, ngày, MST người bán; tham chiếu một hoặc nhiều phiếu nhập và ngược lại (H-07). Chống trùng theo (MST người bán, ký hiệu, số hóa đơn). | P1 |
-| BR-PUR-10 | **Hàng về trước, hóa đơn về sau**: phiếu nhập ghi giá tạm tính theo đơn mua; khi hóa đơn về thì điều chỉnh giá trị nhập và giá vốn liên quan (kể cả hàng đã xuất) [ĐT]. `[Chưa kiểm chứng]` Cách hạch toán do kế toán trưởng xác nhận (D-34). | P1 |
-| BR-PUR-11 | Đối chiếu ba chiều đơn mua - phiếu nhập - hóa đơn: cảnh báo chênh lệch số lượng, đơn giá vượt dung sai. | P1 |
-| BR-PUR-12 | **Chi phí mua hàng** (vận chuyển, bảo hiểm, bốc xếp, thuế nhập khẩu) phân bổ vào giá trị hàng tồn theo giá trị hoặc số lượng; phân bổ sau khi hàng đã xuất thì điều chỉnh giá vốn [ĐT]. | P1 |
+| BR-PUR-07 | ~~Phiếu nhận hàng~~: **bỏ theo D-54**. Hàng lỗi khi nhận: không ghi vào đơn mua, hoặc nhập rồi trả NCC (BR-PUR-14). | Bỏ |
+| BR-PUR-08 | **Phiếu nhập kho** sinh khi ghi sổ đơn mua (liên kết hai chiều), hoặc theo nghiệp vụ được phép (mục 9.3); ghi lô, hạn dùng, serial, vị trí, đơn giá sau chiết khấu (D-54). | P1 |
+| BR-PUR-09 | **Hóa đơn mua** ghi trên đơn mua: số, ký hiệu, ngày, MST người bán (D-54). Chống trùng theo (MST người bán, ký hiệu, số hóa đơn); hủy / đảo đơn thì giải phóng số hóa đơn. | P1 |
+| BR-PUR-10 | ~~Hàng về trước, hóa đơn về sau~~: **bỏ theo D-54** (hóa đơn ghi cùng đơn mua; có thể ghi sổ đơn không có hóa đơn). | Bỏ |
+| BR-PUR-11 | ~~Đối chiếu ba chiều~~: **bỏ theo D-54** (đơn mua, phiếu nhập, hóa đơn cùng một chứng từ). | Bỏ |
+| BR-PUR-12 | **Chi phí mua hàng** (vận chuyển, bảo hiểm, bốc xếp, thuế nhập khẩu) là dòng dịch vụ của đơn mua đã ghi sổ; phân bổ vào giá trị hàng hóa của các đơn mua đã ghi sổ theo giá trị hoặc số lượng; phân bổ sau khi hàng đã xuất thì điều chỉnh giá vốn [ĐT]. | P1 |
 | BR-PUR-13 | **Nhập khẩu**: ngoại tệ, tỷ giá, tờ khai hải quan, thuế nhập khẩu, GTGT hàng nhập khẩu (D-24). | P2 |
-| BR-PUR-14 | **Trả hàng NCC**: tham chiếu phiếu nhập gốc, đúng lô/serial; giảm tồn và công nợ phải trả. **Giảm giá hàng mua** chỉ giảm công nợ và giá trị nhập. | P1 |
+| BR-PUR-14 | **Trả hàng NCC**: tham chiếu đơn mua đã ghi sổ, đúng lô/serial của dòng đơn; giảm tồn và công nợ phải trả. **Giảm giá hàng mua** chỉ giảm công nợ và giá trị nhập. | P1 |
 | BR-PUR-15 | **Mua giao thẳng** cho khách qua kho ảo, vẫn giữ lô/serial (H-23, D-17). | P1 |
 | BR-PUR-16 | Mua dịch vụ không qua kho; có thể phân bổ vào giá nhập. | P1 |
 | BR-PUR-17 | Hàng khuyến mại từ NCC. `[Chưa kiểm chứng]` Cách ghi nhận giá trị và thuế (D-26). | P1 |
@@ -464,7 +467,7 @@ Ký hiệu: `+` tăng, `−` giảm, `·` không ảnh hưởng. Giá trị kế
 ### 9.3 Nhập kho
 | Loại nhập | Nguồn | GĐ |
 |---|---|---|
-| Nhập mua | Phiếu nhận hàng / đơn mua | P1 |
+| Nhập mua | Ghi sổ đơn mua (D-54) | P1 |
 | Nhập hàng bán bị trả lại, hàng đổi | Trả hàng bán | P1 |
 | Nhập chuyển kho | Chuyển kho | P1 |
 | Nhập thu hồi từ khách (máy đặt, mượn, ký gửi, máy sửa xong) | Kho ảo / dịch vụ | P1 |
@@ -518,60 +521,62 @@ Ký hiệu: `+` tăng, `−` giảm, `·` không ảnh hưởng. Giá trị kế
 
 ### 10.1 Luồng và phân biệt chứng từ [ĐT]
 ```
-Khách hàng -> Báo giá (duyệt giá) -> Đơn bán (duyệt, kiểm tra tồn, giữ chỗ)
-   -> Phiếu xuất kho -> Giao hàng (biên bản giao nhận) -> Hóa đơn bán -> Công nợ phải thu -> Phiếu thu
+Khách hàng -> Đơn bán (giá theo bảng giá, duyệt giá / hạn mức, kiểm tra tồn, giữ hàng)
+   -> Ghi sổ: phiếu xuất kho (tự sinh, FEFO, liên kết) + doanh thu + công nợ phải thu + bút toán
+   -> Số hóa đơn điện tử (MISA) -> Giao hàng (đang giao, khách nhận; biên bản giao nhận) -> Phiếu thu
+   -> (khi cần) Trả hàng / giảm giá hàng bán, đổi hàng, hàng lỗi
 ```
-**Đơn hàng, xuất kho, giao hàng, ghi nhận doanh thu và hóa đơn là năm sự kiện riêng**, có thể xảy ra ở thời điểm khác nhau và nhiều lần cho một đơn. Không mặc định chúng diễn ra đồng thời [ĐT].
+D-54 (2026-10-12): đơn bán là chứng từ ghi sổ duy nhất của nghiệp vụ bán: xuất kho, doanh thu, công nợ, hóa đơn ghi nhận cùng lúc khi ghi sổ đơn. Mỗi lần giao (kèm hóa đơn) là một đơn bán; không theo dõi giao nhiều đợt / một hóa đơn cho nhiều lần giao. Giao thất bại thì đảo đơn.
 
 | Chứng từ / sự kiện | Ý nghĩa | Ảnh hưởng |
 |---|---|---|
-| Đơn bán | Cam kết bán | Giữ chỗ |
-| Phiếu xuất kho | Hàng rời kho | Tồn thực tế, giá vốn `*` |
-| Giao hàng | Khách nhận hàng, ký biên bản | Mốc ghi nhận doanh thu `*` |
-| Hóa đơn bán | Chứng từ thuế | Công nợ phải thu, doanh thu `*` |
+| Đơn bán (đã duyệt) | Cam kết bán | Giữ chỗ (nếu chọn) |
+| Đơn bán (đã ghi sổ) | Hàng rời kho, hóa đơn | Tồn thực tế (phiếu xuất kho liên kết), doanh thu, công nợ phải thu, giá vốn `*` |
+| Giao hàng (trên đơn bán) | Đang giao, khách nhận, ký biên bản | Không đổi sổ; mốc lịch thu tiền |
+| Trả hàng / giảm giá hàng bán | Khách trả đúng lô / serial, hoặc giảm giá | Tồn (cách ly), doanh thu, công nợ |
 | Phiếu thu | Thu tiền | Quỹ / ngân hàng, công nợ |
 
-### 10.2 Bảng giá và báo giá
+### 10.2 Bảng giá (báo giá bỏ theo D-54)
 | Mã | Yêu cầu | GĐ |
 |---|---|---|
-| BR-SAL-01 | Báo giá: khách, người liên hệ, hàng, số lượng, đơn giá, chiết khấu, thuế, hiệu lực, điều kiện giao, bảo hành, thanh toán; nhiều phiên bản. | P1 |
+| BR-SAL-01 | ~~Báo giá~~: **bỏ theo D-54**; giá, chiết khấu, điều kiện ghi trực tiếp trên đơn bán. | Bỏ |
 | BR-SAL-02 | Lấy giá theo thứ tự: giá hợp đồng/trúng thầu → chính sách giá theo khách → theo nhóm khách/đại lý → giá niêm yết. | P1 |
-| BR-SAL-03 | **Phê duyệt giá bán**: giá dưới giá sàn hoặc chiết khấu vượt ngưỡng phải duyệt trước khi gửi khách [ĐT]. | P1 |
-| BR-SAL-04 | In/PDF báo giá kèm thông số, xuất xứ, số lưu hành. | P1 |
-| BR-SAL-05 | Trạng thái: Nháp / Chờ duyệt / Đã gửi / Khách chấp nhận / Từ chối / Hết hạn; báo giá được chấp nhận chuyển thành đơn bán. | P1 |
+| BR-SAL-03 | **Phê duyệt giá bán**: giá dưới giá sàn hoặc chiết khấu vượt ngưỡng thì đơn bán phải duyệt trước khi ghi sổ [ĐT]. | P1 |
+| BR-SAL-04 | ~~In báo giá~~: **bỏ theo D-54**; in biên bản giao nhận từ đơn bán (BR-SAL-22). | Bỏ |
+| BR-SAL-05 | ~~Trạng thái báo giá~~: **bỏ theo D-54**. | Bỏ |
 
 ### 10.3 Đơn bán, tồn và giữ hàng
 | Mã | Yêu cầu | GĐ |
 |---|---|---|
-| BR-SAL-10 | Đơn bán: khách, hợp đồng/gói thầu (nếu có), địa chỉ giao, người nhận, nhân viên kinh doanh, chi nhánh, hàng, số lượng, đơn vị, giá, chiết khấu, thuế, ngày giao dự kiến, điều khoản thanh toán. | P1 |
+| BR-SAL-10 | Đơn bán (D-54): khách, hợp đồng/gói thầu (nếu có), kho xuất, ngày hạch toán, địa chỉ giao, người nhận, nhân viên kinh doanh, chi nhánh, hàng, số lượng, đơn vị, giá, chiết khấu, thuế, lô / serial chỉ định (trống: FEFO), ngày giao dự kiến, điều khoản thanh toán. | P1 |
 | BR-SAL-11 | Đơn phát sinh từ đấu thầu **bắt buộc liên kết hợp đồng/gói thầu**; giá lấy theo hợp đồng; không vượt số lượng còn được giao (BR-TND-22) [ĐT]. | P1 |
 | BR-SAL-12 | **Kiểm tra tồn khả dụng** khi lập và khi duyệt đơn (BR-GEN-30) [ĐT]. | P1 |
 | BR-SAL-13 | **Giữ hàng theo đơn** nếu cấu hình (theo loại khách, hợp đồng): theo hàng hoặc chỉ định lô/serial; hết hạn giữ hoặc hủy đơn thì nhả [ĐT]. | P1 |
 | BR-SAL-14 | Kiểm tra hạn mức tín dụng: công nợ hiện tại + giá trị đơn > hạn mức, hoặc có nợ quá hạn, thì phải duyệt (D-22). | P1 |
-| BR-SAL-15 | Thiếu hàng: tạo đề nghị mua từ đơn bán. | P1 |
+| BR-SAL-15 | ~~Đề nghị mua từ đơn bán thiếu hàng~~: **bỏ theo D-54** (đề nghị mua bỏ); cảnh báo thiếu tồn vẫn hiện trên đơn. | Bỏ |
 
 ### 10.4 Xuất kho và giao hàng
 | Mã | Yêu cầu | GĐ |
 |---|---|---|
-| BR-SAL-20 | **Giao hàng một lần hoặc nhiều lần** cho một đơn; theo dõi theo dòng: đặt / đã xuất / đã giao / đã xuất hóa đơn / đã thu / còn lại [ĐT]. | P1 |
-| BR-SAL-21 | Phiếu xuất lập từ đơn bán; chọn lô theo FEFO, chọn serial. | P1 |
+| BR-SAL-20 | Mỗi đơn bán ghi sổ là một lần xuất / giao / hóa đơn (D-54); giao nhiều đợt thì lập nhiều đơn. Theo dõi theo dòng: đã trả lại, giá trị đã giảm, còn trả được; theo đơn: đã thu theo lịch thu tiền. | P1 |
+| BR-SAL-21 | Phiếu xuất kho sinh khi ghi sổ đơn bán; lô theo FEFO hoặc lô chỉ định (khác FEFO phải có lý do), serial chỉ định hoặc kho chọn; dùng phần hàng đã giữ cho đơn. | P1 |
 | BR-SAL-22 | **Chứng từ giao nhận** (biên bản giao nhận) có lô, hạn dùng, serial, số lưu hành, danh mục CO/CQ; ghi nhận ngày khách nhận, người nhận, file biên bản ký [ĐT]. | P1 |
-| BR-SAL-23 | Trạng thái giao: Chờ giao / Đang giao / Đã giao / Giao thất bại (hàng quay về kho bằng chứng từ nhập). | P1 |
+| BR-SAL-23 | Trạng thái giao của đơn đã ghi sổ: Chờ giao / Đang giao / Đã giao. Giao thất bại: đảo đơn bán (hàng về kho bằng chứng từ đảo phiếu xuất, đảo doanh thu và công nợ). | P1 |
 | BR-SAL-24 | Đơn có yêu cầu lắp đặt sinh phiếu bàn giao/lắp đặt cho kỹ thuật (BR-SVC-01). | P1 |
 
 ### 10.5 Hóa đơn, trả hàng, đổi hàng, chiết khấu
 | Mã | Yêu cầu | GĐ |
 |---|---|---|
-| BR-SAL-30 | **Hóa đơn bán** lập từ một hoặc nhiều lần giao/phiếu xuất của cùng khách; lập được trước khi giao nếu hợp đồng yêu cầu (có cảnh báo) [ĐT]. | P1 |
-| BR-SAL-31 | P1: hóa đơn điện tử phát hành trên MISA, ERP lưu số, ký hiệu, ngày, mã cơ quan thuế (H-32). | P1 |
+| BR-SAL-30 | **Hóa đơn bán** là đơn bán đã ghi sổ (D-54): công nợ phải thu, doanh thu, thuế GTGT đầu ra ghi nhận khi ghi sổ đơn. Không còn một hóa đơn cho nhiều lần giao / hóa đơn trước khi giao. | P1 |
+| BR-SAL-31 | P1: hóa đơn điện tử phát hành trên MISA, ERP lưu số, ký hiệu, ngày, mã cơ quan thuế trên đơn bán, trước hoặc sau khi ghi sổ; chống trùng số (H-32, D-54). | P1 |
 | BR-EINV-01 | P2: tích hợp nhà cung cấp hóa đơn điện tử: phát hành, ký, lấy mã, gửi khách (D-12). Hóa đơn đã phát hành không sửa; điều chỉnh/thay thế theo quy định. `[Chưa kiểm chứng]` | P2 |
-| BR-SAL-32 | **Trả hàng**: tham chiếu hóa đơn/phiếu xuất gốc, đúng lô/serial, không vượt số đã bán trừ số đã trả; hàng về trạng thái CÁCH LY; giảm doanh thu, giá vốn, công nợ; cập nhật số đã giao của đơn và hợp đồng [ĐT]. | P1 |
-| BR-SAL-33 | **Đổi hàng**: trả hàng cũ và xuất hàng mới trong một nghiệp vụ, sinh hai chứng từ liên kết; xử lý chênh lệch giá [ĐT]. | P1 |
+| BR-SAL-32 | **Trả hàng**: tham chiếu đơn bán đã ghi sổ, đúng lô/serial đã xuất, không vượt số đã bán trừ số đã trả; hàng về trạng thái CÁCH LY; giảm doanh thu, giá vốn, công nợ; cập nhật số đã trả của đơn và số đã giao của hợp đồng [ĐT]. | P1 |
+| BR-SAL-33 | **Đổi hàng**: phiếu trả hàng cũ và đơn bán mới (lập từ phiếu trả, cùng giá) liên kết; xử lý chênh lệch giá trên đơn mới [ĐT]. | P1 |
 | BR-SAL-34 | **Hàng lỗi** khách báo: tiếp nhận, kiểm tra, quyết định đổi / sửa / trả / bảo hành (liên kết M09) [ĐT]. | P1 |
 | BR-SAL-35 | **Chiết khấu và khuyến mại theo chính sách**: chiết khấu dòng, chiết khấu đơn, chiết khấu đại lý, hàng tặng kèm, chiết khấu thương mại theo doanh số kỳ, chiết khấu thanh toán [ĐT]. `[Chưa kiểm chứng]` Hóa đơn và thuế cho hàng khuyến mại (D-26). | P1 (P2: theo doanh số kỳ) |
 | BR-SAL-36 | Giảm giá hàng bán sau bán: giảm doanh thu, công nợ, không đổi tồn. | P1 |
 | BR-SAL-37 | Doanh thu nhận trước cho hợp đồng dịch vụ nhiều kỳ (H-30). | P2 |
-| BR-SAL-42 | **Thao tác nhanh**: một lần thao tác sinh đơn bán, phiếu xuất, giao hàng, hóa đơn (và phiếu thu) dưới dạng **các chứng từ riêng, liên kết**, giữ cách làm quen thuộc (H-31). | P1 |
+| BR-SAL-42 | **Thao tác nhanh**: ghi sổ đơn bán là xuất kho + doanh thu + công nợ + hóa đơn trong một lần (D-54), giữ cách làm quen thuộc (H-31); phiếu xuất kho vẫn sinh riêng và liên kết. Phiếu thu lập ở Thu chi. | P1 |
 
 ### 10.6 Công nợ và doanh số
 | Mã | Yêu cầu | GĐ |
@@ -614,7 +619,7 @@ Gói thầu -> Hồ sơ dự thầu -> Kết quả (Trúng / Trượt) -> Hợp 
 ### 11.4 Phân bổ, tiến độ giao, nghiệm thu, đối soát
 | Mã | Yêu cầu | GĐ |
 |---|---|---|
-| BR-TND-20 | **Phân bổ hàng hóa** cho hợp đồng: giữ chỗ tồn theo lô, hoặc sinh đề nghị mua cho phần thiếu [ĐT]. | P1 |
+| BR-TND-20 | **Phân bổ hàng hóa** cho hợp đồng: giữ chỗ tồn theo lô, hoặc sinh đơn mua nháp cho phần thiếu (D-54) [ĐT]. | P1 |
 | BR-TND-21 | **Kế hoạch giao hàng** theo đợt: ngày, địa điểm, số lượng từng mặt hàng. | P1 |
 | BR-TND-22 | Theo dõi theo từng dòng hợp đồng: **trúng / đã đặt / đã giao / còn lại / đã nghiệm thu / đã xuất hóa đơn / đã thu**. **Chặn giao vượt phần còn lại**; kiểm soát cả khi nhiều người giao đồng thời [ĐT]. | P1 |
 | BR-TND-23 | **Nghiệm thu**: biên bản theo đợt, số lượng nghiệm thu, ngày, người ký, file; nghiệm thu là điều kiện lập hóa đơn hoặc thu tiền khi hợp đồng quy định [ĐT]. | P1 |
@@ -633,7 +638,7 @@ Gói thầu -> Hồ sơ dự thầu -> Kết quả (Trúng / Trượt) -> Hợp 
 
 | Mã | Yêu cầu | GĐ |
 |---|---|---|
-| BR-AR-01 | Phải thu tăng từ hóa đơn bán; giảm bởi phiếu thu, trả hàng, giảm giá, đối trừ. | P1 |
+| BR-AR-01 | Phải thu tăng khi ghi sổ đơn bán (hóa đơn bán, D-54); giảm bởi phiếu thu, trả hàng, giảm giá, đối trừ. | P1 |
 | BR-AR-02 | Hạn thanh toán = ngày hóa đơn + số ngày nợ (từ lịch thu tiền, hợp đồng, rồi khách hàng) [ĐT]. | P1 |
 | BR-AR-03 | **Phân bổ thanh toán** cho từng hóa đơn; **thu một phần** hoặc **một lần cho nhiều hóa đơn**; mặc định hóa đơn cũ nhất trước; phần chưa phân bổ là trả trước [ĐT]. | P1 |
 | BR-AR-04 | Đối trừ trả trước với hóa đơn; phải thu với phải trả cùng đối tượng; bỏ đối trừ bằng bút toán đảo (H-06, H-07). | P1 |
@@ -813,11 +818,11 @@ Mỗi kịch bản phải có test tự động (unit và/hoặc integration) v�
 
 | Mã | Kịch bản | Yêu cầu liên quan |
 |---|---|---|
-| AT-01 | Tạo đơn mua, nhận hàng nhiều đợt; tồn thực tế, hàng đang về, số đã nhận/còn thiếu đúng sau mỗi đợt | BR-PUR-04..08, BR-GEN-30 |
+| AT-01 | Tạo đơn mua, duyệt (hàng đang về tăng), ghi sổ (nhập kho, hàng đang về giảm, công nợ, bút toán); mỗi lần nhận là một đơn mua (D-54) | BR-PUR-04, 08, 09, BR-GEN-30 |
 | AT-02 | Nhận hàng theo lô, hạn dùng và serial; chặn lô hết hạn, serial trùng | BR-INV-01, 02, 11 |
 | AT-03 | Tạo đơn bán và xuất kho theo lô FEFO; chọn lô khác phải có lý do | BR-SAL-21, BR-INV-21 |
 | AT-04 | Hai người đồng thời xuất cùng lô vượt tồn: một thành công, một bị từ chối; tồn không âm | BR-GEN-52, BR-INV-20 |
-| AT-05 | Bán hàng giao nhiều đợt; số đã xuất / đã giao / đã xuất hóa đơn / còn lại đúng | BR-SAL-20 |
+| AT-05 | Ghi sổ đơn bán, theo dõi giao hàng (đang giao, khách nhận), giao thất bại đảo đơn trả hàng về kho; giao nhiều đợt là nhiều đơn (D-54) | BR-SAL-20..23 |
 | AT-06 | Trả hàng và điều chỉnh tồn có truy vết về chứng từ gốc; doanh thu, giá vốn, công nợ giảm tương ứng | BR-SAL-32, BR-INV-32 |
 | AT-07 | Tạo hợp đồng trúng thầu; giao vượt số còn lại bị chặn (kể cả khi đồng thời) | BR-TND-10..22 |
 | AT-08 | Thu tiền một phần, phân bổ nhiều hóa đơn; biên bản đối chiếu công nợ khớp | BR-AR-03, 06 |
@@ -895,7 +900,7 @@ Ngày 2026-10-09 (lần 2) chủ dự án chốt toàn bộ quyết định còn
 | D-33 | Cấu trúc repository | Một repo: `backend/`, `frontend/`, `docs/` (bỏ `docker/` theo D-44) | Đã chốt |
 | D-34 | Thời điểm ghi nhận công nợ phải trả `[Chưa kiểm chứng]` | Khi hóa đơn mua ghi sổ; hàng về chưa có hóa đơn theo dõi riêng với giá tạm tính | Đã chốt (KTT rà soát trước UAT) |
 | D-35 | Thời điểm ghi nhận doanh thu, giá vốn `[Chưa kiểm chứng]` | Doanh thu và phải thu theo hóa đơn bán ghi sổ; giá vốn ghi nhận cùng thời điểm; hàng đã xuất chưa có hóa đơn theo dõi là hàng gửi đi bán | Đã chốt (KTT rà soát trước UAT) |
-| D-36 | Tách phiếu nhận hàng và phiếu nhập kho | Hai chứng từ riêng, cho phép lập trong một thao tác | Đã chốt |
+| D-36 | Tách phiếu nhận hàng và phiếu nhập kho | Hai chứng từ riêng, cho phép lập trong một thao tác. **Thay bằng D-54 (2026-10-12)** | Thay thế |
 | D-37 | Giữ hàng theo đơn | Bắt buộc với hợp đồng thầu; tùy chọn với đơn thường; thời hạn mặc định 7 ngày (tham số) | Đã chốt |
 | D-38 | Cơ chế xác thực | JWT access token ngắn hạn + refresh token xoay vòng lưu phía server | Đã chốt |
 | D-39 | Đóng gói | WAR triển khai trên Tomcat 10.1; chạy `java -jar` khi phát triển | Đã chốt |
@@ -912,6 +917,7 @@ Ngày 2026-10-09 (lần 2) chủ dự án chốt toàn bộ quyết định còn
 | D-51 | Giá trị nhập / xuất kho trước khi có giá vốn | Phiếu nhập kho bắt buộc đơn giá (lưu vào sổ kho); giá xuất để trống, do tính giá vốn (Giai đoạn 4/8) điền. Chốt 2026-10-10 | Đã chốt |
 | D-52 | Chế độ duyệt theo loại chứng từ (BR-SYS-11, D-04) | Mỗi loại chứng từ có chế độ `NONE` (không duyệt), `CONFIGURED` (duyệt khi có luồng khớp), `REQUIRED` (bắt buộc có luồng, thiếu thì báo lỗi `APPROVAL_NOT_CONFIGURED`). Mặc định kho: PNK, PCK `CONFIGURED`; PXK, PXH, PDC, PCL, PDK, PKK, PTH, CSX `REQUIRED`; doanh nghiệp đổi ở màn hình Loại chứng từ. Cảnh báo hạn dùng mặc định 90 ngày (tham số `inventory.expiry-warning-days`). Chốt 2026-10-10 làm giá trị mặc định | Đã chốt |
 | D-53 | Chính sách xuất vượt tồn khả dụng: cách áp dụng (BR-GEN-31) | Chính sách là chứng từ riêng (CSX) theo kho (và hàng, nếu chọn), có hạn mức số lượng và thời hạn, Giám đốc duyệt. Theo D-40, **mỗi chính sách chỉ dùng cho một chứng từ xuất**: chứng từ thứ hai không tham chiếu được; chính sách đã dùng không hủy được; lưu chứng từ đã dùng để truy vết. Chốt 2026-10-10 | Đã chốt |
+| D-54 | Gộp chứng từ mua / bán (thay D-36; sửa BR-PUR-01..11, BR-SAL-01..05, 15, 20..23, 30..33, 42, AT-01, AT-05) | **Đơn mua** là chứng từ ghi sổ duy nhất của nghiệp vụ mua: mang hóa đơn NCC (không bắt buộc), lô / hạn dùng / serial; ghi sổ = phiếu nhập kho liên kết + công nợ phải trả + bút toán. **Đơn bán** là chứng từ ghi sổ duy nhất của nghiệp vụ bán: ghi sổ = phiếu xuất kho liên kết (FEFO) + doanh thu + công nợ phải thu + bút toán; số hóa đơn điện tử nhập trước / sau ghi sổ; theo dõi giao hàng trên đơn; giao thất bại = đảo đơn. Bỏ đề nghị mua, yêu cầu / so sánh báo giá NCC (5E), phiếu nhận hàng, hóa đơn mua riêng, dung sai nhận vượt, báo giá bán, phiếu giao hàng, hóa đơn bán riêng, bán nhanh. Mất: nhận / giao nhiều đợt cho một đơn, một hóa đơn cho nhiều lần giao, hàng về trước hóa đơn về sau, kiểm nhận hàng lỗi khi nhận. Chủ dự án chốt 2026-10-12 | Đã chốt |
 | D-48 | Sửa cấu hình số chứng từ đã cấp số (BR-SYS-10) | Thay đổi chỉ có hiệu lực từ chu kỳ sau (đầu tháng sau nếu đặt lại theo tháng; đầu năm sau nếu theo năm hoặc đổi chu kỳ); chưa cấp số thì hiệu lực ngay. Chi nhánh và kỳ luôn in trong số. Chốt 2026-10-10 | Đã chốt |
 
 ---

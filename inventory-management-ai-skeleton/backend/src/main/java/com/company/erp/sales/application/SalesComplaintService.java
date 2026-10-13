@@ -14,11 +14,9 @@ import com.company.erp.sales.application.dto.SalesComplaintRequest;
 import com.company.erp.sales.application.dto.SalesComplaintResponse;
 import com.company.erp.sales.domain.ComplaintStatus;
 import com.company.erp.sales.domain.SalesComplaint;
-import com.company.erp.sales.domain.SalesDelivery;
-import com.company.erp.sales.domain.SalesInvoice;
+import com.company.erp.sales.domain.SalesOrder;
 import com.company.erp.sales.infrastructure.persistence.SalesComplaintRepository;
-import com.company.erp.sales.infrastructure.persistence.SalesDeliveryRepository;
-import com.company.erp.sales.infrastructure.persistence.SalesInvoiceRepository;
+import com.company.erp.sales.infrastructure.persistence.SalesOrderRepository;
 import com.company.erp.sales.infrastructure.persistence.SalesReturnRepository;
 import com.company.erp.system.application.CurrentUser;
 import com.company.erp.system.application.OrganizationQueryService.BranchRef;
@@ -56,20 +54,18 @@ public class SalesComplaintService {
     }
 
     private final SalesComplaintRepository repository;
-    private final SalesDeliveryRepository deliveryRepository;
-    private final SalesInvoiceRepository invoiceRepository;
+    private final SalesOrderRepository orderRepository;
     private final SalesReturnRepository returnRepository;
     private final SalesAccess access;
     private final IdempotencyService idempotency;
     private final Clock clock;
 
     @SuppressWarnings("java:S107")
-    public SalesComplaintService(SalesComplaintRepository repository, SalesDeliveryRepository deliveryRepository,
-                                 SalesInvoiceRepository invoiceRepository, SalesReturnRepository returnRepository,
+    public SalesComplaintService(SalesComplaintRepository repository, SalesOrderRepository orderRepository,
+                                 SalesReturnRepository returnRepository,
                                  SalesAccess access, IdempotencyService idempotency, Clock clock) {
         this.repository = repository;
-        this.deliveryRepository = deliveryRepository;
-        this.invoiceRepository = invoiceRepository;
+        this.orderRepository = orderRepository;
         this.returnRepository = returnRepository;
         this.access = access;
         this.idempotency = idempotency;
@@ -130,7 +126,7 @@ public class SalesComplaintService {
             CustomerProfile customer = access.customer(actor, branch.companyId(), request.customerId(), "customerId");
             SalesComplaint complaint = new SalesComplaint(branch.companyId(), branch.id(), access.nextNumber(
                     branch.companyId(), branch.id(), SalesComplaint.TYPE_CODE, request.receivedDate()), customer.id(),
-                    SalesQuoteService.salesUser(actor, customer), details(branch.companyId(), customer.id(), request));
+                    SalesAccess.salesUser(actor, customer), details(branch.companyId(), customer.id(), request));
             complaint = repository.saveAndFlush(complaint);
             return act(actor, complaint, "CREATE", null);
         });
@@ -190,18 +186,12 @@ public class SalesComplaintService {
 
     private SalesComplaint.Details details(Long companyId, Long customerId, SalesComplaintRequest request) {
         access.product(companyId, request.productId(), "productId");
-        if (request.deliveryId() != null) {
-            deliveryRepository.findById(request.deliveryId()).filter(found -> found.getCustomerId().equals(customerId))
-                    .map(SalesDelivery::getId).orElseThrow(() -> BusinessException.invalidField("deliveryId",
-                            "Phiếu giao không tồn tại hoặc khác khách."));
+        if (request.salesOrderId() != null) {
+            orderRepository.findById(request.salesOrderId()).filter(found -> found.getCustomerId().equals(customerId))
+                    .map(SalesOrder::getId).orElseThrow(() -> BusinessException.invalidField("salesOrderId",
+                            "Đơn bán không tồn tại hoặc khác khách."));
         }
-        if (request.salesInvoiceId() != null) {
-            invoiceRepository.findById(request.salesInvoiceId())
-                    .filter(found -> found.getCustomerId().equals(customerId)).map(SalesInvoice::getId)
-                    .orElseThrow(() -> BusinessException.invalidField("salesInvoiceId",
-                            "Hóa đơn không tồn tại hoặc khác khách."));
-        }
-        return new SalesComplaint.Details(request.receivedDate(), request.deliveryId(), request.salesInvoiceId(),
+        return new SalesComplaint.Details(request.receivedDate(), request.salesOrderId(),
                 request.productId(), SalesAccess.trim(request.lotNo()), SalesAccess.trim(request.serialNo()),
                 request.quantity(), request.description().trim());
     }
@@ -241,7 +231,7 @@ public class SalesComplaintService {
         return new SalesComplaintResponse(complaint.getId(), complaint.getCompanyId(), complaint.getBranchId(),
                 complaint.getComplaintNo(), complaint.getReceivedDate(), complaint.getCustomerId(),
                 customer == null ? null : customer.code(), customer == null ? null : customer.name(),
-                complaint.getDeliveryId(), complaint.getSalesInvoiceId(), complaint.getProductId(),
+                complaint.getSalesOrderId(), complaint.getProductId(),
                 product == null ? null : product.code(), product == null ? null : product.name(),
                 complaint.getLotNo(), complaint.getSerialNo(), complaint.getQuantity(), complaint.getDescription(),
                 complaint.getInspectionResult(), complaint.getDecision(), complaint.getResolutionNote(),

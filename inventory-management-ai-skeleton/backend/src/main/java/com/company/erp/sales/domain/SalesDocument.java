@@ -17,19 +17,15 @@ import java.util.EnumSet;
 import java.util.Set;
 
 /**
- * Cột và vòng đời chung của chứng từ bán hàng (BR mục 5.1): DRAFT → SUBMITTED → APPROVED; SUBMITTED → REJECTED →
- * sửa → gửi lại; hủy khi chưa phát sinh chứng từ đích. Chứng từ điều phối (đơn bán) chuyển IN_PROGRESS / COMPLETED theo
- * tiến độ dòng, đóng phần còn lại (CLOSED) có lý do. Chỉ sửa ở DRAFT / REJECTED. Nhân viên kinh doanh phụ trách
- * ({@code sales_user_id}) dùng cho phạm vi "chỉ dữ liệu của mình" và doanh số (BR-SAL-51).
+ * Cột và vòng đời chung của chứng từ bán hàng (BR mục 5.1, D-54): DRAFT → SUBMITTED → APPROVED; SUBMITTED → REJECTED →
+ * sửa → gửi lại; hủy khi chưa ghi sổ. Ghi sổ / đảo ở lớp con. Chỉ sửa ở DRAFT / REJECTED. Nhân viên kinh doanh phụ
+ * trách ({@code sales_user_id}) dùng cho phạm vi "chỉ dữ liệu của mình" và doanh số (BR-SAL-51).
  */
 @MappedSuperclass
 public abstract class SalesDocument extends AuditableEntity {
 
     protected static final Set<SalesDocumentStatus> EDITABLE =
             EnumSet.of(SalesDocumentStatus.DRAFT, SalesDocumentStatus.REJECTED);
-    /** Đã duyệt, còn chờ chứng từ đích. */
-    public static final Set<SalesDocumentStatus> OPEN =
-            EnumSet.of(SalesDocumentStatus.APPROVED, SalesDocumentStatus.IN_PROGRESS);
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -69,12 +65,6 @@ public abstract class SalesDocument extends AuditableEntity {
     @Column(name = "approved_at")
     private Instant approvedAt;
 
-    @Column(name = "closed_by")
-    private Long closedBy;
-
-    @Column(name = "closed_at")
-    private Instant closedAt;
-
     @Column(name = "reason")
     private String reason;
 
@@ -93,12 +83,6 @@ public abstract class SalesDocument extends AuditableEntity {
 
     /** Giá trị chứng từ để xét ngưỡng duyệt; {@code null} khi không áp dụng. */
     public abstract BigDecimal approvalAmount();
-
-    /** Mọi dòng đã nhận đủ / đóng: dùng để chuyển COMPLETED. */
-    protected abstract boolean fulfilled();
-
-    /** Có dòng đã phát sinh chứng từ đích (không hủy được, chỉ đóng phần còn lại). */
-    protected abstract boolean hasProgress();
 
     protected void replaceHeader(LocalDate documentDate, String description) {
         requireStatus(EDITABLE, "sửa");
@@ -132,42 +116,12 @@ public abstract class SalesDocument extends AuditableEntity {
         this.reason = reason;
     }
 
-    /** Hủy khi chưa phát sinh chứng từ đích. */
+    /** Hủy khi chưa ghi sổ. */
     public void cancel(String reason) {
         requireStatus(EnumSet.of(SalesDocumentStatus.DRAFT, SalesDocumentStatus.REJECTED,
                 SalesDocumentStatus.SUBMITTED, SalesDocumentStatus.APPROVED), "hủy");
-        if (hasProgress()) {
-            throw new BusinessException(ErrorCode.HAS_DEPENDENT_DOCUMENTS, "Chứng từ " + documentNo
-                    + " đã phát sinh chứng từ đích, không hủy được; dùng đóng phần còn lại.");
-        }
         this.status = SalesDocumentStatus.CANCELLED;
         this.reason = reason;
-    }
-
-    /** Đóng phần còn lại có lý do (BR-PUR-05); dòng chưa đủ được đóng ở lớp con trước khi gọi. */
-    protected void markClosed(Long actorId, Instant now, String reason) {
-        markClosed(OPEN, actorId, now, reason);
-    }
-
-    /** Đóng từ các trạng thái {@code allowed} (báo giá thay bằng phiên bản mới). */
-    protected void markClosed(Set<SalesDocumentStatus> allowed, Long actorId, Instant now, String reason) {
-        requireStatus(allowed, "đóng");
-        this.status = SalesDocumentStatus.CLOSED;
-        this.closedBy = actorId;
-        this.closedAt = now;
-        this.reason = reason;
-    }
-
-    /** Cập nhật IN_PROGRESS / COMPLETED theo tiến độ dòng sau khi chứng từ đích thay đổi. */
-    public void refreshProgress() {
-        if (!OPEN.contains(status) && status != SalesDocumentStatus.COMPLETED) {
-            return;
-        }
-        if (fulfilled()) {
-            status = SalesDocumentStatus.COMPLETED;
-        } else {
-            status = hasProgress() ? SalesDocumentStatus.IN_PROGRESS : SalesDocumentStatus.APPROVED;
-        }
     }
 
     /** Chuyển trạng thái riêng của lớp con (đã kiểm tra trạng thái nguồn bằng {@link #requireStatus}). */
@@ -177,10 +131,6 @@ public abstract class SalesDocument extends AuditableEntity {
 
     protected void setReason(String reason) {
         this.reason = reason;
-    }
-
-    public boolean isOpen() {
-        return OPEN.contains(status);
     }
 
     protected void requireStatus(Set<SalesDocumentStatus> allowed, String action) {
@@ -236,14 +186,6 @@ public abstract class SalesDocument extends AuditableEntity {
 
     public Instant getApprovedAt() {
         return approvedAt;
-    }
-
-    public Long getClosedBy() {
-        return closedBy;
-    }
-
-    public Instant getClosedAt() {
-        return closedAt;
     }
 
     public String getReason() {

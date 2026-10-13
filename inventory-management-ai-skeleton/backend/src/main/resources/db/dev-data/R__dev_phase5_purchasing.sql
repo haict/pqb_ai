@@ -1,6 +1,6 @@
--- DỮ LIỆU MẪU CHỈ CHO dev/test (database.md mục 2). Giai đoạn 5 - mua hàng.
--- Luồng duyệt mẫu: đề nghị mua do Giám đốc chi nhánh duyệt; đơn mua từ ngưỡng purchasing.order-approval-threshold do
--- Giám đốc duyệt; phiếu nhận hàng vượt dung sai do Giám đốc chi nhánh duyệt. [Giả định] Doanh nghiệp cấu hình lại ở màn hình luồng duyệt.
+-- DỮ LIỆU MẪU CHỈ CHO dev/test (database.md mục 2). Giai đoạn 5 - mua hàng (sau D-54: đơn mua là chứng từ ghi sổ duy
+-- nhất). Luồng duyệt mẫu: đơn mua từ ngưỡng purchasing.order-approval-threshold do Giám đốc duyệt. [Giả định] Doanh
+-- nghiệp cấu hình lại ở màn hình luồng duyệt.
 
 -- Nhân viên mua hàng chi nhánh Hà Nội; mật khẩu dev như các người dùng mẫu khác.
 INSERT IGNORE INTO sys_users
@@ -17,28 +17,26 @@ SELECT id, 'BRANCH', 1 FROM sys_users WHERE username = 'muahang.hn';
 
 INSERT INTO approval_workflows (company_id, document_type, name, branch_id, priority, status, created_at, updated_at)
 SELECT 1, t.code, CONCAT('Mẫu - Duyệt ', t.code), NULL, 0, 'ACTIVE', UTC_TIMESTAMP(3), UTC_TIMESTAMP(3)
-FROM (SELECT 'DNM' AS code UNION ALL SELECT 'DMH' UNION ALL SELECT 'PNH') t
+FROM (SELECT 'DMH' AS code) t
 WHERE NOT EXISTS (SELECT 1 FROM approval_workflows w
                   WHERE w.company_id = 1 AND w.document_type = t.code AND w.name = CONCAT('Mẫu - Duyệt ', t.code));
 
 INSERT IGNORE INTO approval_workflow_steps (workflow_id, step_no, approver_type, role_id, user_id)
 SELECT w.id, 1, 'ROLE', r.id, NULL
-FROM approval_workflows w JOIN sys_roles r
-    ON (w.document_type IN ('DNM', 'PNH') AND r.code = 'BRANCH_DIRECTOR')
-    OR (w.document_type = 'DMH' AND r.code = 'DIRECTOR')
-WHERE w.company_id = 1 AND w.document_type IN ('DNM', 'DMH', 'PNH') AND w.name LIKE 'Mẫu - Duyệt %';
+FROM approval_workflows w JOIN sys_roles r ON r.code = 'DIRECTOR'
+WHERE w.company_id = 1 AND w.document_type = 'DMH' AND w.name LIKE 'Mẫu - Duyệt %';
 
--- Quy tắc hạch toán mẫu hóa đơn mua (D-34) [Chưa kiểm chứng]: hàng hóa Nợ 1561, dịch vụ Nợ 6422, thuế GTGT Nợ 1331,
--- đối ứng Có 331. Khi phiếu nhập kho có bút toán (Giai đoạn 8), vế Nợ hàng hóa đổi sang tài khoản trung gian
--- "hàng về chưa có hóa đơn" để không ghi trùng [Suy luận]; kế toán trưởng cấu hình lại trước UAT.
+-- Quy tắc hạch toán mẫu ghi sổ đơn mua (D-34, D-54) [Chưa kiểm chứng]: hàng hóa Nợ 1561, dịch vụ Nợ 6422, thuế GTGT
+-- Nợ 1331, đối ứng Có 331. Phiếu nhập kho sinh từ đơn mua không có bút toán riêng (bút toán đi theo đơn mua); kế toán
+-- trưởng cấu hình lại trước UAT.
 INSERT IGNORE INTO posting_rules (company_id, document_type, transaction_code, product_type, partner_role,
     debit_account_id, credit_account_id, valid_from, valid_to, description, status, created_at, updated_at)
-SELECT 1, 'HDM', t.transaction_code, t.product_type, NULL, d.id, c.id, '2020-01-01', NULL, t.description, 'ACTIVE',
+SELECT 1, 'DMH', t.transaction_code, t.product_type, NULL, d.id, c.id, '2020-01-01', NULL, t.description, 'ACTIVE',
        UTC_TIMESTAMP(3), UTC_TIMESTAMP(3)
 FROM (
     SELECT 'PURCHASE' AS transaction_code, NULL AS product_type, '1561' AS debit_code, '331' AS credit_code,
-           'Mẫu - Mua hàng hóa theo hóa đơn' AS description
-    UNION ALL SELECT 'PURCHASE', 'SERVICE', '6422', '331', 'Mẫu - Mua dịch vụ theo hóa đơn'
+           'Mẫu - Mua hàng hóa' AS description
+    UNION ALL SELECT 'PURCHASE', 'SERVICE', '6422', '331', 'Mẫu - Mua dịch vụ'
     UNION ALL SELECT 'PURCHASE_VAT', NULL, '1331', '331', 'Mẫu - Thuế GTGT đầu vào'
 ) t
 JOIN chart_of_accounts d ON d.company_id = 1 AND d.code = t.debit_code
@@ -55,7 +53,7 @@ WHERE c.company_id = 1 AND c.code = 'VT' AND u.company_id = 1 AND u.code = 'CAI'
 
 -- Giai đoạn 5D [Chưa kiểm chứng]: trả hàng NCC (THN) Nợ 331 / Có 1561, thuế Có 1331; giảm giá hàng mua (GGM) Nợ 331 /
 -- Có 1561 (dịch vụ Có 6422), thuế Có 1331; phân bổ chi phí mua (PBC) chuyển chi phí dịch vụ vào giá trị hàng Nợ 1562 /
--- Có 6422 (cùng tài khoản đã ghi khi ghi sổ hóa đơn dịch vụ). Kế toán trưởng cấu hình lại trước UAT.
+-- Có 6422 (cùng tài khoản đã ghi khi ghi sổ đơn mua dịch vụ). Kế toán trưởng cấu hình lại trước UAT.
 INSERT IGNORE INTO posting_rules (company_id, document_type, transaction_code, product_type, partner_role,
     debit_account_id, credit_account_id, valid_from, valid_to, description, status, created_at, updated_at)
 SELECT 1, t.document_type, t.transaction_code, t.product_type, NULL, d.id, c.id, '2020-01-01', NULL, t.description,

@@ -2,23 +2,30 @@ package com.company.erp.sales.domain;
 
 import com.company.erp.common.domain.BusinessException;
 import com.company.erp.common.domain.ErrorCode;
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
+import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.OrderBy;
 import jakarta.persistence.Table;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 /**
- * Dòng đơn bán và tiến độ theo đơn vị cơ sở (BR-SAL-20): đã xuất, đã giao, đã xuất hóa đơn, đã trả lại, đã đóng. Còn
- * phải xuất = đặt − đóng − (đã xuất − đã trả lại): hàng khách trả lại mở lại phần cần giao (giao bù / đổi hàng); không
- * giao bù thì đóng phần còn lại `[Giả định]`. Dòng dịch vụ không qua kho: tiến độ theo số đã xuất hóa đơn.
+ * Dòng đơn bán (D-54): giá (BR-SAL-02, 03, 35), lô chỉ định (trống: FEFO, BR-SAL-21; khác lô FEFO phải ghi lý do,
+ * BR-INV-21), serial chỉ định với hàng quản lý serial. Khi ghi sổ lưu hàng thực xuất (lô, hạn dùng, serial). Sau ghi
+ * sổ theo dõi số khách trả lại (đơn vị cơ sở) và giá trị đã giảm (trả hàng + giảm giá, trước thuế, BR-SAL-32, 36). Dòng
+ * dịch vụ không qua kho.
  */
 @Entity
 @Table(name = "sales_order_lines")
 public class SalesOrderLine extends SalesPricedLine {
-
-    @Column(name = "quote_line_id")
-    private Long quoteLineId;
 
     @Column(name = "service_line", nullable = false)
     private boolean serviceLine;
@@ -26,25 +33,35 @@ public class SalesOrderLine extends SalesPricedLine {
     @Column(name = "expected_date")
     private LocalDate expectedDate;
 
-    @Column(name = "issued_quantity", nullable = false, precision = 19, scale = 3)
-    private BigDecimal issuedQuantity = BigDecimal.ZERO;
+    @Column(name = "lot_no")
+    private String lotNo;
 
-    @Column(name = "delivered_quantity", nullable = false, precision = 19, scale = 3)
-    private BigDecimal deliveredQuantity = BigDecimal.ZERO;
-
-    @Column(name = "invoiced_quantity", nullable = false, precision = 19, scale = 3)
-    private BigDecimal invoicedQuantity = BigDecimal.ZERO;
+    @Column(name = "lot_override_reason")
+    private String lotOverrideReason;
 
     @Column(name = "returned_quantity", nullable = false, precision = 19, scale = 3)
     private BigDecimal returnedQuantity = BigDecimal.ZERO;
 
-    @Column(name = "closed_quantity", nullable = false, precision = 19, scale = 3)
-    private BigDecimal closedQuantity = BigDecimal.ZERO;
+    @Column(name = "adjusted_amount", nullable = false, precision = 19, scale = 4)
+    private BigDecimal adjustedAmount = BigDecimal.ZERO;
+
+    @ElementCollection
+    @CollectionTable(name = "sales_order_serials", joinColumns = @JoinColumn(name = "line_id"))
+    @Column(name = "serial_no", length = 100)
+    @OrderBy
+    private List<String> serialNumbers = new ArrayList<>();
+
+    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
+    @JoinColumn(name = "line_id", nullable = false)
+    @OrderBy("id")
+    private List<SalesOrderItem> items = new ArrayList<>();
 
     protected SalesOrderLine() {
     }
 
-    public record Values(PricedValues price, Long quoteLineId, boolean serviceLine, LocalDate expectedDate) {
+    /** Lô / serial chỉ định khi lập đơn; trống thì kho chọn theo FEFO khi ghi sổ. */
+    public record Values(PricedValues price, boolean serviceLine, LocalDate expectedDate, String lotNo,
+                         String lotOverrideReason, List<String> serialNumbers) {
     }
 
     public SalesOrderLine(int lineNo, Values values) {
@@ -54,62 +71,61 @@ public class SalesOrderLine extends SalesPricedLine {
 
     private void apply(Values values) {
         applyPrice(values.price());
-        this.quoteLineId = values.quoteLineId();
         this.serviceLine = values.serviceLine();
         this.expectedDate = values.expectedDate();
+        this.lotNo = values.lotNo();
+        this.lotOverrideReason = values.lotOverrideReason();
+        this.serialNumbers.clear();
+        this.serialNumbers.addAll(values.serialNumbers());
     }
 
     void copyFrom(SalesOrderLine other) {
-        apply(new Values(other.priceValues(), other.quoteLineId, other.serviceLine, other.expectedDate));
+        apply(new Values(other.priceValues(), other.serviceLine, other.expectedDate, other.lotNo,
+                other.lotOverrideReason, new ArrayList<>(other.serialNumbers)));
     }
 
-    /** Còn phải xuất kho (hàng hóa) / còn phải xuất hóa đơn (dịch vụ). */
-    public BigDecimal outstandingQuantity() {
-        BigDecimal done = serviceLine ? invoicedQuantity : issuedQuantity.subtract(returnedQuantity);
-        return getBaseQuantity().subtract(closedQuantity).subtract(done).max(BigDecimal.ZERO);
+    /** Ghi hàng thực xuất khi ghi sổ (giữ lại sau đảo để truy vết). */
+    void replaceItems(List<SalesOrderItem> issued) {
+        items.clear();
+        items.addAll(issued);
     }
 
-    /** Đã giao đủ (hàng hóa, trừ phần khách trả lại) / đã xuất hóa đơn đủ (dịch vụ). */
-    boolean fulfilled() {
-        BigDecimal done = serviceLine ? invoicedQuantity : deliveredQuantity.subtract(returnedQuantity);
-        return done.compareTo(getBaseQuantity().subtract(closedQuantity)) >= 0;
+    /** Số còn trả lại được (đơn vị cơ sở). */
+    public BigDecimal returnableQuantity() {
+        return serviceLine ? BigDecimal.ZERO : getBaseQuantity().subtract(returnedQuantity).max(BigDecimal.ZERO);
     }
 
-    boolean hasProgress() {
-        return issuedQuantity.signum() > 0 || invoicedQuantity.signum() > 0;
+    /** Giá trị trước thuế còn giảm được. */
+    public BigDecimal remainingAmount() {
+        return getAmount().subtract(adjustedAmount).max(BigDecimal.ZERO);
     }
 
-    /** Xuất kho theo đơn (dương) / đảo (âm); không vượt số còn phải xuất (BR-SAL-20). */
-    void addIssued(BigDecimal delta, String field) {
-        if (delta.signum() > 0 && delta.compareTo(outstandingQuantity()) > 0) {
+    /** Khách trả lại (dương) / đảo (âm): số lượng và giá trị giảm (BR-SAL-32). */
+    void addReturn(BigDecimal baseDelta, BigDecimal amountDelta, String field) {
+        if (baseDelta.signum() > 0 && baseDelta.compareTo(returnableQuantity()) > 0) {
             throw new BusinessException(ErrorCode.SOURCE_QUANTITY_EXCEEDED, field + ": dòng " + getLineNo()
-                    + " của đơn bán chỉ còn " + plain(outstandingQuantity()) + " (đơn vị cơ sở) chưa xuất.");
+                    + " của đơn bán chỉ còn trả được " + plain(returnableQuantity()) + " (đơn vị cơ sở).");
         }
-        issuedQuantity = issuedQuantity.add(delta).max(BigDecimal.ZERO);
+        returnedQuantity = returnedQuantity.add(baseDelta).max(BigDecimal.ZERO);
+        addAdjusted(amountDelta, field);
     }
 
-    void addDelivered(BigDecimal delta) {
-        deliveredQuantity = deliveredQuantity.add(delta).max(BigDecimal.ZERO);
+    /** Giảm giá hàng bán (dương) / đảo (âm); không vượt giá trị còn lại của dòng (BR-SAL-36). */
+    void addAdjusted(BigDecimal delta, String field) {
+        if (delta.signum() > 0 && delta.compareTo(remainingAmount()) > 0) {
+            throw new BusinessException(ErrorCode.SOURCE_QUANTITY_EXCEEDED, field + ": dòng " + getLineNo()
+                    + " của đơn bán chỉ còn giá trị " + plain(remainingAmount()) + ".");
+        }
+        adjustedAmount = adjustedAmount.add(delta).max(BigDecimal.ZERO);
     }
 
-    void addInvoiced(BigDecimal delta) {
-        invoicedQuantity = invoicedQuantity.add(delta).max(BigDecimal.ZERO);
-    }
-
-    void addReturned(BigDecimal delta) {
-        returnedQuantity = returnedQuantity.add(delta).max(BigDecimal.ZERO);
-    }
-
-    void closeRemaining() {
-        closedQuantity = closedQuantity.add(outstandingQuantity());
+    /** Đã có trả hàng / giảm giá ghi sổ theo dòng (đảo đơn phải đảo các chứng từ này trước). */
+    boolean hasDependents() {
+        return returnedQuantity.signum() > 0 || adjustedAmount.signum() > 0;
     }
 
     private static String plain(BigDecimal value) {
         return value.stripTrailingZeros().toPlainString();
-    }
-
-    public Long getQuoteLineId() {
-        return quoteLineId;
     }
 
     public boolean isServiceLine() {
@@ -120,23 +136,27 @@ public class SalesOrderLine extends SalesPricedLine {
         return expectedDate;
     }
 
-    public BigDecimal getIssuedQuantity() {
-        return issuedQuantity;
+    public String getLotNo() {
+        return lotNo;
     }
 
-    public BigDecimal getDeliveredQuantity() {
-        return deliveredQuantity;
-    }
-
-    public BigDecimal getInvoicedQuantity() {
-        return invoicedQuantity;
+    public String getLotOverrideReason() {
+        return lotOverrideReason;
     }
 
     public BigDecimal getReturnedQuantity() {
         return returnedQuantity;
     }
 
-    public BigDecimal getClosedQuantity() {
-        return closedQuantity;
+    public BigDecimal getAdjustedAmount() {
+        return adjustedAmount;
+    }
+
+    public List<String> getSerialNumbers() {
+        return Collections.unmodifiableList(serialNumbers);
+    }
+
+    public List<SalesOrderItem> getItems() {
+        return Collections.unmodifiableList(items);
     }
 }

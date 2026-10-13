@@ -2,10 +2,12 @@ package com.company.erp.sales.application.dto;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 
 /**
- * Dòng báo giá / đơn bán. Tiến độ (đơn vị cơ sở: đã xuất, đã giao, đã xuất hóa đơn, đã trả lại, đã đóng, còn phải
- * xuất) và tồn khả dụng, đang giữ tại kho của đơn chỉ có ở đơn bán.
+ * Dòng đơn bán: giá, lô / serial chỉ định, hàng thực xuất khi ghi sổ ({@code items}), thông tin in biên bản giao nhận
+ * (xuất xứ, model, số lưu hành), chỉ tiêu sau ghi sổ (đơn vị cơ sở: đã trả lại, còn trả được; giá trị đã giảm, còn
+ * lại), tồn khả dụng và đang giữ tại kho của đơn (trước khi ghi sổ).
  */
 public record SalesLineResponse(
         Long id,
@@ -31,12 +33,17 @@ public record SalesLineResponse(
         boolean promotional,
         boolean serviceLine,
         LocalDate expectedDate,
-        BigDecimal issuedQuantity,
-        BigDecimal deliveredQuantity,
-        BigDecimal invoicedQuantity,
+        String lotNo,
+        String lotOverrideReason,
+        List<String> serialNumbers,
+        List<DeliveryItemResponse> items,
+        String originCountryCode,
+        String model,
+        String registrationNo,
         BigDecimal returnedQuantity,
-        BigDecimal closedQuantity,
-        BigDecimal outstandingQuantity,
+        BigDecimal returnableQuantity,
+        BigDecimal adjustedAmount,
+        BigDecimal remainingAmount,
         BigDecimal availableQuantity,
         BigDecimal reservedQuantity,
         String description) {

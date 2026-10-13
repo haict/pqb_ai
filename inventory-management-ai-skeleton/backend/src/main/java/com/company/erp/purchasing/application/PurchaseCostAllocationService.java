@@ -13,13 +13,10 @@ import com.company.erp.purchasing.application.dto.PurchaseCostAllocationResponse
 import com.company.erp.purchasing.application.dto.ReasonRequest;
 import com.company.erp.purchasing.domain.PurchaseCostAllocation;
 import com.company.erp.purchasing.domain.PurchaseDocumentStatus;
-import com.company.erp.purchasing.domain.PurchaseInvoice;
-import com.company.erp.purchasing.domain.PurchaseInvoiceLine;
-import com.company.erp.purchasing.domain.PurchaseReceipt;
-import com.company.erp.purchasing.domain.PurchaseReceiptLine;
+import com.company.erp.purchasing.domain.PurchaseOrder;
+import com.company.erp.purchasing.domain.PurchaseOrderLine;
 import com.company.erp.purchasing.infrastructure.persistence.PurchaseCostAllocationRepository;
-import com.company.erp.purchasing.infrastructure.persistence.PurchaseInvoiceRepository;
-import com.company.erp.purchasing.infrastructure.persistence.PurchaseReceiptRepository;
+import com.company.erp.purchasing.infrastructure.persistence.PurchaseOrderRepository;
 import com.company.erp.system.application.ApprovalService;
 import com.company.erp.system.application.CurrentUser;
 import com.company.erp.system.application.OrganizationQueryService.BranchRef;
@@ -39,9 +36,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Phân bổ chi phí mua hàng (PBC, BR-PUR-12, 16): chọn dòng dịch vụ của hóa đơn mua đã ghi sổ (cùng chi nhánh) và các
- * phiếu nhận đã nhập kho; server tính phân bổ theo giá trị tạm tính hoặc số lượng. Gửi duyệt (duyệt khi có luồng),
- * duyệt, từ chối, hủy. Ghi sổ, đảo ở {@link PurchaseCostAllocationPostingService}.
+ * Phân bổ chi phí mua hàng (PBC, BR-PUR-12, 16): chọn dòng dịch vụ của đơn mua đã ghi sổ (cùng chi nhánh) và các đơn
+ * mua đã ghi sổ có hàng hóa nhận phân bổ; server tính phân bổ theo giá trị nhập hoặc số lượng. Gửi duyệt (duyệt khi có
+ * luồng), duyệt, từ chối, hủy. Ghi sổ, đảo ở {@link PurchaseCostAllocationPostingService}.
  */
 @Service
 public class PurchaseCostAllocationService {
@@ -57,8 +54,7 @@ public class PurchaseCostAllocationService {
     }
 
     private final PurchaseCostAllocationRepository repository;
-    private final PurchaseInvoiceRepository invoiceRepository;
-    private final PurchaseReceiptRepository receiptRepository;
+    private final PurchaseOrderRepository orderRepository;
     private final PurchaseDocumentFlow flow;
     private final PurchasingAccess access;
     private final ApprovalService approvalService;
@@ -66,12 +62,10 @@ public class PurchaseCostAllocationService {
 
     @SuppressWarnings("java:S107")
     public PurchaseCostAllocationService(PurchaseCostAllocationRepository repository,
-                                         PurchaseInvoiceRepository invoiceRepository,
-                                         PurchaseReceiptRepository receiptRepository, PurchaseDocumentFlow flow,
+                                         PurchaseOrderRepository orderRepository, PurchaseDocumentFlow flow,
                                          PurchasingAccess access, ApprovalService approvalService) {
         this.repository = repository;
-        this.invoiceRepository = invoiceRepository;
-        this.receiptRepository = receiptRepository;
+        this.orderRepository = orderRepository;
         this.flow = flow;
         this.access = access;
         this.approvalService = approvalService;
@@ -95,23 +89,23 @@ public class PurchaseCostAllocationService {
         return toResponse(flow.visible(actor, repository.findById(id).orElseThrow(BusinessException::notFound)), true);
     }
 
-    /** Dòng dịch vụ của hóa đơn mua đã ghi sổ trong chi nhánh còn chưa phân bổ / giảm hết. */
+    /** Dòng dịch vụ của đơn mua đã ghi sổ trong chi nhánh còn chưa phân bổ / giảm hết. */
     @Transactional(readOnly = true)
     public List<CostAllocationSourceResponse> costLines(CurrentUser actor, Long branchId) {
         access.requirePermission(actor, VIEW);
         BranchRef branch = access.usableBranch(actor, branchId);
-        List<PurchaseInvoice> invoices = invoiceRepository.findWithUnallocatedServices(branch.companyId(),
-                branch.id(), PurchaseDocumentStatus.POSTED);
-        Map<Long, PartnerInfo> suppliers = access.partners(invoices.stream().map(PurchaseInvoice::getSupplierId)
+        List<PurchaseOrder> orders = orderRepository.findWithUnallocatedServices(branch.companyId(), branch.id(),
+                PurchaseDocumentStatus.POSTED);
+        Map<Long, PartnerInfo> suppliers = access.partners(orders.stream().map(PurchaseOrder::getSupplierId)
                 .toList());
-        Map<Long, ProductInfo> products = access.products(invoices.stream().flatMap(invoice -> invoice.getLines()
-                .stream()).map(PurchaseInvoiceLine::getProductId).toList());
+        Map<Long, ProductInfo> products = access.products(orders.stream().flatMap(order -> order.getLines()
+                .stream()).map(PurchaseOrderLine::getProductId).toList());
         List<CostAllocationSourceResponse> rows = new ArrayList<>();
-        for (PurchaseInvoice invoice : invoices) {
-            PartnerInfo supplier = suppliers.get(invoice.getSupplierId());
-            for (PurchaseInvoiceLine line : invoice.getLines()) {
-                if (!line.isGoods() && line.remainingAmount().signum() > 0) {
-                    rows.add(sourceRow(null, invoice, supplier, line, products.get(line.getProductId()),
+        for (PurchaseOrder order : orders) {
+            PartnerInfo supplier = suppliers.get(order.getSupplierId());
+            for (PurchaseOrderLine line : order.getLines()) {
+                if (line.isServiceLine() && line.remainingAmount().signum() > 0) {
+                    rows.add(sourceRow(null, order, supplier, line, products.get(line.getProductId()),
                             line.remainingAmount(), line.remainingAmount()));
                 }
             }
@@ -173,37 +167,37 @@ public class PurchaseCostAllocationService {
 
     private void fill(PurchaseCostAllocation document, PurchaseCostAllocationRequest request) {
         List<PurchaseCostAllocation.SourceValues> sources = sources(document, request.sources());
-        List<PurchaseCostAllocation.TargetValues> targets = targets(document, request.receiptIds());
+        List<PurchaseCostAllocation.TargetValues> targets = targets(document, request.orderIds());
         LocalDate postingDate = request.postingDate() != null ? request.postingDate() : request.documentDate();
         document.replaceContent(request.documentDate(), postingDate, request.method(),
-                PurchaseRequisitionService.trim(request.description()), sources, targets);
+                PurchasingAccess.trim(request.description()), sources, targets);
     }
 
-    /** Dòng chi phí: dòng dịch vụ của hóa đơn mua đã ghi sổ cùng chi nhánh, không vượt phần còn lại. */
+    /** Dòng chi phí: dòng dịch vụ của đơn mua đã ghi sổ cùng chi nhánh, không vượt phần còn lại. */
     private List<PurchaseCostAllocation.SourceValues> sources(PurchaseCostAllocation document,
                                                               List<CostAllocationSourceRequest> requests) {
-        List<Long> lineIds = requests.stream().map(CostAllocationSourceRequest::invoiceLineId).toList();
+        List<Long> lineIds = requests.stream().map(CostAllocationSourceRequest::orderLineId).toList();
         if (new HashSet<>(lineIds).size() != lineIds.size()) {
             throw BusinessException.invalidField("sources", "Mỗi dòng chi phí chỉ chọn một lần.");
         }
-        Map<Long, PurchaseInvoiceLine> lines = new HashMap<>();
-        invoiceRepository.findByLineIds(lineIds).stream()
-                .filter(invoice -> invoice.getCompanyId().equals(document.getCompanyId())
-                        && invoice.getBranchId().equals(document.getBranchId())
-                        && invoice.getStatus() == PurchaseDocumentStatus.POSTED)
-                .forEach(invoice -> invoice.getLines().forEach(line -> lines.put(line.getId(), line)));
+        Map<Long, PurchaseOrderLine> lines = new HashMap<>();
+        orderRepository.findByLineIds(lineIds).stream()
+                .filter(order -> order.getCompanyId().equals(document.getCompanyId())
+                        && order.getBranchId().equals(document.getBranchId())
+                        && order.getStatus() == PurchaseDocumentStatus.POSTED)
+                .forEach(order -> order.getLines().forEach(line -> lines.put(line.getId(), line)));
         List<PurchaseCostAllocation.SourceValues> values = new ArrayList<>();
         for (int i = 0; i < requests.size(); i++) {
             CostAllocationSourceRequest request = requests.get(i);
             String field = "sources[" + i + "]";
-            PurchaseInvoiceLine line = lines.get(request.invoiceLineId());
-            if (line == null || line.isGoods()) {
-                throw BusinessException.invalidField(field + ".invoiceLineId", "Chỉ chọn dòng dịch vụ của hóa đơn mua "
-                        + "đã ghi sổ cùng chi nhánh.");
+            PurchaseOrderLine line = lines.get(request.orderLineId());
+            if (line == null || !line.isServiceLine()) {
+                throw BusinessException.invalidField(field + ".orderLineId", "Chỉ chọn dòng dịch vụ của đơn mua đã "
+                        + "ghi sổ cùng chi nhánh.");
             }
             BigDecimal amount = request.amount().setScale(0, RoundingMode.HALF_UP);
             if (amount.compareTo(line.remainingAmount()) > 0) {
-                throw new BusinessException(ErrorCode.SOURCE_QUANTITY_EXCEEDED, field + ": dòng hóa đơn chỉ còn "
+                throw new BusinessException(ErrorCode.SOURCE_QUANTITY_EXCEEDED, field + ": dòng đơn mua chỉ còn "
                         + line.remainingAmount().stripTrailingZeros().toPlainString() + " chưa phân bổ.");
             }
             values.add(new PurchaseCostAllocation.SourceValues(line.getId(), line.getProductId(), amount));
@@ -211,36 +205,34 @@ public class PurchaseCostAllocationService {
         return values;
     }
 
-    /** Đích: mọi dòng đã nhập kho (đạt / cách ly) của các phiếu nhận đã ghi sổ, nhập kho, cùng chi nhánh. */
-    private List<PurchaseCostAllocation.TargetValues> targets(PurchaseCostAllocation document, List<Long> receiptIds) {
+    /** Đích: mọi dòng hàng hóa của các đơn mua đã ghi sổ cùng chi nhánh (cơ sở: số lượng nhập, giá trị nhập). */
+    private List<PurchaseCostAllocation.TargetValues> targets(PurchaseCostAllocation document, List<Long> orderIds) {
         List<PurchaseCostAllocation.TargetValues> targets = new ArrayList<>();
-        Map<Long, PurchaseReceipt> receipts = new HashMap<>();
-        receiptRepository.findAllById(receiptIds).forEach(receipt -> receipts.put(receipt.getId(), receipt));
-        for (Long receiptId : new LinkedHashSet<>(receiptIds)) {
-            PurchaseReceipt receipt = receipts.get(receiptId);
-            if (receipt == null || !receipt.getCompanyId().equals(document.getCompanyId())
-                    || !receipt.getBranchId().equals(document.getBranchId())
-                    || receipt.getStatus() != PurchaseDocumentStatus.POSTED || !receipt.isStocked()) {
-                throw BusinessException.invalidField("receiptIds", "Phiếu nhận hàng #" + receiptId + " không tồn tại, "
-                        + "khác chi nhánh hoặc chưa nhập kho.");
+        Map<Long, PurchaseOrder> orders = new HashMap<>();
+        orderRepository.findAllById(orderIds).forEach(order -> orders.put(order.getId(), order));
+        for (Long orderId : new LinkedHashSet<>(orderIds)) {
+            PurchaseOrder order = orders.get(orderId);
+            if (order == null || !order.getCompanyId().equals(document.getCompanyId())
+                    || !order.getBranchId().equals(document.getBranchId())
+                    || order.getStatus() != PurchaseDocumentStatus.POSTED) {
+                throw BusinessException.invalidField("orderIds", "Đơn mua #" + orderId + " không tồn tại, khác chi "
+                        + "nhánh hoặc chưa ghi sổ.");
             }
-            for (PurchaseReceiptLine line : receipt.getLines()) {
-                if (line.stockedBaseQuantity().signum() > 0) {
+            for (PurchaseOrderLine line : order.getLines()) {
+                if (!line.isServiceLine()) {
                     targets.add(new PurchaseCostAllocation.TargetValues(line.getId(), line.getProductId(),
-                            line.stockedBaseQuantity(), line.getUnitCost().multiply(line.getQuantity())
-                            .setScale(0, RoundingMode.HALF_UP)));
+                            line.getBaseQuantity(), line.netAmount()));
                 }
             }
         }
         return targets;
     }
 
-    private static CostAllocationSourceResponse sourceRow(Integer lineNo, PurchaseInvoice invoice,
-                                                          PartnerInfo supplier, PurchaseInvoiceLine line,
-                                                          ProductInfo product, BigDecimal amount,
-                                                          BigDecimal remaining) {
-        return new CostAllocationSourceResponse(lineNo, invoice == null ? null : invoice.getId(),
-                invoice == null ? null : invoice.getDocumentNo(), invoice == null ? null : invoice.invoiceLabel(),
+    private static CostAllocationSourceResponse sourceRow(Integer lineNo, PurchaseOrder order, PartnerInfo supplier,
+                                                          PurchaseOrderLine line, ProductInfo product,
+                                                          BigDecimal amount, BigDecimal remaining) {
+        return new CostAllocationSourceResponse(lineNo, order == null ? null : order.getId(),
+                order == null ? null : order.getDocumentNo(), order == null ? null : order.invoiceLabel(),
                 supplier == null ? null : supplier.name(), line == null ? null : line.getId(),
                 product == null ? null : product.id(), product == null ? null : product.code(),
                 product == null ? null : product.name(), amount, remaining);
@@ -249,46 +241,42 @@ public class PurchaseCostAllocationService {
     PurchaseCostAllocationResponse toResponse(PurchaseCostAllocation document, boolean detailed) {
         List<CostAllocationSourceResponse> sources = List.of();
         List<CostAllocationTargetResponse> targets = List.of();
-        List<Long> receiptIds = List.of();
+        List<Long> orderIds = List.of();
         if (detailed) {
-            Map<Long, PurchaseInvoice> invoices = new HashMap<>();
-            List<Long> invoiceLineIds = document.getSources().stream()
-                    .map(PurchaseCostAllocation.Source::getInvoiceLineId).toList();
-            invoiceRepository.findByLineIds(invoiceLineIds).forEach(invoice -> invoice.getLines()
-                    .forEach(line -> invoices.put(line.getId(), invoice)));
-            Map<Long, PurchaseReceipt> receipts = new HashMap<>();
-            List<Long> receiptLineIds = document.getTargets().stream()
-                    .map(PurchaseCostAllocation.Target::getReceiptLineId).toList();
-            receiptRepository.findByLineIds(receiptLineIds).forEach(receipt -> receipt.getLines()
-                    .forEach(line -> receipts.put(line.getId(), receipt)));
+            Map<Long, PurchaseOrder> ordersByLine = new HashMap<>();
+            List<Long> lineIds = Stream.concat(
+                    document.getSources().stream().map(PurchaseCostAllocation.Source::getOrderLineId),
+                    document.getTargets().stream().map(PurchaseCostAllocation.Target::getOrderLineId)).toList();
+            orderRepository.findByLineIds(lineIds).forEach(order -> order.getLines()
+                    .forEach(line -> ordersByLine.put(line.getId(), order)));
             Map<Long, ProductInfo> products = access.products(Stream.concat(
                     document.getSources().stream().map(PurchaseCostAllocation.Source::getProductId),
                     document.getTargets().stream().map(PurchaseCostAllocation.Target::getProductId)).toList());
-            Map<Long, PartnerInfo> suppliers = access.partners(invoices.values().stream()
-                    .map(PurchaseInvoice::getSupplierId).toList());
+            Map<Long, PartnerInfo> suppliers = access.partners(ordersByLine.values().stream()
+                    .map(PurchaseOrder::getSupplierId).toList());
             sources = document.getSources().stream().map(source -> {
-                PurchaseInvoice invoice = invoices.get(source.getInvoiceLineId());
-                return sourceRow(source.getLineNo(), invoice,
-                        invoice == null ? null : suppliers.get(invoice.getSupplierId()),
-                        invoice == null ? null : invoice.line(source.getInvoiceLineId(), "sources"),
+                PurchaseOrder order = ordersByLine.get(source.getOrderLineId());
+                return sourceRow(source.getLineNo(), order,
+                        order == null ? null : suppliers.get(order.getSupplierId()),
+                        order == null ? null : order.line(source.getOrderLineId(), "sources"),
                         products.get(source.getProductId()), source.getAmount(), null);
             }).toList();
             targets = document.getTargets().stream().map(target -> {
-                PurchaseReceipt receipt = receipts.get(target.getReceiptLineId());
+                PurchaseOrder order = ordersByLine.get(target.getOrderLineId());
                 ProductInfo product = products.get(target.getProductId());
-                return new CostAllocationTargetResponse(target.getLineNo(), receipt == null ? null : receipt.getId(),
-                        receipt == null ? null : receipt.getDocumentNo(), target.getReceiptLineId(),
+                return new CostAllocationTargetResponse(target.getLineNo(), order == null ? null : order.getId(),
+                        order == null ? null : order.getDocumentNo(), target.getOrderLineId(),
                         target.getProductId(), product == null ? null : product.code(),
                         product == null ? null : product.name(), target.getBaseQuantity(), target.getBasisValue(),
                         target.getAllocatedAmount());
             }).toList();
-            receiptIds = targets.stream().map(CostAllocationTargetResponse::receiptId).distinct().toList();
+            orderIds = targets.stream().map(CostAllocationTargetResponse::orderId).distinct().toList();
         }
         return new PurchaseCostAllocationResponse(document.getId(), document.getCompanyId(), document.getBranchId(),
                 document.getDocumentNo(), document.getDocumentDate(), document.getPostingDate(), document.getMethod(),
                 document.getDescription(), document.getAmount(), document.getStatus(), document.getSubmittedAt(),
                 document.getApprovedAt(), document.getPostedAt(), document.getReversedAt(), document.getReverseDate(),
-                document.getReason(), document.getCreatedBy(), document.getVersion(), receiptIds, sources, targets,
+                document.getReason(), document.getCreatedBy(), document.getVersion(), orderIds, sources, targets,
                 detailed ? approvalService.history(PurchaseCostAllocation.TYPE_CODE, document.getId()) : List.of());
     }
 }

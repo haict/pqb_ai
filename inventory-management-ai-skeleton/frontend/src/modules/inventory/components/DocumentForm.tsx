@@ -1,17 +1,6 @@
 import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
-import {
-  Button,
-  Card,
-  Col,
-  DatePicker,
-  Form,
-  Input,
-  InputNumber,
-  Row,
-  Select,
-  type FormInstance,
-} from 'antd';
+import { Button, Card, Col, DatePicker, Form, Input, Row, Select, type FormInstance } from 'antd';
 import { productApi } from '../../masterdata/api';
 import { PartnerSelect, ProductSelect } from '../../masterdata/components/EntitySelects';
 import { RemoteSelect } from '../../masterdata/components/RemoteSelect';
@@ -22,6 +11,7 @@ import { policyApi, stockApi } from '../api';
 import { CREATABLE_TYPES, DOCUMENT_TYPES } from '../labels';
 import type { InventoryDocumentType, Lot, StockIssuePolicy } from '../types';
 import type { DocumentFormValues } from './documentFormValues';
+import { DecimalInput } from '../../../shared/components/DecimalInput';
 
 const QUALITY_OPTIONS = (Object.keys(QUALITY_STATUSES) as QualityStatus[]).map((value) => ({
   value,
@@ -94,7 +84,7 @@ function LineFields({
             label="Số lượng"
             rules={[{ required: true, message: 'Nhập số lượng' }]}
           >
-            <InputNumber min={0.001} precision={3} style={{ width: '100%' }} />
+            <DecimalInput min={0.001} />
           </Form.Item>
         </Col>
         {type === 'PDC' && (
@@ -116,7 +106,7 @@ function LineFields({
               label="Đơn giá (theo ĐVT)"
               rules={[{ required: true, message: 'Nhập đơn giá' }]}
             >
-              <InputNumber min={0} precision={4} style={{ width: '100%' }} />
+              <DecimalInput min={0} fractionDigits={4} />
             </Form.Item>
           </Col>
         )}

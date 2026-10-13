@@ -10,8 +10,8 @@ import java.util.List;
 import org.springframework.stereotype.Component;
 
 /**
- * Lịch thu tiền theo đơn (BR-SAL-50): hạn từng đợt theo mốc (ngày đơn, ngày khách nhận hàng đầu tiên, ngày hóa đơn
- * đầu tiên; nghiệm thu ở Giai đoạn 7), số đã thu phân bổ theo thứ tự đợt từ tiền đã thu của các hóa đơn thuộc đơn.
+ * Lịch thu tiền theo đơn (BR-SAL-50): hạn từng đợt theo mốc (ngày đơn, ngày khách nhận hàng, ngày hóa đơn; nghiệm thu
+ * ở Giai đoạn 7), số đã thu phân bổ theo thứ tự đợt từ tiền đã thu của khoản công nợ sinh từ đơn.
  */
 @Component
 class SalesOrderFacts {
@@ -23,8 +23,8 @@ class SalesOrderFacts {
     }
 
     List<PaymentScheduleResponse> paymentSchedule(SalesOrder order, LocalDate today) {
-        LocalDate delivered = events.firstDeliveryDate(order.getId());
-        LocalDate invoiced = events.firstInvoiceDate(order.getId());
+        LocalDate delivered = events.deliveryDate(order);
+        LocalDate invoiced = events.invoiceDate(order);
         BigDecimal paid = events.paidAmount(order);
         List<PaymentScheduleResponse> rows = new ArrayList<>();
         for (SalesOrderPaymentTerm term : order.getPaymentTerms()) {

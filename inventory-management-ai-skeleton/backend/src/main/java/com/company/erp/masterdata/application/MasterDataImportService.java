@@ -266,12 +266,17 @@ public class MasterDataImportService {
         if (taxCode != null && !TAX_CODE.matcher(taxCode).matches()) {
             errors.add("taxCode", "Mã số thuế gồm 10 số hoặc 10 số-3 số.");
         }
+        boolean supplierMissingIdentity = roles.contains(PartnerRole.SUPPLIER)
+                && (taxCode == null || ExcelSupport.nullable(row, 7) == null);
+        if (supplierMissingIdentity) {
+            errors.add(taxCode == null ? "taxCode" : "address", "Nhà cung cấp phải có mã số thuế và địa chỉ.");
+        }
         CustomerType customerType = enumValue(CustomerType.class, ExcelSupport.text(row, 10), false, errors,
                 "customerType", "Loại khách");
         Integer paymentTermDays = ExcelSupport.integer(row, 11, errors, "paymentTermDays");
         BigDecimal creditLimit = ExcelSupport.decimal(row, 12, errors, "creditLimit");
         Integer supplierTermDays = ExcelSupport.integer(row, 13, errors, "supplierPaymentTermDays");
-        if (name.isEmpty() || roles.isEmpty()) {
+        if (name.isEmpty() || roles.isEmpty() || supplierMissingIdentity) {
             return null;
         }
         PartnerDetails details = PartnerService.details(ExcelSupport.nullable(row, 1), name,

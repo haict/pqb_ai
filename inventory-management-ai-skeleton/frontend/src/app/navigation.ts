@@ -24,14 +24,7 @@ export const NAV_GROUPS: NavGroup[] = [
     key: 'purchasing',
     label: 'Mua hàng',
     items: [
-      {
-        path: '/purchasing/requisitions',
-        label: 'Đề nghị mua hàng',
-        permission: 'purchase-requisition:view',
-      },
       { path: '/purchasing/orders', label: 'Đơn mua hàng', permission: 'purchase-order:view' },
-      { path: '/purchasing/receipts', label: 'Phiếu nhận hàng', permission: 'purchase-receipt:view' },
-      { path: '/purchasing/invoices', label: 'Hóa đơn mua', permission: 'purchase-invoice:view' },
       { path: '/purchasing/returns', label: 'Trả hàng / giảm giá', permission: 'purchase-return:view' },
       {
         path: '/purchasing/cost-allocations',
@@ -44,10 +37,7 @@ export const NAV_GROUPS: NavGroup[] = [
     key: 'sales',
     label: 'Bán hàng',
     items: [
-      { path: '/sales/quotes', label: 'Báo giá', permission: 'sales-quote:view' },
       { path: '/sales/orders', label: 'Đơn bán hàng', permission: 'sales-order:view' },
-      { path: '/sales/deliveries', label: 'Giao hàng', permission: 'sales-delivery:view' },
-      { path: '/sales/invoices', label: 'Hóa đơn bán', permission: 'sales-invoice:view' },
       { path: '/sales/returns', label: 'Trả hàng / giảm giá bán', permission: 'sales-return:view' },
       { path: '/sales/complaints', label: 'Hàng lỗi khách báo', permission: 'sales-complaint:view' },
       { path: '/sales/report', label: 'Báo cáo doanh số', permission: 'sales-report:view' },

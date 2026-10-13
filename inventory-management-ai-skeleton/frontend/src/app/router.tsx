@@ -13,16 +13,10 @@ import { DebtOpeningsPage } from '../modules/finance/pages/DebtOpeningsPage';
 import { DebtReconciliationsPage } from '../modules/finance/pages/DebtReconciliationsPage';
 import { DebtsPage } from '../modules/finance/pages/DebtsPage';
 import { CostAllocationsPage } from '../modules/purchasing/pages/CostAllocationsPage';
-import { PurchaseInvoicesPage } from '../modules/purchasing/pages/PurchaseInvoicesPage';
 import { PurchaseOrdersPage } from '../modules/purchasing/pages/PurchaseOrdersPage';
-import { PurchaseReceiptsPage } from '../modules/purchasing/pages/PurchaseReceiptsPage';
-import { PurchaseRequisitionsPage } from '../modules/purchasing/pages/PurchaseRequisitionsPage';
 import { PurchaseReturnsPage } from '../modules/purchasing/pages/PurchaseReturnsPage';
 import { SalesComplaintsPage } from '../modules/sales/pages/SalesComplaintsPage';
-import { SalesDeliveriesPage } from '../modules/sales/pages/SalesDeliveriesPage';
-import { SalesInvoicesPage } from '../modules/sales/pages/SalesInvoicesPage';
 import { SalesOrdersPage } from '../modules/sales/pages/SalesOrdersPage';
-import { SalesQuotesPage } from '../modules/sales/pages/SalesQuotesPage';
 import { SalesReportPage } from '../modules/sales/pages/SalesReportPage';
 import { SalesReturnsPage } from '../modules/sales/pages/SalesReturnsPage';
 import { registerInventoryDocumentRoutes } from '../modules/inventory/documentRoutes';
@@ -90,22 +84,13 @@ export const router = createBrowserRouter([
       { index: true, element: <HomePage /> },
       { path: 'approvals', element: <ApprovalsPage /> },
       { path: 'inventory/stock', element: guarded('inventory:view', <StockPage />) },
-      {
-        path: 'purchasing/requisitions',
-        element: guarded('purchase-requisition:view', <PurchaseRequisitionsPage />),
-      },
       { path: 'purchasing/orders', element: guarded('purchase-order:view', <PurchaseOrdersPage />) },
-      { path: 'purchasing/receipts', element: guarded('purchase-receipt:view', <PurchaseReceiptsPage />) },
-      { path: 'purchasing/invoices', element: guarded('purchase-invoice:view', <PurchaseInvoicesPage />) },
       { path: 'purchasing/returns', element: guarded('purchase-return:view', <PurchaseReturnsPage />) },
       {
         path: 'purchasing/cost-allocations',
         element: guarded('purchase-cost-allocation:view', <CostAllocationsPage />),
       },
-      { path: 'sales/quotes', element: guarded('sales-quote:view', <SalesQuotesPage />) },
       { path: 'sales/orders', element: guarded('sales-order:view', <SalesOrdersPage />) },
-      { path: 'sales/deliveries', element: guarded('sales-delivery:view', <SalesDeliveriesPage />) },
-      { path: 'sales/invoices', element: guarded('sales-invoice:view', <SalesInvoicesPage />) },
       { path: 'sales/returns', element: guarded('sales-return:view', <SalesReturnsPage />) },
       { path: 'sales/complaints', element: guarded('sales-complaint:view', <SalesComplaintsPage />) },
       { path: 'sales/report', element: guarded('sales-report:view', <SalesReportPage />) },

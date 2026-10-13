@@ -20,9 +20,9 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * Dòng trả hàng / giảm giá hàng mua. Trả hàng: theo dòng phiếu nhận (đúng lô, serial), theo dòng hóa đơn nếu hàng đã
- * có hóa đơn; thành tiền = số lượng × đơn giá (đơn giá hóa đơn, hoặc giá tạm tính khi chưa có hóa đơn). Giảm giá: theo
- * dòng hóa đơn, chỉ có thành tiền. Thuế theo thuế suất của dòng hóa đơn; tiền làm tròn đến đồng (D-05).
+ * Dòng trả hàng / giảm giá hàng mua theo dòng đơn mua đã ghi sổ. Trả hàng: đúng lô, serial của dòng; thành tiền = số
+ * lượng × đơn giá sau chiết khấu của dòng. Giảm giá: chỉ có thành tiền. Thuế theo thuế suất của dòng đơn mua; tiền làm
+ * tròn đến đồng (D-05).
  */
 @Entity
 @Table(name = "purchase_return_lines")
@@ -37,11 +37,8 @@ public class PurchaseReturnLine {
     @Column(name = "line_no", nullable = false)
     private int lineNo;
 
-    @Column(name = "receipt_line_id")
-    private Long receiptLineId;
-
-    @Column(name = "invoice_line_id")
-    private Long invoiceLineId;
+    @Column(name = "order_line_id", nullable = false)
+    private Long orderLineId;
 
     @Column(name = "product_id", nullable = false)
     private Long productId;
@@ -96,7 +93,7 @@ public class PurchaseReturnLine {
      * Giá trị dòng đã kiểm tra ở tầng ứng dụng. Trả hàng: {@code quantity}, {@code unitPrice}; giảm giá:
      * {@code amount} (trước thuế).
      */
-    public record Values(Long receiptLineId, Long invoiceLineId, Long productId, Long unitId,
+    public record Values(Long orderLineId, Long productId, Long unitId,
                          BigDecimal conversionFactor, BigDecimal quantity, BigDecimal baseQuantity, String lotNo,
                          QualityStatus qualityStatus, BigDecimal unitPrice, BigDecimal amount, Long taxRateId,
                          BigDecimal taxRate, String description, List<String> serialNumbers) {
@@ -108,8 +105,7 @@ public class PurchaseReturnLine {
     }
 
     private void apply(Values values) {
-        this.receiptLineId = values.receiptLineId();
-        this.invoiceLineId = values.invoiceLineId();
+        this.orderLineId = values.orderLineId();
         this.productId = values.productId();
         this.unitId = values.unitId();
         this.conversionFactor = values.conversionFactor();
@@ -130,7 +126,7 @@ public class PurchaseReturnLine {
     }
 
     void copyFrom(PurchaseReturnLine other) {
-        apply(new Values(other.receiptLineId, other.invoiceLineId, other.productId, other.unitId,
+        apply(new Values(other.orderLineId, other.productId, other.unitId,
                 other.conversionFactor, other.quantity, other.baseQuantity, other.lotNo, other.qualityStatus,
                 other.unitPrice, other.amount, other.taxRateId, other.taxRate, other.description,
                 new ArrayList<>(other.serialNumbers)));
@@ -144,12 +140,8 @@ public class PurchaseReturnLine {
         return lineNo;
     }
 
-    public Long getReceiptLineId() {
-        return receiptLineId;
-    }
-
-    public Long getInvoiceLineId() {
-        return invoiceLineId;
+    public Long getOrderLineId() {
+        return orderLineId;
     }
 
     public Long getProductId() {

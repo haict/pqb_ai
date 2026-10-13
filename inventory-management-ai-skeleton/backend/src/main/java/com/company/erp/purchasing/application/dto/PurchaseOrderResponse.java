@@ -7,13 +7,18 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 
-/** Đơn mua hàng; {@code lines}, {@code approvals} chỉ có ở API chi tiết. */
+/**
+ * Đơn mua hàng (D-54); {@code inventoryDocumentNo}: phiếu nhập kho sinh khi ghi sổ. {@code supplierTaxCode},
+ * {@code supplierAddress}: MST, địa chỉ hiện tại của nhà cung cấp trong danh mục (chỉ đọc). {@code lines}, {@code approvals}
+ * chỉ có ở API chi tiết.
+ */
 public record PurchaseOrderResponse(
         Long id,
         Long companyId,
         Long branchId,
         String documentNo,
         LocalDate documentDate,
+        LocalDate postingDate,
         Long supplierId,
         String supplierCode,
         String supplierName,
@@ -24,15 +29,25 @@ public record PurchaseOrderResponse(
         Integer paymentTermDays,
         String currencyCode,
         BigDecimal exchangeRate,
+        String supplierTaxCode,
+        String supplierAddress,
+        String invoiceSeries,
+        String invoiceNo,
+        LocalDate invoiceDate,
+        LocalDate dueDate,
         String description,
         BigDecimal amount,
         BigDecimal discountAmount,
         BigDecimal taxAmount,
         BigDecimal totalAmount,
         PurchaseDocumentStatus status,
+        Long inventoryDocumentId,
+        String inventoryDocumentNo,
         Instant submittedAt,
         Instant approvedAt,
-        Instant closedAt,
+        Instant postedAt,
+        Instant reversedAt,
+        LocalDate reverseDate,
         String reason,
         Long createdBy,
         int version,

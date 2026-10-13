@@ -69,6 +69,10 @@ function PartnerForm({ editing }: { editing: Partner | null }) {
   const groups = useCatalog('partner-groups');
   const countries = useCountries();
   const branches = useMyBranches();
+  const form = Form.useFormInstance();
+  const roles = Form.useWatch('roles', form) as PartnerRole[] | undefined;
+  // Đơn mua lấy MST, địa chỉ người bán theo nhà cung cấp nên nhà cung cấp bắt buộc hai trường này
+  const supplier = roles?.includes('SUPPLIER') ?? false;
   const salesLists = useQuery({
     queryKey: ['price-lists', 'sales-lookup', companyId],
     queryFn: () => priceListApi.list({ page: 0, size: 200, companyId, priceType: 'SALES', status: 'ACTIVE' }),
@@ -133,7 +137,10 @@ function PartnerForm({ editing }: { editing: Partner | null }) {
                 <Form.Item
                   name="taxCode"
                   label="Mã số thuế"
-                  rules={[{ pattern: /^[0-9]{10}(-[0-9]{3})?$/, message: '10 số hoặc 10 số-3 số' }]}
+                  rules={[
+                    { required: supplier, message: 'Nhà cung cấp phải có MST' },
+                    { pattern: /^[0-9]{10}(-[0-9]{3})?$/, message: '10 số hoặc 10 số-3 số' },
+                  ]}
                 >
                   <Input style={{ width: 180 }} />
                 </Form.Item>
@@ -141,7 +148,11 @@ function PartnerForm({ editing }: { editing: Partner | null }) {
                   <Select allowClear options={groups.options} style={{ width: 200 }} />
                 </Form.Item>
               </Space>
-              <Form.Item name="address" label="Địa chỉ (hóa đơn)">
+              <Form.Item
+                name="address"
+                label="Địa chỉ (hóa đơn)"
+                rules={[{ required: supplier, whitespace: true, message: 'Nhà cung cấp phải có địa chỉ' }]}
+              >
                 <Input maxLength={500} />
               </Form.Item>
               <Space wrap>
@@ -394,6 +405,7 @@ export function PartnersPage() {
       ),
     },
     { title: 'MST', dataIndex: 'taxCode', width: 140 },
+    { title: 'Địa chỉ', dataIndex: 'address', width: 280, ellipsis: true },
     { title: 'Điện thoại', dataIndex: 'phone', width: 130 },
     {
       title: 'Trạng thái',

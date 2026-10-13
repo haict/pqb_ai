@@ -33,10 +33,10 @@ import { QUALITY_STATUSES } from '../../masterdata/labels';
 import { useCatalog, useCompanyId } from '../../masterdata/lookups';
 import type { QualityStatus } from '../../masterdata/types';
 import { useMyBranches } from '../../system/lookups';
-import { purchaseInvoiceApi, purchaseReturnApi } from '../api';
+import { purchaseOrderApi, purchaseReturnApi } from '../api';
 import { PurchaseDocumentDrawer } from '../components/PurchaseDocumentDrawer';
 import { SourceJournal } from '../components/SourceJournal';
-import { postingActions, RECEIPT_STATUSES, RETURN_TYPES } from '../labels';
+import { postingActions, PURCHASE_STATUSES, RETURN_TYPES } from '../labels';
 import type {
   PurchaseDocumentStatus,
   PurchaseReturn,
@@ -44,6 +44,7 @@ import type {
   PurchaseReturnType,
   ReturnableLine,
 } from '../types';
+import { DecimalInput } from '../../../shared/components/DecimalInput';
 
 interface LineForm {
   sourceKey?: string;
@@ -59,7 +60,7 @@ interface ReturnForm {
   branchId: number;
   supplierId?: number;
   supplierLabel?: string;
-  purchaseInvoiceId?: number;
+  purchaseOrderId?: number;
   documentDate: Dayjs;
   postingDate?: Dayjs;
   description?: string;
@@ -70,7 +71,7 @@ const FIELDS = [
   'documentType',
   'branchId',
   'supplierId',
-  'purchaseInvoiceId',
+  'purchaseOrderId',
   'documentDate',
   'postingDate',
   'description',
@@ -82,15 +83,13 @@ const QUALITY_OPTIONS = (Object.keys(QUALITY_STATUSES) as QualityStatus[]).map((
   label: QUALITY_STATUSES[value].label,
 }));
 
-/** Khóa dòng nguồn: dòng hóa đơn (I) hoặc dòng phiếu nhận chưa có hóa đơn (R). */
-const sourceKey = (line: { invoiceLineId: number | null; receiptLineId: number | null }) =>
-  line.invoiceLineId ? `I${line.invoiceLineId}` : `R${line.receiptLineId}`;
+/** Khóa dòng nguồn: id dòng đơn mua. */
+const sourceKey = (line: { orderLineId: number }) => String(line.orderLineId);
 
 function lineColumns(unitName: (id: number | null) => string): TableColumnsType<PurchaseReturnLine> {
   return [
     { title: '#', dataIndex: 'lineNo', width: 45 },
     { title: 'Hàng hóa', render: (_, row) => `${row.productCode ?? ''} - ${row.productName ?? ''}` },
-    { title: 'Phiếu nhận', dataIndex: 'receiptNo', width: 170 },
     { title: 'Lô', dataIndex: 'lotNo', width: 110 },
     {
       title: 'Chất lượng',
@@ -118,8 +117,8 @@ function lineColumns(unitName: (id: number | null) => string): TableColumnsType<
 }
 
 /**
- * Trả hàng nhà cung cấp / giảm giá hàng mua (BR-PUR-14): trả đúng lô, serial theo phiếu nhận gốc; hàng đã có hóa đơn
- * và giảm giá giảm công nợ phải trả; ghi sổ, đảo.
+ * Trả hàng nhà cung cấp / giảm giá hàng mua (BR-PUR-14, D-54) theo một đơn mua đã ghi sổ: trả đúng lô, serial của
+ * dòng đơn; trả hàng và giảm giá giảm công nợ phải trả; ghi sổ, đảo.
  */
 export function PurchaseReturnsPage() {
   const can = useCan();
@@ -146,23 +145,18 @@ export function PurchaseReturnsPage() {
       documentType: values.documentType,
       branchId: values.branchId,
       supplierId: values.supplierId,
-      purchaseInvoiceId: values.purchaseInvoiceId ?? null,
+      purchaseOrderId: values.purchaseOrderId,
       documentDate: values.documentDate.format('YYYY-MM-DD'),
       postingDate: values.postingDate ? values.postingDate.format('YYYY-MM-DD') : null,
       description: values.description,
-      lines: (values.lines ?? []).map((line) => {
-        const id = Number(line.sourceKey?.slice(1));
-        const invoiceLine = line.sourceKey?.startsWith('I');
-        return {
-          invoiceLineId: invoiceLine ? id : null,
-          receiptLineId: invoiceLine ? null : id,
-          quantity: goods ? line.quantity : null,
-          amount: goods ? null : line.amount,
-          qualityStatus: goods ? (line.qualityStatus ?? null) : null,
-          serialNumbers: goods ? (line.serialNumbers ?? []) : [],
-          description: line.description,
-        };
-      }),
+      lines: (values.lines ?? []).map((line) => ({
+        orderLineId: Number(line.sourceKey),
+        quantity: goods ? line.quantity : null,
+        amount: goods ? null : line.amount,
+        qualityStatus: goods ? (line.qualityStatus ?? null) : null,
+        serialNumbers: goods ? (line.serialNumbers ?? []) : [],
+        description: line.description,
+      })),
     };
     if (editing === 'new') {
       const created = await purchaseReturnApi.create(input, key);
@@ -183,7 +177,7 @@ export function PurchaseReturnsPage() {
           branchId: editing.branchId,
           supplierId: editing.supplierId,
           supplierLabel: `${editing.supplierCode ?? ''} - ${editing.supplierName ?? ''}`,
-          purchaseInvoiceId: editing.purchaseInvoiceId ?? undefined,
+          purchaseOrderId: editing.purchaseOrderId,
           documentDate: dayjs(editing.documentDate),
           postingDate: dayjs(editing.postingDate),
           description: editing.description ?? undefined,
@@ -250,7 +244,7 @@ export function PurchaseReturnsPage() {
               style={{ width: 160 }}
               value={status}
               onChange={setStatus}
-              options={RECEIPT_STATUSES.map((value) => ({ value, label: statusLabel(value) }))}
+              options={PURCHASE_STATUSES.map((value) => ({ value, label: statusLabel(value) }))}
             />
           </Space>
         }
@@ -262,7 +256,7 @@ export function PurchaseReturnsPage() {
         <PurchaseDocumentDrawer<PurchaseReturn>
           id={selected}
           queryKey="purchase-return"
-          listKeys={['purchase-returns', 'purchase-invoices', 'debt-items']}
+          listKeys={['purchase-returns', 'purchase-orders', 'debt-items']}
           load={purchaseReturnApi.get}
           act={purchaseReturnApi.act}
           permission="purchase-return"
@@ -277,10 +271,8 @@ export function PurchaseReturnsPage() {
                 <Descriptions.Item label="Nhà cung cấp">
                   {`${document.supplierCode ?? ''} - ${document.supplierName ?? ''}`}
                 </Descriptions.Item>
-                <Descriptions.Item label="Hóa đơn mua">
-                  {document.purchaseInvoiceNo
-                    ? `${document.purchaseInvoiceNo} (${document.invoiceLabel ?? ''})`
-                    : 'Hàng chưa có hóa đơn'}
+                <Descriptions.Item label="Đơn mua">
+                  {`${document.purchaseOrderNo ?? ''} (${document.invoiceLabel ?? ''})`}
                 </Descriptions.Item>
                 <Descriptions.Item label="Phiếu xuất trả">{document.inventoryDocumentNo}</Descriptions.Item>
                 <Descriptions.Item label="Ngày hạch toán">
@@ -343,33 +335,31 @@ function ReturnFields({
   const documentType = Form.useWatch('documentType', form) as PurchaseReturnType | undefined;
   const branchId = Form.useWatch('branchId', form) as number | undefined;
   const supplierId = Form.useWatch('supplierId', form) as number | undefined;
-  const invoiceId = Form.useWatch('purchaseInvoiceId', form) as number | undefined;
+  const orderId = Form.useWatch('purchaseOrderId', form) as number | undefined;
   const ready = typeof branchId === 'number' && typeof supplierId === 'number';
-  const invoices = useQuery({
-    queryKey: ['purchase-invoices', 'posted', branchId, supplierId],
+  const orders = useQuery({
+    queryKey: ['purchase-orders', 'posted', branchId, supplierId],
     queryFn: () =>
-      purchaseInvoiceApi.list({ page: 0, size: 50, companyId, branchId, supplierId, status: 'POSTED' }),
+      purchaseOrderApi.list({ page: 0, size: 50, companyId, branchId, supplierId, status: 'POSTED' }),
     enabled: ready,
   });
   const returnable = useQuery({
-    queryKey: ['purchase-returns', 'returnable', branchId, supplierId, invoiceId],
+    queryKey: ['purchase-returns', 'returnable', branchId, supplierId, orderId],
     queryFn: () =>
       purchaseReturnApi.returnableLines({
         branchId: branchId as number,
         supplierId: supplierId as number,
-        invoiceId,
+        orderId: orderId as number,
       }),
-    enabled: ready && (documentType === 'THN' || typeof invoiceId === 'number'),
+    enabled: ready && typeof orderId === 'number',
   });
-  const sources = (returnable.data ?? []).filter(
-    (line) => documentType === 'GGM' || line.remainingQuantity > 0,
+  const sources = (returnable.data ?? []).filter((line) =>
+    documentType === 'GGM' ? line.remainingAmount > 0 : !line.serviceLine && line.remainingQuantity > 0,
   );
   const sourceLabel = (line: ReturnableLine) =>
-    `${line.receiptNo ?? 'Dịch vụ'} · ${line.productCode ?? ''} - ${line.productName ?? ''}${
-      line.lotNo ? ` · lô ${line.lotNo}` : ''
-    } (${
+    `${line.productCode ?? ''} - ${line.productName ?? ''}${line.lotNo ? ` · lô ${line.lotNo}` : ''} (${
       documentType === 'GGM'
-        ? `còn ${formatMoney(line.remainingAmount ?? 0)}`
+        ? `còn ${formatMoney(line.remainingAmount)}`
         : `còn ${formatNumber(line.remainingQuantity)} ${units.nameOf(line.unitId)}`
     })`;
   const resetLines = () => form.setFieldValue('lines', []);
@@ -383,7 +373,7 @@ function ReturnFields({
         .map((line) => ({
           sourceKey: sourceKey(line),
           quantity: line.remainingQuantity,
-          amount: line.remainingAmount ?? undefined,
+          amount: line.remainingAmount,
           qualityStatus: line.qualityStatus ?? undefined,
         })),
     ]);
@@ -396,7 +386,6 @@ function ReturnFields({
             <Select
               disabled={!isNew}
               onChange={() => {
-                form.setFieldValue('purchaseInvoiceId', undefined);
                 resetLines();
               }}
               options={(Object.keys(RETURN_TYPES) as PurchaseReturnType[]).map((value) => ({
@@ -422,7 +411,7 @@ function ReturnFields({
               disabled={!isNew}
               selectedLabel={form.getFieldValue('supplierLabel')}
               onChange={() => {
-                form.setFieldValue('purchaseInvoiceId', undefined);
+                form.setFieldValue('purchaseOrderId', undefined);
                 resetLines();
               }}
             />
@@ -430,19 +419,19 @@ function ReturnFields({
         </Col>
         <Col xs={24} md={6}>
           <Form.Item
-            name="purchaseInvoiceId"
-            label="Hóa đơn mua"
-            extra={documentType === 'THN' ? 'Trống: trả hàng chưa có hóa đơn' : undefined}
-            rules={[{ required: documentType === 'GGM', message: 'Chọn hóa đơn' }]}
+            name="purchaseOrderId"
+            label="Đơn mua đã ghi sổ"
+            rules={[{ required: true, message: 'Chọn đơn mua' }]}
           >
             <Select
-              allowClear
+              showSearch
+              optionFilterProp="label"
               disabled={!isNew}
-              loading={invoices.isLoading}
+              loading={orders.isLoading}
               onChange={resetLines}
-              options={(invoices.data?.items ?? []).map((invoice) => ({
-                value: invoice.id,
-                label: `${invoice.documentNo} (${invoice.invoiceSeries}-${invoice.invoiceNo})`,
+              options={(orders.data?.items ?? []).map((order) => ({
+                value: order.id,
+                label: `${order.documentNo}${order.invoiceNo ? ` (${order.invoiceSeries}-${order.invoiceNo})` : ''}`,
               }))}
             />
           </Form.Item>
@@ -524,7 +513,7 @@ function ReturnLineFields({
         <Col xs={24} md={goods ? 10 : 14}>
           <Form.Item
             name={[name, 'sourceKey']}
-            label={goods ? 'Dòng phiếu nhận / hóa đơn' : 'Dòng hóa đơn'}
+            label="Dòng đơn mua"
             rules={[{ required: true, message: 'Chọn dòng nguồn' }]}
           >
             <Select
@@ -535,7 +524,7 @@ function ReturnLineFields({
                 const picked = sources.find((line) => sourceKey(line) === value);
                 if (picked) {
                   form.setFieldValue(['lines', name, 'quantity'], picked.remainingQuantity);
-                  form.setFieldValue(['lines', name, 'amount'], picked.remainingAmount ?? undefined);
+                  form.setFieldValue(['lines', name, 'amount'], picked.remainingAmount);
                   form.setFieldValue(['lines', name, 'qualityStatus'], picked.qualityStatus ?? undefined);
                   form.setFieldValue(['lines', name, 'serialNumbers'], []);
                 }
@@ -551,7 +540,7 @@ function ReturnLineFields({
                 label="Số lượng trả"
                 rules={[{ required: true, message: 'Nhập số lượng' }]}
               >
-                <InputNumber min={0.001} precision={3} style={{ width: '100%' }} />
+                <DecimalInput min={0.001} />
               </Form.Item>
             </Col>
             <Col xs={12} md={4}>

@@ -154,7 +154,7 @@ export interface InventoryDocument extends InventoryDocumentSummary {
   receivePostingDate: string | null;
   cancelledAt: string | null;
   cancelReason: string | null;
-  /** Chứng từ nguồn của phân hệ khác (PNH: phiếu nhận hàng). */
+  /** Chứng từ nguồn của phân hệ khác (DMH đơn mua, DBH đơn bán, THN, TLB). */
   sourceType: string | null;
   sourceId: number | null;
   sourceNo: string | null;

@@ -13,17 +13,13 @@ import com.company.erp.purchasing.application.dto.PurchaseReturnRequest;
 import com.company.erp.purchasing.application.dto.PurchaseReturnResponse;
 import com.company.erp.purchasing.application.dto.ReasonRequest;
 import com.company.erp.purchasing.application.dto.ReturnableLineResponse;
-import com.company.erp.purchasing.domain.InspectionResult;
 import com.company.erp.purchasing.domain.PurchaseDocumentStatus;
-import com.company.erp.purchasing.domain.PurchaseInvoice;
-import com.company.erp.purchasing.domain.PurchaseInvoiceLine;
-import com.company.erp.purchasing.domain.PurchaseReceipt;
-import com.company.erp.purchasing.domain.PurchaseReceiptLine;
+import com.company.erp.purchasing.domain.PurchaseOrder;
+import com.company.erp.purchasing.domain.PurchaseOrderLine;
 import com.company.erp.purchasing.domain.PurchaseReturn;
 import com.company.erp.purchasing.domain.PurchaseReturnLine;
 import com.company.erp.purchasing.domain.PurchaseReturnType;
-import com.company.erp.purchasing.infrastructure.persistence.PurchaseInvoiceRepository;
-import com.company.erp.purchasing.infrastructure.persistence.PurchaseReceiptRepository;
+import com.company.erp.purchasing.infrastructure.persistence.PurchaseOrderRepository;
 import com.company.erp.purchasing.infrastructure.persistence.PurchaseReturnRepository;
 import com.company.erp.system.application.ApprovalService;
 import com.company.erp.system.application.CurrentUser;
@@ -32,11 +28,9 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -44,8 +38,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Trả hàng nhà cung cấp (THN) / giảm giá hàng mua (GGM), BR-PUR-14: lập theo dòng phiếu nhận đã nhập kho (đúng lô,
- * serial) hoặc dòng hóa đơn mua đã ghi sổ, gửi duyệt (duyệt khi có luồng), duyệt, từ chối, hủy. Ghi sổ, đảo ở
+ * Trả hàng nhà cung cấp (THN) / giảm giá hàng mua (GGM), BR-PUR-14: lập theo dòng của một đơn mua đã ghi sổ (đúng lô,
+ * serial, đơn giá sau chiết khấu), gửi duyệt (duyệt khi có luồng), duyệt, từ chối, hủy. Ghi sổ, đảo ở
  * {@link PurchaseReturnPostingService}.
  */
 @Service
@@ -62,18 +56,8 @@ public class PurchaseReturnService {
                                String keyword) {
     }
 
-    /** Nguồn đã tra cho một chứng từ: hóa đơn (nếu có), phiếu nhận theo id dòng phiếu nhận. */
-    private record Sources(PurchaseInvoice invoice, Map<Long, PurchaseReceipt> receiptsByLine) {
-
-        PurchaseReceiptLine receiptLine(Long lineId) {
-            PurchaseReceipt receipt = receiptsByLine.get(lineId);
-            return receipt == null ? null : receipt.line(lineId, "lines");
-        }
-    }
-
     private final PurchaseReturnRepository repository;
-    private final PurchaseInvoiceRepository invoiceRepository;
-    private final PurchaseReceiptRepository receiptRepository;
+    private final PurchaseOrderRepository orderRepository;
     private final PurchaseDocumentFlow flow;
     private final PurchasingAccess access;
     private final ApprovalService approvalService;
@@ -81,12 +65,11 @@ public class PurchaseReturnService {
     private final PurchaseDocumentFlow.Spec<PurchaseReturn, PurchaseReturnResponse> spec;
 
     @SuppressWarnings("java:S107")
-    public PurchaseReturnService(PurchaseReturnRepository repository, PurchaseInvoiceRepository invoiceRepository,
-                                 PurchaseReceiptRepository receiptRepository, PurchaseDocumentFlow flow,
-                                 PurchasingAccess access, ApprovalService approvalService, StockInService stockIn) {
+    public PurchaseReturnService(PurchaseReturnRepository repository, PurchaseOrderRepository orderRepository,
+                                 PurchaseDocumentFlow flow, PurchasingAccess access, ApprovalService approvalService,
+                                 StockInService stockIn) {
         this.repository = repository;
-        this.invoiceRepository = invoiceRepository;
-        this.receiptRepository = receiptRepository;
+        this.orderRepository = orderRepository;
         this.flow = flow;
         this.access = access;
         this.approvalService = approvalService;
@@ -118,48 +101,19 @@ public class PurchaseReturnService {
         return toResponse(flow.visible(actor, repository.findById(id).orElseThrow(BusinessException::notFound)), true);
     }
 
-    /**
-     * Dòng còn trả / giảm giá được của nhà cung cấp trong chi nhánh: theo hóa đơn {@code invoiceId}, hoặc (trống)
-     * dòng phiếu nhận đã nhập kho chưa có hóa đơn.
-     */
+    /** Dòng còn trả / giảm giá được của đơn mua đã ghi sổ {@code orderId} (cùng chi nhánh, nhà cung cấp). */
     @Transactional(readOnly = true)
     public List<ReturnableLineResponse> returnableLines(CurrentUser actor, Long branchId, Long supplierId,
-                                                        Long invoiceId) {
+                                                        Long orderId) {
         access.requirePermission(actor, VIEW);
         BranchRef branch = access.usableBranch(actor, branchId);
+        PurchaseOrder order = postedOrder(branch, supplierId, orderId);
+        Map<Long, ProductInfo> products = access.products(order.getLines().stream()
+                .map(PurchaseOrderLine::getProductId).toList());
         List<ReturnableLineResponse> rows = new ArrayList<>();
-        if (invoiceId != null) {
-            PurchaseInvoice invoice = postedInvoice(branch, supplierId, invoiceId);
-            Map<Long, PurchaseReceipt> receipts = receiptsByLine(invoice.getLines().stream()
-                    .map(PurchaseInvoiceLine::getReceiptLineId).filter(Objects::nonNull).toList());
-            Map<Long, ProductInfo> products = access.products(invoice.getLines().stream()
-                    .map(PurchaseInvoiceLine::getProductId).toList());
-            for (PurchaseInvoiceLine line : invoice.getLines()) {
-                PurchaseReceipt receipt = line.isGoods() ? receipts.get(line.getReceiptLineId()) : null;
-                PurchaseReceiptLine receiptLine = receipt == null ? null : receipt.line(line.getReceiptLineId(), "x");
-                BigDecimal returnable = receiptLine == null ? BigDecimal.ZERO
-                        : line.returnableQuantity().min(receiptLine.returnableQuantity());
-                if (returnable.signum() <= 0 && line.remainingAmount().signum() <= 0) {
-                    continue;
-                }
-                rows.add(row(receipt, receiptLine, line, products.get(line.getProductId()), returnable,
-                        line.getUnitPrice(), line.getTaxRate(), line.remainingAmount(), line.getConversionFactor(),
-                        line.getUnitId()));
-            }
-            return rows;
-        }
-        List<PurchaseReceipt> receipts = receiptRepository.findStocked(branch.companyId(), branch.id(), supplierId,
-                PurchaseDocumentStatus.POSTED);
-        Map<Long, ProductInfo> products = access.products(receipts.stream()
-                .flatMap(receipt -> receipt.getLines().stream()).map(PurchaseReceiptLine::getProductId).toList());
-        for (PurchaseReceipt receipt : receipts) {
-            for (PurchaseReceiptLine line : receipt.getLines()) {
-                BigDecimal returnable = line.uninvoicedQuantity().min(line.returnableQuantity());
-                if (!line.getInspectionResult().stocked() || returnable.signum() <= 0) {
-                    continue;
-                }
-                rows.add(row(receipt, line, null, products.get(line.getProductId()), returnable, line.getUnitCost(),
-                        null, null, line.getConversionFactor(), line.getUnitId()));
+        for (PurchaseOrderLine line : order.getLines()) {
+            if (line.returnableQuantity().signum() > 0 || line.remainingAmount().signum() > 0) {
+                rows.add(row(order, line, products.get(line.getProductId())));
             }
         }
         return rows;
@@ -171,13 +125,12 @@ public class PurchaseReturnService {
             access.requirePermission(actor, CREATE);
             BranchRef branch = access.usableBranch(actor, request.branchId());
             PartnerInfo supplier = access.supplier(branch.companyId(), request.supplierId(), "supplierId");
-            Sources sources = sources(branch, supplier.id(), request);
-            Long warehouseId = request.documentType() == PurchaseReturnType.THN ? warehouse(sources, request) : null;
+            PurchaseOrder order = postedOrder(branch, supplier.id(), request.purchaseOrderId());
             PurchaseReturn document = new PurchaseReturn(branch.companyId(), branch.id(),
                     access.nextNumber(branch.companyId(), branch.id(), request.documentType().name(),
-                            request.documentDate()), request.documentType(), supplier.id(),
-                    request.purchaseInvoiceId(), warehouseId);
-            fill(document, sources, request);
+                            request.documentDate()), request.documentType(), supplier.id(), order.getId(),
+                    request.documentType() == PurchaseReturnType.THN ? order.getWarehouseId() : null);
+            fill(document, order, request);
             document = repository.saveAndFlush(document);
             return flow.act(actor, document, "CREATE", null, spec);
         });
@@ -190,16 +143,12 @@ public class PurchaseReturnService {
         PurchaseDocumentFlow.requireVersion(document, request.version());
         if (!document.getBranchId().equals(request.branchId()) || !document.getSupplierId().equals(request.supplierId())
                 || document.getDocumentType() != request.documentType()
-                || !Objects.equals(document.getPurchaseInvoiceId(), request.purchaseInvoiceId())) {
-            throw BusinessException.invalidField("supplierId", "Không đổi loại, chi nhánh, nhà cung cấp, hóa đơn sau "
+                || !document.getPurchaseOrderId().equals(request.purchaseOrderId())) {
+            throw BusinessException.invalidField("supplierId", "Không đổi loại, chi nhánh, nhà cung cấp, đơn mua sau "
                     + "khi lập.");
         }
         BranchRef branch = access.usableBranch(actor, document.getBranchId());
-        Sources sources = sources(branch, document.getSupplierId(), request);
-        if (document.isGoodsReturn() && !document.getWarehouseId().equals(warehouse(sources, request))) {
-            throw BusinessException.invalidField("lines", "Các dòng trả hàng phải cùng kho của chứng từ.");
-        }
-        fill(document, sources, request);
+        fill(document, postedOrder(branch, document.getSupplierId(), document.getPurchaseOrderId()), request);
         return flow.act(actor, document, "UPDATE", null, spec);
     }
 
@@ -227,97 +176,70 @@ public class PurchaseReturnService {
         return spec;
     }
 
-    private void fill(PurchaseReturn document, Sources sources, PurchaseReturnRequest request) {
-        Map<Long, ProductInfo> products = access.products(productIds(sources));
+    private void fill(PurchaseReturn document, PurchaseOrder order, PurchaseReturnRequest request) {
+        Map<Long, ProductInfo> products = access.products(order.getLines().stream()
+                .map(PurchaseOrderLine::getProductId).toList());
         List<PurchaseReturnLine> lines = new ArrayList<>();
-        Set<String> seen = new HashSet<>();
+        Set<Long> seen = new HashSet<>();
         for (int i = 0; i < request.lines().size(); i++) {
             PurchaseReturnLineRequest line = request.lines().get(i);
             String field = "lines[" + i + "]";
-            if (!seen.add(line.invoiceLineId() + "/" + line.receiptLineId())) {
-                throw BusinessException.invalidField(field, "Mỗi dòng nguồn chỉ xuất hiện một lần.");
+            if (!seen.add(line.orderLineId())) {
+                throw BusinessException.invalidField(field, "Mỗi dòng đơn mua chỉ xuất hiện một lần.");
             }
+            PurchaseOrderLine orderLine = order.line(line.orderLineId(), field + ".orderLineId");
             lines.add(new PurchaseReturnLine(i + 1, request.documentType() == PurchaseReturnType.GGM
-                    ? discountLine(sources, line, field)
-                    : returnLine(sources, line, products, field)));
+                    ? discountLine(orderLine, line, field)
+                    : returnLine(orderLine, line, products.get(orderLine.getProductId()), field)));
         }
         LocalDate postingDate = request.postingDate() != null ? request.postingDate() : request.documentDate();
         document.replaceContent(new PurchaseReturn.Header(request.documentDate(), postingDate,
-                PurchaseRequisitionService.trim(request.description())), lines);
+                PurchasingAccess.trim(request.description())), lines);
     }
 
-    /** Dòng trả hàng: không vượt số còn trả được của dòng phiếu nhận (và dòng hóa đơn nếu có), đúng serial đã nhận. */
-    private PurchaseReturnLine.Values returnLine(Sources sources, PurchaseReturnLineRequest line,
-                                                 Map<Long, ProductInfo> products, String field) {
+    /** Dòng trả hàng: không vượt số còn trả được của dòng đơn mua, đúng serial đã nhập. */
+    private static PurchaseReturnLine.Values returnLine(PurchaseOrderLine orderLine, PurchaseReturnLineRequest line,
+                                                        ProductInfo product, String field) {
         if (line.quantity() == null) {
             throw BusinessException.invalidField(field + ".quantity", "Phải nhập số lượng trả.");
         }
-        PurchaseInvoiceLine invoiceLine = null;
-        Long receiptLineId = line.receiptLineId();
-        if (sources.invoice() != null) {
-            invoiceLine = invoiceLine(sources, line, field);
-            if (!invoiceLine.isGoods()) {
-                throw BusinessException.invalidField(field + ".invoiceLineId", "Dòng dịch vụ không trả hàng được; "
-                        + "dùng giảm giá hàng mua.");
-            }
-            receiptLineId = invoiceLine.getReceiptLineId();
+        if (orderLine.isServiceLine()) {
+            throw BusinessException.invalidField(field + ".orderLineId", "Dòng dịch vụ không trả hàng được; dùng giảm "
+                    + "giá hàng mua.");
         }
-        PurchaseReceiptLine receiptLine = receiptLineId == null ? null : sources.receiptLine(receiptLineId);
-        if (receiptLine == null || !receiptLine.getInspectionResult().stocked()) {
-            throw BusinessException.invalidField(field + ".receiptLineId", "Dòng phiếu nhận hàng không tồn tại, khác "
-                    + "chi nhánh / nhà cung cấp, chưa nhập kho hoặc là hàng trả lại khi nhận.");
-        }
-        BigDecimal base = PurchasingAccess.baseQuantity(line.quantity(), receiptLine.getConversionFactor(),
+        BigDecimal base = PurchasingAccess.baseQuantity(line.quantity(), orderLine.getConversionFactor(),
                 field + ".quantity");
-        BigDecimal limit = invoiceLine != null ? invoiceLine.returnableQuantity().min(receiptLine.returnableQuantity())
-                : receiptLine.uninvoicedQuantity().min(receiptLine.returnableQuantity());
-        if (base.compareTo(limit) > 0) {
+        if (base.compareTo(orderLine.returnableQuantity()) > 0) {
             throw new BusinessException(ErrorCode.SOURCE_QUANTITY_EXCEEDED, field + ": chỉ còn trả được "
-                    + limit.stripTrailingZeros().toPlainString() + " (đơn vị cơ sở)"
-                    + (invoiceLine == null ? " chưa có hóa đơn." : " theo hóa đơn."));
+                    + orderLine.returnableQuantity().stripTrailingZeros().toPlainString() + " (đơn vị cơ sở).");
         }
-        List<String> serials = serials(products.get(receiptLine.getProductId()), receiptLine, line, base, field);
-        QualityStatus status = line.qualityStatus() != null ? line.qualityStatus()
-                : receiptLine.getInspectionResult() == InspectionResult.QUARANTINE ? QualityStatus.QUARANTINE
-                : QualityStatus.PASSED;
-        return new PurchaseReturnLine.Values(receiptLine.getId(), invoiceLine == null ? null : invoiceLine.getId(),
-                receiptLine.getProductId(), receiptLine.getUnitId(), receiptLine.getConversionFactor(),
-                line.quantity(), base, receiptLine.getLotNo(), status,
-                invoiceLine != null ? invoiceLine.getUnitPrice() : receiptLine.getUnitCost(), null,
-                invoiceLine == null ? null : invoiceLine.getTaxRateId(),
-                invoiceLine == null ? null : invoiceLine.getTaxRate(),
-                PurchaseRequisitionService.trim(line.description()), serials);
+        List<String> serials = serials(product, orderLine, line, base, field);
+        return new PurchaseReturnLine.Values(orderLine.getId(), orderLine.getProductId(), orderLine.getUnitId(),
+                orderLine.getConversionFactor(), line.quantity(), base, orderLine.getLotNo(),
+                line.qualityStatus() != null ? line.qualityStatus() : QualityStatus.PASSED, orderLine.netUnitPrice(),
+                null, orderLine.getTaxRateId(), orderLine.getTaxRate(), PurchasingAccess.trim(line.description()),
+                serials);
     }
 
-    /** Dòng giảm giá: theo dòng hóa đơn, không vượt giá trị còn lại (BR-PUR-14). */
-    private PurchaseReturnLine.Values discountLine(Sources sources, PurchaseReturnLineRequest line, String field) {
+    /** Dòng giảm giá: không vượt giá trị còn lại của dòng đơn mua (BR-PUR-14). */
+    private static PurchaseReturnLine.Values discountLine(PurchaseOrderLine orderLine, PurchaseReturnLineRequest line,
+                                                          String field) {
         if (line.amount() == null) {
             throw BusinessException.invalidField(field + ".amount", "Phải nhập số tiền giảm giá.");
         }
-        PurchaseInvoiceLine invoiceLine = invoiceLine(sources, line, field);
         BigDecimal amount = line.amount().setScale(0, RoundingMode.HALF_UP);
-        if (amount.compareTo(invoiceLine.remainingAmount()) > 0) {
-            throw new BusinessException(ErrorCode.SOURCE_QUANTITY_EXCEEDED, field + ": dòng " + invoiceLine.getLineNo()
-                    + " của hóa đơn chỉ còn giá trị " + invoiceLine.remainingAmount().stripTrailingZeros()
+        if (amount.compareTo(orderLine.remainingAmount()) > 0) {
+            throw new BusinessException(ErrorCode.SOURCE_QUANTITY_EXCEEDED, field + ": dòng " + orderLine.getLineNo()
+                    + " của đơn mua chỉ còn giá trị " + orderLine.remainingAmount().stripTrailingZeros()
                     .toPlainString() + ".");
         }
-        return new PurchaseReturnLine.Values(invoiceLine.getReceiptLineId(), invoiceLine.getId(),
-                invoiceLine.getProductId(), invoiceLine.getUnitId(), invoiceLine.getConversionFactor(), null, null,
-                null, null, null, amount, invoiceLine.getTaxRateId(), invoiceLine.getTaxRate(),
-                PurchaseRequisitionService.trim(line.description()), List.of());
+        return new PurchaseReturnLine.Values(orderLine.getId(), orderLine.getProductId(), orderLine.getUnitId(),
+                orderLine.getConversionFactor(), null, null, null, null, null, amount, orderLine.getTaxRateId(),
+                orderLine.getTaxRate(), PurchasingAccess.trim(line.description()), List.of());
     }
 
-    private static PurchaseInvoiceLine invoiceLine(Sources sources, PurchaseReturnLineRequest line, String field) {
-        if (line.invoiceLineId() == null) {
-            throw BusinessException.invalidField(field + ".invoiceLineId", "Chọn dòng hóa đơn.");
-        }
-        return sources.invoice().getLines().stream().filter(candidate -> candidate.getId().equals(line.invoiceLineId()))
-                .findFirst().orElseThrow(() -> BusinessException.invalidField(field + ".invoiceLineId",
-                        "Dòng không thuộc hóa đơn " + sources.invoice().getDocumentNo() + "."));
-    }
-
-    /** Hàng quản lý serial: đúng số lượng, thuộc serial đã nhận ở dòng phiếu nhận (BR-PUR-14). */
-    private static List<String> serials(ProductInfo product, PurchaseReceiptLine receiptLine,
+    /** Hàng quản lý serial: đúng số lượng, thuộc serial đã nhập ở dòng đơn mua (BR-PUR-14). */
+    private static List<String> serials(ProductInfo product, PurchaseOrderLine orderLine,
                                         PurchaseReturnLineRequest line, BigDecimal base, String field) {
         List<String> serials = line.serialNumbers() == null ? List.of()
                 : line.serialNumbers().stream().map(String::trim).toList();
@@ -332,95 +254,29 @@ public class PurchaseReturnService {
             throw BusinessException.invalidField(field + ".serialNumbers", "Số serial phải bằng số lượng trả và không "
                     + "trùng.");
         }
-        if (!receiptLine.getSerialNumbers().containsAll(serials)) {
-            throw BusinessException.invalidField(field + ".serialNumbers", "Serial không thuộc dòng phiếu nhận gốc.");
+        if (!orderLine.getSerialNumbers().containsAll(serials)) {
+            throw BusinessException.invalidField(field + ".serialNumbers", "Serial không thuộc dòng đơn mua gốc.");
         }
         return serials;
     }
 
-    private Sources sources(BranchRef branch, Long supplierId, PurchaseReturnRequest request) {
-        PurchaseInvoice invoice = null;
-        if (request.purchaseInvoiceId() != null) {
-            invoice = postedInvoice(branch, supplierId, request.purchaseInvoiceId());
-        } else if (request.documentType() == PurchaseReturnType.GGM) {
-            throw BusinessException.invalidField("purchaseInvoiceId", "Giảm giá hàng mua phải theo hóa đơn mua.");
-        }
-        List<Long> receiptLineIds = invoice != null
-                ? invoice.getLines().stream().map(PurchaseInvoiceLine::getReceiptLineId).filter(Objects::nonNull).toList()
-                : request.lines().stream().map(PurchaseReturnLineRequest::receiptLineId).filter(Objects::nonNull).toList();
-        Map<Long, PurchaseReceipt> receipts = receiptsByLine(receiptLineIds);
-        receipts.values().removeIf(receipt -> !receipt.getCompanyId().equals(branch.companyId())
-                || !receipt.getBranchId().equals(branch.id()) || !receipt.getSupplierId().equals(supplierId)
-                || receipt.getStatus() != PurchaseDocumentStatus.POSTED || !receipt.isStocked());
-        return new Sources(invoice, receipts);
-    }
-
-    private PurchaseInvoice postedInvoice(BranchRef branch, Long supplierId, Long invoiceId) {
-        return invoiceRepository.findById(invoiceId)
+    private PurchaseOrder postedOrder(BranchRef branch, Long supplierId, Long orderId) {
+        return orderRepository.findById(orderId)
                 .filter(found -> found.getCompanyId().equals(branch.companyId())
                         && found.getBranchId().equals(branch.id()) && found.getSupplierId().equals(supplierId)
                         && found.getStatus() == PurchaseDocumentStatus.POSTED)
-                .orElseThrow(() -> BusinessException.invalidField("purchaseInvoiceId", "Hóa đơn mua không tồn tại, "
-                        + "khác chi nhánh / nhà cung cấp hoặc chưa ghi sổ."));
+                .orElseThrow(() -> BusinessException.invalidField("purchaseOrderId", "Đơn mua không tồn tại, khác "
+                        + "chi nhánh / nhà cung cấp hoặc chưa ghi sổ."));
     }
 
-    private Map<Long, PurchaseReceipt> receiptsByLine(List<Long> receiptLineIds) {
-        Map<Long, PurchaseReceipt> byLine = new HashMap<>();
-        if (!receiptLineIds.isEmpty()) {
-            receiptRepository.findByLineIds(receiptLineIds).forEach(receipt -> receipt.getLines()
-                    .forEach(line -> byLine.put(line.getId(), receipt)));
-        }
-        return byLine;
-    }
-
-    /** Kho xuất trả: kho của phiếu nhận; mọi dòng phải cùng kho (một phiếu xuất). */
-    private static Long warehouse(Sources sources, PurchaseReturnRequest request) {
-        Set<Long> warehouses = new HashSet<>();
-        for (PurchaseReturnLineRequest line : request.lines()) {
-            Long receiptLineId = line.receiptLineId();
-            if (sources.invoice() != null && line.invoiceLineId() != null) {
-                receiptLineId = sources.invoice().getLines().stream()
-                        .filter(candidate -> candidate.getId().equals(line.invoiceLineId())).findFirst()
-                        .map(PurchaseInvoiceLine::getReceiptLineId).orElse(null);
-            }
-            PurchaseReceipt receipt = receiptLineId == null ? null : sources.receiptsByLine().get(receiptLineId);
-            if (receipt != null) {
-                warehouses.add(receipt.getWarehouseId());
-            }
-        }
-        if (warehouses.size() > 1) {
-            throw BusinessException.invalidField("lines", "Các dòng trả hàng phải cùng một kho; lập phiếu riêng cho "
-                    + "từng kho.");
-        }
-        return warehouses.stream().findFirst().orElseThrow(() -> BusinessException.invalidField(
-                "lines[0].receiptLineId", "Dòng phiếu nhận hàng không hợp lệ."));
-    }
-
-    private static List<Long> productIds(Sources sources) {
-        List<Long> ids = new ArrayList<>();
-        sources.receiptsByLine().values().forEach(receipt -> receipt.getLines()
-                .forEach(line -> ids.add(line.getProductId())));
-        if (sources.invoice() != null) {
-            sources.invoice().getLines().forEach(line -> ids.add(line.getProductId()));
-        }
-        return ids;
-    }
-
-    private static ReturnableLineResponse row(PurchaseReceipt receipt, PurchaseReceiptLine receiptLine,
-                                              PurchaseInvoiceLine invoiceLine, ProductInfo product,
-                                              BigDecimal returnableBase, BigDecimal unitPrice, BigDecimal taxRate,
-                                              BigDecimal remainingAmount, BigDecimal factor, Long unitId) {
-        return new ReturnableLineResponse(receipt == null ? null : receipt.getId(),
-                receipt == null ? null : receipt.getDocumentNo(), receipt == null ? null : receipt.getDocumentDate(),
-                receiptLine == null ? null : receiptLine.getId(), receipt == null ? null : receipt.getWarehouseId(),
-                invoiceLine == null ? null : invoiceLine.getId(), product == null ? null : product.id(),
-                product == null ? null : product.code(), product == null ? null : product.name(), unitId,
-                receiptLine == null ? null : receiptLine.getLotNo(),
-                receiptLine == null ? null : receiptLine.getExpiryDate(),
-                receiptLine == null ? null : receiptLine.getInspectionResult() == InspectionResult.QUARANTINE
-                        ? QualityStatus.QUARANTINE : QualityStatus.PASSED,
-                returnableBase.divide(factor, 3, RoundingMode.DOWN), unitPrice, taxRate, remainingAmount,
-                receiptLine == null ? List.of() : List.copyOf(receiptLine.getSerialNumbers()));
+    private static ReturnableLineResponse row(PurchaseOrder order, PurchaseOrderLine line, ProductInfo product) {
+        return new ReturnableLineResponse(order.getId(), order.getDocumentNo(), order.getPostingDate(),
+                order.invoiceLabel(), line.getId(), order.getWarehouseId(), line.isServiceLine(),
+                line.getProductId(), product == null ? null : product.code(), product == null ? null : product.name(),
+                line.getUnitId(), line.getLotNo(), line.getExpiryDate(),
+                line.isServiceLine() ? null : QualityStatus.PASSED,
+                line.returnableQuantity().divide(line.getConversionFactor(), 3, RoundingMode.DOWN),
+                line.netUnitPrice(), line.getTaxRate(), line.remainingAmount(), List.copyOf(line.getSerialNumbers()));
     }
 
     PurchaseReturnResponse toResponse(PurchaseReturn document, boolean detailed) {
@@ -430,24 +286,20 @@ public class PurchaseReturnService {
 
     private PurchaseReturnResponse toResponse(PurchaseReturn document, PartnerInfo supplier, boolean detailed) {
         List<PurchaseReturnLineResponse> lines = List.of();
-        PurchaseInvoice invoice = null;
+        PurchaseOrder order = null;
         String inventoryNo = null;
         if (detailed) {
-            invoice = document.getPurchaseInvoiceId() == null ? null
-                    : invoiceRepository.findById(document.getPurchaseInvoiceId()).orElse(null);
-            Map<Long, PurchaseReceipt> receipts = receiptsByLine(document.getLines().stream()
-                    .map(PurchaseReturnLine::getReceiptLineId).filter(Objects::nonNull).toList());
+            order = orderRepository.findById(document.getPurchaseOrderId()).orElse(null);
             Map<Long, ProductInfo> products = access.products(document.getLines().stream()
                     .map(PurchaseReturnLine::getProductId).toList());
             lines = document.getLines().stream().map(line -> {
                 ProductInfo product = products.get(line.getProductId());
-                PurchaseReceipt receipt = line.getReceiptLineId() == null ? null : receipts.get(line.getReceiptLineId());
-                return new PurchaseReturnLineResponse(line.getId(), line.getLineNo(), line.getReceiptLineId(),
-                        receipt == null ? null : receipt.getDocumentNo(), line.getInvoiceLineId(), line.getProductId(),
-                        product == null ? null : product.code(), product == null ? null : product.name(),
-                        line.getUnitId(), line.getQuantity(), line.getBaseQuantity(), line.getLotNo(),
-                        line.getQualityStatus(), line.getUnitPrice(), line.getAmount(), line.getTaxRate(),
-                        line.getTaxAmount(), line.getDescription(), List.copyOf(line.getSerialNumbers()));
+                return new PurchaseReturnLineResponse(line.getId(), line.getLineNo(), line.getOrderLineId(),
+                        line.getProductId(), product == null ? null : product.code(),
+                        product == null ? null : product.name(), line.getUnitId(), line.getQuantity(),
+                        line.getBaseQuantity(), line.getLotNo(), line.getQualityStatus(), line.getUnitPrice(),
+                        line.getAmount(), line.getTaxRate(), line.getTaxAmount(), line.getDescription(),
+                        List.copyOf(line.getSerialNumbers()));
             }).toList();
             if (document.getInventoryDocumentId() != null) {
                 inventoryNo = stockIn.documentNumbers(List.of(document.getInventoryDocumentId()))
@@ -457,8 +309,8 @@ public class PurchaseReturnService {
         return new PurchaseReturnResponse(document.getId(), document.getCompanyId(), document.getBranchId(),
                 document.getDocumentNo(), document.getDocumentType(), document.getDocumentDate(),
                 document.getPostingDate(), document.getSupplierId(), supplier == null ? null : supplier.code(),
-                supplier == null ? null : supplier.name(), document.getPurchaseInvoiceId(),
-                invoice == null ? null : invoice.getDocumentNo(), invoice == null ? null : invoice.invoiceLabel(),
+                supplier == null ? null : supplier.name(), document.getPurchaseOrderId(),
+                order == null ? null : order.getDocumentNo(), order == null ? null : order.invoiceLabel(),
                 document.getWarehouseId(), document.getInventoryDocumentId(), inventoryNo, document.getDescription(),
                 document.getAmount(), document.getTaxAmount(), document.getTotalAmount(), document.getStatus(),
                 document.getSubmittedAt(), document.getApprovedAt(), document.getPostedAt(), document.getReversedAt(),

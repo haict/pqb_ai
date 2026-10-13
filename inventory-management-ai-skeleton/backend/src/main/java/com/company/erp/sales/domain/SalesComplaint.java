@@ -16,9 +16,9 @@ import java.time.Instant;
 import java.time.LocalDate;
 
 /**
- * Tiếp nhận hàng lỗi khách báo (BR-SAL-34): khách, phiếu giao / hóa đơn gốc, hàng, lô, serial, mô tả lỗi; kiểm tra (kết
- * quả); quyết định đổi / sửa / trả / bảo hành / từ chối, liên kết chứng từ trả hàng nếu có. Không tự đổi tồn, công nợ:
- * xử lý bằng chứng từ trả hàng / đổi hàng; sửa chữa, bảo hành ở Giai đoạn 9.
+ * Tiếp nhận hàng lỗi khách báo (BR-SAL-34): khách, đơn bán gốc, hàng, lô, serial, mô tả lỗi; kiểm tra (kết quả);
+ * quyết định đổi / sửa / trả / bảo hành / từ chối, liên kết chứng từ trả hàng nếu có. Không tự đổi tồn, công nợ: xử lý
+ * bằng chứng từ trả hàng / đổi hàng; sửa chữa, bảo hành ở Giai đoạn 9.
  */
 @Entity
 @Table(name = "sales_complaints")
@@ -45,11 +45,8 @@ public class SalesComplaint extends AuditableEntity {
     @Column(name = "customer_id", nullable = false, updatable = false)
     private Long customerId;
 
-    @Column(name = "delivery_id")
-    private Long deliveryId;
-
-    @Column(name = "sales_invoice_id")
-    private Long salesInvoiceId;
+    @Column(name = "sales_order_id")
+    private Long salesOrderId;
 
     @Column(name = "product_id", nullable = false)
     private Long productId;
@@ -102,7 +99,7 @@ public class SalesComplaint extends AuditableEntity {
     }
 
     /** Nội dung tiếp nhận. */
-    public record Details(LocalDate receivedDate, Long deliveryId, Long salesInvoiceId, Long productId, String lotNo,
+    public record Details(LocalDate receivedDate, Long salesOrderId, Long productId, String lotNo,
                           String serialNo, BigDecimal quantity, String description) {
     }
 
@@ -125,8 +122,7 @@ public class SalesComplaint extends AuditableEntity {
 
     private void apply(Details details) {
         this.receivedDate = details.receivedDate();
-        this.deliveryId = details.deliveryId();
-        this.salesInvoiceId = details.salesInvoiceId();
+        this.salesOrderId = details.salesOrderId();
         this.productId = details.productId();
         this.lotNo = details.lotNo();
         this.serialNo = details.serialNo();
@@ -193,12 +189,8 @@ public class SalesComplaint extends AuditableEntity {
         return customerId;
     }
 
-    public Long getDeliveryId() {
-        return deliveryId;
-    }
-
-    public Long getSalesInvoiceId() {
-        return salesInvoiceId;
+    public Long getSalesOrderId() {
+        return salesOrderId;
     }
 
     public Long getProductId() {

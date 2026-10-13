@@ -9,7 +9,7 @@
 ## 1. Vòng đời chứng từ
 
 ### 1.1 Nhóm A - chứng từ ghi sổ
-Phiếu nhận hàng, phiếu nhập/xuất/chuyển kho, điều chỉnh, kiểm kê, hóa đơn mua/bán, phiếu thu/chi, nghiệm thu, bút toán tổng hợp.
+Đơn mua, đơn bán (D-54), trả hàng / giảm giá mua bán, phân bổ chi phí mua, phiếu nhập/xuất/chuyển kho, điều chỉnh, kiểm kê, phiếu thu/chi, nghiệm thu, bút toán tổng hợp.
 ```mermaid
 stateDiagram-v2
     [*] --> DRAFT
@@ -28,7 +28,7 @@ stateDiagram-v2
 ```
 
 ### 1.2 Nhóm B - chứng từ điều phối
-Đề nghị mua, yêu cầu báo giá, đơn mua, báo giá bán, đơn bán, giao hàng, gói thầu, hợp đồng.
+Gói thầu, hợp đồng (từ D-54 đơn mua, đơn bán là chứng từ ghi sổ nhóm A).
 ```mermaid
 stateDiagram-v2
     [*] --> DRAFT
@@ -44,55 +44,51 @@ stateDiagram-v2
 ```
 Quy tắc: chỉ POSTED ảnh hưởng tồn thực tế và số liệu tài chính; nhóm B chỉ ảnh hưởng giữ chỗ, hàng đang về, số còn được giao (BR-GEN-02).
 
-## 2. Chuỗi mua hàng
+## 2. Chuỗi mua hàng (D-54)
 ```mermaid
 flowchart LR
-    PR[Đề nghị mua] --> RFQ[Yêu cầu báo giá NCC]
-    RFQ --> CMP[So sánh báo giá]
-    CMP --> PO[Đơn mua<br/>+ hàng đang về]
-    PR -.không cần báo giá.-> PO
-    PO --> GR[Phiếu nhận hàng<br/>kiểm đếm, hàng lỗi]
-    GR --> IR[Phiếu nhập kho<br/>+ tồn, − đang về]
-    GR -.hàng lỗi.-> RET[Trả hàng NCC / CÁCH LY]
-    IR --> PI[Hóa đơn mua<br/>+ phải trả]
-    PI --> PAY[Phiếu chi / UNC<br/>− phải trả, − quỹ]
-    LC[Chi phí mua hàng] -.phân bổ.-> IR
+    PO[Đơn mua<br/>kèm hóa đơn NCC, lô / hạn / serial] -->|duyệt| AP[+ hàng đang về]
+    AP -->|ghi sổ| POST[Phiếu nhập kho tự sinh<br/>+ tồn, − đang về<br/>+ phải trả, bút toán]
+    POST --> PAY[Phiếu chi / UNC<br/>− phải trả, − quỹ]
+    POST -.hàng lỗi / NCC giảm giá.-> RET[Trả hàng NCC / giảm giá<br/>− tồn, − phải trả]
+    SVC[Đơn mua dịch vụ<br/>vận chuyển, bảo hiểm] -.phân bổ chi phí.-> POST
 ```
 | Bước | Kiểm tra chính | Mã BR |
 |---|---|---|
-| Đề nghị mua (5A) | Duyệt khi có luồng (DNM `CONFIGURED`); đóng phần chưa đặt có lý do | BR-PUR-01, 05 |
-| Đơn mua duyệt (5A) | Tổng tiền từ ngưỡng `purchasing.order-approval-threshold` phải duyệt; NCC có vai trò SUPPLIER; kho vật lý cùng chi nhánh; chỉ VND; theo đề nghị thì không vượt số còn lại (kiểm tra lại khi duyệt, sau khi khóa đề nghị). Duyệt: + hàng đang về, + số đã đặt của đề nghị. Hủy (chưa nhận hàng): hoàn cả hai. Đóng phần còn lại: − hàng đang về theo số còn thiếu | BR-PUR-04, 05 |
-| Nhận hàng (5B) | Theo đơn mua còn mở; vượt số đặt quá dung sai phải duyệt; mỗi dòng một kết quả kiểm nhận (đạt / cách ly / trả lại, lỗi phải có lý do), một lô; ghi sổ: + đã nhận, + lỗi của đơn mua, không đổi tồn | BR-PUR-07 |
-| Nhập kho theo phiếu nhận hàng (5B) | Lập PNK riêng có nguồn và ghi sổ ngay; dòng đạt theo trạng thái ban đầu của hàng, cách ly vào trạng thái CÁCH LY; + đã nhập, − hàng đang về; có thể làm cùng lúc với nhận hàng (D-36). Đảo phiếu nhận hàng đảo cả PNK, hoàn đã nhận / lỗi / đã nhập / hàng đang về (đơn đã đóng: phần hoàn tính vào đã đóng) | BR-PUR-08, D-36 |
-| Nhập kho | Lô/hạn/serial bắt buộc theo hàng; chặn hàng hết hạn; kỳ chưa khóa | BR-PUR-08, BR-INV-01..02, BR-INV-11 |
-| Hóa đơn mua (5C) | Theo dòng phiếu nhận đã nhập kho cùng chi nhánh, nhà cung cấp (nhiều phiếu một hóa đơn, một phiếu nhiều hóa đơn), không vượt số chưa nhận hóa đơn; dịch vụ không qua kho; chống trùng (MST, ký hiệu, số); cảnh báo đơn giá lệch đơn mua quá dung sai. Ghi sổ: + đã nhận hóa đơn (phiếu nhận, đơn mua), chênh lệch giá theo dòng phiếu nhận, công nợ phải trả, bút toán. Đảo hoàn tất cả; phiếu nhận có hóa đơn ghi sổ không đảo được | BR-PUR-09..11, 16, 17, D-34 |
+| Lập / gửi duyệt đơn mua | NCC có vai trò SUPPLIER; kho vật lý cùng chi nhánh; chỉ VND; lô / hạn dùng theo cấu hình hàng, số serial bằng số lượng cơ sở; hóa đơn NCC đủ ký hiệu, số, ngày hoặc để trống, không trùng (MST, ký hiệu, số). Tổng tiền từ ngưỡng `purchasing.order-approval-threshold` phải duyệt. Duyệt: + hàng đang về; hủy đơn đã duyệt: − hàng đang về | BR-PUR-04, 09 |
+| Ghi sổ đơn mua | Đơn đã duyệt; kỳ chưa khóa. Lập phiếu nhập kho PNK nguồn `DMH` cho dòng hàng hóa (đơn giá sau chiết khấu), ghi sổ ngay; − hàng đang về; khoản công nợ phải trả (hạn = ngày hóa đơn / ngày hạch toán + số ngày nợ); bút toán theo quy tắc DMH | BR-PUR-08, 09, BR-INV-01..02, 11, D-34 |
+| Đảo đơn mua | Chặn khi còn trả hàng / giảm giá / phân bổ chưa đảo, hàng đã xuất (đảo phiếu nhập bị chặn), đã thanh toán; đảo phiếu nhập, công nợ, bút toán; giải phóng số hóa đơn | BR-GEN-04, 21 |
+| Trả hàng / giảm giá (5D) | Theo dòng đơn mua đã ghi sổ; trả không vượt số còn trả, đúng serial của dòng; giảm giá không vượt giá trị còn lại | BR-PUR-14 |
+| Phân bổ chi phí (5D) | Nguồn: dòng dịch vụ của đơn mua đã ghi sổ; đích: dòng hàng hóa của đơn mua đã ghi sổ; theo giá trị hoặc số lượng | BR-PUR-12, 16 |
 | Thanh toán | Duyệt theo ngưỡng; quỹ không âm; phân bổ không vượt còn lại | BR-AP-02, BR-CSH-03 |
 
-## 3. Chuỗi bán hàng
+## 3. Chuỗi bán hàng (D-54)
 ```mermaid
 flowchart LR
-    C[Khách hàng] --> Q[Báo giá<br/>duyệt giá]
-    Q --> SO[Đơn bán<br/>kiểm tra hạn mức, tồn khả dụng<br/>+ giữ chỗ]
-    SO --> IS[Phiếu xuất kho<br/>FEFO, − tồn, − giữ chỗ]
-    IS --> DL[Giao hàng<br/>biên bản giao nhận]
-    DL --> INV[Hóa đơn bán<br/>+ phải thu, + doanh thu, + giá vốn]
-    INV --> RC[Phiếu thu<br/>− phải thu, + quỹ]
-    SO -.thiếu hàng.-> PR[Đề nghị mua]
-    DL -.trả / đổi / lỗi.-> SR[Trả hàng bán<br/>hàng về CÁCH LY]
+    C[Khách hàng] --> SO[Đơn bán<br/>giá theo bảng giá<br/>duyệt giá / hạn mức]
+    SO -->|duyệt| RES[+ giữ chỗ nếu chọn]
+    RES -->|ghi sổ| POST[Phiếu xuất kho tự sinh FEFO<br/>− tồn, − giữ chỗ<br/>+ phải thu, + doanh thu, bút toán]
+    POST --> EI[Số hóa đơn điện tử MISA]
+    POST --> DL[Giao hàng<br/>đang giao → khách nhận<br/>biên bản giao nhận]
+    POST --> RC[Phiếu thu<br/>− phải thu, + quỹ]
+    DL -.giao thất bại.-> REV[Đảo đơn bán<br/>hàng về kho]
+    POST -.trả / giảm giá / lỗi.-> SR[Trả hàng bán<br/>hàng về CÁCH LY]
+    SR -.đổi hàng.-> SO
 ```
-- Đơn bán, xuất kho, giao hàng, hóa đơn, thu tiền là các sự kiện riêng, có thể nhiều lần cho một đơn (BR-SAL-20).
-- Doanh thu, phải thu, giá vốn ghi nhận khi hóa đơn bán ghi sổ (D-35; quy tắc cấu hình, kế toán trưởng rà soát trước UAT). Hàng đã xuất chưa có hóa đơn được theo dõi là hàng gửi đi bán.
-- Thao tác nhanh (BR-SAL-42) sinh các chứng từ trên trong một lần, vẫn là chứng từ riêng và liên kết.
-- Triển khai Giai đoạn 6 (ADR-16): phiếu giao hàng (GH) gồm xuất kho (ghi sổ, PXK có nguồn) và trạng thái giao (chờ giao → đang giao → đã giao / thất bại); giao thất bại đảo phiếu xuất (hàng về kho), hoàn số đã xuất của đơn và hàng đã giữ. Giữ hàng: khi duyệt đơn (nếu chọn) hoặc theo lệnh, hết hạn sau `sales.reservation-days`, nhả khi hủy / đóng, được dùng khi xuất kho. Hóa đơn bán lập từ dòng phiếu giao đã xuất (cảnh báo nếu khách chưa nhận) và dòng dịch vụ; số hóa đơn điện tử ghi sau khi phát hành trên MISA. Trả hàng bán nhập lại kho cách ly đúng lô / serial, giảm số đã giao (mở lại phần cần giao: giao bù / đổi hàng hoặc đóng phần còn lại). Giá vốn ở Giai đoạn 8.
+- Ghi sổ đơn bán làm cùng lúc xuất kho, doanh thu, công nợ phải thu, bút toán (D-54, D-35; quy tắc cấu hình, kế toán trưởng rà soát trước UAT). Mỗi lần giao là một đơn bán; giá vốn ở Giai đoạn 8.
+- Lô xuất: FEFO hoặc lô chỉ định (khác FEFO phải có lý do); chặn lô còn hạn dùng ngắn hơn mức tối thiểu khách yêu cầu (D-07); dùng phần hàng đã giữ cho đơn, nhả phần giữ còn lại.
+- Giữ hàng: khi duyệt đơn (nếu chọn) hoặc theo lệnh, hết hạn sau `sales.reservation-days`, nhả khi hủy.
+- Số hóa đơn điện tử ghi trên đơn trước hoặc sau khi ghi sổ, chống trùng; nhãn khoản công nợ lấy số hóa đơn nếu đã có lúc ghi sổ.
+- Trả hàng bán theo dòng và lô đã xuất của đơn, nhập lại kho cách ly; đổi hàng lập đơn bán mới cùng giá.
 ```mermaid
 stateDiagram-v2
     [*] --> APPROVED: gửi duyệt / duyệt
-    APPROVED --> PENDING: ghi sổ (xuất kho)
+    APPROVED --> PENDING: ghi sổ (xuất kho, doanh thu, công nợ)
     PENDING --> IN_TRANSIT: đang giao
     PENDING --> DELIVERED: khách nhận
     IN_TRANSIT --> DELIVERED: khách nhận
-    PENDING --> FAILED: giao thất bại (đảo xuất)
-    IN_TRANSIT --> FAILED: giao thất bại (đảo xuất)
+    PENDING --> REVERSED: giao thất bại / lập sai (đảo đơn)
+    IN_TRANSIT --> REVERSED: giao thất bại (đảo đơn)
 ```
 
 ## 4. Chuỗi đấu thầu
@@ -103,7 +99,7 @@ flowchart LR
     RES -->|Trượt| LOST[Lưu lý do]
     RES -->|Trúng| TR[Kết quả trúng thầu<br/>SL, giá, hiệu lực]
     TR --> CT[Hợp đồng + phụ lục]
-    CT --> AL[Phân bổ hàng<br/>giữ chỗ / đề nghị mua]
+    CT --> AL[Phân bổ hàng<br/>giữ chỗ / đơn mua nháp]
     CT --> PLAN[Kế hoạch giao theo đợt]
     PLAN --> SO[Đơn bán theo hợp đồng]
     SO --> IS[Xuất kho] --> DL[Giao hàng]

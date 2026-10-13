@@ -6,16 +6,17 @@ import java.time.LocalDate;
 import java.util.List;
 
 /**
- * Dòng còn trả / giảm giá được: theo dòng phiếu nhận chưa có hóa đơn ({@code invoiceLineId} trống) hoặc theo dòng
- * hóa đơn. Số lượng theo đơn vị của dòng nguồn; {@code remainingAmount}: giá trị còn giảm được của dòng hóa đơn.
+ * Dòng đơn mua đã ghi sổ còn trả / giảm giá được. Số lượng theo đơn vị của dòng đơn mua (dòng dịch vụ: 0, chỉ giảm
+ * giá); {@code unitPrice}: đơn giá sau chiết khấu; {@code remainingAmount}: giá trị còn giảm được.
  */
 public record ReturnableLineResponse(
-        Long receiptId,
-        String receiptNo,
-        LocalDate receiptDate,
-        Long receiptLineId,
+        Long orderId,
+        String orderNo,
+        LocalDate postingDate,
+        String invoiceLabel,
+        Long orderLineId,
         Long warehouseId,
-        Long invoiceLineId,
+        boolean serviceLine,
         Long productId,
         String productCode,
         String productName,

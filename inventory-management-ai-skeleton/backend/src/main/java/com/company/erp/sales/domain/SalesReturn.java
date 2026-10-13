@@ -19,10 +19,10 @@ import java.util.EnumSet;
 import java.util.List;
 
 /**
- * Hàng bán bị trả lại (TLB, BR-SAL-32) / giảm giá hàng bán (GGB, BR-SAL-36). Trả hàng tham chiếu phiếu giao gốc (đúng
- * lô, hạn dùng, serial đã xuất), nhập lại kho trạng thái CÁCH LY qua module kho, giảm số đã giao của đơn; hàng đã có
- * hóa đơn thì tham chiếu hóa đơn, giảm doanh thu và công nợ phải thu. Giảm giá chỉ giảm doanh thu và công nợ, không
- * đổi tồn. Ghi sổ / đảo ở {@code SalesReturnPostingService}.
+ * Hàng bán bị trả lại (TLB, BR-SAL-32) / giảm giá hàng bán (GGB, BR-SAL-36) theo một đơn bán đã ghi sổ (D-54). Trả
+ * hàng đúng lô, hạn dùng, serial đã xuất của dòng đơn, nhập lại kho trạng thái CÁCH LY qua module kho, giảm doanh thu
+ * và công nợ phải thu. Giảm giá chỉ giảm doanh thu và công nợ, không đổi tồn. Ghi sổ / đảo ở
+ * {@code SalesReturnPostingService}.
  */
 @Entity
 @Table(name = "sales_returns")
@@ -41,8 +41,8 @@ public class SalesReturn extends SalesDocument {
     @Column(name = "customer_id", nullable = false, updatable = false)
     private Long customerId;
 
-    @Column(name = "sales_invoice_id", updatable = false)
-    private Long salesInvoiceId;
+    @Column(name = "sales_order_id", nullable = false, updatable = false)
+    private Long salesOrderId;
 
     @Column(name = "warehouse_id", updatable = false)
     private Long warehouseId;
@@ -83,11 +83,11 @@ public class SalesReturn extends SalesDocument {
     }
 
     public SalesReturn(Long companyId, Long branchId, String documentNo, SalesReturnType documentType,
-                          Long customerId, Long salesInvoiceId, Long warehouseId) {
+                          Long customerId, Long salesOrderId, Long warehouseId) {
         super(companyId, branchId, documentNo);
         this.documentType = documentType;
         this.customerId = customerId;
-        this.salesInvoiceId = salesInvoiceId;
+        this.salesOrderId = salesOrderId;
         this.warehouseId = warehouseId;
     }
 
@@ -99,16 +99,6 @@ public class SalesReturn extends SalesDocument {
     @Override
     public BigDecimal approvalAmount() {
         return totalAmount;
-    }
-
-    @Override
-    protected boolean fulfilled() {
-        return false;
-    }
-
-    @Override
-    protected boolean hasProgress() {
-        return false;
     }
 
     public void replaceContent(Header header, List<SalesReturnLine> newLines) {
@@ -159,11 +149,6 @@ public class SalesReturn extends SalesDocument {
         return documentType == SalesReturnType.TLB;
     }
 
-    /** Có ảnh hưởng công nợ, doanh thu: giảm giá, hoặc trả hàng đã có hóa đơn. */
-    public boolean affectsReceivable() {
-        return salesInvoiceId != null;
-    }
-
     public SalesReturnType getDocumentType() {
         return documentType;
     }
@@ -176,8 +161,8 @@ public class SalesReturn extends SalesDocument {
         return customerId;
     }
 
-    public Long getSalesInvoiceId() {
-        return salesInvoiceId;
+    public Long getSalesOrderId() {
+        return salesOrderId;
     }
 
     public Long getWarehouseId() {

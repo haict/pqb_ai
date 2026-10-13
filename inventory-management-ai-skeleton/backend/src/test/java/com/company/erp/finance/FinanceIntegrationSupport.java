@@ -58,7 +58,8 @@ abstract class FinanceIntegrationSupport {
         String code = unique("DT");
         String body = "{\"companyId\":1,\"code\":\"" + code + "\",\"name\":\"Đối tác " + code
                 + "\",\"partnerKind\":\"ORGANIZATION\",\"roles\":[\"" + String.join("\",\"", roles)
-                + "\"],\"paymentTermDays\":0,\"contacts\":[{\"name\":\"Liên hệ\",\"primaryContact\":true}]}";
+                + "\"],\"paymentTermDays\":0,\"taxCode\":\"0300000001\",\"address\":\"Hà Nội\""
+                + ",\"contacts\":[{\"name\":\"Liên hệ\",\"primaryContact\":true}]}";
         return jsonId(send(admin, post("/api/v1/partners"), body, newKey()).andExpect(status().isCreated()).andReturn());
     }
 

@@ -1,30 +1,35 @@
 package com.company.erp.sales.application;
 
+import com.company.erp.masterdata.application.MasterDataQueryService.ProductDocumentInfo;
 import com.company.erp.masterdata.application.MasterDataQueryService.ProductInfo;
+import com.company.erp.sales.application.dto.DeliveryItemResponse;
 import com.company.erp.sales.application.dto.SalesLineResponse;
 import com.company.erp.sales.domain.SalesOrderLine;
-import com.company.erp.sales.domain.SalesPricedLine;
 import java.math.BigDecimal;
+import java.util.List;
 
-/** Chuyển dòng báo giá / đơn bán sang DTO (nội bộ module). */
+/** Chuyển dòng đơn bán sang DTO (nội bộ module). */
 final class SalesLineMapper {
 
     private SalesLineMapper() {
     }
 
-    static SalesLineResponse toResponse(SalesPricedLine line, ProductInfo product, BigDecimal available,
-                                        BigDecimal reserved) {
-        SalesOrderLine order = line instanceof SalesOrderLine orderLine ? orderLine : null;
+    static SalesLineResponse toResponse(SalesOrderLine line, ProductInfo product, ProductDocumentInfo document,
+                                        BigDecimal available, BigDecimal reserved) {
+        List<DeliveryItemResponse> items = line.getItems().stream()
+                .map(item -> new DeliveryItemResponse(item.getLotNo(), item.getExpiryDate(), item.getSerialNo(),
+                        item.getQualityStatus(), item.getBaseQuantity()))
+                .toList();
         return new SalesLineResponse(line.getId(), line.getLineNo(), line.getProductId(),
                 product == null ? null : product.code(), product == null ? null : product.name(), line.getUnitId(),
                 product == null ? null : product.baseUnitId(), line.getConversionFactor(), line.getQuantity(),
                 line.getBaseQuantity(), line.getListPrice(), line.getFloorPrice(), line.getPriceSource(),
                 line.getUnitPrice(), line.getDiscountPercent(), line.getDiscountAmount(), line.getAmount(),
                 line.getTaxRateId(), line.getTaxRate(), line.getTaxAmount(), line.isPromotional(),
-                order != null && order.isServiceLine(), order == null ? null : order.getExpectedDate(),
-                order == null ? null : order.getIssuedQuantity(), order == null ? null : order.getDeliveredQuantity(),
-                order == null ? null : order.getInvoicedQuantity(), order == null ? null : order.getReturnedQuantity(),
-                order == null ? null : order.getClosedQuantity(), order == null ? null : order.outstandingQuantity(),
-                available, reserved, line.getDescription());
+                line.isServiceLine(), line.getExpectedDate(), line.getLotNo(), line.getLotOverrideReason(),
+                List.copyOf(line.getSerialNumbers()), items, document == null ? null : document.originCountryCode(),
+                document == null ? null : document.model(), document == null ? null : document.registrationNo(),
+                line.getReturnedQuantity(), line.returnableQuantity(), line.getAdjustedAmount(),
+                line.remainingAmount(), available, reserved, line.getDescription());
     }
 }

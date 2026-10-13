@@ -8,7 +8,6 @@ import {
   Drawer,
   Form,
   Input,
-  InputNumber,
   Select,
   Space,
   Table,
@@ -29,6 +28,7 @@ import { DocumentActions } from '../components/DocumentActions';
 import { formatDate, formatNumber, statusLabel } from '../labels';
 import { DocumentStatusTag } from '../components/StatusTags';
 import type { PolicyStatus, StockIssuePolicy } from '../types';
+import { DecimalInput } from '../../../shared/components/DecimalInput';
 
 const STATUSES: PolicyStatus[] = ['DRAFT', 'SUBMITTED', 'REJECTED', 'APPROVED', 'CANCELLED'];
 
@@ -183,7 +183,7 @@ export function StockIssuePoliciesPage() {
           <ProductSelect allowClear />
         </Form.Item>
         <Form.Item name="maxQuantity" label="Số lượng tối đa được xuất vượt" rules={[{ required: true }]}>
-          <InputNumber min={0.001} precision={3} style={{ width: '100%' }} />
+          <DecimalInput min={0.001} />
         </Form.Item>
         <Form.Item name="validRange" label="Thời hạn" rules={[{ required: true }]}>
           <DatePicker.RangePicker format="DD/MM/YYYY" />

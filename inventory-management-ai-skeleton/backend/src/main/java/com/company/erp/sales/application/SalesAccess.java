@@ -122,6 +122,14 @@ class SalesAccess {
                 .orElseThrow(() -> new IllegalStateException("Thiếu khách hàng #" + customerId));
     }
 
+    /** Nhân viên kinh doanh phụ trách chứng từ mới: người lập khi chỉ xem dữ liệu của mình hoặc khách chưa có người. */
+    static Long salesUser(CurrentUser actor, CustomerProfile customer) {
+        if (actor.dataScope().ownDataOnly() || customer.salesUserId() == null) {
+            return actor.id();
+        }
+        return customer.salesUserId();
+    }
+
     /** "Chỉ dữ liệu của mình" (BR-SYS-04): chứng từ mình phụ trách hoặc mình lập. */
     boolean ownsData(CurrentUser actor, Long salesUserId, Long createdBy) {
         return !actor.dataScope().ownDataOnly() || actor.id().equals(salesUserId) || actor.id().equals(createdBy);

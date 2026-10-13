@@ -19,9 +19,9 @@ import java.util.EnumSet;
 import java.util.List;
 
 /**
- * Trả hàng nhà cung cấp (THN) / giảm giá hàng mua (GGM), BR-PUR-14. Trả hàng tham chiếu phiếu nhận gốc (đúng lô,
- * serial), xuất kho qua module kho; hàng đã có hóa đơn thì tham chiếu hóa đơn và giảm công nợ phải trả. Giảm giá chỉ
- * giảm công nợ và giá trị nhập theo dòng hóa đơn. Ghi sổ / đảo ở {@code PurchaseReturnPostingService}.
+ * Trả hàng nhà cung cấp (THN) / giảm giá hàng mua (GGM), BR-PUR-14, theo một đơn mua đã ghi sổ (D-54). Trả hàng đúng
+ * lô, serial của dòng đơn mua, xuất kho qua module kho, giảm công nợ phải trả. Giảm giá giảm công nợ và giá trị nhập
+ * theo dòng đơn mua. Ghi sổ / đảo ở {@code PurchaseReturnPostingService}.
  */
 @Entity
 @Table(name = "purchase_returns")
@@ -40,8 +40,8 @@ public class PurchaseReturn extends PurchaseDocument {
     @Column(name = "supplier_id", nullable = false, updatable = false)
     private Long supplierId;
 
-    @Column(name = "purchase_invoice_id", updatable = false)
-    private Long purchaseInvoiceId;
+    @Column(name = "purchase_order_id", nullable = false, updatable = false)
+    private Long purchaseOrderId;
 
     @Column(name = "warehouse_id", updatable = false)
     private Long warehouseId;
@@ -82,11 +82,11 @@ public class PurchaseReturn extends PurchaseDocument {
     }
 
     public PurchaseReturn(Long companyId, Long branchId, String documentNo, PurchaseReturnType documentType,
-                          Long supplierId, Long purchaseInvoiceId, Long warehouseId) {
+                          Long supplierId, Long purchaseOrderId, Long warehouseId) {
         super(companyId, branchId, documentNo);
         this.documentType = documentType;
         this.supplierId = supplierId;
-        this.purchaseInvoiceId = purchaseInvoiceId;
+        this.purchaseOrderId = purchaseOrderId;
         this.warehouseId = warehouseId;
     }
 
@@ -98,16 +98,6 @@ public class PurchaseReturn extends PurchaseDocument {
     @Override
     public BigDecimal approvalAmount() {
         return totalAmount;
-    }
-
-    @Override
-    protected boolean fulfilled() {
-        return false;
-    }
-
-    @Override
-    protected boolean hasProgress() {
-        return false;
     }
 
     public void replaceContent(Header header, List<PurchaseReturnLine> newLines) {
@@ -158,11 +148,6 @@ public class PurchaseReturn extends PurchaseDocument {
         return documentType == PurchaseReturnType.THN;
     }
 
-    /** Có ảnh hưởng công nợ: giảm giá, hoặc trả hàng đã có hóa đơn. */
-    public boolean affectsPayable() {
-        return purchaseInvoiceId != null;
-    }
-
     public PurchaseReturnType getDocumentType() {
         return documentType;
     }
@@ -175,8 +160,8 @@ public class PurchaseReturn extends PurchaseDocument {
         return supplierId;
     }
 
-    public Long getPurchaseInvoiceId() {
-        return purchaseInvoiceId;
+    public Long getPurchaseOrderId() {
+        return purchaseOrderId;
     }
 
     public Long getWarehouseId() {

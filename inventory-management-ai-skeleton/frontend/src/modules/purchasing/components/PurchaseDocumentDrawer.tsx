@@ -5,7 +5,7 @@ import { useCan } from '../../../shared/auth/authContext';
 import { DocumentActions } from '../../inventory/components/DocumentActions';
 import { DocumentStatusTag } from '../../inventory/components/StatusTags';
 import { ApprovalHistory } from '../../system/components/ApprovalHistory';
-import { purchaseActions } from '../labels';
+import { postingActions } from '../labels';
 import type { PurchaseDocumentBase } from '../types';
 
 interface Props<T extends PurchaseDocumentBase> {
@@ -15,13 +15,15 @@ interface Props<T extends PurchaseDocumentBase> {
   listKeys: string[];
   load(id: number): Promise<T>;
   act(id: number, action: string, body: object | undefined, key: string): Promise<T>;
-  /** Tiền tố quyền: {@code <prefix>:create|approve|close}. */
+  /** Tiền tố quyền: {@code <prefix>:create|approve|post|reverse}. */
   permission: string;
   title(document: T): string;
-  /** Thao tác riêng của loại chứng từ; mặc định theo {@link purchaseActions}. */
+  /** Thao tác riêng của loại chứng từ; mặc định theo {@link postingActions}. */
   actions?(document: T): string[];
   actionOrder?: string[];
   onEdit(document: T): void;
+  /** Nút riêng của loại chứng từ (ví dụ in), đặt trước nút thao tác. */
+  extra?(document: T): ReactNode;
   onClose(): void;
   children(document: T): ReactNode;
 }
@@ -44,6 +46,7 @@ export function PurchaseDocumentDrawer<T extends PurchaseDocumentBase>(props: Pr
     onEdit,
     onClose,
     children,
+    extra,
   } = props;
   const can = useCan();
   const queryClient = useQueryClient();
@@ -57,11 +60,12 @@ export function PurchaseDocumentDrawer<T extends PurchaseDocumentBase>(props: Pr
           <Space style={{ width: '100%', justifyContent: 'space-between', marginBottom: 12 }} wrap>
             <DocumentStatusTag status={document.status} />
             <Space wrap>
+              {extra?.(document)}
               {editable && can(`${permission}:create`) && (
                 <Button onClick={() => onEdit(document)}>Sửa</Button>
               )}
               <DocumentActions
-                actions={actions ? actions(document) : purchaseActions(document.status, permission, can)}
+                actions={actions ? actions(document) : postingActions(document.status, permission, can)}
                 order={actionOrder}
                 onAction={async (action, body, key) => {
                   await act(id, action, body, key);

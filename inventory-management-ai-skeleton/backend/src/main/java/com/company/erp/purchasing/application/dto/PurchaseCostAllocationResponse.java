@@ -28,7 +28,7 @@ public record PurchaseCostAllocationResponse(
         String reason,
         Long createdBy,
         int version,
-        List<Long> receiptIds,
+        List<Long> orderIds,
         List<CostAllocationSourceResponse> sources,
         List<CostAllocationTargetResponse> targets,
         List<ApprovalRequestResponse> approvals) {

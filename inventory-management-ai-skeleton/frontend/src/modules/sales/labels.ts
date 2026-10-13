@@ -3,38 +3,14 @@ import type {
   ComplaintStatus,
   DeliveryStatus,
   PaymentDueBasis,
-  SalesDelivery,
   SalesDocumentStatus,
+  SalesOrder,
   SalesReportGrouping,
   SalesReturn,
   SalesReturnType,
 } from './types';
 
 type Can = (permission: string) => boolean;
-
-export const QUOTE_STATUSES: SalesDocumentStatus[] = [
-  'DRAFT',
-  'SUBMITTED',
-  'REJECTED',
-  'APPROVED',
-  'SENT',
-  'ACCEPTED',
-  'DECLINED',
-  'EXPIRED',
-  'CLOSED',
-  'CANCELLED',
-];
-
-export const ORDER_STATUSES: SalesDocumentStatus[] = [
-  'DRAFT',
-  'SUBMITTED',
-  'REJECTED',
-  'APPROVED',
-  'IN_PROGRESS',
-  'COMPLETED',
-  'CLOSED',
-  'CANCELLED',
-];
 
 export const POSTING_STATUSES: SalesDocumentStatus[] = [
   'DRAFT',
@@ -50,7 +26,6 @@ export const DELIVERY_STATUSES: Record<DeliveryStatus, { label: string; color: s
   PENDING: { label: 'Chờ giao', color: 'gold' },
   IN_TRANSIT: { label: 'Đang giao', color: 'cyan' },
   DELIVERED: { label: 'Đã giao', color: 'green' },
-  FAILED: { label: 'Giao thất bại', color: 'red' },
 };
 
 export const RETURN_TYPES: Record<SalesReturnType, string> = {
@@ -60,7 +35,7 @@ export const RETURN_TYPES: Record<SalesReturnType, string> = {
 
 export const DUE_BASES: Record<PaymentDueBasis, string> = {
   ORDER_DATE: 'Từ ngày đơn',
-  DELIVERY: 'Sau khi giao hàng',
+  DELIVERY: 'Sau khi khách nhận hàng',
   INVOICE: 'Sau ngày hóa đơn',
   ACCEPTANCE: 'Sau nghiệm thu',
 };
@@ -93,99 +68,41 @@ export const PRICE_SOURCES: Record<string, string> = {
   LIST: 'Giá niêm yết',
 };
 
-/** Thao tác báo giá theo trạng thái và quyền (server kiểm tra lại). */
-export function quoteActions(status: SalesDocumentStatus, can: Can): string[] {
-  const create = can('sales-quote:create');
-  const approve = can('sales-quote:approve');
-  const actions: Partial<Record<SalesDocumentStatus, string[]>> = {
-    DRAFT: create ? ['submit', 'cancel'] : [],
-    REJECTED: create ? ['submit', 'cancel'] : [],
-    SUBMITTED: [...(approve ? ['approve', 'reject'] : []), ...(create ? ['cancel'] : [])],
-    APPROVED: create ? ['send', 'accept', 'decline', 'revise', 'cancel'] : [],
-    SENT: create ? ['accept', 'decline', 'revise'] : [],
-    DECLINED: create ? ['revise'] : [],
-    EXPIRED: create ? ['revise'] : [],
-  };
-  return actions[status] ?? [];
-}
-
-export const QUOTE_ACTION_ORDER = [
-  'submit',
-  'approve',
-  'reject',
-  'send',
-  'accept',
-  'decline',
-  'revise',
-  'cancel',
-];
-
-/** Thao tác đơn bán theo trạng thái và quyền. */
-export function orderActions(status: SalesDocumentStatus, can: Can): string[] {
+/**
+ * Thao tác đơn bán theo trạng thái, trạng thái giao hàng và quyền (server kiểm tra lại). Khách nhận hàng và số hóa đơn
+ * điện tử cần nhập thông tin nên có nút riêng trên màn hình.
+ */
+export function orderActions(order: SalesOrder, can: Can): string[] {
   const create = can('sales-order:create');
-  const open = [
-    ...(create ? ['reserve', 'release', 'create-purchase-request'] : []),
-    ...(can('sales-order:close') ? ['close'] : []),
-  ];
   const actions: Partial<Record<SalesDocumentStatus, string[]>> = {
     DRAFT: create ? ['submit', 'cancel'] : [],
     REJECTED: create ? ['submit', 'cancel'] : [],
     SUBMITTED: [...(can('sales-order:approve') ? ['approve', 'reject'] : []), ...(create ? ['cancel'] : [])],
-    APPROVED: [...open, ...(create ? ['cancel'] : [])],
-    IN_PROGRESS: open,
+    APPROVED: [
+      ...(can('sales-order:post') ? ['post'] : []),
+      ...(create ? ['reserve', 'release', 'cancel'] : []),
+    ],
+    POSTED: [
+      ...(can('sales-order:deliver') && order.deliveryStatus === 'PENDING' ? ['ship'] : []),
+      ...(can('sales-order:reverse') ? ['reverse'] : []),
+    ],
   };
-  return actions[status] ?? [];
+  return actions[order.status] ?? [];
 }
 
 export const ORDER_ACTION_ORDER = [
   'submit',
   'approve',
   'reject',
+  'post',
   'reserve',
   'release',
-  'create-purchase-request',
-  'close',
-  'cancel',
-];
-
-/** Thao tác phiếu giao theo trạng thái chứng từ, trạng thái giao và quyền. */
-export function deliveryActions(delivery: SalesDelivery, can: Can): string[] {
-  const create = can('sales-delivery:create');
-  const deliver = can('sales-delivery:deliver');
-  const reverse = can('sales-delivery:reverse') ? ['reverse'] : [];
-  if (delivery.status === 'POSTED') {
-    if (delivery.deliveryStatus === 'PENDING') {
-      return [...(deliver ? ['ship', 'fail'] : []), ...reverse];
-    }
-    if (delivery.deliveryStatus === 'IN_TRANSIT') {
-      return [...(deliver ? ['fail'] : []), ...reverse];
-    }
-    return [];
-  }
-  const actions: Partial<Record<SalesDocumentStatus, string[]>> = {
-    DRAFT: create ? ['submit', 'cancel'] : [],
-    REJECTED: create ? ['submit', 'cancel'] : [],
-    SUBMITTED: [
-      ...(can('sales-delivery:approve') ? ['approve', 'reject'] : []),
-      ...(create ? ['cancel'] : []),
-    ],
-    APPROVED: [...(can('sales-delivery:post') ? ['post'] : []), ...(create ? ['cancel'] : [])],
-  };
-  return actions[delivery.status] ?? [];
-}
-
-export const DELIVERY_ACTION_ORDER = [
-  'submit',
-  'approve',
-  'reject',
-  'post',
   'ship',
-  'fail',
   'reverse',
   'cancel',
 ];
 
-/** Thao tác chứng từ ghi sổ (hóa đơn, trả hàng) theo trạng thái và quyền {@code <prefix>:*}. */
+/** Thao tác chứng từ ghi sổ (trả hàng / giảm giá) theo trạng thái và quyền {@code <prefix>:*}. */
 export function postingActions(status: SalesDocumentStatus, prefix: string, can: Can): string[] {
   const create = can(`${prefix}:create`);
   const actions: Partial<Record<SalesDocumentStatus, string[]>> = {
@@ -198,11 +115,16 @@ export function postingActions(status: SalesDocumentStatus, prefix: string, can:
   return actions[status] ?? [];
 }
 
-/** Thao tác trả hàng / giảm giá; đổi hàng cho phiếu trả hàng đã ghi sổ. */
+/** Thao tác trả hàng / giảm giá; đổi hàng (lập đơn bán mới) cho phiếu trả hàng đã ghi sổ. */
 export function returnActions(document: SalesReturn, can: Can): string[] {
   const actions = postingActions(document.status, 'sales-return', can);
-  if (document.status === 'POSTED' && document.documentType === 'TLB' && can('sales-delivery:create')) {
-    return [...actions, 'create-exchange-delivery'];
+  if (
+    document.status === 'POSTED' &&
+    document.documentType === 'TLB' &&
+    can('sales-return:create') &&
+    can('sales-order:create')
+  ) {
+    return [...actions, 'create-exchange-order'];
   }
   return actions;
 }
@@ -212,7 +134,7 @@ export const RETURN_ACTION_ORDER = [
   'approve',
   'reject',
   'post',
-  'create-exchange-delivery',
+  'create-exchange-order',
   'reverse',
   'cancel',
 ];

@@ -21,8 +21,9 @@ import { useProductUnits } from '../../purchasing/components/productUnits';
 import { salesPriceApi } from '../api';
 import { PRICE_SOURCES } from '../labels';
 import type { SalesLineForm } from './salesLines';
+import { DecimalInput } from '../../../shared/components/DecimalInput';
 
-/** Danh sách dòng hàng bán trong form (tên trường {@code lines}). */
+/** Danh sách dòng đơn bán trong form (tên trường {@code lines}): giá, chiết khấu, thuế, lô / serial chỉ định. */
 export function SalesLinesEditor<T extends { lines?: SalesLineForm[]; customerId?: number }>({
   form,
   withExpectedDate,
@@ -143,12 +144,7 @@ function SalesLineFields({
             label="Số lượng"
             rules={[{ required: true, message: 'Nhập SL' }]}
           >
-            <InputNumber
-              min={0.001}
-              precision={3}
-              style={{ width: '100%' }}
-              onBlur={() => void suggest(false)}
-            />
+            <DecimalInput min={0.001} onBlur={() => void suggest(false)} />
           </Form.Item>
         </Col>
         <Col xs={12} md={4}>
@@ -158,7 +154,7 @@ function SalesLineFields({
         </Col>
         <Col xs={12} md={2}>
           <Form.Item name={[name, 'discountPercent']} label="CK %">
-            <InputNumber min={0} max={100} precision={2} style={{ width: '100%' }} />
+            <DecimalInput min={0} max={100} fractionDigits={2} />
           </Form.Item>
         </Col>
         <Col xs={12} md={3}>
@@ -178,7 +174,34 @@ function SalesLineFields({
             </Form.Item>
           </Col>
         )}
-        <Col xs={22} md={withExpectedDate ? 19 : 23}>
+        <Col xs={12} md={4}>
+          <Form.Item
+            name={[name, 'lotNo']}
+            label="Lô chỉ định"
+            tooltip="Trống: kho chọn lô hết hạn sớm nhất (FEFO)"
+          >
+            <Input maxLength={50} />
+          </Form.Item>
+        </Col>
+        <Col xs={24} md={6}>
+          <Form.Item
+            name={[name, 'lotOverrideReason']}
+            label="Lý do chọn lô khác FEFO"
+            tooltip="Bắt buộc khi lô chỉ định không phải lô hết hạn sớm nhất (BR-INV-21)"
+          >
+            <Input maxLength={500} />
+          </Form.Item>
+        </Col>
+        <Col xs={24} md={withExpectedDate ? 10 : 14}>
+          <Form.Item
+            name={[name, 'serialNumbers']}
+            label="Serial chỉ định"
+            tooltip="Hàng quản lý serial: gõ serial rồi Enter; trống thì kho chọn"
+          >
+            <Select mode="tags" tokenSeparators={[',', ' ']} open={false} />
+          </Form.Item>
+        </Col>
+        <Col xs={22} md={23}>
           <Form.Item name={[name, 'description']} label="Ghi chú">
             <Input maxLength={500} />
           </Form.Item>

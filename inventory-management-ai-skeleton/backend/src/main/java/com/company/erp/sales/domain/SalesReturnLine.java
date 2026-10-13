@@ -21,9 +21,9 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * Dòng trả hàng / giảm giá hàng bán. Trả hàng: theo dòng phiếu giao (đúng lô, hạn dùng, serial đã xuất), theo dòng hóa
- * đơn nếu hàng đã có hóa đơn; thành tiền = số lượng × đơn giá sau chiết khấu của hóa đơn (hoặc của đơn khi chưa có hóa
- * đơn). Giảm giá: theo dòng hóa đơn, chỉ có thành tiền. Thuế theo dòng hóa đơn; tiền làm tròn đến đồng (D-05).
+ * Dòng trả hàng / giảm giá hàng bán theo dòng đơn bán đã ghi sổ. Trả hàng: đúng lô, hạn dùng, serial đã xuất; thành
+ * tiền = số lượng × đơn giá sau chiết khấu của dòng đơn. Giảm giá: chỉ có thành tiền. Thuế theo dòng đơn; tiền làm
+ * tròn đến đồng (D-05).
  */
 @Entity
 @Table(name = "sales_return_lines")
@@ -38,13 +38,7 @@ public class SalesReturnLine {
     @Column(name = "line_no", nullable = false)
     private int lineNo;
 
-    @Column(name = "delivery_line_id")
-    private Long deliveryLineId;
-
-    @Column(name = "invoice_line_id")
-    private Long invoiceLineId;
-
-    @Column(name = "order_line_id")
+    @Column(name = "order_line_id", nullable = false)
     private Long orderLineId;
 
     @Column(name = "product_id", nullable = false)
@@ -103,7 +97,7 @@ public class SalesReturnLine {
      * Giá trị dòng đã kiểm tra ở tầng ứng dụng. Trả hàng: {@code quantity}, {@code unitPrice}; giảm giá:
      * {@code amount} (trước thuế).
      */
-    public record Values(Long deliveryLineId, Long invoiceLineId, Long orderLineId, Long productId, Long unitId,
+    public record Values(Long orderLineId, Long productId, Long unitId,
                          BigDecimal conversionFactor, BigDecimal quantity, BigDecimal baseQuantity, String lotNo,
                          LocalDate expiryDate, QualityStatus qualityStatus, BigDecimal unitPrice, BigDecimal amount, Long taxRateId,
                          BigDecimal taxRate, String description, List<String> serialNumbers) {
@@ -115,8 +109,6 @@ public class SalesReturnLine {
     }
 
     private void apply(Values values) {
-        this.deliveryLineId = values.deliveryLineId();
-        this.invoiceLineId = values.invoiceLineId();
         this.orderLineId = values.orderLineId();
         this.productId = values.productId();
         this.unitId = values.unitId();
@@ -139,7 +131,7 @@ public class SalesReturnLine {
     }
 
     void copyFrom(SalesReturnLine other) {
-        apply(new Values(other.deliveryLineId, other.invoiceLineId, other.orderLineId, other.productId, other.unitId,
+        apply(new Values(other.orderLineId, other.productId, other.unitId,
                 other.conversionFactor, other.quantity, other.baseQuantity, other.lotNo, other.expiryDate,
                 other.qualityStatus,
                 other.unitPrice, other.amount, other.taxRateId, other.taxRate, other.description,
@@ -152,14 +144,6 @@ public class SalesReturnLine {
 
     public int getLineNo() {
         return lineNo;
-    }
-
-    public Long getDeliveryLineId() {
-        return deliveryLineId;
-    }
-
-    public Long getInvoiceLineId() {
-        return invoiceLineId;
     }
 
     public Long getOrderLineId() {

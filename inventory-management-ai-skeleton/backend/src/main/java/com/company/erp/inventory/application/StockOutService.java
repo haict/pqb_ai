@@ -22,6 +22,7 @@ import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -149,6 +150,12 @@ public class StockOutService {
     public StockInService.StockInResult reverse(CurrentUser actor, Long documentId, LocalDate postingDate,
                                                 String reason) {
         return stockIn.reverse(actor, documentId, postingDate, reason);
+    }
+
+    /** Số phiếu kho theo id (hiển thị liên kết ở chứng từ nguồn). */
+    @Transactional(readOnly = true)
+    public Map<Long, String> documentNumbers(Collection<Long> ids) {
+        return stockIn.documentNumbers(ids);
     }
 
     /** Hàng đã xuất của phiếu (theo dòng nguồn). */

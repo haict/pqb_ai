@@ -66,14 +66,14 @@ public class PurchaseReturnController {
                 Function.identity()));
     }
 
-    @Operation(summary = "Dòng còn trả / giảm giá được", description = "invoiceId trống: dòng phiếu nhận đã nhập kho "
-            + "chưa có hóa đơn; có invoiceId: dòng của hóa đơn mua đã ghi sổ.")
+    @Operation(summary = "Dòng còn trả / giảm giá được", description = "Dòng của đơn mua đã ghi sổ orderId (cùng chi "
+            + "nhánh, nhà cung cấp).")
     @GetMapping("/returnable-lines")
     @PreAuthorize("hasAuthority('purchase-return:view')")
     public ApiResponse<List<ReturnableLineResponse>> returnableLines(@AuthenticationPrincipal CurrentUser user,
             @RequestParam Long branchId, @RequestParam Long supplierId,
-            @RequestParam(required = false) Long invoiceId) {
-        return ApiResponse.ok(service.returnableLines(user, branchId, supplierId, invoiceId));
+            @RequestParam Long orderId) {
+        return ApiResponse.ok(service.returnableLines(user, branchId, supplierId, orderId));
     }
 
     @GetMapping("/{id}")

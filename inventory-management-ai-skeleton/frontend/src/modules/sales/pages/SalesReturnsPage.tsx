@@ -34,7 +34,7 @@ import { useCatalog, useCompanyId } from '../../masterdata/lookups';
 import type { QualityStatus } from '../../masterdata/types';
 import { useMyBranches } from '../../system/lookups';
 import { SourceJournal } from '../../purchasing/components/SourceJournal';
-import { salesInvoiceApi, salesReturnApi } from '../api';
+import { salesOrderApi, salesReturnApi } from '../api';
 import { SalesDocumentDrawer } from '../components/SalesDocumentDrawer';
 import { POSTING_STATUSES, RETURN_ACTION_ORDER, RETURN_TYPES, returnActions } from '../labels';
 import type {
@@ -44,6 +44,7 @@ import type {
   SalesReturnLine as PurchaseReturnLine,
   SalesReturnType as PurchaseReturnType,
 } from '../types';
+import { DecimalInput } from '../../../shared/components/DecimalInput';
 
 interface LineForm {
   sourceKey?: string;
@@ -59,7 +60,7 @@ interface ReturnForm {
   branchId: number;
   customerId?: number;
   customerLabel?: string;
-  salesInvoiceId?: number;
+  salesOrderId?: number;
   documentDate: Dayjs;
   postingDate?: Dayjs;
   description?: string;
@@ -70,7 +71,7 @@ const FIELDS = [
   'documentType',
   'branchId',
   'customerId',
-  'salesInvoiceId',
+  'salesOrderId',
   'documentDate',
   'postingDate',
   'description',
@@ -82,23 +83,19 @@ const QUALITY_OPTIONS = (Object.keys(QUALITY_STATUSES) as QualityStatus[]).map((
   label: QUALITY_STATUSES[value].label,
 }));
 
-/** Khóa dòng nguồn: dòng hóa đơn (I) hoặc dòng phiếu giao chưa có hóa đơn (D), kèm lô. */
-const sourceKey = (line: {
-  invoiceLineId: number | null;
-  deliveryLineId: number | null;
-  lotNo: string | null;
-}) => `${line.invoiceLineId ? `I${line.invoiceLineId}` : `D${line.deliveryLineId}`}|${line.lotNo ?? ''}`;
+/** Khóa dòng nguồn: dòng đơn bán kèm lô đã xuất. */
+const sourceKey = (line: { orderLineId: number; lotNo: string | null }) =>
+  `${line.orderLineId}|${line.lotNo ?? ''}`;
 
 const parseKey = (key?: string) => {
   const [source = '', lot] = (key ?? '').split('|');
-  return { kind: source.charAt(0), id: Number(source.slice(1)), lotNo: lot || null };
+  return { id: Number(source), lotNo: lot || null };
 };
 
 function lineColumns(unitName: (id: number | null) => string): TableColumnsType<PurchaseReturnLine> {
   return [
     { title: '#', dataIndex: 'lineNo', width: 45 },
     { title: 'Hàng hóa', render: (_, row) => `${row.productCode ?? ''} - ${row.productName ?? ''}` },
-    { title: 'Phiếu giao', dataIndex: 'deliveryNo', width: 170 },
     { title: 'Lô', dataIndex: 'lotNo', width: 110 },
     {
       title: 'Nhập lại',
@@ -126,8 +123,8 @@ function lineColumns(unitName: (id: number | null) => string): TableColumnsType<
 }
 
 /**
- * Trả hàng bán / giảm giá hàng bán (BR-SAL-32, 33, 36): trả đúng lô, serial đã xuất theo phiếu giao gốc, nhập lại kho
- * cách ly; hàng đã có hóa đơn và giảm giá giảm doanh thu, công nợ phải thu; đổi hàng; ghi sổ, đảo.
+ * Trả hàng bán / giảm giá hàng bán (BR-SAL-32, 33, 36, D-54) theo một đơn bán đã ghi sổ: trả đúng lô, serial đã xuất,
+ * nhập lại kho cách ly; giảm doanh thu, công nợ phải thu; đổi hàng (lập đơn bán mới); ghi sổ, đảo.
  */
 export function SalesReturnsPage() {
   const can = useCan();
@@ -154,16 +151,14 @@ export function SalesReturnsPage() {
       documentType: values.documentType,
       branchId: values.branchId,
       customerId: values.customerId,
-      salesInvoiceId: values.salesInvoiceId ?? null,
+      salesOrderId: values.salesOrderId,
       documentDate: values.documentDate.format('YYYY-MM-DD'),
       postingDate: values.postingDate ? values.postingDate.format('YYYY-MM-DD') : null,
       description: values.description,
       lines: (values.lines ?? []).map((line) => {
         const parsed = parseKey(line.sourceKey);
-        const invoiceLine = parsed.kind === 'I';
         return {
-          invoiceLineId: invoiceLine ? parsed.id : null,
-          deliveryLineId: invoiceLine ? null : parsed.id,
+          orderLineId: parsed.id,
           lotNo: goods ? parsed.lotNo : null,
           quantity: goods ? line.quantity : null,
           amount: goods ? null : line.amount,
@@ -192,7 +187,7 @@ export function SalesReturnsPage() {
           branchId: editing.branchId,
           customerId: editing.customerId,
           customerLabel: `${editing.customerCode ?? ''} - ${editing.customerName ?? ''}`,
-          salesInvoiceId: editing.salesInvoiceId ?? undefined,
+          salesOrderId: editing.salesOrderId,
           documentDate: dayjs(editing.documentDate),
           postingDate: dayjs(editing.postingDate),
           description: editing.description ?? undefined,
@@ -270,7 +265,7 @@ export function SalesReturnsPage() {
         <SalesDocumentDrawer<PurchaseReturn>
           id={selected}
           queryKey="sales-return"
-          listKeys={['sales-returns', 'sales-invoices', 'debt-items', 'sales-deliveries']}
+          listKeys={['sales-returns', 'sales-orders', 'debt-items']}
           load={salesReturnApi.get}
           act={salesReturnApi.act}
           permission="sales-return"
@@ -286,8 +281,8 @@ export function SalesReturnsPage() {
                 <Descriptions.Item label="Khách hàng">
                   {`${document.customerCode ?? ''} - ${document.customerName ?? ''}`}
                 </Descriptions.Item>
-                <Descriptions.Item label="Hóa đơn bán">
-                  {document.salesInvoiceNo ?? 'Hàng chưa có hóa đơn'}
+                <Descriptions.Item label="Đơn bán">
+                  {`${document.salesOrderNo ?? ''} (${document.invoiceLabel ?? ''})`}
                 </Descriptions.Item>
                 <Descriptions.Item label="Phiếu nhập lại">{document.inventoryDocumentNo}</Descriptions.Item>
                 <Descriptions.Item label="Ngày hạch toán">
@@ -350,33 +345,31 @@ function ReturnFields({
   const documentType = Form.useWatch('documentType', form) as PurchaseReturnType | undefined;
   const branchId = Form.useWatch('branchId', form) as number | undefined;
   const customerId = Form.useWatch('customerId', form) as number | undefined;
-  const invoiceId = Form.useWatch('salesInvoiceId', form) as number | undefined;
+  const orderId = Form.useWatch('salesOrderId', form) as number | undefined;
   const ready = typeof branchId === 'number' && typeof customerId === 'number';
-  const invoices = useQuery({
-    queryKey: ['sales-invoices', 'posted', branchId, customerId],
+  const orders = useQuery({
+    queryKey: ['sales-orders', 'posted', branchId, customerId],
     queryFn: () =>
-      salesInvoiceApi.list({ page: 0, size: 50, companyId, branchId, customerId, status: 'POSTED' }),
+      salesOrderApi.list({ page: 0, size: 50, companyId, branchId, customerId, status: 'POSTED' }),
     enabled: ready,
   });
   const returnable = useQuery({
-    queryKey: ['sales-returns', 'returnable', branchId, customerId, invoiceId],
+    queryKey: ['sales-returns', 'returnable', branchId, customerId, orderId],
     queryFn: () =>
       salesReturnApi.returnableLines({
         branchId: branchId as number,
         customerId: customerId as number,
-        invoiceId,
+        orderId: orderId as number,
       }),
-    enabled: ready && (documentType === 'TLB' || typeof invoiceId === 'number'),
+    enabled: ready && typeof orderId === 'number',
   });
-  const sources = (returnable.data ?? []).filter(
-    (line) => documentType === 'GGB' || line.remainingQuantity > 0,
+  const sources = (returnable.data ?? []).filter((line) =>
+    documentType === 'GGB' ? line.remainingAmount > 0 : !line.serviceLine && line.remainingQuantity > 0,
   );
   const sourceLabel = (line: ReturnableLine) =>
-    `${line.deliveryNo ?? 'Dịch vụ'} · ${line.productCode ?? ''} - ${line.productName ?? ''}${
-      line.lotNo ? ` · lô ${line.lotNo}` : ''
-    } (${
+    `${line.productCode ?? ''} - ${line.productName ?? ''}${line.lotNo ? ` · lô ${line.lotNo}` : ''} (${
       documentType === 'GGB'
-        ? `còn ${formatMoney(line.remainingAmount ?? 0)}`
+        ? `còn ${formatMoney(line.remainingAmount)}`
         : `còn ${formatNumber(line.remainingQuantity)} ${units.nameOf(line.unitId)}`
     })`;
   const resetLines = () => form.setFieldValue('lines', []);
@@ -390,7 +383,7 @@ function ReturnFields({
         .map((line) => ({
           sourceKey: sourceKey(line),
           quantity: line.remainingQuantity,
-          amount: line.remainingAmount ?? undefined,
+          amount: line.remainingAmount,
         })),
     ]);
   };
@@ -401,10 +394,7 @@ function ReturnFields({
           <Form.Item name="documentType" label="Loại" rules={[{ required: true }]}>
             <Select
               disabled={!isNew}
-              onChange={() => {
-                form.setFieldValue('salesInvoiceId', undefined);
-                resetLines();
-              }}
+              onChange={resetLines}
               options={(Object.keys(RETURN_TYPES) as PurchaseReturnType[]).map((value) => ({
                 value,
                 label: RETURN_TYPES[value],
@@ -428,7 +418,7 @@ function ReturnFields({
               disabled={!isNew}
               selectedLabel={form.getFieldValue('customerLabel')}
               onChange={() => {
-                form.setFieldValue('salesInvoiceId', undefined);
+                form.setFieldValue('salesOrderId', undefined);
                 resetLines();
               }}
             />
@@ -436,19 +426,19 @@ function ReturnFields({
         </Col>
         <Col xs={24} md={6}>
           <Form.Item
-            name="salesInvoiceId"
-            label="Hóa đơn bán"
-            extra={documentType === 'TLB' ? 'Trống: trả hàng chưa có hóa đơn' : undefined}
-            rules={[{ required: documentType === 'GGB', message: 'Chọn hóa đơn' }]}
+            name="salesOrderId"
+            label="Đơn bán đã ghi sổ"
+            rules={[{ required: true, message: 'Chọn đơn bán' }]}
           >
             <Select
-              allowClear
+              showSearch
+              optionFilterProp="label"
               disabled={!isNew}
-              loading={invoices.isLoading}
+              loading={orders.isLoading}
               onChange={resetLines}
-              options={(invoices.data?.items ?? []).map((invoice) => ({
-                value: invoice.id,
-                label: `${invoice.documentNo}${invoice.einvoiceNo ? ` (${invoice.einvoiceSeries}-${invoice.einvoiceNo})` : ''}`,
+              options={(orders.data?.items ?? []).map((order) => ({
+                value: order.id,
+                label: `${order.documentNo}${order.einvoiceNo ? ` (${order.einvoiceSeries}-${order.einvoiceNo})` : ''}`,
               }))}
             />
           </Form.Item>
@@ -530,7 +520,7 @@ function ReturnLineFields({
         <Col xs={24} md={goods ? 10 : 14}>
           <Form.Item
             name={[name, 'sourceKey']}
-            label={goods ? 'Dòng phiếu giao / hóa đơn (lô)' : 'Dòng hóa đơn'}
+            label={goods ? 'Dòng đơn bán (lô đã xuất)' : 'Dòng đơn bán'}
             rules={[{ required: true, message: 'Chọn dòng nguồn' }]}
           >
             <Select
@@ -541,7 +531,7 @@ function ReturnLineFields({
                 const picked = sources.find((line) => sourceKey(line) === value);
                 if (picked) {
                   form.setFieldValue(['lines', name, 'quantity'], picked.remainingQuantity);
-                  form.setFieldValue(['lines', name, 'amount'], picked.remainingAmount ?? undefined);
+                  form.setFieldValue(['lines', name, 'amount'], picked.remainingAmount);
                   form.setFieldValue(['lines', name, 'serialNumbers'], []);
                 }
               }}
@@ -556,7 +546,7 @@ function ReturnLineFields({
                 label="Số lượng trả"
                 rules={[{ required: true, message: 'Nhập số lượng' }]}
               >
-                <InputNumber min={0.001} precision={3} style={{ width: '100%' }} />
+                <DecimalInput min={0.001} />
               </Form.Item>
             </Col>
             <Col xs={12} md={4}>

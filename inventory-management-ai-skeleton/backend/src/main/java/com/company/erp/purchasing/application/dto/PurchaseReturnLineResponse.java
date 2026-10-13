@@ -8,9 +8,7 @@ import java.util.List;
 public record PurchaseReturnLineResponse(
         Long id,
         int lineNo,
-        Long receiptLineId,
-        String receiptNo,
-        Long invoiceLineId,
+        Long orderLineId,
         Long productId,
         String productCode,
         String productName,

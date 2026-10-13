@@ -23,9 +23,9 @@ import java.util.EnumSet;
 import java.util.List;
 
 /**
- * Phân bổ chi phí mua hàng (PBC, BR-PUR-12, 16): chi phí từ dòng dịch vụ của hóa đơn mua đã ghi sổ (vận chuyển, bảo
- * hiểm, bốc xếp...) phân bổ vào dòng phiếu nhận đã nhập kho theo giá trị hoặc số lượng. Ghi sổ sinh điều chỉnh giá trị
- * nhập theo dòng phiếu nhận ({@link PurchaseCostEntry} loại LANDED_COST); giá vốn tính lại ở Giai đoạn 8.
+ * Phân bổ chi phí mua hàng (PBC, BR-PUR-12, 16): chi phí từ dòng dịch vụ của đơn mua đã ghi sổ (vận chuyển, bảo hiểm,
+ * bốc xếp...) phân bổ vào dòng hàng hóa của các đơn mua đã ghi sổ theo giá trị hoặc số lượng. Ghi sổ sinh điều chỉnh
+ * giá trị nhập theo dòng đơn mua ({@link PurchaseCostEntry} loại LANDED_COST); giá vốn tính lại ở Giai đoạn 8.
  */
 @Entity
 @Table(name = "purchase_cost_allocations")
@@ -75,12 +75,12 @@ public class PurchaseCostAllocation extends PurchaseDocument {
         super(companyId, branchId, documentNo);
     }
 
-    /** Dòng chi phí: dòng dịch vụ hóa đơn mua và số tiền phân bổ (trước thuế). */
-    public record SourceValues(Long invoiceLineId, Long productId, BigDecimal amount) {
+    /** Dòng chi phí: dòng dịch vụ của đơn mua và số tiền phân bổ (trước thuế). */
+    public record SourceValues(Long orderLineId, Long productId, BigDecimal amount) {
     }
 
-    /** Dòng đích: dòng phiếu nhận, số lượng nhập (đơn vị cơ sở) và giá trị nhập tạm tính làm cơ sở. */
-    public record TargetValues(Long receiptLineId, Long productId, BigDecimal baseQuantity, BigDecimal basisValue) {
+    /** Dòng đích: dòng hàng hóa của đơn mua, số lượng nhập (đơn vị cơ sở) và giá trị nhập làm cơ sở. */
+    public record TargetValues(Long orderLineId, Long productId, BigDecimal baseQuantity, BigDecimal basisValue) {
     }
 
     @Override
@@ -93,16 +93,6 @@ public class PurchaseCostAllocation extends PurchaseDocument {
         return amount;
     }
 
-    @Override
-    protected boolean fulfilled() {
-        return false;
-    }
-
-    @Override
-    protected boolean hasProgress() {
-        return false;
-    }
-
     /**
      * Thay nội dung và tính lại phân bổ: tỷ lệ theo cơ sở, làm tròn đến đồng, dòng đích cuối nhận phần dư để tổng phân
      * bổ bằng tổng chi phí.
@@ -113,7 +103,7 @@ public class PurchaseCostAllocation extends PurchaseDocument {
             throw BusinessException.invalidField("sources", "Phải chọn ít nhất một dòng chi phí.");
         }
         if (newTargets.isEmpty()) {
-            throw BusinessException.invalidField("receiptIds", "Phải chọn phiếu nhận hàng đã nhập kho để phân bổ.");
+            throw BusinessException.invalidField("orderIds", "Phải chọn đơn mua đã ghi sổ có hàng hóa để phân bổ.");
         }
         if (postingDate.isBefore(documentDate)) {
             throw BusinessException.invalidField("postingDate", "Ngày hạch toán không được trước ngày chứng từ.");
@@ -221,8 +211,8 @@ public class PurchaseCostAllocation extends PurchaseDocument {
         @Column(name = "line_no", nullable = false)
         private int lineNo;
 
-        @Column(name = "invoice_line_id", nullable = false)
-        private Long invoiceLineId;
+        @Column(name = "order_line_id", nullable = false)
+        private Long orderLineId;
 
         @Column(name = "product_id", nullable = false)
         private Long productId;
@@ -239,7 +229,7 @@ public class PurchaseCostAllocation extends PurchaseDocument {
         }
 
         void apply(SourceValues values) {
-            this.invoiceLineId = values.invoiceLineId();
+            this.orderLineId = values.orderLineId();
             this.productId = values.productId();
             this.amount = values.amount();
         }
@@ -252,8 +242,8 @@ public class PurchaseCostAllocation extends PurchaseDocument {
             return lineNo;
         }
 
-        public Long getInvoiceLineId() {
-            return invoiceLineId;
+        public Long getOrderLineId() {
+            return orderLineId;
         }
 
         public Long getProductId() {
@@ -277,8 +267,8 @@ public class PurchaseCostAllocation extends PurchaseDocument {
         @Column(name = "line_no", nullable = false)
         private int lineNo;
 
-        @Column(name = "receipt_line_id", nullable = false)
-        private Long receiptLineId;
+        @Column(name = "order_line_id", nullable = false)
+        private Long orderLineId;
 
         @Column(name = "product_id", nullable = false)
         private Long productId;
@@ -301,7 +291,7 @@ public class PurchaseCostAllocation extends PurchaseDocument {
         }
 
         void apply(TargetValues values, BigDecimal allocatedAmount) {
-            this.receiptLineId = values.receiptLineId();
+            this.orderLineId = values.orderLineId();
             this.productId = values.productId();
             this.baseQuantity = values.baseQuantity();
             this.basisValue = values.basisValue();
@@ -316,8 +306,8 @@ public class PurchaseCostAllocation extends PurchaseDocument {
             return lineNo;
         }
 
-        public Long getReceiptLineId() {
-            return receiptLineId;
+        public Long getOrderLineId() {
+            return orderLineId;
         }
 
         public Long getProductId() {

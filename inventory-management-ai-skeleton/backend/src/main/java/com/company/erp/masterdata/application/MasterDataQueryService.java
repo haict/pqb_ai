@@ -69,7 +69,7 @@ public class MasterDataQueryService {
      */
     public record PartnerInfo(Long id, Long companyId, String code, String name, Set<PartnerRole> roles,
                               Long salesUserId, boolean active, Integer paymentTermDays,
-                              Integer supplierPaymentTermDays, String taxCode) {
+                              Integer supplierPaymentTermDays, String taxCode, String address) {
 
         /** Mã vai trò dạng chuỗi, để module khác kiểm tra mà không phụ thuộc enum của danh mục. */
         public Set<String> roleCodes() {
@@ -307,6 +307,6 @@ public class MasterDataQueryService {
     private static PartnerInfo toInfo(Partner partner) {
         return new PartnerInfo(partner.getId(), partner.getCompanyId(), partner.getCode(), partner.getName(),
                 partner.getRoles(), partner.getSalesUserId(), partner.isActive(), partner.getPaymentTermDays(),
-                partner.getSupplierPaymentTermDays(), partner.getTaxCode());
+                partner.getSupplierPaymentTermDays(), partner.getTaxCode(), partner.getAddress());
     }
 }

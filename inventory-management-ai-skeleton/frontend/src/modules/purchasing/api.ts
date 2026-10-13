@@ -2,18 +2,14 @@ import { getOne, getPage, postWithKey, putJson } from '../../shared/api/rest';
 import type { ListParams } from '../../shared/api/useServerTable';
 import type {
   CostAllocationSource,
-  InvoiceableLine,
-  OpenRequisitionLine,
   PurchaseCostAllocation,
-  PurchaseInvoice,
   PurchaseOrder,
-  PurchaseReceipt,
-  PurchaseRequisition,
   PurchaseReturn,
   ReturnableLine,
+  StockInSlip,
 } from './types';
 
-/** API chứng từ điều phối chung: danh sách, chi tiết, lập, sửa, hành động. */
+/** API chứng từ mua chung: danh sách, chi tiết, lập, sửa, hành động. */
 function documentApi<T>(path: string) {
   return {
     list: <F extends object>(params: ListParams & F) => getPage<T>(path, params),
@@ -25,29 +21,14 @@ function documentApi<T>(path: string) {
   };
 }
 
-export const requisitionApi = {
-  ...documentApi<PurchaseRequisition>('/purchase-requisitions'),
-  openLines: (params: { branchId: number; productId?: number }) =>
-    getOne<OpenRequisitionLine[]>('/purchase-requisitions/open-lines', params),
-};
-
-export const purchaseOrderApi = documentApi<PurchaseOrder>('/purchase-orders');
-
-export const purchaseReceiptApi = {
-  ...documentApi<PurchaseReceipt>('/purchase-receipts'),
-  receiveAndStock: (input: object, key: string) =>
-    postWithKey<PurchaseReceipt>('/purchase-receipts/receive-and-stock', input, key),
-};
-
-export const purchaseInvoiceApi = {
-  ...documentApi<PurchaseInvoice>('/purchase-invoices'),
-  invoiceableLines: (params: { branchId: number; supplierId: number }) =>
-    getOne<InvoiceableLine[]>('/purchase-invoices/invoiceable-lines', params),
+export const purchaseOrderApi = {
+  ...documentApi<PurchaseOrder>('/purchase-orders'),
+  stockInSlip: (id: number) => getOne<StockInSlip>(`/purchase-orders/${id}/stock-in-slip`),
 };
 
 export const purchaseReturnApi = {
   ...documentApi<PurchaseReturn>('/purchase-returns'),
-  returnableLines: (params: { branchId: number; supplierId: number; invoiceId?: number }) =>
+  returnableLines: (params: { branchId: number; supplierId: number; orderId: number }) =>
     getOne<ReturnableLine[]>('/purchase-returns/returnable-lines', params),
 };
 

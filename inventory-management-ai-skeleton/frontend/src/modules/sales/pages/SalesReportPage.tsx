@@ -17,11 +17,11 @@ import { formatMoney } from '../../accounting/labels';
 import { formatDate } from '../../inventory/labels';
 import { useCompanyId } from '../../masterdata/lookups';
 import { useMyBranches } from '../../system/lookups';
-import { salesOperationApi } from '../api';
+import { salesReportApi } from '../api';
 import { GROUPINGS, RETURN_TYPES } from '../labels';
 import type { SalesReportGrouping, SalesReturnType, SalesSourceDocument, SalesSummaryRow } from '../types';
 
-const SOURCE_LABELS: Record<string, string> = { HDB: 'Hóa đơn bán', ...RETURN_TYPES };
+const SOURCE_LABELS: Record<string, string> = { DBH: 'Đơn bán', ...RETURN_TYPES };
 
 /**
  * Báo cáo doanh số (BR-SAL-51): doanh thu, giảm trừ, doanh thu thuần theo nhân viên / khách / hàng / chi nhánh, công
@@ -43,12 +43,12 @@ export function SalesReportPage() {
   };
   const summary = useQuery({
     queryKey: ['sales-report', params],
-    queryFn: () => salesOperationApi.summary(params),
+    queryFn: () => salesReportApi.summary(params),
     enabled: companyId > 0,
   });
   const sources = useQuery({
     queryKey: ['sales-report', 'sources', params, drill?.key],
-    queryFn: () => salesOperationApi.sources({ ...params, key: drill?.key ?? null }),
+    queryFn: () => salesReportApi.sources({ ...params, key: drill?.key ?? null }),
     enabled: drill !== null,
   });
 
@@ -59,7 +59,7 @@ export function SalesReportPage() {
         <a onClick={() => setDrill(row)}>{[row.code, row.name].filter(Boolean).join(' - ') || '(trống)'}</a>
       ),
     },
-    { title: 'Số hóa đơn', dataIndex: 'invoiceCount', width: 100, align: 'right' },
+    { title: 'Số đơn bán', dataIndex: 'invoiceCount', width: 100, align: 'right' },
     { title: 'Doanh thu', dataIndex: 'revenue', width: 150, align: 'right', render: formatMoney },
     { title: 'Giảm trừ', dataIndex: 'deductions', width: 140, align: 'right', render: formatMoney },
     { title: 'Doanh thu thuần', dataIndex: 'netRevenue', width: 160, align: 'right', render: formatMoney },
@@ -166,8 +166,8 @@ export function SalesReportPage() {
         }
       />
       <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-        Số liệu từ hóa đơn bán, trả hàng / giảm giá đã ghi sổ theo ngày hạch toán. Lợi nhuận gộp cần giá vốn
-        (Giai đoạn 8).
+        Số liệu từ đơn bán, trả hàng / giảm giá đã ghi sổ theo ngày hạch toán. Lợi nhuận gộp cần giá vốn (Giai
+        đoạn 8).
       </Typography.Text>
       <Drawer
         open={drill !== null}

@@ -13,11 +13,9 @@ import com.company.erp.purchasing.application.dto.ReverseRequest;
 import com.company.erp.purchasing.domain.PurchaseCostAllocation;
 import com.company.erp.purchasing.domain.PurchaseCostEntry;
 import com.company.erp.purchasing.domain.PurchaseDocumentStatus;
-import com.company.erp.purchasing.domain.PurchaseInvoice;
-import com.company.erp.purchasing.domain.PurchaseReceipt;
+import com.company.erp.purchasing.domain.PurchaseOrder;
 import com.company.erp.purchasing.infrastructure.persistence.PurchaseCostEntryRepository;
-import com.company.erp.purchasing.infrastructure.persistence.PurchaseInvoiceRepository;
-import com.company.erp.purchasing.infrastructure.persistence.PurchaseReceiptRepository;
+import com.company.erp.purchasing.infrastructure.persistence.PurchaseOrderRepository;
 import com.company.erp.system.application.CurrentUser;
 import java.math.BigDecimal;
 import java.time.Clock;
@@ -34,9 +32,10 @@ import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Ghi sổ / đảo phân bổ chi phí mua hàng (BR-PUR-12): số đã phân bổ của dòng dịch vụ hóa đơn, điều chỉnh giá trị nhập
- * theo dòng phiếu nhận (LANDED_COST, Giai đoạn 8 tính lại giá vốn), bút toán chuyển chi phí vào giá trị hàng theo quy
- * tắc hạch toán PBC. Thứ tự khóa: chứng từ → hóa đơn (id tăng dần) → bút toán. READ COMMITTED.
+ * Ghi sổ / đảo phân bổ chi phí mua hàng (BR-PUR-12): số đã phân bổ của dòng dịch vụ đơn mua, điều chỉnh giá trị nhập
+ * theo dòng hàng hóa của đơn mua (LANDED_COST, Giai đoạn 8 tính lại giá vốn), bút toán chuyển chi phí vào giá trị hàng
+ * theo quy tắc hạch toán PBC. Thứ tự khóa: chứng từ → đơn mua có dòng chi phí (id tăng dần) → bút toán. READ
+ * COMMITTED.
  */
 @Service
 public class PurchaseCostAllocationPostingService {
@@ -47,8 +46,7 @@ public class PurchaseCostAllocationPostingService {
     private static final Logger log = LoggerFactory.getLogger(PurchaseCostAllocationPostingService.class);
 
     private final PurchaseCostAllocationService allocations;
-    private final PurchaseInvoiceRepository invoiceRepository;
-    private final PurchaseReceiptRepository receiptRepository;
+    private final PurchaseOrderRepository orderRepository;
     private final PurchaseCostEntryRepository costRepository;
     private final PurchaseDocumentFlow flow;
     private final PurchasingAccess access;
@@ -58,14 +56,12 @@ public class PurchaseCostAllocationPostingService {
 
     @SuppressWarnings("java:S107")
     public PurchaseCostAllocationPostingService(PurchaseCostAllocationService allocations,
-                                                PurchaseInvoiceRepository invoiceRepository,
-                                                PurchaseReceiptRepository receiptRepository,
+                                                PurchaseOrderRepository orderRepository,
                                                 PurchaseCostEntryRepository costRepository, PurchaseDocumentFlow flow,
                                                 PurchasingAccess access, JournalPostingService journalPosting,
                                                 BusinessCalendar calendar, Clock clock) {
         this.allocations = allocations;
-        this.invoiceRepository = invoiceRepository;
-        this.receiptRepository = receiptRepository;
+        this.orderRepository = orderRepository;
         this.costRepository = costRepository;
         this.flow = flow;
         this.access = access;
@@ -120,42 +116,41 @@ public class PurchaseCostAllocationPostingService {
                 });
     }
 
-    /** Khóa hóa đơn theo id tăng dần; cộng / trừ số đã phân bổ của dòng dịch vụ. */
+    /** Khóa đơn mua có dòng chi phí theo id tăng dần; cộng / trừ số đã phân bổ của dòng dịch vụ. */
     private void applySources(PurchaseCostAllocation document, BigDecimal sign) {
-        List<Long> lineIds = document.getSources().stream().map(PurchaseCostAllocation.Source::getInvoiceLineId)
+        List<Long> lineIds = document.getSources().stream().map(PurchaseCostAllocation.Source::getOrderLineId)
                 .toList();
-        for (Long invoiceId : invoiceRepository.findIdsByLineIds(lineIds)) {
-            PurchaseInvoice invoice = invoiceRepository.findByIdForUpdate(invoiceId)
-                    .orElseThrow(BusinessException::notFound);
+        for (Long orderId : orderRepository.findIdsByLineIds(lineIds)) {
+            PurchaseOrder order = orderRepository.findByIdForUpdate(orderId).orElseThrow(BusinessException::notFound);
             for (PurchaseCostAllocation.Source source : document.getSources()) {
-                if (invoice.getLines().stream().anyMatch(line -> line.getId().equals(source.getInvoiceLineId()))) {
-                    invoice.recordAllocation(source.getInvoiceLineId(), source.getAmount().multiply(sign),
+                if (order.getLines().stream().anyMatch(line -> line.getId().equals(source.getOrderLineId()))) {
+                    order.recordAllocation(source.getOrderLineId(), source.getAmount().multiply(sign),
                             "sources[" + (source.getLineNo() - 1) + "]");
                 }
             }
-            invoiceRepository.save(invoice);
+            orderRepository.save(order);
         }
     }
 
-    /** Điều chỉnh giá trị nhập theo dòng phiếu nhận; phiếu phải còn ở trạng thái đã ghi sổ, nhập kho. */
+    /** Điều chỉnh giá trị nhập theo dòng hàng hóa; đơn mua đích phải còn ở trạng thái đã ghi sổ. */
     private void recordCosts(CurrentUser actor, PurchaseCostAllocation document) {
-        Map<Long, PurchaseReceipt> receipts = new HashMap<>();
-        receiptRepository.findByLineIds(document.getTargets().stream()
-                        .map(PurchaseCostAllocation.Target::getReceiptLineId).toList())
-                .forEach(receipt -> receipt.getLines().forEach(line -> receipts.put(line.getId(), receipt)));
+        Map<Long, PurchaseOrder> orders = new HashMap<>();
+        orderRepository.findByLineIds(document.getTargets().stream()
+                        .map(PurchaseCostAllocation.Target::getOrderLineId).toList())
+                .forEach(order -> order.getLines().forEach(line -> orders.put(line.getId(), order)));
         Instant now = Instant.now(clock);
         List<PurchaseCostEntry> entries = new ArrayList<>();
         for (PurchaseCostAllocation.Target target : document.getTargets()) {
-            PurchaseReceipt receipt = receipts.get(target.getReceiptLineId());
-            if (receipt == null || receipt.getStatus() != PurchaseDocumentStatus.POSTED || !receipt.isStocked()) {
-                throw new BusinessException(ErrorCode.INVALID_DOCUMENT_STATE, "Phiếu nhận hàng của dòng phân bổ "
+            PurchaseOrder order = orders.get(target.getOrderLineId());
+            if (order == null || order.getStatus() != PurchaseDocumentStatus.POSTED) {
+                throw new BusinessException(ErrorCode.INVALID_DOCUMENT_STATE, "Đơn mua của dòng phân bổ "
                         + target.getLineNo() + " đã đảo; lập lại phân bổ.");
             }
             if (target.getAllocatedAmount().signum() == 0) {
                 continue;
             }
-            entries.add(new PurchaseCostEntry(document.getCompanyId(), receipt.line(target.getReceiptLineId(),
-                    "targets"), receipt.getWarehouseId(), PurchaseCostEntry.EntryType.LANDED_COST,
+            entries.add(new PurchaseCostEntry(document.getCompanyId(), order.line(target.getOrderLineId(),
+                    "targets"), order.getWarehouseId(), PurchaseCostEntry.EntryType.LANDED_COST,
                     document.getPostingDate(), target.getAllocatedAmount(), new PurchaseCostEntry.Reference(
                     PurchaseCostAllocation.TYPE_CODE, document.getId(), target.getId(), document.getDocumentNo()),
                     actor.id(), now));

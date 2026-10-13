@@ -4,8 +4,8 @@
 ERP cho doanh nghiệp thương mại máy móc, thiết bị, vật tư y tế, hóa chất - thuốc thử; có kinh doanh qua đấu thầu.
 
 Ba chuỗi nghiệp vụ chính (chi tiết: `docs/01-business-requirements.md`):
-- **Mua hàng:** Yêu cầu mua → Đơn mua → Nhận hàng → Nhập kho → Hóa đơn mua → Công nợ NCC → Thanh toán.
-- **Bán hàng:** Khách hàng → Báo giá → Đơn bán → Kiểm tra tồn → Xuất kho → Giao hàng → Hóa đơn bán → Công nợ khách → Thu tiền.
+- **Mua hàng:** Đơn mua (kèm hóa đơn NCC; ghi sổ = nhập kho + công nợ NCC) → Thanh toán (D-54).
+- **Bán hàng:** Khách hàng → Đơn bán (kiểm tra tồn; ghi sổ = xuất kho + doanh thu + công nợ khách; số hóa đơn điện tử) → Giao hàng (theo dõi) → Thu tiền (D-54).
 - **Đấu thầu:** Gói thầu → Hồ sơ dự thầu → Kết quả trúng thầu → Hợp đồng → Phân bổ hàng → Giao theo tiến độ → Nghiệm thu → Đối soát và thu tiền.
 
 Nguyên tắc cốt lõi:
@@ -122,7 +122,7 @@ Chi tiết: `.claude/rules/api.md`.
 - Chỉ chứng từ **POSTED** ảnh hưởng tồn thực tế và số liệu tài chính.
 - **Không xóa cứng** chứng từ đã phát sinh giao dịch; hủy bằng chứng từ đảo, không sửa bút toán lịch sử.
 - Phân biệt **tồn thực tế, tồn giữ chỗ, tồn khả dụng, hàng đang về**. Tồn thực tế không bao giờ âm; xuất vượt tồn khả dụng chỉ khi có chính sách được duyệt.
-- Phân biệt đơn mua / nhận hàng / nhập kho / hóa đơn / thanh toán và đơn bán / xuất kho / giao hàng / doanh thu / hóa đơn. Không gộp ngầm thành một bước.
+- Theo D-54: ghi sổ đơn mua = nhập kho + công nợ phải trả + bút toán; ghi sổ đơn bán = xuất kho + doanh thu + công nợ phải thu + bút toán. Phiếu kho vẫn là chứng từ riêng sinh tự động, liên kết hai chiều với đơn; thanh toán / thu tiền là chứng từ riêng. Không gộp thêm bước nào khác ngoài D-54.
 - Giao hàng theo hợp đồng thầu không vượt số còn lại.
 - Không ghi sổ, đảo, sửa chứng từ thuộc **kỳ đã khóa**; không đổi giá vốn kỳ đã khóa.
 - Duyệt, ghi sổ, hủy, đảo, điều chỉnh: kiểm tra quyền server-side và ghi audit (người, thời điểm, lý do, trước/sau).

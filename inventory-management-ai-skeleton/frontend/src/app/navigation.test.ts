@@ -90,30 +90,22 @@ describe('visibleNavGroups', () => {
   it('ẩn cả nhóm khi không có quyền nào trong nhóm; việc chờ duyệt luôn hiện', () => {
     expect(visibleNavGroups(() => false).map((group) => group.key)).toEqual(['work']);
   });
-  it('nhóm mua hàng hiện theo quyền xem đề nghị mua, đơn mua', () => {
+  it('nhóm mua hàng chỉ còn đơn mua, trả hàng, phân bổ chi phí (D-54)', () => {
     const groups = visibleNavGroups((permission) =>
-      [
-        'purchase-order:view',
-        'purchase-receipt:view',
-        'purchase-invoice:view',
-        'purchase-return:view',
-        'purchase-cost-allocation:view',
-      ].includes(permission),
+      ['purchase-order:view', 'purchase-return:view', 'purchase-cost-allocation:view'].includes(permission),
     );
 
     const purchasing = groups.find((group) => group.key === 'purchasing');
     expect(purchasing?.label).toBe('Mua hàng');
     expect(purchasing?.items.map((item) => item.label)).toEqual([
       'Đơn mua hàng',
-      'Phiếu nhận hàng',
-      'Hóa đơn mua',
       'Trả hàng / giảm giá',
       'Phân bổ chi phí mua',
     ]);
   });
-  it('nhóm bán hàng hiện theo quyền bán hàng', () => {
+  it('nhóm bán hàng chỉ còn đơn bán, trả hàng, hàng lỗi, báo cáo (D-54)', () => {
     const groups = visibleNavGroups((permission) =>
-      ['sales-quote:view', 'sales-order:view', 'sales-delivery:view', 'sales-report:view'].includes(
+      ['sales-order:view', 'sales-return:view', 'sales-complaint:view', 'sales-report:view'].includes(
         permission,
       ),
     );
@@ -121,9 +113,9 @@ describe('visibleNavGroups', () => {
     const sales = groups.find((group) => group.key === 'sales');
     expect(sales?.label).toBe('Bán hàng');
     expect(sales?.items.map((item) => item.label)).toEqual([
-      'Báo giá',
       'Đơn bán hàng',
-      'Giao hàng',
+      'Trả hàng / giảm giá bán',
+      'Hàng lỗi khách báo',
       'Báo cáo doanh số',
     ]);
   });

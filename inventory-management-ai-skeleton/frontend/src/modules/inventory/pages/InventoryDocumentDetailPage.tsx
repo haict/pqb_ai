@@ -11,7 +11,7 @@ import { documentApi } from '../api';
 import { DocumentActions } from '../components/DocumentActions';
 import { DocumentFormFields } from '../components/DocumentForm';
 import { DOCUMENT_FIELDS, toDocumentInput, type DocumentFormValues } from '../components/documentFormValues';
-import { DOCUMENT_TYPES, TRANSACTION_TYPES, formatDate, formatNumber } from '../labels';
+import { DOCUMENT_TYPES, SOURCE_TYPES, TRANSACTION_TYPES, formatDate, formatNumber } from '../labels';
 import { DocumentStatusTag, QualityTag } from '../components/StatusTags';
 import type { InventoryDocument, InventoryLine, InventoryTransaction } from '../types';
 
@@ -200,7 +200,7 @@ export function InventoryDocumentDetailPage() {
         )}
         {document.sourceNo && (
           <Descriptions.Item label="Chứng từ nguồn">
-            {document.sourceType === 'PNH' ? `Phiếu nhận hàng ${document.sourceNo}` : document.sourceNo}
+            {`${SOURCE_TYPES[document.sourceType ?? ''] ?? ''} ${document.sourceNo}`.trim()}
           </Descriptions.Item>
         )}
         <Descriptions.Item label="Lý do">{document.reasonText}</Descriptions.Item>

@@ -12,10 +12,8 @@ import {
   Form,
   Input,
   InputNumber,
-  Modal,
   Row,
   Select,
-  Space,
   Table,
   Tag,
   Typography,
@@ -24,29 +22,30 @@ import {
 } from 'antd';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useState } from 'react';
-import { newIdempotencyKey } from '../../../shared/api/httpClient';
-import { useIdempotencyKey } from '../../../shared/api/useIdempotencyKey';
 import { useServerTable } from '../../../shared/api/useServerTable';
 import { useCan } from '../../../shared/auth/authContext';
 import { FormModal } from '../../../shared/components/FormModal';
 import { ListToolbar } from '../../../shared/components/ListToolbar';
-import { applyServerErrors, validated } from '../../../shared/forms';
 import { formatMoney } from '../../accounting/labels';
 import { DocumentStatusTag } from '../../inventory/components/StatusTags';
 import { formatDate, statusLabel } from '../../inventory/labels';
 import { PartnerSelect } from '../../masterdata/components/EntitySelects';
-import { useCompanyId, useWarehouses } from '../../masterdata/lookups';
+import { useCatalog, useCompanyId, useWarehouses } from '../../masterdata/lookups';
+import { SourceJournal } from '../../purchasing/components/SourceJournal';
 import { useMyBranches } from '../../system/lookups';
-import { salesDeliveryApi, salesOperationApi, salesOrderApi } from '../api';
+import { salesOrderApi } from '../api';
+import { ConfirmDeliveryModal, DeliveryNote, EinvoiceModal } from '../components/OrderModals';
+import { StockOutSlipPrint } from '../components/StockOutSlipPrint';
 import { SalesDocumentDrawer } from '../components/SalesDocumentDrawer';
 import { SalesLinesEditor } from '../components/SalesLineFields';
 import { toLineForm, toLineInput, type SalesLineForm } from '../components/salesLines';
+import { PrintButton } from '../../../shared/components/PrintButton';
 import { SalesLinesTable } from '../components/SalesLinesTable';
-import { DUE_BASES, ORDER_ACTION_ORDER, ORDER_STATUSES, orderActions } from '../labels';
+import { DELIVERY_STATUSES, DUE_BASES, ORDER_ACTION_ORDER, orderActions, POSTING_STATUSES } from '../labels';
 import type {
+  DeliveryStatus,
   PaymentDueBasis,
   PaymentSchedule,
-  QuickSaleResult,
   SalesDocumentStatus,
   SalesOrder,
 } from '../types';
@@ -64,6 +63,7 @@ interface OrderForm {
   customerLabel?: string;
   warehouseId?: number;
   documentDate: Dayjs;
+  postingDate?: Dayjs;
   contactName?: string;
   deliveryAddress?: string;
   receiverName?: string;
@@ -81,6 +81,7 @@ const FIELDS = [
   'customerId',
   'warehouseId',
   'documentDate',
+  'postingDate',
   'contactName',
   'deliveryAddress',
   'receiverName',
@@ -121,8 +122,9 @@ const scheduleColumns: TableColumnsType<PaymentSchedule> = [
 ];
 
 /**
- * Đơn bán (BR-SAL-10..15, 20, 50): giá theo bảng giá, duyệt giá / hạn mức tín dụng, tồn khả dụng, giữ / nhả hàng, đề
- * nghị mua phần thiếu, tiến độ xuất / giao / hóa đơn / trả lại, lịch thu tiền; lập phiếu giao phần còn lại; bán nhanh.
+ * Đơn bán (BR-SAL-10..14, 21..23, 30, 31, 50, D-54): chứng từ duy nhất của nghiệp vụ bán. Giá theo bảng giá, duyệt
+ * giá / hạn mức tín dụng, tồn khả dụng, giữ / nhả hàng; ghi sổ = xuất kho (FEFO / lô chỉ định) + doanh thu + công nợ
+ * phải thu; số hóa đơn điện tử; theo dõi giao hàng, in biên bản giao nhận; đảo (kể cả giao thất bại); lịch thu tiền.
  */
 export function SalesOrdersPage() {
   const can = useCan();
@@ -130,12 +132,19 @@ export function SalesOrdersPage() {
   const queryClient = useQueryClient();
   const companyId = useCompanyId();
   const branches = useMyBranches();
+  const units = useCatalog('units');
   const [keyword, setKeyword] = useState('');
   const [status, setStatus] = useState<SalesDocumentStatus>();
   const [selected, setSelected] = useState<number | null>(null);
   const [editing, setEditing] = useState<SalesOrder | 'new' | null>(null);
-  const [quickSale, setQuickSale] = useState(false);
+  const [confirming, setConfirming] = useState<SalesOrder | null>(null);
+  const [einvoice, setEinvoice] = useState<SalesOrder | null>(null);
   const { tableProps } = useServerTable('sales-orders', salesOrderApi.list, { companyId, keyword, status });
+
+  const refresh = (id: number) => {
+    void queryClient.invalidateQueries({ queryKey: ['sales-order', id] });
+    void queryClient.invalidateQueries({ queryKey: ['sales-orders'] });
+  };
 
   const save = async (values: OrderForm, key: string) => {
     const input = {
@@ -143,6 +152,7 @@ export function SalesOrdersPage() {
       customerId: values.customerId,
       warehouseId: values.warehouseId,
       documentDate: values.documentDate.format('YYYY-MM-DD'),
+      postingDate: dateValue(values.postingDate),
       contactName: values.contactName,
       deliveryAddress: values.deliveryAddress,
       receiverName: values.receiverName,
@@ -166,27 +176,6 @@ export function SalesOrdersPage() {
     await queryClient.invalidateQueries({ queryKey: ['sales-orders'] });
   };
 
-  /** Lập phiếu giao nháp cho mọi dòng hàng hóa còn phải xuất (lô theo FEFO khi xuất kho). */
-  const createDelivery = async (order: SalesOrder) => {
-    const lines = order.lines
-      .filter((line) => !line.serviceLine && (line.outstandingQuantity ?? 0) > 0)
-      .map((line) => ({
-        orderLineId: line.id,
-        quantity: Math.floor(((line.outstandingQuantity ?? 0) / line.conversionFactor) * 1000) / 1000,
-      }))
-      .filter((line) => line.quantity > 0);
-    if (lines.length === 0) {
-      message.info('Đơn không còn hàng phải xuất.');
-      return;
-    }
-    const delivery = await salesDeliveryApi.create(
-      { orderId: order.id, documentDate: dayjs().format('YYYY-MM-DD'), lines },
-      newIdempotencyKey(),
-    );
-    message.success(`Đã lập phiếu giao ${delivery.documentNo} (nháp); xem ở màn hình Giao hàng.`);
-    void queryClient.invalidateQueries({ queryKey: ['sales-deliveries'] });
-  };
-
   const initialValues: Partial<OrderForm> =
     editing && editing !== 'new'
       ? {
@@ -195,6 +184,7 @@ export function SalesOrdersPage() {
           customerLabel: `${editing.customerCode ?? ''} - ${editing.customerName ?? ''}`,
           warehouseId: editing.warehouseId,
           documentDate: dayjs(editing.documentDate),
+          postingDate: dayjs(editing.postingDate),
           contactName: editing.contactName ?? undefined,
           deliveryAddress: editing.deliveryAddress ?? undefined,
           receiverName: editing.receiverName ?? undefined,
@@ -228,12 +218,26 @@ export function SalesOrdersPage() {
     },
     { title: 'Ngày', dataIndex: 'documentDate', width: 110, render: formatDate },
     { title: 'Khách hàng', render: (_, row) => `${row.customerCode ?? ''} - ${row.customerName ?? ''}` },
-    { title: 'Nhân viên', dataIndex: 'salesUserName', width: 180 },
-    { title: 'Tổng tiền', dataIndex: 'totalAmount', width: 150, align: 'right', render: formatMoney },
+    { title: 'Nhân viên', dataIndex: 'salesUserName', width: 170 },
+    {
+      title: 'Hóa đơn',
+      width: 150,
+      render: (_, row) => (row.einvoiceNo ? `${row.einvoiceSeries}-${row.einvoiceNo}` : ''),
+    },
+    { title: 'Tổng tiền', dataIndex: 'totalAmount', width: 140, align: 'right', render: formatMoney },
+    {
+      title: 'Giao hàng',
+      dataIndex: 'deliveryStatus',
+      width: 110,
+      render: (value: DeliveryStatus, row) =>
+        row.status === 'POSTED' ? (
+          <Tag color={DELIVERY_STATUSES[value].color}>{DELIVERY_STATUSES[value].label}</Tag>
+        ) : null,
+    },
     {
       title: 'Trạng thái',
       dataIndex: 'status',
-      width: 140,
+      width: 130,
       render: (value: SalesDocumentStatus) => <DocumentStatusTag status={value} />,
     },
   ];
@@ -247,45 +251,65 @@ export function SalesOrdersPage() {
         searchPlaceholder="Số đơn, diễn giải"
         onSearch={setKeyword}
         extraFilters={
-          <Space wrap>
-            <Select
-              allowClear
-              placeholder="Trạng thái"
-              style={{ width: 170 }}
-              value={status}
-              onChange={setStatus}
-              options={ORDER_STATUSES.map((value) => ({ value, label: statusLabel(value) }))}
-            />
-            {can('sales-quick-sale:execute') && <Button onClick={() => setQuickSale(true)}>Bán nhanh</Button>}
-          </Space>
+          <Select
+            allowClear
+            placeholder="Trạng thái"
+            style={{ width: 170 }}
+            value={status}
+            onChange={setStatus}
+            options={POSTING_STATUSES.map((value) => ({ value, label: statusLabel(value) }))}
+          />
         }
         createLabel="Lập đơn bán"
         onCreate={can('sales-order:create') ? () => setEditing('new') : undefined}
       />
-      <Table<SalesOrder> {...tableProps} size="small" columns={columns} scroll={{ x: 1000 }} />
+      <Table<SalesOrder> {...tableProps} size="small" columns={columns} scroll={{ x: 1200 }} />
       {selected !== null && (
         <SalesDocumentDrawer<SalesOrder>
           id={selected}
           queryKey="sales-order"
-          listKeys={['sales-orders', 'purchase-requisitions']}
+          listKeys={['sales-orders', 'stock-summaries', 'inventory-documents', 'debt-items']}
           load={salesOrderApi.get}
           act={salesOrderApi.act}
           permission="sales-order"
-          actions={(document) => orderActions(document.status, can)}
+          actions={(document) => orderActions(document, can)}
           actionOrder={ORDER_ACTION_ORDER}
           title={(document) => `Đơn bán ${document.documentNo}`}
           onEdit={(document) => setEditing(document)}
           onClose={() => setSelected(null)}
-          extra={(document) =>
-            (document.status === 'APPROVED' || document.status === 'IN_PROGRESS') &&
-            can('sales-delivery:create') && (
-              <Button onClick={() => void createDelivery(document)}>Lập phiếu giao</Button>
-            )
-          }
+          extra={(document) => (
+            <>
+              {document.status === 'POSTED' && (
+                <PrintButton
+                  label="In phiếu xuất kho"
+                  title={`Phiếu xuất kho ${document.inventoryDocumentNo ?? ''}`}
+                >
+                  <StockOutSlipPrint orderId={document.id} />
+                </PrintButton>
+              )}
+              {document.status === 'POSTED' && (
+                <PrintButton
+                  label="In biên bản giao nhận"
+                  title={`Biên bản giao nhận ${document.documentNo}`}
+                >
+                  <DeliveryNote order={document} unitName={units.nameOf} />
+                </PrintButton>
+              )}
+              {document.status === 'POSTED' &&
+                document.deliveryStatus !== 'DELIVERED' &&
+                can('sales-order:deliver') && (
+                  <Button onClick={() => setConfirming(document)}>Khách nhận hàng</Button>
+                )}
+              {(document.status === 'APPROVED' || document.status === 'POSTED') &&
+                can('sales-order:post') && (
+                  <Button onClick={() => setEinvoice(document)}>Số hóa đơn điện tử</Button>
+                )}
+            </>
+          )}
         >
           {(document) => (
             <>
-              {document.approvalReasons && (
+              {document.approvalReasons && document.status !== 'POSTED' && (
                 <Alert
                   type="warning"
                   showIcon
@@ -299,7 +323,7 @@ export function SalesOrdersPage() {
                   type="info"
                   showIcon
                   style={{ marginBottom: 12 }}
-                  message="Tồn khả dụng không đủ (có thể đề nghị mua phần thiếu)"
+                  message="Tồn khả dụng không đủ"
                   description={document.availabilityWarnings.join(' ')}
                 />
               )}
@@ -310,13 +334,17 @@ export function SalesOrdersPage() {
                 <Descriptions.Item label="Kho xuất">{`${document.warehouseCode ?? ''} - ${
                   document.warehouseName ?? ''
                 }`}</Descriptions.Item>
-                <Descriptions.Item label="Báo giá">{document.quoteNo}</Descriptions.Item>
                 <Descriptions.Item label="Nhân viên">{document.salesUserName}</Descriptions.Item>
-                <Descriptions.Item label="Giao dự kiến">
-                  {formatDate(document.expectedDate)}
+                <Descriptions.Item label="Ngày đơn">{formatDate(document.documentDate)}</Descriptions.Item>
+                <Descriptions.Item label="Ngày hạch toán">
+                  {formatDate(document.postingDate)}
                 </Descriptions.Item>
                 <Descriptions.Item label="Hạn thanh toán">
-                  {document.paymentTermDays !== null ? `${document.paymentTermDays} ngày` : ''}
+                  {document.dueDate
+                    ? formatDate(document.dueDate)
+                    : document.paymentTermDays !== null
+                      ? `${document.paymentTermDays} ngày sau ghi sổ`
+                      : ''}
                 </Descriptions.Item>
                 <Descriptions.Item label="Địa chỉ giao">{document.deliveryAddress}</Descriptions.Item>
                 <Descriptions.Item label="Người nhận">
@@ -329,14 +357,39 @@ export function SalesOrdersPage() {
                       ? 'Giữ khi duyệt'
                       : 'Không'}
                 </Descriptions.Item>
+                <Descriptions.Item label="Hóa đơn điện tử">
+                  {document.einvoiceNo
+                    ? `${document.einvoiceSeries}-${document.einvoiceNo} ngày ${formatDate(document.einvoiceDate)}`
+                    : 'Chưa ghi số'}
+                </Descriptions.Item>
+                <Descriptions.Item label="Phiếu xuất kho">{document.inventoryDocumentNo}</Descriptions.Item>
+                <Descriptions.Item label="Giao hàng">
+                  {document.status === 'POSTED'
+                    ? [
+                        DELIVERY_STATUSES[document.deliveryStatus].label,
+                        document.shipperName,
+                        document.receivedDate ? `nhận ${formatDate(document.receivedDate)}` : null,
+                        document.receivedBy,
+                        document.signedDocumentRef,
+                      ]
+                        .filter(Boolean)
+                        .join(' · ')
+                    : ''}
+                </Descriptions.Item>
                 <Descriptions.Item label="Tiền hàng">{formatMoney(document.amount)}</Descriptions.Item>
                 <Descriptions.Item label="Thuế GTGT">{formatMoney(document.taxAmount)}</Descriptions.Item>
                 <Descriptions.Item label="Tổng cộng">
                   <strong>{formatMoney(document.totalAmount)}</strong>
                 </Descriptions.Item>
+                {document.reverseDate && (
+                  <Descriptions.Item label="Ngày đảo">{formatDate(document.reverseDate)}</Descriptions.Item>
+                )}
                 {document.reason && <Descriptions.Item label="Lý do">{document.reason}</Descriptions.Item>}
               </Descriptions>
-              <SalesLinesTable lines={document.lines} progress />
+              <SalesLinesTable
+                lines={document.lines}
+                posted={document.status === 'POSTED' || document.status === 'REVERSED'}
+              />
               {document.paymentSchedule.length > 0 && (
                 <>
                   <Typography.Title level={5} style={{ marginTop: 16 }}>
@@ -351,6 +404,7 @@ export function SalesOrdersPage() {
                   />
                 </>
               )}
+              <SourceJournal sourceType="DBH" sourceId={document.id} status={document.status} />
             </>
           )}
         </SalesDocumentDrawer>
@@ -367,25 +421,25 @@ export function SalesOrdersPage() {
       >
         {(form) => <OrderFields form={form} isNew={editing === 'new'} branchOptions={branches.options} />}
       </FormModal>
-      {quickSale && (
-        <QuickSaleModal
-          branchOptions={branches.options}
-          defaultBranch={branches.items[0]?.id}
-          onClose={() => setQuickSale(false)}
-          onDone={(result) => {
-            setQuickSale(false);
-            Modal.info({
-              title: 'Kết quả bán nhanh',
-              content: [
-                `Đơn bán ${result.orderNo} (${statusLabel(result.orderStatus)})`,
-                result.deliveryNo ? `Phiếu giao ${result.deliveryNo}` : null,
-                result.invoiceNo ? `Hóa đơn ${result.invoiceNo}` : null,
-                result.message,
-              ]
-                .filter(Boolean)
-                .join(' · '),
-            });
-            void queryClient.invalidateQueries({ queryKey: ['sales-orders'] });
+      {confirming && (
+        <ConfirmDeliveryModal
+          order={confirming}
+          onClose={() => setConfirming(null)}
+          onDone={() => {
+            message.success('Đã ghi nhận khách nhận hàng.');
+            refresh(confirming.id);
+            setConfirming(null);
+          }}
+        />
+      )}
+      {einvoice && (
+        <EinvoiceModal
+          order={einvoice}
+          onClose={() => setEinvoice(null)}
+          onDone={() => {
+            message.success('Đã ghi số hóa đơn điện tử.');
+            refresh(einvoice.id);
+            setEinvoice(null);
           }}
         />
       )}
@@ -442,6 +496,15 @@ function OrderFields({
             <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} />
           </Form.Item>
         </Col>
+        <Col xs={12} md={4}>
+          <Form.Item
+            name="postingDate"
+            label="Ngày hạch toán"
+            tooltip="Ngày xuất kho, ghi doanh thu; trống: ngày đơn"
+          >
+            <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} />
+          </Form.Item>
+        </Col>
         <Col xs={12} md={3}>
           <Form.Item name="reserveStock" valuePropName="checked" label="Giữ hàng khi duyệt">
             <Checkbox />
@@ -453,7 +516,7 @@ function OrderFields({
           </Form.Item>
         </Col>
         <Col xs={12} md={4}>
-          <Form.Item name="paymentTermDays" label="Hạn thanh toán (ngày)" extra="Trống: theo khách">
+          <Form.Item name="paymentTermDays" label="Số ngày nợ" tooltip="Trống: theo khách">
             <InputNumber min={0} max={3650} style={{ width: '100%' }} />
           </Form.Item>
         </Col>
@@ -533,133 +596,5 @@ function OrderFields({
         )}
       </Form.List>
     </>
-  );
-}
-
-/** Bán nhanh (BR-SAL-42): một thao tác đơn bán → phiếu giao (khách nhận ngay) → hóa đơn bán. */
-function QuickSaleModal({
-  branchOptions,
-  defaultBranch,
-  onClose,
-  onDone,
-}: {
-  branchOptions: { value: number; label: string }[];
-  defaultBranch?: number;
-  onClose(): void;
-  onDone(result: QuickSaleResult): void;
-}) {
-  const [form] = Form.useForm<OrderForm & { createInvoice?: boolean }>();
-  const warehouses = useWarehouses();
-  const branchId = Form.useWatch('branchId', form) as number | undefined;
-  const { key } = useIdempotencyKey();
-  const [error, setError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-  const submit = async () => {
-    const values = await validated(form);
-    if (!values) {
-      return;
-    }
-    setSubmitting(true);
-    setError(null);
-    try {
-      const result = await salesOperationApi.quickSale(
-        {
-          branchId: values.branchId,
-          customerId: values.customerId,
-          warehouseId: values.warehouseId,
-          documentDate: values.documentDate.format('YYYY-MM-DD'),
-          deliveryAddress: values.deliveryAddress,
-          receiverName: values.receiverName,
-          createInvoice: values.createInvoice !== false,
-          description: values.description,
-          lines: (values.lines ?? []).map(toLineInput),
-        },
-        key,
-      );
-      onDone(result);
-    } catch (err) {
-      setError(
-        applyServerErrors(form, err, ['branchId', 'customerId', 'warehouseId', 'documentDate', 'lines']),
-      );
-    } finally {
-      setSubmitting(false);
-    }
-  };
-  return (
-    <Modal
-      open
-      width={1200}
-      title="Bán nhanh: đơn bán, giao hàng, hóa đơn"
-      okText="Thực hiện"
-      okButtonProps={{ loading: submitting }}
-      onOk={submit}
-      onCancel={onClose}
-    >
-      {error && <Alert type="error" showIcon message={error} style={{ marginBottom: 12 }} />}
-      <Form
-        form={form}
-        layout="vertical"
-        initialValues={{
-          branchId: defaultBranch,
-          documentDate: dayjs(),
-          createInvoice: true,
-          lines: [{ quantity: 1 }],
-        }}
-      >
-        <Row gutter={12}>
-          <Col xs={24} md={5}>
-            <Form.Item
-              name="branchId"
-              label="Chi nhánh"
-              rules={[{ required: true, message: 'Chọn chi nhánh' }]}
-            >
-              <Select options={branchOptions} />
-            </Form.Item>
-          </Col>
-          <Col xs={24} md={7}>
-            <Form.Item
-              name="customerId"
-              label="Khách hàng"
-              rules={[{ required: true, message: 'Chọn khách' }]}
-            >
-              <PartnerSelect role="CUSTOMER" />
-            </Form.Item>
-          </Col>
-          <Col xs={24} md={5}>
-            <Form.Item name="warehouseId" label="Kho xuất" rules={[{ required: true, message: 'Chọn kho' }]}>
-              <Select
-                options={warehouses.items
-                  .filter((warehouse) => warehouse.branchId === branchId)
-                  .map((warehouse) => ({
-                    value: warehouse.id,
-                    label: `${warehouse.code} - ${warehouse.name}`,
-                  }))}
-              />
-            </Form.Item>
-          </Col>
-          <Col xs={12} md={4}>
-            <Form.Item name="documentDate" label="Ngày" rules={[{ required: true, message: 'Chọn ngày' }]}>
-              <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} />
-            </Form.Item>
-          </Col>
-          <Col xs={12} md={3}>
-            <Form.Item name="createInvoice" valuePropName="checked" label="Lập hóa đơn">
-              <Checkbox />
-            </Form.Item>
-          </Col>
-          <Col xs={24} md={12}>
-            <Form.Item name="receiverName" label="Người nhận">
-              <Input maxLength={200} />
-            </Form.Item>
-          </Col>
-          <Col xs={24} md={12}>
-            <Form.Item name="description" label="Diễn giải">
-              <Input maxLength={500} />
-            </Form.Item>
-          </Col>
-        </Row>
-        <SalesLinesEditor form={form} />
-      </Form>
-    </Modal>
   );
 }

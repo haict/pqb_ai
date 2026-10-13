@@ -9,9 +9,6 @@ import java.util.List;
 public record SalesReturnLineResponse(
         Long id,
         int lineNo,
-        Long deliveryLineId,
-        String deliveryNo,
-        Long invoiceLineId,
         Long orderLineId,
         Long productId,
         String productCode,

@@ -2,6 +2,7 @@ package com.company.erp.purchasing.application;
 
 import com.company.erp.common.domain.BusinessException;
 import com.company.erp.common.domain.ErrorCode;
+import com.company.erp.inventory.application.StockInService;
 import com.company.erp.masterdata.application.MasterDataQueryService.PartnerInfo;
 import com.company.erp.masterdata.application.MasterDataQueryService.ProductInfo;
 import com.company.erp.masterdata.application.MasterDataQueryService.TaxRateInfo;
@@ -15,34 +16,27 @@ import com.company.erp.purchasing.application.dto.ReasonRequest;
 import com.company.erp.purchasing.domain.PurchaseDocumentStatus;
 import com.company.erp.purchasing.domain.PurchaseOrder;
 import com.company.erp.purchasing.domain.PurchaseOrderLine;
-import com.company.erp.purchasing.domain.PurchaseRequisition;
-import com.company.erp.purchasing.domain.PurchaseRequisitionLine;
 import com.company.erp.purchasing.infrastructure.persistence.PurchaseOrderRepository;
-import com.company.erp.purchasing.infrastructure.persistence.PurchaseRequisitionRepository;
 import com.company.erp.system.application.ApprovalService;
 import com.company.erp.system.application.CurrentUser;
 import com.company.erp.system.application.OrganizationQueryService.BranchRef;
 import com.company.erp.system.application.ParameterService;
 import java.math.BigDecimal;
-import java.time.Clock;
-import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Đơn mua hàng (DMH, BR-PUR-04): lập, sửa, gửi duyệt (từ ngưỡng {@code purchasing.order-approval-threshold} trở lên
- * phải duyệt), duyệt, từ chối, hủy, đóng phần còn lại (BR-PUR-05). Duyệt / hủy / đóng cập nhật hàng đang về và số đã
- * đặt của đề nghị mua trong cùng transaction.
+ * Đơn mua hàng (DMH, BR-PUR-04, D-54): lập, sửa, gửi duyệt (từ ngưỡng {@code purchasing.order-approval-threshold} trở
+ * lên phải duyệt), duyệt, từ chối, hủy. Duyệt cộng hàng đang về, hủy đơn đã duyệt trừ lại trong cùng transaction. Ghi
+ * sổ, đảo ở {@link PurchaseOrderPostingService}.
  */
 @Service
 public class PurchaseOrderService {
@@ -51,44 +45,36 @@ public class PurchaseOrderService {
     static final String VIEW = "purchase-order:view";
     static final String CREATE = "purchase-order:create";
     static final String APPROVE = "purchase-order:approve";
-    static final String CLOSE = "purchase-order:close";
     static final String ENTITY = "PURCHASE_ORDER";
     static final String THRESHOLD = "purchasing.order-approval-threshold";
     static final String DOMESTIC_CURRENCY = "VND";
 
-    /** {@code openOnly}: chỉ đơn đã duyệt còn mở (để nhận hàng). */
     public record OrderFilter(Long companyId, Long branchId, PurchaseDocumentStatus status, Long supplierId,
-                              Long warehouseId, boolean openOnly, LocalDate dateFrom, LocalDate dateTo,
-                              String keyword) {
+                              Long warehouseId, LocalDate dateFrom, LocalDate dateTo, String keyword) {
     }
 
     private final PurchaseOrderRepository repository;
-    private final PurchaseRequisitionRepository requisitionRepository;
     private final PurchaseDocumentFlow flow;
     private final PurchasingAccess access;
-    private final PurchaseOrderEffects effects;
     private final ApprovalService approvalService;
     private final ParameterService parameters;
-    private final Clock clock;
+    private final StockInService stockIn;
     private final PurchaseDocumentFlow.Spec<PurchaseOrder, PurchaseOrderResponse> spec;
 
     @SuppressWarnings("java:S107")
-    public PurchaseOrderService(PurchaseOrderRepository repository,
-                                PurchaseRequisitionRepository requisitionRepository, PurchaseDocumentFlow flow,
+    public PurchaseOrderService(PurchaseOrderRepository repository, PurchaseDocumentFlow flow,
                                 PurchasingAccess access, PurchaseOrderEffects effects,
-                                ApprovalService approvalService, ParameterService parameters, Clock clock) {
+                                ApprovalService approvalService, ParameterService parameters, StockInService stockIn) {
         this.repository = repository;
-        this.requisitionRepository = requisitionRepository;
         this.flow = flow;
         this.access = access;
-        this.effects = effects;
         this.approvalService = approvalService;
         this.parameters = parameters;
-        this.clock = clock;
+        this.stockIn = stockIn;
         this.spec = new PurchaseDocumentFlow.Spec<>(PATH, VIEW, CREATE, APPROVE, ENTITY,
                 repository::findByIdForUpdate, repository, document -> toResponse(document, true),
                 PurchaseOrderResponse.class, this::thresholdReached, PurchaseOrder::maxDiscountPercent,
-                effects::approved, effects::cancelled);
+                effects::approved, effects::released);
     }
 
     @Transactional(readOnly = true)
@@ -99,15 +85,16 @@ public class PurchaseOrderService {
                         filter.supplierId() == null ? cb.conjunction()
                                 : cb.equal(root.get("supplierId"), filter.supplierId()),
                         filter.warehouseId() == null ? cb.conjunction()
-                                : cb.equal(root.get("warehouseId"), filter.warehouseId()),
-                        filter.openOnly() ? root.get("status").in(PurchaseOrder.OPEN) : cb.conjunction())),
+                                : cb.equal(root.get("warehouseId"), filter.warehouseId()))),
                 pageable);
         Map<Long, PartnerInfo> suppliers = access.partners(page.getContent().stream()
                 .map(PurchaseOrder::getSupplierId).toList());
         Map<Long, WarehouseInfo> warehouses = access.warehouses(page.getContent().stream()
                 .map(PurchaseOrder::getWarehouseId).toList());
+        Map<Long, String> inventoryNumbers = inventoryNumbers(page.getContent());
         return page.map(document -> toResponse(document, suppliers.get(document.getSupplierId()),
-                warehouses.get(document.getWarehouseId()), false));
+                warehouses.get(document.getWarehouseId()), inventoryNumbers.get(document.getInventoryDocumentId()),
+                false));
     }
 
     @Transactional(readOnly = true)
@@ -162,22 +149,19 @@ public class PurchaseOrderService {
         return flow.cancel(actor, id, key, request, spec);
     }
 
-    /** Đóng phần chưa nhập kho (BR-PUR-05): trừ hàng đang về; số đã đặt của đề nghị mua giữ nguyên. */
-    @Transactional
-    public PurchaseOrderResponse close(CurrentUser actor, Long id, String key, ReasonRequest request) {
-        return flow.idempotent(actor, key, "POST " + PATH + "/" + id + "/close", request,
-                PurchaseOrderResponse.class, () -> {
-                    access.requirePermission(actor, CLOSE);
-                    PurchaseOrder document = flow.lock(actor, id, spec);
-                    if (!document.isOpen()) {
-                        throw new BusinessException(ErrorCode.INVALID_DOCUMENT_STATE, "Đơn mua "
-                                + document.getDocumentNo() + " đang ở trạng thái " + document.getStatus()
-                                + ", không đóng được.");
-                    }
-                    effects.closing(document);
-                    document.close(actor.id(), Instant.now(clock), request.reason().trim());
-                    return flow.act(actor, document, "CLOSE", request.reason(), spec);
-                });
+    PurchaseDocumentFlow.Spec<PurchaseOrder, PurchaseOrderResponse> spec() {
+        return spec;
+    }
+
+    /** Đơn mua khác còn hiệu lực trùng hóa đơn (MST, ký hiệu, số): 409 {@code DUPLICATE_DOCUMENT} (BR-PUR-09). */
+    void requireUniqueInvoice(Long companyId, String duplicateKey, Long documentId, String label) {
+        if (duplicateKey == null) {
+            return;
+        }
+        repository.findDuplicate(companyId, duplicateKey, documentId).ifPresent(other -> {
+            throw new BusinessException(ErrorCode.DUPLICATE_DOCUMENT, "Hóa đơn " + label
+                    + " đã được nhập ở đơn mua " + other + ".");
+        });
     }
 
     private boolean thresholdReached(PurchaseOrder document) {
@@ -195,18 +179,45 @@ public class PurchaseOrderService {
         }
         Integer paymentTerm = request.paymentTermDays() != null ? request.paymentTermDays()
                 : supplier.supplierPaymentTermDays();
-        Map<Long, PurchaseRequisitionLine> requisitionLines = requisitionLines(document, request);
+        LocalDate postingDate = request.postingDate() != null ? request.postingDate() : request.documentDate();
+        PurchaseOrder.Invoice invoice = invoice(supplier, request);
+        if (invoice != null) {
+            // Kiểm tra trước khi đổi entity: truy vấn sau khi đổi sẽ tự flush và vướng ràng buộc unique.
+            requireUniqueInvoice(companyId, PurchaseOrder.duplicateKey(invoice.sellerTaxCode(), invoice.series(),
+                    invoice.number()), document.getId(), invoice.series().trim() + "-" + invoice.number().trim());
+        }
+        LocalDate dueDate = request.dueDate() != null ? request.dueDate()
+                : (invoice != null ? invoice.date() : postingDate).plusDays(paymentTerm == null ? 0 : paymentTerm);
         List<PurchaseOrderLine> lines = new ArrayList<>();
         for (int i = 0; i < request.lines().size(); i++) {
-            lines.add(line(document, request, request.lines().get(i), i, requisitionLines));
+            lines.add(line(document, request, request.lines().get(i), i));
         }
-        document.replaceContent(new PurchaseOrder.Header(request.documentDate(), supplier.id(), request.warehouseId(),
-                request.expectedDate(), paymentTerm, currency, BigDecimal.ONE,
-                PurchaseRequisitionService.trim(request.description())), lines);
+        document.replaceContent(new PurchaseOrder.Header(request.documentDate(), postingDate, supplier.id(),
+                request.warehouseId(), request.expectedDate(), paymentTerm, currency, BigDecimal.ONE, invoice, dueDate,
+                PurchasingAccess.trim(request.description())), lines);
+    }
+
+    /** Hóa đơn của nhà cung cấp: đủ ký hiệu, số, ngày hoặc để trống cả ba; MST người bán theo danh mục nhà cung cấp. */
+    private static PurchaseOrder.Invoice invoice(PartnerInfo supplier, PurchaseOrderRequest request) {
+        String series = PurchasingAccess.trim(request.invoiceSeries());
+        String number = PurchasingAccess.trim(request.invoiceNo());
+        if (series == null && number == null && request.invoiceDate() == null) {
+            return null;
+        }
+        if (series == null || number == null || request.invoiceDate() == null) {
+            throw BusinessException.invalidField(series == null ? "invoiceSeries" : number == null ? "invoiceNo"
+                    : "invoiceDate", "Hóa đơn của nhà cung cấp phải có đủ ký hiệu, số và ngày.");
+        }
+        String taxCode = PurchasingAccess.trim(supplier.taxCode());
+        if (taxCode == null) {
+            throw BusinessException.invalidField("supplierId", "Nhà cung cấp " + supplier.code()
+                    + " chưa có mã số thuế; bổ sung trong danh mục đối tác.");
+        }
+        return new PurchaseOrder.Invoice(taxCode, series, number, request.invoiceDate());
     }
 
     private PurchaseOrderLine line(PurchaseOrder document, PurchaseOrderRequest request, PurchaseOrderLineRequest line,
-                                   int index, Map<Long, PurchaseRequisitionLine> requisitionLines) {
+                                   int index) {
         String field = "lines[" + index + "]";
         Long companyId = document.getCompanyId();
         ProductInfo product = access.product(companyId, line.productId(), field + ".productId");
@@ -216,58 +227,77 @@ public class PurchaseOrderService {
         Long taxRateId = line.taxRateId() != null ? line.taxRateId() : product.defaultTaxRateId();
         TaxRateInfo tax = taxRateId == null ? null
                 : access.taxRate(companyId, taxRateId, request.documentDate(), field + ".taxRateId");
-        if (line.requisitionLineId() != null) {
-            PurchaseRequisitionLine source = requisitionLines.get(line.requisitionLineId());
-            if (!source.getProductId().equals(line.productId())) {
-                throw BusinessException.invalidField(field + ".requisitionLineId",
-                        "Dòng đề nghị mua khác mặt hàng với dòng đơn mua.");
-            }
-            if (base.compareTo(source.remainingQuantity()) > 0) {
-                throw new BusinessException(ErrorCode.SOURCE_QUANTITY_EXCEEDED, field + ": đề nghị mua còn "
-                        + source.remainingQuantity().stripTrailingZeros().toPlainString() + " (đơn vị cơ sở).");
-            }
+        boolean service = !product.stockTracked();
+        if (!service) {
+            requireTracking(product, line, field);
         }
+        List<String> serials = service ? List.of() : serials(product, line, base, field);
         return new PurchaseOrderLine(index + 1, new PurchaseOrderLine.Values(line.productId(), line.unitId(), factor,
                 line.quantity(), base, line.unitPrice(), line.discountPercent(), tax == null ? null : tax.id(),
-                tax == null ? null : tax.rate(), line.expectedDate(), line.requisitionLineId(), !product.stockTracked(),
-                PurchaseRequisitionService.trim(line.note())));
+                tax == null ? null : tax.rate(), service, service ? null : line.locationId(),
+                service ? null : PurchasingAccess.trim(line.lotNo()), service ? null : line.manufactureDate(),
+                service ? null : line.expiryDate(), serials, PurchasingAccess.trim(line.note())));
     }
 
-    /** Dòng đề nghị được tham chiếu: cùng công ty, chi nhánh, đề nghị đã duyệt còn mở; mỗi dòng chỉ một lần. */
-    private Map<Long, PurchaseRequisitionLine> requisitionLines(PurchaseOrder document, PurchaseOrderRequest request) {
-        List<Long> ids = request.lines().stream().map(PurchaseOrderLineRequest::requisitionLineId)
-                .filter(Objects::nonNull).toList();
-        if (new HashSet<>(ids).size() != ids.size()) {
-            throw BusinessException.invalidField("lines", "Mỗi dòng đề nghị mua chỉ được đặt ở một dòng đơn mua.");
-        }
-        Map<Long, PurchaseRequisitionLine> result = new HashMap<>();
-        if (ids.isEmpty()) {
-            return result;
-        }
-        for (PurchaseRequisition requisition : requisitionRepository.findByLineIds(ids)) {
-            if (!requisition.getCompanyId().equals(document.getCompanyId())
-                    || !requisition.getBranchId().equals(document.getBranchId()) || !requisition.isOpen()) {
-                throw BusinessException.invalidField("lines", "Đề nghị mua " + requisition.getDocumentNo()
-                        + " khác chi nhánh hoặc không còn mở.");
+    /**
+     * Kiểm tra lô / hạn dùng theo cấu hình hàng ngay khi lưu đơn (BR-INV-01), cùng quy tắc với phiếu nhập kho
+     * sinh lúc ghi sổ, để đơn đã duyệt không bị chặn khi ghi sổ.
+     */
+    private static void requireTracking(ProductInfo product, PurchaseOrderLineRequest line, String field) {
+        if (!product.lotTracked()) {
+            if (PurchasingAccess.trim(line.lotNo()) != null || line.manufactureDate() != null
+                    || line.expiryDate() != null) {
+                throw BusinessException.invalidField(field + ".lotNo", "Hàng " + product.code()
+                        + " không quản lý lô: bỏ số lô, ngày sản xuất, hạn dùng.");
             }
-            requisition.getLines().stream().filter(line -> ids.contains(line.getId()))
-                    .forEach(line -> result.put(line.getId(), line));
+            return;
         }
-        Set<Long> missing = new HashSet<>(ids);
-        missing.removeAll(result.keySet());
-        if (!missing.isEmpty()) {
-            throw BusinessException.invalidField("lines", "Dòng đề nghị mua không tồn tại.");
+        if (PurchasingAccess.trim(line.lotNo()) == null) {
+            throw BusinessException.invalidField(field + ".lotNo", "Hàng " + product.code() + " phải nhập số lô.");
         }
-        return result;
+        if (product.expiryTracked() && line.expiryDate() == null) {
+            throw BusinessException.invalidField(field + ".expiryDate", "Hàng " + product.code()
+                    + " phải nhập hạn dùng.");
+        }
+        if (line.manufactureDate() != null && line.expiryDate() != null
+                && !line.expiryDate().isAfter(line.manufactureDate())) {
+            throw BusinessException.invalidField(field + ".expiryDate", "Hạn dùng phải sau ngày sản xuất.");
+        }
     }
 
-    private PurchaseOrderResponse toResponse(PurchaseOrder document, boolean detailed) {
+    /** Hàng quản lý serial: mỗi serial một đơn vị cơ sở (BR-INV-02). */
+    private static List<String> serials(ProductInfo product, PurchaseOrderLineRequest line, BigDecimal base,
+                                        String field) {
+        List<String> serials = line.serialNumbers() == null ? List.of()
+                : line.serialNumbers().stream().map(String::trim).distinct().toList();
+        if (!product.serialTracked()) {
+            if (!serials.isEmpty()) {
+                throw BusinessException.invalidField(field + ".serialNumbers", "Hàng " + product.code()
+                        + " không quản lý serial.");
+            }
+            return List.of();
+        }
+        if (base.compareTo(BigDecimal.valueOf(serials.size())) != 0) {
+            throw BusinessException.invalidField(field + ".serialNumbers", "Số serial không trùng (" + serials.size()
+                    + ") phải bằng số lượng theo đơn vị cơ sở (" + base.stripTrailingZeros().toPlainString() + ").");
+        }
+        return serials;
+    }
+
+    private Map<Long, String> inventoryNumbers(List<PurchaseOrder> documents) {
+        List<Long> ids = documents.stream().map(PurchaseOrder::getInventoryDocumentId).filter(Objects::nonNull)
+                .toList();
+        return ids.isEmpty() ? new HashMap<>() : new HashMap<>(stockIn.documentNumbers(ids));
+    }
+
+    PurchaseOrderResponse toResponse(PurchaseOrder document, boolean detailed) {
         return toResponse(document, access.partners(List.of(document.getSupplierId())).get(document.getSupplierId()),
-                access.warehouses(List.of(document.getWarehouseId())).get(document.getWarehouseId()), detailed);
+                access.warehouses(List.of(document.getWarehouseId())).get(document.getWarehouseId()),
+                inventoryNumbers(List.of(document)).get(document.getInventoryDocumentId()), detailed);
     }
 
     private PurchaseOrderResponse toResponse(PurchaseOrder document, PartnerInfo supplier, WarehouseInfo warehouse,
-                                             boolean detailed) {
+                                             String inventoryNo, boolean detailed) {
         List<PurchaseOrderLineResponse> lines = List.of();
         if (detailed) {
             Map<Long, ProductInfo> products = access.products(document.getLines().stream()
@@ -276,15 +306,18 @@ public class PurchaseOrderService {
                     .toList();
         }
         return new PurchaseOrderResponse(document.getId(), document.getCompanyId(), document.getBranchId(),
-                document.getDocumentNo(), document.getDocumentDate(), document.getSupplierId(),
-                supplier == null ? null : supplier.code(), supplier == null ? null : supplier.name(),
-                document.getWarehouseId(), warehouse == null ? null : warehouse.code(),
-                warehouse == null ? null : warehouse.name(), document.getExpectedDate(),
-                document.getPaymentTermDays(), document.getCurrencyCode(), document.getExchangeRate(),
-                document.getDescription(), document.getAmount(), document.getDiscountAmount(),
-                document.getTaxAmount(), document.getTotalAmount(), document.getStatus(), document.getSubmittedAt(),
-                document.getApprovedAt(), document.getClosedAt(), document.getReason(), document.getCreatedBy(),
-                document.getVersion(), lines,
+                document.getDocumentNo(), document.getDocumentDate(), document.getPostingDate(),
+                document.getSupplierId(), supplier == null ? null : supplier.code(),
+                supplier == null ? null : supplier.name(), document.getWarehouseId(),
+                warehouse == null ? null : warehouse.code(), warehouse == null ? null : warehouse.name(),
+                document.getExpectedDate(), document.getPaymentTermDays(), document.getCurrencyCode(),
+                document.getExchangeRate(), supplier == null ? null : supplier.taxCode(),
+                supplier == null ? null : supplier.address(), document.getInvoiceSeries(),
+                document.getInvoiceNo(), document.getInvoiceDate(), document.getDueDate(), document.getDescription(),
+                document.getAmount(), document.getDiscountAmount(), document.getTaxAmount(), document.getTotalAmount(),
+                document.getStatus(), document.getInventoryDocumentId(), inventoryNo, document.getSubmittedAt(),
+                document.getApprovedAt(), document.getPostedAt(), document.getReversedAt(), document.getReverseDate(),
+                document.getReason(), document.getCreatedBy(), document.getVersion(), lines,
                 detailed ? approvalService.history(PurchaseOrder.TYPE_CODE, document.getId()) : List.of());
     }
 
@@ -293,9 +326,9 @@ public class PurchaseOrderService {
                 product == null ? null : product.code(), product == null ? null : product.name(), line.getUnitId(),
                 product == null ? null : product.baseUnitId(), line.getConversionFactor(), line.getQuantity(),
                 line.getBaseQuantity(), line.getUnitPrice(), line.getDiscountPercent(), line.getDiscountAmount(),
-                line.getAmount(), line.getTaxRateId(), line.getTaxRate(), line.getTaxAmount(),
-                line.getExpectedDate(), line.getRequisitionLineId(), line.getReceivedQuantity(),
-                line.getStockedQuantity(), line.getRejectedQuantity(), line.getInvoicedQuantity(),
-                line.getClosedQuantity(), line.outstandingQuantity(), line.getNote());
+                line.getAmount(), line.getTaxRateId(), line.getTaxRate(), line.getTaxAmount(), line.isServiceLine(),
+                line.getLocationId(), line.getLotNo(), line.getManufactureDate(), line.getExpiryDate(),
+                List.copyOf(line.getSerialNumbers()), line.getReturnedQuantity(), line.getAdjustedAmount(),
+                line.getAllocatedAmount(), line.returnableQuantity(), line.remainingAmount(), line.getNote());
     }
 }

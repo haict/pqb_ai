@@ -1,18 +1,9 @@
 import type { ApprovalRequest } from '../system/types';
 import type { QualityStatus } from '../masterdata/types';
 
-/** Trạng thái chứng từ điều phối mua hàng (BR mục 5.1, nhóm B). */
+/** Trạng thái chứng từ mua hàng (BR mục 5.1, D-54: mọi chứng từ mua là chứng từ ghi sổ). */
 export type PurchaseDocumentStatus =
-  | 'DRAFT'
-  | 'SUBMITTED'
-  | 'REJECTED'
-  | 'APPROVED'
-  | 'IN_PROGRESS'
-  | 'COMPLETED'
-  | 'CLOSED'
-  | 'CANCELLED'
-  | 'POSTED'
-  | 'REVERSED';
+  'DRAFT' | 'SUBMITTED' | 'REJECTED' | 'APPROVED' | 'CANCELLED' | 'POSTED' | 'REVERSED';
 
 export interface PurchaseDocumentBase {
   id: number;
@@ -20,58 +11,18 @@ export interface PurchaseDocumentBase {
   branchId: number;
   documentNo: string;
   documentDate: string;
+  postingDate: string;
   description: string | null;
   status: PurchaseDocumentStatus;
   submittedAt: string | null;
   approvedAt: string | null;
-  closedAt: string | null;
+  postedAt: string | null;
+  reversedAt: string | null;
+  reverseDate: string | null;
   reason: string | null;
   createdBy: number | null;
   version: number;
   approvals: ApprovalRequest[];
-}
-
-export interface PurchaseRequisitionLine {
-  id: number;
-  lineNo: number;
-  productId: number;
-  productCode: string | null;
-  productName: string | null;
-  unitId: number;
-  baseUnitId: number | null;
-  conversionFactor: number;
-  quantity: number;
-  baseQuantity: number;
-  orderedQuantity: number;
-  closedQuantity: number;
-  remainingQuantity: number;
-  suggestedSupplierId: number | null;
-  suggestedSupplierName: string | null;
-  requiredDate: string | null;
-  note: string | null;
-}
-
-export interface PurchaseRequisition extends PurchaseDocumentBase {
-  sourceType: 'MANUAL';
-  requiredDate: string | null;
-  requesterId: number | null;
-  requesterName: string | null;
-  lines: PurchaseRequisitionLine[];
-}
-
-export interface OpenRequisitionLine {
-  requisitionId: number;
-  documentNo: string;
-  documentDate: string;
-  lineId: number;
-  lineNo: number;
-  productId: number;
-  productCode: string | null;
-  productName: string | null;
-  baseUnitId: number | null;
-  remainingQuantity: number;
-  suggestedSupplierId: number | null;
-  requiredDate: string | null;
 }
 
 export interface PurchaseOrderLine {
@@ -92,17 +43,21 @@ export interface PurchaseOrderLine {
   taxRateId: number | null;
   taxRate: number | null;
   taxAmount: number;
-  expectedDate: string | null;
-  requisitionLineId: number | null;
-  receivedQuantity: number;
-  stockedQuantity: number;
-  rejectedQuantity: number;
-  invoicedQuantity: number;
-  closedQuantity: number;
-  outstandingQuantity: number;
+  serviceLine: boolean;
+  locationId: number | null;
+  lotNo: string | null;
+  manufactureDate: string | null;
+  expiryDate: string | null;
+  serialNumbers: string[];
+  returnedQuantity: number;
+  adjustedAmount: number;
+  allocatedAmount: number;
+  returnableQuantity: number;
+  remainingAmount: number;
   note: string | null;
 }
 
+/** Đơn mua hàng (D-54): mang hóa đơn của nhà cung cấp; ghi sổ = nhập kho + công nợ phải trả + bút toán. */
 export interface PurchaseOrder extends PurchaseDocumentBase {
   supplierId: number;
   supplierCode: string | null;
@@ -114,117 +69,19 @@ export interface PurchaseOrder extends PurchaseDocumentBase {
   paymentTermDays: number | null;
   currencyCode: string;
   exchangeRate: number;
+  supplierTaxCode: string | null;
+  supplierAddress: string | null;
+  invoiceSeries: string | null;
+  invoiceNo: string | null;
+  invoiceDate: string | null;
+  dueDate: string | null;
   amount: number;
   discountAmount: number;
   taxAmount: number;
   totalAmount: number;
-  lines: PurchaseOrderLine[];
-}
-
-export type InspectionResult = 'ACCEPTED' | 'QUARANTINE' | 'RETURN';
-
-export interface PurchaseReceiptLine {
-  id: number;
-  lineNo: number;
-  orderLineId: number;
-  productId: number;
-  productCode: string | null;
-  productName: string | null;
-  unitId: number;
-  conversionFactor: number;
-  quantity: number;
-  baseQuantity: number;
-  inspectionResult: InspectionResult;
-  rejectReason: string | null;
-  locationId: number | null;
-  lotNo: string | null;
-  manufactureDate: string | null;
-  expiryDate: string | null;
-  unitCost: number;
-  note: string | null;
-  serialNumbers: string[];
-}
-
-export interface PurchaseReceipt extends PurchaseDocumentBase {
-  postingDate: string;
-  purchaseOrderId: number;
-  purchaseOrderNo: string | null;
-  supplierId: number;
-  supplierCode: string | null;
-  supplierName: string | null;
-  warehouseId: number;
-  warehouseCode: string | null;
-  warehouseName: string | null;
-  deliveryNoteNo: string | null;
-  overTolerance: boolean;
   inventoryDocumentId: number | null;
   inventoryDocumentNo: string | null;
-  stockedAt: string | null;
-  postedAt: string | null;
-  reversedAt: string | null;
-  reverseDate: string | null;
-  lines: PurchaseReceiptLine[];
-}
-
-export interface PurchaseInvoiceLine {
-  id: number;
-  lineNo: number;
-  receiptLineId: number | null;
-  receiptNo: string | null;
-  orderLineId: number | null;
-  productId: number;
-  productCode: string | null;
-  productName: string | null;
-  unitId: number;
-  conversionFactor: number;
-  quantity: number;
-  baseQuantity: number;
-  unitPrice: number;
-  provisionalUnitPrice: number | null;
-  amount: number;
-  taxRateId: number | null;
-  taxRate: number | null;
-  taxAmount: number;
-  promotional: boolean;
-  description: string | null;
-}
-
-export interface PurchaseInvoice extends PurchaseDocumentBase {
-  postingDate: string;
-  supplierId: number;
-  supplierCode: string | null;
-  supplierName: string | null;
-  sellerTaxCode: string;
-  invoiceSeries: string;
-  invoiceNo: string;
-  invoiceDate: string;
-  dueDate: string;
-  amount: number;
-  taxAmount: number;
-  totalAmount: number;
-  postedAt: string | null;
-  reversedAt: string | null;
-  reverseDate: string | null;
-  matchWarnings: string[];
-  lines: PurchaseInvoiceLine[];
-}
-
-export interface InvoiceableLine {
-  receiptId: number;
-  receiptNo: string;
-  receiptDate: string;
-  purchaseOrderId: number;
-  purchaseOrderNo: string | null;
-  receiptLineId: number;
-  lineNo: number;
-  orderLineId: number;
-  productId: number;
-  productCode: string | null;
-  productName: string | null;
-  unitId: number;
-  remainingQuantity: number;
-  unitPrice: number;
-  taxRateId: number | null;
+  lines: PurchaseOrderLine[];
 }
 
 /** Trả hàng nhà cung cấp (THN) / giảm giá hàng mua (GGM). */
@@ -233,9 +90,7 @@ export type PurchaseReturnType = 'THN' | 'GGM';
 export interface PurchaseReturnLine {
   id: number;
   lineNo: number;
-  receiptLineId: number | null;
-  receiptNo: string | null;
-  invoiceLineId: number | null;
+  orderLineId: number;
   productId: number;
   productCode: string | null;
   productName: string | null;
@@ -254,12 +109,11 @@ export interface PurchaseReturnLine {
 
 export interface PurchaseReturn extends PurchaseDocumentBase {
   documentType: PurchaseReturnType;
-  postingDate: string;
   supplierId: number;
   supplierCode: string | null;
   supplierName: string | null;
-  purchaseInvoiceId: number | null;
-  purchaseInvoiceNo: string | null;
+  purchaseOrderId: number;
+  purchaseOrderNo: string | null;
   invoiceLabel: string | null;
   warehouseId: number | null;
   inventoryDocumentId: number | null;
@@ -267,20 +121,19 @@ export interface PurchaseReturn extends PurchaseDocumentBase {
   amount: number;
   taxAmount: number;
   totalAmount: number;
-  postedAt: string | null;
-  reversedAt: string | null;
-  reverseDate: string | null;
   lines: PurchaseReturnLine[];
 }
 
+/** Dòng đơn mua đã ghi sổ còn trả / giảm giá được. */
 export interface ReturnableLine {
-  receiptId: number | null;
-  receiptNo: string | null;
-  receiptDate: string | null;
-  receiptLineId: number | null;
-  warehouseId: number | null;
-  invoiceLineId: number | null;
-  productId: number | null;
+  orderId: number;
+  orderNo: string;
+  postingDate: string;
+  invoiceLabel: string;
+  orderLineId: number;
+  warehouseId: number;
+  serviceLine: boolean;
+  productId: number;
   productCode: string | null;
   productName: string | null;
   unitId: number;
@@ -288,9 +141,9 @@ export interface ReturnableLine {
   expiryDate: string | null;
   qualityStatus: QualityStatus | null;
   remainingQuantity: number;
-  unitPrice: number | null;
+  unitPrice: number;
   taxRate: number | null;
-  remainingAmount: number | null;
+  remainingAmount: number;
   serialNumbers: string[];
 }
 
@@ -298,11 +151,11 @@ export type CostAllocationMethod = 'VALUE' | 'QUANTITY';
 
 export interface CostAllocationSource {
   lineNo: number | null;
-  invoiceId: number | null;
-  invoiceDocumentNo: string | null;
+  orderId: number | null;
+  orderNo: string | null;
   invoiceLabel: string | null;
   supplierName: string | null;
-  invoiceLineId: number;
+  orderLineId: number;
   productId: number | null;
   productCode: string | null;
   productName: string | null;
@@ -312,9 +165,9 @@ export interface CostAllocationSource {
 
 export interface CostAllocationTarget {
   lineNo: number;
-  receiptId: number | null;
-  receiptNo: string | null;
-  receiptLineId: number;
+  orderId: number | null;
+  orderNo: string | null;
+  orderLineId: number;
   productId: number;
   productCode: string | null;
   productName: string | null;
@@ -324,13 +177,47 @@ export interface CostAllocationTarget {
 }
 
 export interface PurchaseCostAllocation extends PurchaseDocumentBase {
-  postingDate: string;
   method: CostAllocationMethod;
   amount: number;
-  postedAt: string | null;
-  reversedAt: string | null;
-  reverseDate: string | null;
-  receiptIds: number[];
+  orderIds: number[];
   sources: CostAllocationSource[];
   targets: CostAllocationTarget[];
+}
+
+/** Dữ liệu in phiếu nhập kho của đơn mua đã ghi sổ (`GET /purchase-orders/{id}/stock-in-slip`). */
+export interface StockInSlipLine {
+  lineNo: number;
+  productCode: string | null;
+  productName: string | null;
+  lotNo: string | null;
+  expiryDate: string | null;
+  unitId: number;
+  quantity: number;
+  unitPrice: number;
+  amount: number;
+}
+
+export interface StockInSlip {
+  companyName: string | null;
+  companyAddress: string | null;
+  orderId: number;
+  orderNo: string;
+  slipNo: string | null;
+  slipDate: string;
+  debitAccounts: string[];
+  creditAccounts: string[];
+  supplierName: string | null;
+  supplierAddress: string | null;
+  supplierTaxCode: string | null;
+  description: string;
+  invoiceSeries: string | null;
+  invoiceNo: string | null;
+  invoiceDate: string | null;
+  warehouseCode: string | null;
+  warehouseName: string | null;
+  lines: StockInSlipLine[];
+  totalAmount: number;
+  taxRates: number[];
+  taxAmount: number;
+  paymentAmount: number;
 }

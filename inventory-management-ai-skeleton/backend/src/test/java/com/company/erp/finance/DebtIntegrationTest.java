@@ -209,7 +209,7 @@ class DebtIntegrationTest {
         String termField = "SUPPLIER".equals(role) ? "supplierPaymentTermDays" : "paymentTermDays";
         String body = "{\"companyId\":1,\"code\":\"" + code + "\",\"name\":\"Đối tác " + code
                 + "\",\"partnerKind\":\"ORGANIZATION\",\"roles\":[\"" + role + "\"],\"" + termField + "\":" + termDays
-                + ",\"contacts\":[{\"name\":\"Liên hệ\",\"primaryContact\":true}]}";
+                + ",\"taxCode\":\"0300000001\",\"address\":\"Hà Nội\",\"contacts\":[{\"name\":\"Liên hệ\",\"primaryContact\":true}]}";
         return jsonId(send(admin, post("/api/v1/partners"), body, newKey()).andExpect(status().isCreated()).andReturn());
     }
 

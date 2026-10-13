@@ -82,7 +82,8 @@ Kế hoạch duyệt 2026-10-10 ("duyệt, tự chốt"): 5A đề nghị mua, �
 - [x] 5B: Phiếu nhận hàng theo đơn mua (kiểm nhận đạt / cách ly / trả lại, lô / hạn / serial, dung sai nhận vượt có duyệt), nhập kho thành PNK riêng có nguồn (`StockInService`), nhận và nhập trong một thao tác (D-36), đảo; màn hình Phiếu nhận hàng; AT-01, AT-02
 - [x] 5C: Hóa đơn mua n-n với phiếu nhận hàng, dịch vụ, hàng khuyến mại, chống trùng, đối chiếu ba chiều (cảnh báo), công nợ phải trả + bút toán theo quy tắc, chênh lệch giá theo dòng phiếu nhận (`purchase_cost_entries`), đảo; màn hình Hóa đơn mua
 - [x] 5D: Trả hàng NCC (đúng lô / serial theo phiếu nhận, hàng chưa / đã có hóa đơn; giảm tồn, công nợ phải trả, bút toán), giảm giá hàng mua (giảm công nợ và giá trị nhập), phân bổ chi phí mua theo giá trị / số lượng (`LANDED_COST`), đảo và chặn đảo khi có chứng từ phụ thuộc; `StockOutService` và giữ chỗ dùng được cho Giai đoạn 6; màn hình Trả hàng / giảm giá, Phân bổ chi phí mua
-- [ ] Yêu cầu báo giá, so sánh báo giá, lịch sử / đánh giá NCC (5E, chưa làm)
+- [x] D-54 (2026-10-12, V22): gộp đề nghị mua, phiếu nhận hàng, hóa đơn mua vào đơn mua. Đơn mua mang hóa đơn NCC, lô / hạn / serial; ghi sổ = phiếu nhập kho PNK + công nợ phải trả + bút toán; đảo đơn. Trả hàng / giảm giá / phân bổ chi phí tham chiếu dòng đơn mua đã ghi sổ. Xóa màn hình Đề nghị mua, Phiếu nhận hàng, Hóa đơn mua (ADR-17)
+- [-] Yêu cầu báo giá, so sánh báo giá (5E): bỏ theo D-54; lịch sử / đánh giá NCC (BR-PUR-18) chưa làm
 - [x] Test: AT-01, AT-02
 
 ## Giai đoạn 6 - Bán hàng (M05)
@@ -94,7 +95,8 @@ Người dùng giao làm hết Giai đoạn 6 theo khuyến cáo (2026-10-10): 6
 - [x] 6E: Trả hàng bán đúng lô / serial vào cách ly, giảm doanh thu / công nợ; giảm giá hàng bán; đổi hàng; tiếp nhận hàng lỗi
 - [x] 6F: Bán nhanh (đơn → giao → hóa đơn), lịch thu tiền theo đợt, báo cáo doanh số theo nhân viên / khách / hàng / chi nhánh có truy ngược chứng từ
 - [ ] Khuyến mại theo chính sách (mua X tặng Y), chiết khấu đơn / thanh toán / theo doanh số kỳ (BR-SAL-35 phần chính sách, P2 cho doanh số kỳ); hàng tặng hiện nhập tay từng dòng
-- [ ] Giá vốn, lợi nhuận gộp (Giai đoạn 8); phiếu thu trong bán nhanh; đề nghị lắp đặt (BR-SAL-24, Giai đoạn 9)
+- [x] D-54 (2026-10-12, V23): gộp báo giá, phiếu giao, hóa đơn bán, bán nhanh vào đơn bán. Ghi sổ đơn = phiếu xuất kho PXK FEFO + doanh thu + công nợ phải thu + bút toán; số HĐĐT ghi trên đơn; theo dõi giao hàng trên đơn (giao thất bại = đảo đơn). Trả / đổi / giảm giá tham chiếu dòng đơn bán đã ghi sổ (ADR-17)
+- [ ] Giá vốn, lợi nhuận gộp (Giai đoạn 8); đề nghị lắp đặt (BR-SAL-24, Giai đoạn 9)
 - [x] Test: AT-03, AT-05, AT-06 (cùng AT-09, AT-10, AT-12 phần bán hàng, AT-13)
 
 ## Giai đoạn 7 - Đấu thầu (M06)

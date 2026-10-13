@@ -21,23 +21,20 @@ import com.company.erp.purchasing.application.dto.PurchaseReturnResponse;
 import com.company.erp.purchasing.application.dto.ReverseRequest;
 import com.company.erp.purchasing.domain.PurchaseCostEntry;
 import com.company.erp.purchasing.domain.PurchaseDocumentStatus;
-import com.company.erp.purchasing.domain.PurchaseInvoice;
-import com.company.erp.purchasing.domain.PurchaseReceipt;
+import com.company.erp.purchasing.domain.PurchaseOrder;
+import com.company.erp.purchasing.domain.PurchaseOrderLine;
 import com.company.erp.purchasing.domain.PurchaseReturn;
 import com.company.erp.purchasing.domain.PurchaseReturnLine;
 import com.company.erp.purchasing.infrastructure.persistence.PurchaseCostEntryRepository;
-import com.company.erp.purchasing.infrastructure.persistence.PurchaseInvoiceRepository;
-import com.company.erp.purchasing.infrastructure.persistence.PurchaseReceiptRepository;
+import com.company.erp.purchasing.infrastructure.persistence.PurchaseOrderRepository;
 import com.company.erp.system.application.CurrentUser;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -45,13 +42,11 @@ import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Ghi sổ / đảo trả hàng nhà cung cấp và giảm giá hàng mua (BR-PUR-14). Trả hàng: số đã trả của dòng phiếu nhận (và
- * dòng hóa đơn), phiếu xuất trả PXK đúng lô / serial; hàng đã có hóa đơn thì giảm công nợ phải trả và bút toán. Giảm
- * giá: giá trị đã giảm của dòng hóa đơn, điều chỉnh giá trị nhập theo dòng phiếu nhận, giảm công nợ, bút toán. Thứ tự
- * khóa: chứng từ → hóa đơn → phiếu nhận (id tăng dần) → kho → công nợ → bút toán (cùng chiều hóa đơn → phiếu nhận với
- * ghi sổ hóa đơn mua). READ COMMITTED.
- */
-@Service
+ * Ghi sổ / đảo trả hàng nhà cung cấp và giảm giá hàng mua (BR-PUR-14, D-54). Trả hàng: số đã trả và giá trị đã giảm
+ * của dòng đơn mua, phiếu xuất trả PXK đúng lô / serial, giảm công nợ phải trả, bút toán. Giảm giá: giá trị đã giảm của
+ * dòng đơn mua, điều chỉnh giá trị nhập theo dòng, giảm công nợ, bút toán. Thứ tự khóa: chứng từ → đơn mua → kho →
+ * công nợ → bút toán. READ COMMITTED.
+ */@Service
 public class PurchaseReturnPostingService {
 
     static final String POST = "purchase-return:post";
@@ -60,8 +55,7 @@ public class PurchaseReturnPostingService {
     private static final Logger log = LoggerFactory.getLogger(PurchaseReturnPostingService.class);
 
     private final PurchaseReturnService returns;
-    private final PurchaseInvoiceRepository invoiceRepository;
-    private final PurchaseReceiptRepository receiptRepository;
+    private final PurchaseOrderRepository orderRepository;
     private final PurchaseCostEntryRepository costRepository;
     private final PurchaseDocumentFlow flow;
     private final PurchasingAccess access;
@@ -72,15 +66,13 @@ public class PurchaseReturnPostingService {
     private final Clock clock;
 
     @SuppressWarnings("java:S107")
-    public PurchaseReturnPostingService(PurchaseReturnService returns, PurchaseInvoiceRepository invoiceRepository,
-                                        PurchaseReceiptRepository receiptRepository,
+    public PurchaseReturnPostingService(PurchaseReturnService returns, PurchaseOrderRepository orderRepository,
                                         PurchaseCostEntryRepository costRepository, PurchaseDocumentFlow flow,
                                         PurchasingAccess access, StockOutService stockOut,
                                         DebtPostingService debtPosting, JournalPostingService journalPosting,
                                         BusinessCalendar calendar, Clock clock) {
         this.returns = returns;
-        this.invoiceRepository = invoiceRepository;
-        this.receiptRepository = receiptRepository;
+        this.orderRepository = orderRepository;
         this.costRepository = costRepository;
         this.flow = flow;
         this.access = access;
@@ -102,18 +94,18 @@ public class PurchaseReturnPostingService {
                                 + document.getDocumentNo() + " ở trạng thái " + document.getStatus()
                                 + ", chỉ ghi sổ chứng từ đã duyệt.");
                     }
-                    PurchaseInvoice invoice = lockInvoice(document);
-                    Map<Long, PurchaseReceipt> receipts = applySources(document, invoice, BigDecimal.ONE);
+                    PurchaseOrder order = lockOrder(document);
+                    applySources(document, order, BigDecimal.ONE);
                     Long inventoryId = null;
                     if (document.isGoodsReturn()) {
                         inventoryId = issue(actor, document).documentId();
                     } else {
-                        recordDiscountCosts(actor, document, receipts);
+                        recordDiscountCosts(actor, document, order);
                     }
-                    if (document.affectsPayable() && document.getTotalAmount().signum() > 0) {
+                    if (document.getTotalAmount().signum() > 0) {
                         debtPosting.reduceInvoice(new InvoiceCreditCommand(document.getCompanyId(),
                                 document.getBranchId(), InvoiceSide.PAYABLE, document.getSupplierId(),
-                                PurchaseInvoice.TYPE_CODE, invoice.getId(), document.typeCode(), document.getId(),
+                                PurchaseOrder.TYPE_CODE, order.getId(), document.typeCode(), document.getId(),
                                 document.getDocumentNo(), document.getPostingDate(), document.getTotalAmount(),
                                 document.isGoodsReturn() ? CreditKind.RETURN : CreditKind.DISCOUNT,
                                 description(document), actor.id()));
@@ -141,15 +133,14 @@ public class PurchaseReturnPostingService {
                     }
                     LocalDate date = request.postingDate() != null ? request.postingDate() : calendar.today();
                     String reason = request.reason().trim();
-                    PurchaseInvoice invoice = lockInvoice(document);
-                    applySources(document, invoice, BigDecimal.ONE.negate());
+                    applySources(document, lockOrder(document), BigDecimal.ONE.negate());
                     Instant now = Instant.now(clock);
                     if (document.getInventoryDocumentId() != null) {
                         stockOut.reverse(actor, document.getInventoryDocumentId(), date, reason);
                     }
                     costRepository.saveAll(costRepository.findOriginals(document.typeCode(), document.getId())
                             .stream().map(entry -> entry.reversed(date, actor.id(), now)).toList());
-                    if (document.affectsPayable() && document.getTotalAmount().signum() > 0) {
+                    if (document.getTotalAmount().signum() > 0) {
                         debtPosting.reverseReduction(new DebtReversalCommand(document.getCompanyId(),
                                 document.getBranchId(), document.typeCode(), document.getId(), date,
                                 document.getDocumentNo(), actor.id()));
@@ -162,58 +153,30 @@ public class PurchaseReturnPostingService {
                 });
     }
 
-    private PurchaseInvoice lockInvoice(PurchaseReturn document) {
-        if (document.getPurchaseInvoiceId() == null) {
-            return null;
-        }
-        return invoiceRepository.findByIdForUpdate(document.getPurchaseInvoiceId())
+    private PurchaseOrder lockOrder(PurchaseReturn document) {
+        return orderRepository.findByIdForUpdate(document.getPurchaseOrderId())
                 .orElseThrow(BusinessException::notFound);
     }
 
-    /**
-     * Cộng ({@code sign} = 1) / trừ số đã trả, giá trị đã giảm của dòng hóa đơn và dòng phiếu nhận (trả hàng). Khóa
-     * phiếu nhận theo id tăng dần (chỉ khi trả hàng). Trả phiếu nhận theo id dòng phiếu nhận.
-     */
-    private Map<Long, PurchaseReceipt> applySources(PurchaseReturn document, PurchaseInvoice invoice,
-                                                    BigDecimal sign) {
-        Map<Long, PurchaseReceipt> byLine = new HashMap<>();
-        List<Long> receiptLineIds = document.getLines().stream().map(PurchaseReturnLine::getReceiptLineId)
-                .filter(Objects::nonNull).toList();
-        if (!receiptLineIds.isEmpty()) {
-            List<PurchaseReceipt> receipts = document.isGoodsReturn()
-                    ? receiptRepository.findIdsByLineIds(receiptLineIds).stream()
-                    .map(receiptId -> receiptRepository.findByIdForUpdate(receiptId)
-                            .orElseThrow(BusinessException::notFound)).toList()
-                    : receiptRepository.findByLineIds(receiptLineIds);
-            receipts.forEach(receipt -> receipt.getLines().forEach(line -> byLine.put(line.getId(), receipt)));
-        }
+    /** Cộng ({@code sign} = 1) / trừ số đã trả, giá trị đã giảm của dòng đơn mua. */
+    private void applySources(PurchaseReturn document, PurchaseOrder order, BigDecimal sign) {
         for (PurchaseReturnLine line : document.getLines()) {
             String field = "lines[" + (line.getLineNo() - 1) + "]";
             if (document.isGoodsReturn()) {
-                byLine.get(line.getReceiptLineId()).recordReturn(line.getReceiptLineId(),
-                        line.getBaseQuantity().multiply(sign), invoice != null, field);
-                if (invoice != null) {
-                    invoice.recordReturn(line.getInvoiceLineId(), line.getBaseQuantity().multiply(sign),
-                            line.getAmount().multiply(sign), field);
-                }
+                order.recordReturn(line.getOrderLineId(), line.getBaseQuantity().multiply(sign),
+                        line.getAmount().multiply(sign), field);
             } else {
-                invoice.recordDiscount(line.getInvoiceLineId(), line.getAmount().multiply(sign), field);
+                order.recordDiscount(line.getOrderLineId(), line.getAmount().multiply(sign), field);
             }
         }
-        if (document.isGoodsReturn()) {
-            receiptRepository.saveAll(byLine.values().stream().distinct().toList());
-        }
-        if (invoice != null) {
-            invoiceRepository.save(invoice);
-        }
-        return byLine;
+        orderRepository.save(order);
     }
 
     /** Phiếu xuất trả nhà cung cấp đúng lô, serial, trạng thái của dòng (BR-PUR-14). */
     private StockOutResult issue(CurrentUser actor, PurchaseReturn document) {
         List<StockOutLine> lines = document.getLines().stream()
                 .map(line -> new StockOutLine(line.getId(), line.getProductId(), line.getUnitId(), line.getQuantity(),
-                        line.getLotNo(), line.getQualityStatus(), "Trả đúng lô của phiếu nhận hàng", line.getDescription(),
+                        line.getLotNo(), line.getQualityStatus(), "Trả đúng lô của đơn mua", line.getDescription(),
                         line.getSerialNumbers()))
                 .toList();
         StockOutResult result = stockOut.issue(actor, new StockOutCommand(document.typeCode(), document.getId(),
@@ -224,19 +187,19 @@ public class PurchaseReturnPostingService {
         return result;
     }
 
-    /** Giảm giá hàng hóa: điều chỉnh giảm giá trị nhập theo dòng phiếu nhận (giá vốn tính lại ở Giai đoạn 8). */
-    private void recordDiscountCosts(CurrentUser actor, PurchaseReturn document, Map<Long, PurchaseReceipt> receipts) {
+    /** Giảm giá hàng hóa: điều chỉnh giảm giá trị nhập theo dòng đơn mua (giá vốn tính lại ở Giai đoạn 8). */
+    private void recordDiscountCosts(CurrentUser actor, PurchaseReturn document, PurchaseOrder order) {
         Instant now = Instant.now(clock);
         List<PurchaseCostEntry> entries = new ArrayList<>();
         for (PurchaseReturnLine line : document.getLines()) {
-            PurchaseReceipt receipt = line.getReceiptLineId() == null ? null : receipts.get(line.getReceiptLineId());
-            if (receipt == null || line.getAmount().signum() == 0) {
+            PurchaseOrderLine orderLine = order.line(line.getOrderLineId(), "lines");
+            if (orderLine.isServiceLine() || line.getAmount().signum() == 0) {
                 continue;
             }
-            entries.add(new PurchaseCostEntry(document.getCompanyId(), receipt.line(line.getReceiptLineId(), "lines"),
-                    receipt.getWarehouseId(), PurchaseCostEntry.EntryType.DISCOUNT, document.getPostingDate(),
-                    line.getAmount().negate(), new PurchaseCostEntry.Reference(document.typeCode(), document.getId(),
-                    line.getId(), document.getDocumentNo()), actor.id(), now));
+            entries.add(new PurchaseCostEntry(document.getCompanyId(), orderLine, order.getWarehouseId(),
+                    PurchaseCostEntry.EntryType.DISCOUNT, document.getPostingDate(), line.getAmount().negate(),
+                    new PurchaseCostEntry.Reference(document.typeCode(), document.getId(), line.getId(),
+                            document.getDocumentNo()), actor.id(), now));
         }
         costRepository.saveAll(entries);
     }

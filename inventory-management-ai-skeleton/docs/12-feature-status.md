@@ -2,7 +2,7 @@
 
 | Thuộc tính | Giá trị |
 |---|---|
-| Ngày cập nhật | 2026-10-10 |
+| Ngày cập nhật | 2026-10-12 |
 | Quy tắc | `.claude/rules/documentation.md` mục 5 |
 
 Trạng thái: **Hoàn thành** (test đạt) / **Đã code, chưa kiểm chứng** (test chưa chạy được) / **Đang làm** / **Chưa làm** / **Dời giai đoạn**.
@@ -145,7 +145,7 @@ Trạng thái: **Hoàn thành** (test đạt) / **Đã code, chưa kiểm chứn
 | Điều kiện khóa kỳ: kỳ quỹ / kỳ công nợ còn chứng từ chờ duyệt / đã duyệt chưa ghi sổ thì chưa khóa được | BR-SYS-31 | Đã code, chưa có test riêng | | |
 | Màn hình Bù trừ, Điều chỉnh công nợ, Thanh toán tạm ứng, Đối chiếu công nợ, Kiểm kê quỹ, Công nợ tạm ứng; nội dung tạm ứng / hoàn ứng trên chứng từ thu chi | BR-UI | Hoàn thành, test giao diện một phần | `navigation.test.ts`; lint, TypeScript, build | Kiểm thử thủ công trên trình duyệt: chưa thực hiện |
 
-## Giai đoạn 5A - Đề nghị mua, đơn mua, hàng đang về
+## Giai đoạn 5A - Đề nghị mua, đơn mua, hàng đang về (lịch sử; luồng chứng từ thay bằng D-54)
 | Hạng mục | Mã yêu cầu | Trạng thái | Test chứng minh | Ghi chú / hạn chế |
 |---|---|---|---|---|
 | Đề nghị mua lập tay, duyệt theo luồng (khi cấu hình), đóng phần chưa đặt; danh sách dòng còn chưa đặt | BR-PUR-01 | Hoàn thành phần lập tay | `requisitionToOrder` | Đề nghị từ đơn bán thiếu hàng (GĐ6), hợp đồng thầu (GĐ7), cảnh báo dưới định mức (GĐ10): chưa làm |
@@ -157,7 +157,7 @@ Trạng thái: **Hoàn thành** (test đạt) / **Đã code, chưa kiểm chứn
 | Màn hình Đề nghị mua hàng, Đơn mua hàng (lập theo đề nghị, tiến độ dòng, thao tác theo trạng thái / quyền) | BR-UI | Hoàn thành, test giao diện một phần | `navigation.test.ts`; lint, TypeScript, build | Kiểm thử thủ công trên trình duyệt: chưa thực hiện |
 | Admin toàn quyền trên máy dev | (tiện ích dev) | Đã tạo file `db/dev-local`, chờ người dùng thêm location vào `application-dev.yml` | | Sửa cấu hình bị công cụ chặn (giảm bảo mật) |
 
-## Giai đoạn 5B - Phiếu nhận hàng, nhập kho mua hàng
+## Giai đoạn 5B - Phiếu nhận hàng, nhập kho mua hàng (lịch sử; luồng chứng từ thay bằng D-54)
 | Hạng mục | Mã yêu cầu | Trạng thái | Test chứng minh | Ghi chú / hạn chế |
 |---|---|---|---|---|
 | Phiếu nhận hàng theo đơn mua: số thực nhận, kết quả kiểm nhận (đạt / cách ly / trả lại) có lý do, lô / hạn / serial; ghi sổ cập nhật đã nhận, lỗi của đơn mua | BR-PUR-07, BR-PUR-05 | Hoàn thành | `receiveInBatches` | Chưa có đính kèm ảnh / biên bản hàng lỗi |
@@ -168,7 +168,7 @@ Trạng thái: **Hoàn thành** (test đạt) / **Đã code, chưa kiểm chứn
 | Hàng về giữ chỗ cho đơn bán / hợp đồng | BR-PUR-06 | Chưa làm (Giai đoạn 6, 7) | | |
 | Màn hình Phiếu nhận hàng (chọn đơn còn mở, dòng theo lô / kết quả, nhập kho ngay); phiếu kho hiện chứng từ nguồn | BR-UI | Hoàn thành, test giao diện một phần | `navigation.test.ts`; lint, TypeScript, build | Kiểm thử thủ công trên trình duyệt: chưa thực hiện |
 
-## Giai đoạn 5C - Hóa đơn mua, công nợ phải trả
+## Giai đoạn 5C - Hóa đơn mua, công nợ phải trả (lịch sử; luồng chứng từ thay bằng D-54)
 | Hạng mục | Mã yêu cầu | Trạng thái | Test chứng minh | Ghi chú / hạn chế |
 |---|---|---|---|---|
 | Hóa đơn mua: số, ký hiệu, ngày, MST người bán; nhiều phiếu nhận một hóa đơn và một phiếu nhận nhiều hóa đơn; chống trùng (MST, ký hiệu, số) | BR-PUR-09 | Hoàn thành | `invoiceReceiptsAndService` | Chưa nhập từ XML hóa đơn điện tử |
@@ -179,7 +179,7 @@ Trạng thái: **Hoàn thành** (test đạt) / **Đã code, chưa kiểm chứn
 | Hàng khuyến mại từ NCC (cờ trên dòng, giá trị 0) | BR-PUR-17, D-26 | Hoàn thành mức tối thiểu | | Cách ghi nhận giá trị / thuế chờ kế toán trưởng `[Chưa kiểm chứng]` |
 | Màn hình Hóa đơn mua (lấy dòng phiếu nhận chưa có hóa đơn, dòng dịch vụ, cảnh báo đối chiếu, bút toán) | BR-UI | Hoàn thành, test giao diện một phần | `navigation.test.ts`; lint, TypeScript, build | Kiểm thử thủ công trên trình duyệt: chưa thực hiện |
 
-## Giai đoạn 5D - Trả hàng NCC, giảm giá hàng mua, chi phí mua
+## Giai đoạn 5D - Trả hàng NCC, giảm giá hàng mua, chi phí mua (lịch sử; luồng chứng từ thay bằng D-54)
 | Hạng mục | Mã yêu cầu | Trạng thái | Test chứng minh | Ghi chú / hạn chế |
 |---|---|---|---|---|
 | Trả hàng NCC theo phiếu nhận gốc, đúng lô / serial, trạng thái chất lượng; hàng chưa có hóa đơn chỉ giảm tồn, hàng đã có hóa đơn giảm công nợ phải trả và bút toán | BR-PUR-14, AT-06 | Hoàn thành | `returnsAndDiscount` | Trả hàng không mở lại phần còn thiếu của đơn mua `[Giả định]`; hàng hết hạn phải chuyển trạng thái trước khi trả |
@@ -190,7 +190,7 @@ Trạng thái: **Hoàn thành** (test đạt) / **Đã code, chưa kiểm chứn
 | Màn hình Trả hàng / giảm giá, Phân bổ chi phí mua | BR-UI | Hoàn thành, test giao diện một phần | `navigation.test.ts`; lint, TypeScript, build | Kiểm thử thủ công trên trình duyệt: chưa thực hiện |
 | Yêu cầu báo giá NCC, so sánh báo giá, lịch sử / đánh giá NCC | BR-PUR-02, 03, 18 | Chưa làm (5E) | | |
 
-## Giai đoạn 6 - Bán hàng
+## Giai đoạn 6 - Bán hàng (lịch sử; luồng chứng từ thay bằng D-54)
 | Hạng mục | Mã yêu cầu | Trạng thái | Test chứng minh | Ghi chú / hạn chế |
 |---|---|---|---|---|
 | Lấy giá theo thứ tự ưu tiên, giá sàn, chiết khấu đại lý mặc định | BR-SAL-02, BR-MD-42 | Hoàn thành (trừ giá hợp đồng thầu) | `quoteLifecycle` | Giá hợp đồng / trúng thầu: Giai đoạn 7 |
@@ -205,6 +205,24 @@ Trạng thái: **Hoàn thành** (test đạt) / **Đã code, chưa kiểm chứn
 | Lịch thu tiền theo đợt, mốc ngày đơn / giao / hóa đơn, số đã thu | BR-SAL-50 | Hoàn thành (trừ mốc nghiệm thu) | `reportAndSchedule` | Mốc nghiệm thu: Giai đoạn 7; tiền đã thu chia theo tỷ lệ khi hóa đơn gồm nhiều đơn `[Giả định]` |
 | Doanh số, giảm trừ, công nợ theo nhân viên / khách / hàng / chi nhánh, truy ngược chứng từ | BR-SAL-51, AT-12 (một phần) | Hoàn thành phần doanh thu | `reportAndSchedule` | Lợi nhuận gộp cần giá vốn (Giai đoạn 8) |
 | Màn hình Báo giá, Đơn bán (bán nhanh), Giao hàng (in biên bản), Hóa đơn bán, Trả hàng / giảm giá bán, Hàng lỗi, Báo cáo doanh số | BR-UI | Hoàn thành, test giao diện một phần | `navigation.test.ts`; lint, TypeScript, build | Kiểm thử thủ công trên trình duyệt: chưa thực hiện |
+
+## D-54 - Gộp chứng từ mua / bán (2026-10-12, V22, V23, ADR-17)
+| Hạng mục | Mã yêu cầu | Trạng thái | Test chứng minh | Ghi chú / hạn chế |
+|---|---|---|---|---|
+| Nhà cung cấp bắt buộc MST, địa chỉ (form, API, nhập Excel); danh sách đối tác hiện cột địa chỉ; đơn mua hiển thị MST, địa chỉ người bán theo danh mục, không sửa (2026-10-13) | BR-MD-34 | Hoàn thành | `MasterDataIntegrationTest.partnerOwnData`, `PurchaseOrderIntegrationTest.postAndReverse` | Hiển thị luôn theo danh mục hiện tại: NCC đổi MST / địa chỉ thì đơn cũ hiển thị giá trị mới (người dùng chọn). MST dùng chống trùng hóa đơn vẫn lưu trên đơn lúc lưu. NCC cũ thiếu MST / địa chỉ phải bổ sung khi sửa |
+| Kiểm tra lô / hạn / serial theo cấu hình hàng ngay khi lưu đơn mua (không đợi đến ghi sổ) | BR-INV-01, 02 | Hoàn thành | `PurchaseOrderIntegrationTest.validation` | |
+| Phiếu nhập / xuất kho in thêm phần thuế: cộng tiền hàng, thuế suất GTGT, tiền thuế GTGT, tổng tiền thanh toán; số tiền bằng chữ theo tổng thanh toán (2026-10-13) | BR-UI | Hoàn thành, chưa thử in trên trình duyệt | `PurchaseOrderIntegrationTest.postAndReverse`, `SalesOrderIntegrationTest.postDeliverAndFail` | Chỉ tính dòng hàng hóa (dịch vụ không in); nhiều thuế suất thì in các mức cách nhau dấu phẩy, tiền thuế là tổng |
+| In phiếu xuất kho từ đơn bán đã ghi sổ, cùng mẫu phiếu nhập kho (lô / hạn thực xuất, serial dưới tên hàng, giá bán trước thuế) (2026-10-13) | BR-SAL-21, BR-UI | Hoàn thành, chưa thử in trên trình duyệt | `SalesOrderIntegrationTest.postDeliverAndFail` | Nợ / Có lấy theo bút toán doanh thu phần hàng hóa (dev: 131 / 5111 `[Chưa kiểm chứng]`) theo lựa chọn người dùng; phiếu xuất kho chuẩn thường ghi giá vốn (Nợ 632 / Có 156) `[Suy luận]`, giá vốn ở Giai đoạn 8 |
+| In phiếu nhập kho từ đơn mua đã ghi sổ theo mẫu doanh nghiệp (Nợ / Có, người giao, hóa đơn, lô / hạn, số tiền bằng chữ, chỗ ký) (2026-10-13) | BR-PUR-08, BR-UI | Hoàn thành, chưa thử in trên trình duyệt | `PurchaseOrderIntegrationTest.postAndReverse`, `moneyWords.test.ts` | Chỉ dòng hàng hóa; đơn giá / thành tiền trước thuế; Nợ / Có lấy từ bút toán phần hàng hóa (dev: 1561 / 331 `[Chưa kiểm chứng]`); không có test 403 / 404 riêng cho API in (người dùng bỏ qua) |
+| Đơn mua mang hóa đơn NCC (ký hiệu, số, ngày, MST; đủ ba hoặc trống; chống trùng), lô / hạn / serial theo dòng, kho nhập, ngày hạch toán, hạn thanh toán | D-54, BR-PUR-04, 09 | Hoàn thành | `PurchaseOrderIntegrationTest.postAndReverse`, `validation` | Hóa đơn ghi sau khi ghi sổ: chưa hỗ trợ (sửa chỉ ở nháp / bị từ chối) |
+| Ghi sổ đơn mua = phiếu nhập kho PNK nguồn DMH + trừ hàng đang về + công nợ phải trả + bút toán; đảo đơn | D-54, BR-PUR-08, D-34, AT-01, AT-09 | Hoàn thành | `postAndReverse` | Tài khoản mẫu `[Chưa kiểm chứng]`; nhận nhiều đợt = nhiều đơn mua |
+| Trả hàng / giảm giá / phân bổ chi phí theo dòng đơn mua đã ghi sổ; chặn đảo đơn khi có chứng từ phụ thuộc | BR-PUR-12, 14, 16 | Hoàn thành | `PurchaseReturnIntegrationTest` (2) | |
+| Đơn bán là chứng từ ghi sổ duy nhất: ghi sổ = phiếu xuất kho PXK FEFO (dùng giữ chỗ, D-07) + doanh thu + công nợ phải thu + bút toán | D-54, BR-SAL-20..23, 30, D-35, AT-03 | Hoàn thành | `SalesOrderIntegrationTest.postDeliverAndFail` | Giá vốn ở Giai đoạn 8; tài khoản mẫu `[Chưa kiểm chứng]` |
+| Số HĐĐT MISA ghi trên đơn trước / sau ghi sổ, chống trùng | BR-SAL-31 | Hoàn thành | `postDeliverAndFail` | Chưa tích hợp API MISA |
+| Theo dõi giao hàng trên đơn: chờ giao → đang giao → khách nhận (biên bản, in); giao thất bại = đảo đơn | D-54, AT-05 | Hoàn thành | `postDeliverAndFail` | Giao nhiều đợt = nhiều đơn bán |
+| Trả / đổi / giảm giá hàng bán, hàng lỗi theo đơn bán; lịch thu tiền; báo cáo doanh số theo đơn bán đã ghi sổ | BR-SAL-32..36, 50, 51, AT-06, AT-12 | Hoàn thành | `SalesReturnIntegrationTest` (2), `SalesReportIntegrationTest` (2) | Mốc lịch thu "hóa đơn" = ngày HĐĐT hoặc ngày hạch toán `[Giả định]` |
+| Bỏ đề nghị mua, yêu cầu báo giá NCC (5E), phiếu nhận, hóa đơn mua, báo giá bán, phiếu giao, hóa đơn bán, bán nhanh (bảng, API, màn hình) | D-54 | Hoàn thành | `navigation.test.ts`; `mvn clean verify` | Dữ liệu cũ của các bảng này bị xóa khi migrate V22 / V23 |
+| Màn hình Đơn mua hàng, Đơn bán hàng (ghi sổ, HĐĐT, giao hàng, in), Trả hàng, Phân bổ chi phí | BR-UI | Hoàn thành, test giao diện một phần | lint, TypeScript, `npm test`, build | Kiểm thử thủ công trên trình duyệt: chưa thực hiện |
 
 ## Giả định đã dùng
 - Giai đoạn 3 (chốt 2026-10-10): ghi sổ kho ở READ COMMITTED với thứ tự khóa cố định (ADR-08); API chung `/inventory-documents` (ADR-10); chế độ duyệt mặc định của loại chứng từ kho và ngưỡng cảnh báo hạn dùng 90 ngày (D-52); mỗi chính sách xuất vượt tồn một chứng từ (D-53). Luồng duyệt mẫu chỉ là dữ liệu dev/test.
@@ -223,3 +241,4 @@ Trạng thái: **Hoàn thành** (test đạt) / **Đã code, chưa kiểm chứn
 - Dữ liệu mẫu dev dùng migration repeatable `R__dev_*.sql`; mật khẩu mẫu `Erp@2026` chỉ cho dev/test.
 - DTO request/response đặt ở `application/dto` (cập nhật `.claude/rules/architecture.md`).
 - Mã lỗi mới ngoài docs/04 bản 0.2: `MALFORMED_REQUEST`, `METHOD_NOT_ALLOWED`, `REQUEST_IN_PROGRESS`, `DATA_INTEGRITY_VIOLATION` (đã cập nhật docs/04).
+- D-54 (chủ dự án duyệt 2026-10-12): hóa đơn NCC trên đơn mua là tùy chọn; hạn thanh toán = ngày hóa đơn (không có: ngày hạch toán) + số ngày nợ; đơn giá nhập = tiền sau chiết khấu / số lượng (trước thuế); số HĐĐT ghi sau ghi sổ không đổi nhãn khoản công nợ (giữ số đơn); hàng thực xuất của đơn bán giữ lại sau đảo để truy vết; vai trò mặc định của quyền ghi sổ / giao / đảo đơn `[Giả định]`; quy tắc hạch toán DMH / DBH chỉ là dữ liệu dev `[Chưa kiểm chứng]`.

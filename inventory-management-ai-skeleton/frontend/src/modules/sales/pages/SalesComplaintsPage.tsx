@@ -35,6 +35,7 @@ import { useMyBranches } from '../../system/lookups';
 import { salesComplaintApi } from '../api';
 import { COMPLAINT_STATUSES, DECISIONS } from '../labels';
 import type { ComplaintDecision, ComplaintStatus, SalesComplaint } from '../types';
+import { DecimalInput } from '../../../shared/components/DecimalInput';
 
 interface ComplaintForm {
   branchId: number;
@@ -259,7 +260,7 @@ export function SalesComplaintsPage() {
           </Col>
           <Col xs={8} md={4}>
             <Form.Item name="quantity" label="Số lượng" rules={[{ required: true, message: 'Nhập SL' }]}>
-              <InputNumber min={0.001} precision={3} style={{ width: '100%' }} />
+              <DecimalInput min={0.001} />
             </Form.Item>
           </Col>
           <Col xs={24}>

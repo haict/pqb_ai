@@ -9,7 +9,7 @@ import com.company.erp.sales.application.dto.CommentRequest;
 import com.company.erp.sales.application.dto.ReasonRequest;
 import com.company.erp.sales.application.dto.ReturnableSalesLineResponse;
 import com.company.erp.sales.application.dto.ReverseRequest;
-import com.company.erp.sales.application.dto.SalesDeliveryResponse;
+import com.company.erp.sales.application.dto.SalesOrderResponse;
 import com.company.erp.sales.application.dto.SalesReturnRequest;
 import com.company.erp.sales.application.dto.SalesReturnResponse;
 import com.company.erp.sales.domain.SalesDocumentStatus;
@@ -38,7 +38,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 /**
  * Hàng bán bị trả lại (TLB) và giảm giá hàng bán (GGB), BR-SAL-32, 33, 36: đúng lô / serial đã xuất, nhập lại kho cách
- * ly, giảm doanh thu và công nợ phải thu; đổi hàng (phiếu giao mới liên kết); đảo.
+ * ly, giảm doanh thu và công nợ phải thu; đổi hàng (đơn bán mới liên kết); đảo.
  */
 @Tag(name = "Trả hàng / giảm giá hàng bán")
 @RestController
@@ -67,13 +67,14 @@ public class SalesReturnController {
                 Function.identity()));
     }
 
-    @Operation(summary = "Dòng còn trả / giảm giá được", description = "invoiceId trống: theo (dòng phiếu giao, lô) chưa xuất hóa đơn; có invoiceId: theo dòng hóa đơn.")
+    @Operation(summary = "Dòng còn trả / giảm giá được", description = "Dòng của đơn bán đã ghi sổ orderId (cùng chi "
+            + "nhánh, khách), chia theo lô đã xuất.")
     @GetMapping("/returnable-lines")
     @PreAuthorize("hasAuthority('sales-return:view')")
     public ApiResponse<List<ReturnableSalesLineResponse>> returnableLines(@AuthenticationPrincipal CurrentUser user,
             @RequestParam Long branchId, @RequestParam Long customerId,
-            @RequestParam(required = false) Long invoiceId) {
-        return ApiResponse.ok(service.returnableLines(user, branchId, customerId, invoiceId));
+            @RequestParam Long orderId) {
+        return ApiResponse.ok(service.returnableLines(user, branchId, customerId, orderId));
     }
 
 
@@ -149,11 +150,12 @@ public class SalesReturnController {
         return ApiResponse.ok(postingService.reverse(user, id, idempotencyKey, request));
     }
 
-    @Operation(summary = "Đổi hàng", description = "BR-SAL-33: lập phiếu giao nháp cho phần đã trả của cùng dòng đơn bán.")
-    @PostMapping("/{id}/create-exchange-delivery")
+    @Operation(summary = "Đổi hàng", description = "BR-SAL-33: lập đơn bán nháp cho hàng đã trả (cùng giá, chiết khấu); "
+            + "cần cả quyền lập đơn bán.")
+    @PostMapping("/{id}/create-exchange-order")
     @PreAuthorize("hasAuthority('sales-return:create')")
-    public ApiResponse<SalesDeliveryResponse> createExchangeDelivery(@AuthenticationPrincipal CurrentUser user,
+    public ApiResponse<SalesOrderResponse> createExchangeOrder(@AuthenticationPrincipal CurrentUser user,
             @PathVariable Long id, @RequestHeader(IdempotentCommand.HEADER) String idempotencyKey) {
-        return ApiResponse.ok(service.createExchangeDelivery(user, id, idempotencyKey));
+        return ApiResponse.ok(service.createExchangeOrder(user, id, idempotencyKey));
     }
 }
