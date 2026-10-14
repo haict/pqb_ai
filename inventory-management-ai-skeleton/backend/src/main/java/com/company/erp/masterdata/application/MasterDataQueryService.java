@@ -42,7 +42,7 @@ public class MasterDataQueryService {
     public record ProductInfo(Long id, Long companyId, String code, String name, ProductType productType,
                               Long baseUnitId, boolean lotTracked, boolean expiryTracked, boolean serialTracked,
                               QualityStatus initialQualityStatus, boolean active, boolean stockTracked,
-                              Long defaultTaxRateId) {
+                              Long defaultTaxRateId, Long categoryId) {
 
         /** Mã loại hàng dạng chuỗi (điều kiện quy tắc hạch toán) cho module khác. */
         public String productTypeCode() {
@@ -65,11 +65,12 @@ public class MasterDataQueryService {
 
     /**
      * Đối tác; {@code paymentTermDays} / {@code supplierPaymentTermDays}: số ngày nợ khi là khách hàng / nhà cung cấp
-     * (BR-AR-02), {@code null} khi chưa khai báo; {@code taxCode}: mã số thuế.
+     * (BR-AR-02), {@code null} khi chưa khai báo; {@code taxCode}: mã số thuế; {@code partnerGroupId}: nhóm khách.
      */
     public record PartnerInfo(Long id, Long companyId, String code, String name, Set<PartnerRole> roles,
                               Long salesUserId, boolean active, Integer paymentTermDays,
-                              Integer supplierPaymentTermDays, String taxCode, String address) {
+                              Integer supplierPaymentTermDays, String taxCode, String address,
+                              Long partnerGroupId) {
 
         /** Mã vai trò dạng chuỗi, để module khác kiểm tra mà không phụ thuộc enum của danh mục. */
         public Set<String> roleCodes() {
@@ -290,7 +291,7 @@ public class MasterDataQueryService {
         return new ProductInfo(product.getId(), product.getCompanyId(), product.getCode(), product.getName(),
                 product.getProductType(), product.getBaseUnitId(), product.isLotTracked(), product.isExpiryTracked(),
                 product.isSerialTracked(), product.initialQualityStatus(), product.isActive(),
-                product.isStockTracked(), product.getDefaultTaxRateId());
+                product.isStockTracked(), product.getDefaultTaxRateId(), product.getCategoryId());
     }
 
     private static WarehouseInfo toInfo(Warehouse warehouse) {
@@ -307,6 +308,7 @@ public class MasterDataQueryService {
     private static PartnerInfo toInfo(Partner partner) {
         return new PartnerInfo(partner.getId(), partner.getCompanyId(), partner.getCode(), partner.getName(),
                 partner.getRoles(), partner.getSalesUserId(), partner.isActive(), partner.getPaymentTermDays(),
-                partner.getSupplierPaymentTermDays(), partner.getTaxCode(), partner.getAddress());
+                partner.getSupplierPaymentTermDays(), partner.getTaxCode(), partner.getAddress(),
+                partner.getPartnerGroupId());
     }
 }

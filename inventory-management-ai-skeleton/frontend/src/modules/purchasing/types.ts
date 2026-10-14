@@ -221,3 +221,58 @@ export interface StockInSlip {
   taxAmount: number;
   paymentAmount: number;
 }
+
+/** Dòng sổ chi tiết mua hàng; số âm ở dòng đảo. */
+export interface PurchaseLedgerLine {
+  postingDate: string;
+  documentType: string;
+  documentId: number;
+  documentNo: string;
+  documentDate: string;
+  invoiceDate: string | null;
+  invoiceNo: string | null;
+  productId: number;
+  productCode: string | null;
+  productName: string | null;
+  unitName: string | null;
+  purchaseQuantity: number | null;
+  unitPrice: number | null;
+  purchaseAmount: number | null;
+  discountAmount: number | null;
+  returnQuantity: number | null;
+  returnAmount: number | null;
+  priceReductionAmount: number | null;
+  reversal: boolean;
+}
+
+export interface PurchaseLedgerTotals {
+  lineCount: number;
+  purchaseQuantity: number;
+  purchaseAmount: number;
+  discountAmount: number;
+  returnQuantity: number;
+  returnAmount: number;
+  priceReductionAmount: number;
+}
+
+export interface PurchaseLedger {
+  companyName: string | null;
+  companyAddress: string | null;
+  dateFrom: string;
+  dateTo: string;
+  lines: PurchaseLedgerLine[];
+  total: PurchaseLedgerTotals;
+  generatedAt: string;
+}
+
+export interface PurchaseLedgerParams {
+  companyId: number;
+  branchId?: number;
+  dateFrom: string;
+  dateTo: string;
+  purchaserId?: number;
+  supplierGroupId?: number;
+  productCategoryId?: number;
+  productIds?: number[];
+  supplierIds?: number[];
+}

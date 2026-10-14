@@ -31,6 +31,7 @@ export const NAV_GROUPS: NavGroup[] = [
         label: 'Phân bổ chi phí mua',
         permission: 'purchase-cost-allocation:view',
       },
+      { path: '/purchasing/ledger', label: 'Sổ chi tiết mua hàng', permission: 'purchase-ledger:view' },
     ],
   },
   {
@@ -41,6 +42,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { path: '/sales/returns', label: 'Trả hàng / giảm giá bán', permission: 'sales-return:view' },
       { path: '/sales/complaints', label: 'Hàng lỗi khách báo', permission: 'sales-complaint:view' },
       { path: '/sales/report', label: 'Báo cáo doanh số', permission: 'sales-report:view' },
+      { path: '/sales/ledger', label: 'Sổ chi tiết bán hàng', permission: 'sales-ledger:view' },
     ],
   },
   {
@@ -92,6 +94,46 @@ export const NAV_GROUPS: NavGroup[] = [
       { path: '/accounting/journal-entries', label: 'Bút toán', permission: 'journal:view' },
       { path: '/accounting/accounts', label: 'Hệ thống tài khoản', permission: 'account:view' },
       { path: '/accounting/posting-rules', label: 'Quy tắc hạch toán', permission: 'posting-rule:view' },
+    ],
+  },
+  {
+    key: 'reporting',
+    label: 'Báo cáo',
+    items: [
+      { path: '/reports/stock-card', label: 'Thẻ kho', permission: 'inventory-report:view' },
+      {
+        path: '/reports/inventory-movement',
+        label: 'Nhập - xuất - tồn',
+        permission: 'inventory-report:view',
+      },
+      {
+        path: '/reports/stock-alerts',
+        label: 'Tồn lâu, ngoại lệ, thiếu hồ sơ',
+        permission: 'inventory-report:view',
+      },
+      { path: '/reports/traceability', label: 'Truy xuất lô / serial', permission: 'inventory-report:view' },
+      {
+        path: '/reports/purchase-order-progress',
+        label: 'Tình hình thực hiện đơn mua',
+        permission: 'purchase-report:view',
+      },
+      {
+        path: '/reports/purchase-analysis',
+        label: 'Giá mua, hàng lỗi theo NCC',
+        permission: 'purchase-report:view',
+      },
+      {
+        path: '/reports/sales-order-progress',
+        label: 'Tình hình thực hiện đơn bán',
+        permission: 'sales-order-report:view',
+      },
+      { path: '/reports/sales-journal', label: 'Sổ nhật ký bán hàng', permission: 'sales-order-report:view' },
+      {
+        path: '/reports/stock-backlog',
+        label: 'Tồn so với đặt hàng chưa giao',
+        permission: 'sales-order-report:view',
+      },
+      { path: '/reports/cash-flow-forecast', label: 'Dòng tiền dự kiến', permission: 'cash-forecast:view' },
     ],
   },
   {

@@ -3,7 +3,7 @@
 | Thuộc tính | Giá trị |
 |---|---|
 | Phiên bản | 0.3 (Giai đoạn 1A, 1C, 1D, 2, 3) |
-| Ngày cập nhật | 2026-10-10 |
+| Ngày cập nhật | 2026-10-14 |
 | Căn cứ | BR-SYS-02..06, BR-SYS-20..23, D-38; `.claude/rules/security.md` |
 | Mã nguồn | `backend/.../system` (api, application, domain, infrastructure/security); migration `V2`..`V6`; dữ liệu mẫu `db/dev-data` |
 
@@ -179,6 +179,7 @@ V22 xóa `purchase-requisition:*`, `purchase-receipt:*`, `purchase-invoice:*`, `
 | `purchase-cost-allocation:create`, `:post` | Lập, gửi, hủy; ghi sổ | `CHIEF_ACCOUNTANT`, `AR_ACCOUNTANT`, `TAX_ACCOUNTANT` (lập: không gồm mua hàng) |
 | `purchase-cost-allocation:approve` | Duyệt (khi cấu hình luồng) | `CHIEF_ACCOUNTANT`, `DIRECTOR`, `BRANCH_DIRECTOR` |
 | `purchase-cost-allocation:reverse` | Đảo | `CHIEF_ACCOUNTANT` |
+| `purchase-ledger:view` | Sổ chi tiết mua hàng (V25, 2026-10-14) | `PURCHASING_STAFF`, `DIRECTOR`, `BRANCH_DIRECTOR`, `CHIEF_ACCOUNTANT`, `TAX_ACCOUNTANT` `[Giả định]` |
 
 - Luồng duyệt mẫu dev/test (`R__dev_phase5_purchasing.sql`): DMH do `DIRECTOR` duyệt, một bước.
 - Ghi sổ đơn mua cần `purchase-order:post` và phạm vi kho nhập của đơn; không cần quyền phiếu nhập kho riêng. Vai trò mặc định của `:post` `[Giả định]`, cần chủ dự án xác nhận.
@@ -197,10 +198,26 @@ V23 xóa `sales-quote:*`, `sales-delivery:*`, `sales-invoice:*`, `sales-quick-sa
 | `sales-return:*` | Trả hàng / giảm giá bán: lập (kinh doanh, kế toán), duyệt (`SALES_MANAGER`, giám đốc), ghi sổ (kế toán, kho), đảo (`CHIEF_ACCOUNTANT`) | |
 | `sales-complaint:view`, `:create`, `:resolve` | Hàng lỗi khách báo: tiếp nhận (kinh doanh), kiểm tra / quyết định (`SALES_MANAGER`, `QA`, `TECHNICIAN`, giám đốc) | |
 | `sales-report:view` | Báo cáo doanh số | `SALES_MANAGER`, `DIRECTOR`, `BRANCH_DIRECTOR`, `CHIEF_ACCOUNTANT`, `AR_ACCOUNTANT` |
+| `sales-ledger:view` | Sổ chi tiết bán hàng S16-DNN (V24, 2026-10-14) | `SALES_MANAGER`, `DIRECTOR`, `BRANCH_DIRECTOR`, `CHIEF_ACCOUNTANT`, `AR_ACCOUNTANT`, `TAX_ACCOUNTANT` `[Giả định]` |
 
 - "Chỉ dữ liệu của mình" (`own_data_only`, BR-SYS-04): nhân viên chỉ chọn khách mình phụ trách, chỉ xem đơn / trả hàng / phiếu hàng lỗi mình phụ trách hoặc mình lập (ngoài phạm vi: 404).
 - Luồng duyệt mẫu dev/test (`R__dev_phase6_sales.sql`): DBH do `SALES_MANAGER` duyệt một bước; chỉ áp dụng khi có lý do phải duyệt (giá, tín dụng).
 - Vai trò mặc định của `:post`, `:deliver`, `:reverse` `[Giả định]`, cần chủ dự án xác nhận.
+
+### 2.10 Quyền báo cáo (M10, Giai đoạn 10A, 10B, 10C, 10D, V26, V27, V28, V29, ADR-18)
+| Quyền | Ý nghĩa | Vai trò mặc định |
+|---|---|---|
+| `inventory-report:view` | Báo cáo kho: thẻ kho, lịch sử serial, nhập - xuất - tồn, tồn lâu, hàng ngoại lệ, thiếu hồ sơ, truy xuất lô / serial (`/reports/...`) | `WAREHOUSE_MANAGER`, `WAREHOUSE_STAFF`, `DIRECTOR`, `BRANCH_DIRECTOR`, `CHIEF_ACCOUNTANT`, `QA` `[Giả định]` |
+| `purchase-report:view` | Báo cáo mua: tình hình thực hiện đơn mua, lịch sử giá mua, hàng lỗi theo NCC (V27) | `PURCHASING_STAFF`, `DIRECTOR`, `BRANCH_DIRECTOR`, `CHIEF_ACCOUNTANT`, `TAX_ACCOUNTANT`, `QA` `[Giả định]` |
+| `sales-order-report:view` | Báo cáo bán: tình hình thực hiện đơn bán, sổ nhật ký bán hàng, tồn so với đặt hàng chưa giao (V27) | `SALES_MANAGER`, `SALES_STAFF`, `WAREHOUSE_MANAGER`, `DIRECTOR`, `BRANCH_DIRECTOR`, `CHIEF_ACCOUNTANT`, `AR_ACCOUNTANT` `[Giả định]` |
+| `dashboard:view` | Dashboard điều hành trên trang chủ: doanh thu, giá trị mua, công nợ, hàng sắp hết hạn, đơn chưa giao đủ, top hàng / khách / NCC và danh sách chi tiết (`/dashboard/...`, V28) | `DIRECTOR`, `BRANCH_DIRECTOR`, `CHIEF_ACCOUNTANT`, `SALES_MANAGER` (chủ dự án duyệt 2026-10-14) |
+| `cash-forecast:view` | Dòng tiền dự kiến: báo cáo `/reports/cash-flow-forecast` và thẻ trên dashboard (cần thêm `dashboard:view`) (V29) | `DIRECTOR`, `BRANCH_DIRECTOR`, `CHIEF_ACCOUNTANT`, `AR_ACCOUNTANT`, `CASHIER` `[Giả định]` |
+
+- Dashboard: một quyền xem mọi chỉ tiêu (chủ dự án chọn thay cho "mỗi thẻ theo quyền báo cáo tương ứng"); số liệu theo phạm vi chi nhánh / kho; "chỉ dữ liệu của mình" lọc chứng từ bán, phải thu theo nhân viên phụ trách / người lập, chứng từ mua, phải trả theo người lập `[Suy luận]`.
+- Dòng tiền dự kiến: số dư quỹ / ngân hàng và khoản dự kiến theo phạm vi chi nhánh; người "chỉ dữ liệu của mình" chỉ thấy khoản của mình (phải thu, đơn bán theo nhân viên phụ trách / người lập; phải trả, đơn mua theo người lập), không thấy số dư quỹ `[Suy luận]`.
+- Báo cáo mua / bán theo phạm vi chi nhánh (chọn chi nhánh ngoài phạm vi: 400 `branchId`); báo cáo bán áp dụng "chỉ dữ liệu của mình".
+- Số liệu theo phạm vi kho của người xem (BR-RPT-12): phạm vi toàn công ty xem mọi kho; phạm vi chi nhánh xem kho của chi nhánh và kho được gán; chọn kho ngoài phạm vi: 400 `warehouseId`.
+- Màn hình chọn lô / serial dùng API `/inventory/lots`, `/inventory/serials` nên người xem cần thêm `inventory:view`.
 
 ## 3. Phạm vi dữ liệu (BR-SYS-04, BR-SYS-06)
 | Loại | Ý nghĩa |

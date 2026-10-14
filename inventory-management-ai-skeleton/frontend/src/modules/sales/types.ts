@@ -11,6 +11,7 @@ export type SalesReturnType = 'TLB' | 'GGB';
 export type ComplaintStatus = 'OPEN' | 'INSPECTED' | 'RESOLVED' | 'CANCELLED';
 export type ComplaintDecision = 'EXCHANGE' | 'REPAIR' | 'RETURN' | 'WARRANTY' | 'REJECT';
 export type SalesReportGrouping = 'SALES_USER' | 'CUSTOMER' | 'PRODUCT' | 'BRANCH';
+export type SalesLedgerGrouping = 'NONE' | 'CUSTOMER' | 'PRODUCT_CATEGORY';
 
 export interface SalesDocumentBase {
   id: number;
@@ -309,4 +310,76 @@ export interface StockOutSlip {
   taxRates: number[];
   taxAmount: number;
   paymentAmount: number;
+}
+
+/** Dòng sổ chi tiết bán hàng (S16-DNN); số âm ở dòng đảo. */
+export interface SalesLedgerLine {
+  postingDate: string;
+  documentType: string;
+  documentId: number;
+  documentNo: string;
+  documentDate: string;
+  invoiceDate: string | null;
+  invoiceNo: string | null;
+  description: string;
+  offsetAccount: string | null;
+  unitName: string | null;
+  quantity: number | null;
+  unitPrice: number | null;
+  amount: number | null;
+  taxDeduction: number | null;
+  otherDeduction: number | null;
+  reversal: boolean;
+}
+
+/** Giá vốn, lãi gộp null khi chưa tính giá vốn (Giai đoạn 8). */
+export interface SalesLedgerTotals {
+  quantity: number;
+  amount: number;
+  taxDeduction: number;
+  otherDeduction: number;
+  netRevenue: number;
+  costOfGoodsSold: number | null;
+  grossProfit: number | null;
+}
+
+export interface SalesLedgerProduct {
+  productId: number;
+  productCode: string | null;
+  productName: string | null;
+  lines: SalesLedgerLine[];
+  totals: SalesLedgerTotals;
+}
+
+export interface SalesLedgerGroup {
+  key: number | null;
+  code: string | null;
+  name: string | null;
+  products: SalesLedgerProduct[];
+  totals: SalesLedgerTotals;
+}
+
+export interface SalesLedger {
+  companyName: string | null;
+  companyAddress: string | null;
+  dateFrom: string;
+  dateTo: string;
+  groupBy: SalesLedgerGrouping;
+  groups: SalesLedgerGroup[];
+  total: SalesLedgerTotals;
+  costAvailable: boolean;
+  generatedAt: string;
+}
+
+export interface SalesLedgerParams {
+  companyId: number;
+  branchId?: number;
+  dateFrom: string;
+  dateTo: string;
+  salesUserId?: number;
+  customerGroupId?: number;
+  productCategoryId?: number;
+  productIds?: number[];
+  customerIds?: number[];
+  groupBy: SalesLedgerGrouping;
 }

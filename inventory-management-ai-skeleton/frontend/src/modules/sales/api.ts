@@ -1,9 +1,11 @@
-import { getOne, getPage, postWithKey, putJson } from '../../shared/api/rest';
+import { getOne, getPage, idList, postWithKey, putJson } from '../../shared/api/rest';
 import type { ListParams } from '../../shared/api/useServerTable';
 import type {
   PriceSuggestion,
   ReturnableSalesLine,
   SalesComplaint,
+  SalesLedger,
+  SalesLedgerParams,
   SalesOrder,
   SalesReportGrouping,
   SalesReturn,
@@ -63,4 +65,13 @@ export const salesReportApi = {
     groupBy: SalesReportGrouping;
     key: number | null;
   }) => getOne<SalesSourceDocument[]>('/sales/reports/sources', params),
+};
+
+export const salesLedgerApi = {
+  get: (params: SalesLedgerParams) =>
+    getOne<SalesLedger>('/sales/reports/detail-ledger', {
+      ...params,
+      productIds: idList(params.productIds),
+      customerIds: idList(params.customerIds),
+    }),
 };

@@ -122,7 +122,12 @@ Người dùng giao làm hết Giai đoạn 6 theo khuyến cáo (2026-10-10): 6
 
 ## Giai đoạn 10 - Báo cáo và dashboard (M10)
 - [ ] Dashboard điều hành BR-RPT-01..10, xem chi tiết đến chứng từ nguồn
-- [ ] Báo cáo kho, mua, bán, đấu thầu, công nợ, quỹ, lợi nhuận
+- [ ] Báo cáo kho, mua, bán, đấu thầu, công nợ, quỹ, lợi nhuận. Kế hoạch duyệt 2026-10-14 (ADR-18: mọi báo cáo M10 ở module `reporting`, `/reports/{reportCode}`), làm từng đợt:
+  - [x] 10A kho: thẻ kho, lịch sử serial, nhập - xuất - tồn (số lượng), tồn lâu, ngoại lệ, thiếu hồ sơ, truy xuất lô / serial (BR-RPT-21..24)
+  - [x] 10B mua / bán: tình hình thực hiện đơn mua / bán, lịch sử giá mua, sổ nhật ký bán hàng, tồn so với đặt chưa giao (BR-RPT-25, 26 phần còn lại)
+  - [x] 10C dashboard trên trang chủ (V28 `dashboard:view`, `/dashboard/...`): BR-RPT-01 (doanh thu; giá vốn, lợi nhuận chờ GĐ8), 02, 04, 05, 06, 10, 11..13
+  - [x] 10D dòng tiền dự kiến (V29 `cash-forecast:view`, `/reports/cash-flow-forecast`, thẻ trên dashboard): BR-RPT-09, BR-RPT-30 phần dự kiến, BR-CSH-06 (trừ lịch thu hợp đồng thầu: Giai đoạn 7)
+  - Chờ giai đoạn khác: giá vốn / lợi nhuận / giá trị tồn (GĐ8: RPT-01 phần giá vốn, 03, 22 phần giá trị, 27, 31, 32), đấu thầu (GĐ7: RPT-07, 08, 28), thiết bị (GĐ9: RPT-33)
 - [ ] Xuất Excel/PDF
 - [ ] Test: AT-12
 

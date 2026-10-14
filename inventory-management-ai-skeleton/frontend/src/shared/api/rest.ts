@@ -10,6 +10,11 @@ export function withoutEmpty(params: object): Record<string, unknown> {
   );
 }
 
+/** Danh sách ID gửi dạng "1,2,3": Spring đọc thành List; axios mặc định gửi "ids[]=" không khớp. */
+export function idList(ids: number[] | undefined): string | undefined {
+  return ids && ids.length > 0 ? ids.join(',') : undefined;
+}
+
 export async function getPage<T>(url: string, params: object): Promise<PageResponse<T>> {
   const response = await httpClient.get<ApiResponse<PageResponse<T>>>(url, { params: withoutEmpty(params) });
   return response.data.data;

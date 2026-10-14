@@ -5,6 +5,7 @@ import type {
   PaymentDueBasis,
   SalesDocumentStatus,
   SalesOrder,
+  SalesLedgerGrouping,
   SalesReportGrouping,
   SalesReturn,
   SalesReturnType,
@@ -60,6 +61,13 @@ export const GROUPINGS: Record<SalesReportGrouping, string> = {
   CUSTOMER: 'Khách hàng',
   PRODUCT: 'Hàng hóa',
   BRANCH: 'Chi nhánh',
+};
+
+/** "Thống kê theo" của sổ chi tiết bán hàng: nhóm ngoài khối từng hàng hóa. */
+export const LEDGER_GROUPINGS: Record<SalesLedgerGrouping, string> = {
+  NONE: '<<Không chọn>>',
+  CUSTOMER: 'Khách hàng',
+  PRODUCT_CATEGORY: 'Nhóm VTHH',
 };
 
 export const PRICE_SOURCES: Record<string, string> = {

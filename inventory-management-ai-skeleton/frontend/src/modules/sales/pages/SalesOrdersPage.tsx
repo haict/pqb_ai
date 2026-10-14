@@ -22,6 +22,7 @@ import {
 } from 'antd';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useServerTable } from '../../../shared/api/useServerTable';
 import { useCan } from '../../../shared/auth/authContext';
 import { FormModal } from '../../../shared/components/FormModal';
@@ -135,7 +136,9 @@ export function SalesOrdersPage() {
   const units = useCatalog('units');
   const [keyword, setKeyword] = useState('');
   const [status, setStatus] = useState<SalesDocumentStatus>();
-  const [selected, setSelected] = useState<number | null>(null);
+  // Mở thẳng chứng từ từ liên kết ?id= (truy ngược từ sổ chi tiết bán hàng, BR-RPT-11).
+  const [searchParams] = useSearchParams();
+  const [selected, setSelected] = useState<number | null>(() => Number(searchParams.get('id')) || null);
   const [editing, setEditing] = useState<SalesOrder | 'new' | null>(null);
   const [confirming, setConfirming] = useState<SalesOrder | null>(null);
   const [einvoice, setEinvoice] = useState<SalesOrder | null>(null);

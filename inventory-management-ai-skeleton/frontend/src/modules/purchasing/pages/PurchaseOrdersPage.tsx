@@ -19,6 +19,7 @@ import {
 } from 'antd';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useServerTable } from '../../../shared/api/useServerTable';
 import { useCan } from '../../../shared/auth/authContext';
 import { DecimalInput } from '../../../shared/components/DecimalInput';
@@ -142,7 +143,9 @@ export function PurchaseOrdersPage() {
   const units = useCatalog('units');
   const [keyword, setKeyword] = useState('');
   const [status, setStatus] = useState<PurchaseDocumentStatus>();
-  const [selected, setSelected] = useState<number | null>(null);
+  // Mở thẳng chứng từ từ liên kết ?id= (truy ngược từ sổ chi tiết mua hàng, BR-RPT-11).
+  const [searchParams] = useSearchParams();
+  const [selected, setSelected] = useState<number | null>(() => Number(searchParams.get('id')) || null);
   const [editing, setEditing] = useState<PurchaseOrder | 'new' | null>(null);
   const { tableProps } = useServerTable('purchase-orders', purchaseOrderApi.list, {
     companyId,

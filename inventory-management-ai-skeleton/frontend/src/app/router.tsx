@@ -15,9 +15,20 @@ import { DebtsPage } from '../modules/finance/pages/DebtsPage';
 import { CostAllocationsPage } from '../modules/purchasing/pages/CostAllocationsPage';
 import { PurchaseOrdersPage } from '../modules/purchasing/pages/PurchaseOrdersPage';
 import { PurchaseReturnsPage } from '../modules/purchasing/pages/PurchaseReturnsPage';
+import { PurchaseLedgerPage } from '../modules/purchasing/pages/PurchaseLedgerPage';
+import { InventoryMovementPage } from '../modules/reporting/pages/InventoryMovementPage';
+import { OrderProgressPage } from '../modules/reporting/pages/OrderProgressPage';
+import { PurchaseAnalysisPage } from '../modules/reporting/pages/PurchaseAnalysisPage';
+import { SalesJournalPage } from '../modules/reporting/pages/SalesJournalPage';
+import { StockBacklogPage } from '../modules/reporting/pages/StockBacklogPage';
+import { CashForecastPage } from '../modules/reporting/pages/CashForecastPage';
+import { StockAlertsPage } from '../modules/reporting/pages/StockAlertsPage';
+import { StockCardPage } from '../modules/reporting/pages/StockCardPage';
+import { TraceabilityPage } from '../modules/reporting/pages/TraceabilityPage';
 import { SalesComplaintsPage } from '../modules/sales/pages/SalesComplaintsPage';
 import { SalesOrdersPage } from '../modules/sales/pages/SalesOrdersPage';
 import { SalesReportPage } from '../modules/sales/pages/SalesReportPage';
+import { SalesLedgerPage } from '../modules/sales/pages/SalesLedgerPage';
 import { SalesReturnsPage } from '../modules/sales/pages/SalesReturnsPage';
 import { registerInventoryDocumentRoutes } from '../modules/inventory/documentRoutes';
 import { InventoryDocumentDetailPage } from '../modules/inventory/pages/InventoryDocumentDetailPage';
@@ -90,10 +101,34 @@ export const router = createBrowserRouter([
         path: 'purchasing/cost-allocations',
         element: guarded('purchase-cost-allocation:view', <CostAllocationsPage />),
       },
+      { path: 'purchasing/ledger', element: guarded('purchase-ledger:view', <PurchaseLedgerPage />) },
+      { path: 'reports/stock-card', element: guarded('inventory-report:view', <StockCardPage />) },
+      {
+        path: 'reports/inventory-movement',
+        element: guarded('inventory-report:view', <InventoryMovementPage />),
+      },
+      { path: 'reports/stock-alerts', element: guarded('inventory-report:view', <StockAlertsPage />) },
+      { path: 'reports/traceability', element: guarded('inventory-report:view', <TraceabilityPage />) },
+      {
+        path: 'reports/purchase-order-progress',
+        element: guarded('purchase-report:view', <OrderProgressPage kind="purchase" />),
+      },
+      {
+        path: 'reports/purchase-analysis',
+        element: guarded('purchase-report:view', <PurchaseAnalysisPage />),
+      },
+      {
+        path: 'reports/sales-order-progress',
+        element: guarded('sales-order-report:view', <OrderProgressPage kind="sales" />),
+      },
+      { path: 'reports/sales-journal', element: guarded('sales-order-report:view', <SalesJournalPage />) },
+      { path: 'reports/stock-backlog', element: guarded('sales-order-report:view', <StockBacklogPage />) },
+      { path: 'reports/cash-flow-forecast', element: guarded('cash-forecast:view', <CashForecastPage />) },
       { path: 'sales/orders', element: guarded('sales-order:view', <SalesOrdersPage />) },
       { path: 'sales/returns', element: guarded('sales-return:view', <SalesReturnsPage />) },
       { path: 'sales/complaints', element: guarded('sales-complaint:view', <SalesComplaintsPage />) },
       { path: 'sales/report', element: guarded('sales-report:view', <SalesReportPage />) },
+      { path: 'sales/ledger', element: guarded('sales-ledger:view', <SalesLedgerPage />) },
       { path: 'inventory/documents', element: guarded(INVENTORY_DOCUMENT_VIEW, <InventoryDocumentsPage />) },
       {
         path: 'inventory/documents/:id',

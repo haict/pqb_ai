@@ -16,11 +16,18 @@ import jakarta.persistence.criteria.Join;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
 import jakarta.persistence.criteria.Subquery;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.SortedSet;
+import java.util.TreeSet;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.springframework.data.domain.Page;
@@ -36,6 +43,8 @@ public class JournalQueryService {
 
     static final String VIEW = "journal:view";
     private static final Set<String> SORTABLE = Set.of("postingDate", "entryNo", "createdAt");
+    /** Số chứng từ nguồn mỗi câu truy vấn IN, giữ câu SQL ở kích thước hợp lý. */
+    private static final int SOURCE_BATCH = 500;
 
     /** Mã tài khoản Nợ / Có (không trùng, tăng dần) của bút toán gốc một chứng từ nguồn, cho mẫu in chứng từ. */
     public record SourceAccounts(List<String> debitCodes, List<String> creditCodes) {
@@ -140,6 +149,34 @@ public class JournalQueryService {
         Map<Long, String> codes = accountRepository.findByIdIn(lines.stream().map(JournalEntryLine::getAccountId)
                 .collect(Collectors.toSet())).stream().collect(Collectors.toMap(Account::getId, Account::getCode));
         return new SourceAccounts(accountCodes(lines, codes, true), accountCodes(lines, codes, false));
+    }
+
+    /**
+     * Tài khoản bút toán gốc theo từng dòng chứng từ nguồn của nhiều chứng từ cùng loại (sổ chi tiết, báo cáo: một truy
+     * vấn cho cả danh sách thay vì gọi {@link #accountsBySource} từng chứng từ). Khóa của map là ID dòng chứng từ nguồn.
+     * Module gọi tự kiểm tra quyền xem chứng từ nguồn.
+     */
+    @Transactional(readOnly = true)
+    public Map<Long, SourceAccounts> accountsBySourceLines(Long companyId, String sourceType,
+                                                            Collection<Long> sourceIds) {
+        Map<Long, SortedSet<String>> debits = new HashMap<>();
+        Map<Long, SortedSet<String>> credits = new HashMap<>();
+        List<Long> ids = List.copyOf(new LinkedHashSet<>(sourceIds));
+        for (int from = 0; from < ids.size(); from += SOURCE_BATCH) {
+            List<Long> batch = ids.subList(from, Math.min(ids.size(), from + SOURCE_BATCH));
+            for (Object[] row : journalRepository.findSourceLineAccounts(companyId, sourceType, batch)) {
+                Long lineId = (Long) row[0];
+                boolean debit = ((BigDecimal) row[2]).signum() > 0;
+                (debit ? debits : credits).computeIfAbsent(lineId, key -> new TreeSet<>()).add((String) row[1]);
+            }
+        }
+        Set<Long> lineIds = new HashSet<>(debits.keySet());
+        lineIds.addAll(credits.keySet());
+        Map<Long, SourceAccounts> result = new HashMap<>();
+        lineIds.forEach(lineId -> result.put(lineId, new SourceAccounts(
+                List.copyOf(debits.getOrDefault(lineId, new TreeSet<>())),
+                List.copyOf(credits.getOrDefault(lineId, new TreeSet<>())))));
+        return result;
     }
 
     private static List<String> accountCodes(List<JournalEntryLine> lines, Map<Long, String> codes, boolean debit) {

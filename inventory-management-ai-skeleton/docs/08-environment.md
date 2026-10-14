@@ -71,7 +71,7 @@ Không áp dụng ngoại lệ này cho production: `db/dev-data` không bao gi�
 
 Thời hạn phiên, chính sách mật khẩu, khóa tài khoản, giới hạn đăng nhập theo IP (`erp.auth.ip-rate-limit.max-failures`, `window`): `erp.auth.*` trong `application.yml` (docs/07 mục 1). Profile `test` đặt `max-failures` rất lớn để các test đăng nhập sai không chặn nhau.
 
-Tham số nghiệp vụ (không phải biến môi trường) nằm trong bảng `sys_parameters`, sửa ở màn hình Tham số hệ thống: `decimal.*` (D-05), `inventory.expiry-warning-days` (cảnh báo hạn dùng, V7).
+Tham số nghiệp vụ (không phải biến môi trường) nằm trong bảng `sys_parameters`, sửa ở màn hình Tham số hệ thống: `decimal.*` (D-05), `inventory.expiry-warning-days` (cảnh báo hạn dùng, V7), `inventory.slow-moving-days` (số ngày không xuất để coi là tồn lâu, mặc định 180 `[Giả định]`, V26).
 
 Múi giờ nghiệp vụ `erp.calendar.time-zone` (mặc định `Asia/Ho_Chi_Minh`, D-15): xác định "hôm nay" cho ngày chứng từ và chu kỳ số chứng từ. Thời điểm vẫn lưu UTC.
 

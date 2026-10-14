@@ -20,6 +20,7 @@ import {
 } from 'antd';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useServerTable } from '../../../shared/api/useServerTable';
 import { useCan } from '../../../shared/auth/authContext';
 import { FormModal } from '../../../shared/components/FormModal';
@@ -130,7 +131,9 @@ export function PurchaseReturnsPage() {
   const [keyword, setKeyword] = useState('');
   const [status, setStatus] = useState<PurchaseDocumentStatus>();
   const [documentType, setDocumentType] = useState<PurchaseReturnType>();
-  const [selected, setSelected] = useState<number | null>(null);
+  // Mở thẳng chứng từ từ liên kết ?id= (truy ngược từ sổ chi tiết mua hàng, BR-RPT-11).
+  const [searchParams] = useSearchParams();
+  const [selected, setSelected] = useState<number | null>(() => Number(searchParams.get('id')) || null);
   const [editing, setEditing] = useState<PurchaseReturn | 'new' | null>(null);
   const { tableProps } = useServerTable('purchase-returns', purchaseReturnApi.list, {
     companyId,

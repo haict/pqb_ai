@@ -119,4 +119,49 @@ describe('visibleNavGroups', () => {
       'Báo cáo doanh số',
     ]);
   });
+
+  it('BR-RPT-26: sổ chi tiết bán hàng hiện theo quyền xem sổ riêng', () => {
+    const only = visibleNavGroups((permission) => permission === 'sales-ledger:view');
+    expect(only.find((group) => group.key === 'sales')?.items.map((item) => item.label)).toEqual([
+      'Sổ chi tiết bán hàng',
+    ]);
+    const without = visibleNavGroups((permission) => permission === 'sales-report:view');
+    expect(without.find((group) => group.key === 'sales')?.items.map((item) => item.path)).not.toContain(
+      '/sales/ledger',
+    );
+  });
+
+  it('sổ chi tiết mua hàng hiện theo quyền xem sổ riêng', () => {
+    const groups = visibleNavGroups((permission) => permission === 'purchase-ledger:view');
+    expect(groups.find((group) => group.key === 'purchasing')?.items.map((item) => item.label)).toEqual([
+      'Sổ chi tiết mua hàng',
+    ]);
+  });
+
+  it('nhóm Báo cáo (M10) hiện theo quyền xem báo cáo kho', () => {
+    const groups = visibleNavGroups((permission) => permission === 'inventory-report:view');
+    expect(groups.find((group) => group.key === 'reporting')?.items.map((item) => item.label)).toEqual([
+      'Thẻ kho',
+      'Nhập - xuất - tồn',
+      'Tồn lâu, ngoại lệ, thiếu hồ sơ',
+      'Truy xuất lô / serial',
+    ]);
+  });
+
+  it('báo cáo mua / bán (10B) hiện theo quyền báo cáo mua, báo cáo bán', () => {
+    const labels = (permission: string) =>
+      visibleNavGroups((code) => code === permission)
+        .find((group) => group.key === 'reporting')
+        ?.items.map((item) => item.label);
+    expect(labels('purchase-report:view')).toEqual([
+      'Tình hình thực hiện đơn mua',
+      'Giá mua, hàng lỗi theo NCC',
+    ]);
+    expect(labels('sales-order-report:view')).toEqual([
+      'Tình hình thực hiện đơn bán',
+      'Sổ nhật ký bán hàng',
+      'Tồn so với đặt hàng chưa giao',
+    ]);
+    expect(labels('cash-forecast:view')).toEqual(['Dòng tiền dự kiến']);
+  });
 });

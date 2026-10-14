@@ -2,7 +2,7 @@
 
 | Thuộc tính | Giá trị |
 |---|---|
-| Ngày cập nhật | 2026-10-12 |
+| Ngày cập nhật | 2026-10-14 |
 | Quy tắc | `.claude/rules/documentation.md` mục 5 |
 
 Trạng thái: **Hoàn thành** (test đạt) / **Đã code, chưa kiểm chứng** (test chưa chạy được) / **Đang làm** / **Chưa làm** / **Dời giai đoạn**.
@@ -126,7 +126,7 @@ Trạng thái: **Hoàn thành** (test đạt) / **Đã code, chưa kiểm chứn
 | Đồng thời: hai phiếu cùng phân bổ một hóa đơn, hai phiếu cùng chi một quỹ | BR-GEN-52 | Hoàn thành | `concurrentAllocation`, `concurrentPayments` | |
 | Đảo chứng từ thu chi: hoàn phân bổ, sổ quỹ ngược, bút toán đảo; chặn đảo làm quỹ âm; chặn đảo công nợ đầu kỳ đã được thu | AT-09, BR-GEN-21 | Hoàn thành | `reverseReceipt` | |
 | Bút toán tự sinh theo quy tắc hạch toán: tài khoản tiền lấy từ quỹ, tài khoản công nợ từ quy tắc, tài khoản đối ứng thu chi khác theo dòng | BR-ACC-02, ADR-11 | Hoàn thành | `receiptAllocation`, `paymentApprovalAndCashLimit`, `transferFlowPeriodAndAccess` | Quy tắc mẫu chỉ ở dev/test `[Chưa kiểm chứng]`; kế toán trưởng cấu hình trước UAT |
-| Sổ quỹ / sổ tiền gửi, dòng tiền thực tế theo quỹ và nội dung | BR-CSH-01, BR-CSH-06 (phần thực tế) | Hoàn thành | `paymentApprovalAndCashLimit`, `transferFlowPeriodAndAccess` | Dòng tiền dự kiến ở Giai đoạn 10 |
+| Sổ quỹ / sổ tiền gửi, dòng tiền thực tế theo quỹ và nội dung | BR-CSH-01, BR-CSH-06 (phần thực tế) | Hoàn thành | `paymentApprovalAndCashLimit`, `transferFlowPeriodAndAccess` | Dòng tiền dự kiến: Giai đoạn 10D |
 | Khóa kỳ quỹ chặn ghi sổ; điều kiện khóa kỳ quỹ: không còn chứng từ thu chi chờ duyệt / đã duyệt chưa ghi sổ | AT-11, BR-SYS-31 | Hoàn thành (chặn ghi sổ); điều kiện khóa kỳ đã code, chưa có test riêng | `transferFlowPeriodAndAccess` | |
 | Phân quyền, phạm vi chi nhánh | AT-10 | Hoàn thành | `paymentApprovalAndCashLimit`, `transferFlowPeriodAndAccess` | |
 | Màn hình Thu chi, ngân hàng; Sổ quỹ, dòng tiền; Quỹ, tài khoản ngân hàng | BR-UI | Hoàn thành, test giao diện một phần | `navigation.test.ts`; lint, TypeScript, build | Kiểm thử thủ công trên trình duyệt: chưa thực hiện |
@@ -224,6 +224,60 @@ Trạng thái: **Hoàn thành** (test đạt) / **Đã code, chưa kiểm chứn
 | Trả / đổi / giảm giá hàng bán, hàng lỗi theo đơn bán; lịch thu tiền; báo cáo doanh số theo đơn bán đã ghi sổ | BR-SAL-32..36, 50, 51, AT-06, AT-12 | Hoàn thành | `SalesReturnIntegrationTest` (2), `SalesReportIntegrationTest` (2) | Mốc lịch thu "hóa đơn" = ngày HĐĐT hoặc ngày hạch toán `[Giả định]` |
 | Bỏ đề nghị mua, yêu cầu báo giá NCC (5E), phiếu nhận, hóa đơn mua, báo giá bán, phiếu giao, hóa đơn bán, bán nhanh (bảng, API, màn hình) | D-54 | Hoàn thành | `navigation.test.ts`; `mvn clean verify` | Dữ liệu cũ của các bảng này bị xóa khi migrate V22 / V23 |
 | Màn hình Đơn mua hàng, Đơn bán hàng (ghi sổ, HĐĐT, giao hàng, in), Trả hàng, Phân bổ chi phí | BR-UI | Hoàn thành, test giao diện một phần | lint, TypeScript, `npm test`, build | Kiểm thử thủ công trên trình duyệt: chưa thực hiện |
+
+## Sổ chi tiết bán hàng S16-DNN (2026-10-14, V24)
+| Hạng mục | Mã yêu cầu | Trạng thái | Test chứng minh | Ghi chú / hạn chế |
+|---|---|---|---|---|
+| Sổ chi tiết bán hàng theo hàng hóa: dòng đơn bán (doanh thu), trả lại / giảm giá (giảm trừ "Khác"), chứng từ đảo (dòng âm theo ngày đảo), TK đối ứng từ bút toán gốc, cộng phát sinh, doanh thu thuần; thống kê theo khách / nhóm VTHH; lọc kỳ, đơn vị, nhân viên, nhóm KH, nhóm VTHH (gồm nhóm con), nhiều hàng, nhiều khách | BR-RPT-26, H-04, H-06, AT-12 (một phần), AT-10 | Hoàn thành phần doanh thu | `SalesLedgerIntegrationTest` (3 test), `ledgerContent.test.ts`, `navigation.test.ts` | Giá vốn, lãi gộp để trống kèm ghi chú đến Giai đoạn 8. Cột giảm trừ "Thuế" (TTĐB, xuất khẩu) để trống: chưa có nghiệp vụ `[Suy luận]`. Dòng trả lại không ghi số lượng vào cột doanh thu. Ký hiệu mẫu, dòng "Ban hành theo TT133" in theo hiện trạng H-04 `[Chưa kiểm chứng]`, kế toán trưởng xác nhận trước UAT. "Sổ này có ... trang", "Ngày mở sổ" để chấm trống |
+| Màn hình Sổ chi tiết bán hàng (menu Bán hàng): điều kiện như màn hình tham số hiện trạng, chọn nhiều hàng / khách tìm ở server (tối đa 200 mỗi loại), bấm số chứng từ mở đơn bán / trả hàng (`?id=`), In, tải Excel / PDF (A4 ngang) | BR-UI, BR-RPT-11, 13 | Hoàn thành, test giao diện một phần | `ledgerContent.test.ts` (dòng sổ, kỳ báo cáo, liên kết, Excel, PDF); lint, TypeScript, build | Kiểm thử thủ công trên trình duyệt: chưa thực hiện. Tải Word chưa có (không yêu cầu) |
+
+## Sổ chi tiết mua hàng (2026-10-14, V25)
+| Hạng mục | Mã yêu cầu | Trạng thái | Test chứng minh | Ghi chú / hạn chế |
+|---|---|---|---|---|
+| Sổ chi tiết mua hàng dạng bảng theo hiện trạng (HienTrang 14-15): dòng đơn mua (số lượng, đơn giá, giá trị mua, chiết khấu), trả hàng, giảm giá, dòng đảo âm theo ngày đảo, dòng tổng "Số dòng = n"; lọc kỳ, đơn vị, nhóm VTHH (gồm nhóm con), nhóm NCC, NV mua hàng, nhiều hàng, nhiều NCC | BR-RPT (L737), BR-RPT-11, 13, H-06, AT-12 (một phần), AT-10 | Hoàn thành | `PurchaseLedgerIntegrationTest` (2 test), `purchaseLedgerContent.test.ts`, `navigation.test.ts` | "NV mua hàng" = người lập chứng từ (đơn mua chưa có trường nhân viên mua hàng, chủ dự án chọn 2026-10-14). Cột "Tiền thuế NK", "Mã thống kê" ẩn vì chưa có dữ liệu. Đơn mua chỉ VND (D-24) |
+| Màn hình Sổ chi tiết mua hàng (menu Mua hàng): bấm số chứng từ mở đơn mua / trả hàng (`?id=`), In, tải Excel / PDF (A4 ngang) | BR-UI | Hoàn thành, test giao diện một phần | `purchaseLedgerContent.test.ts`; lint, TypeScript, build | Kiểm thử thủ công trên trình duyệt: chưa thực hiện. Dùng chung với sổ bán hàng: `SearchMultiSelect`, `ReportDownloadButton`, `reportPeriod`, `pdfmakeLoader` |
+
+## Giai đoạn 10A - Báo cáo kho (2026-10-14, V26, ADR-18)
+| Hạng mục | Mã yêu cầu | Trạng thái | Test chứng minh | Ghi chú / hạn chế |
+|---|---|---|---|---|
+| Thẻ kho theo hàng / kho / lô, lịch sử serial: tồn đầu, phát sinh có tồn lũy kế, tồn cuối khớp số dư | BR-RPT-21, AT-12 | Hoàn thành | `InventoryReportIntegrationTest.ledgerAndTraceability` | Đơn vị cơ sở; tối đa 20.000 dòng mỗi lần xem |
+| Nhập - xuất - tồn theo kỳ (số lượng) theo hàng × kho; đảo trừ đúng chiều chứng từ gốc | BR-RPT-22, AT-09 | Một phần (số lượng) | `ledgerAndTraceability` | Giá trị (tiền): Giai đoạn 8 (giá vốn). Không cộng tổng vì khác đơn vị tính |
+| Hàng tồn lâu (tham số `inventory.slow-moving-days`), hàng ngoại lệ (hết hạn, chất lượng khác ĐẠT, lô / serial khóa), hàng thiếu hồ sơ bắt buộc | BR-RPT-23 | Hoàn thành | `exceptionsAndMissingDocuments` | Sắp hết hạn, dưới định mức: đã có ở cảnh báo kho (BR-INV-40). Ngưỡng 180 ngày `[Giả định]`. "Thiếu hồ sơ" chỉ xét hồ sơ áp dụng cho hàng hóa (không xét lô / serial) `[Suy luận]` |
+| Truy xuất lô / serial → nơi nhập, khách nhận (xuất − trả lại), tồn còn lại; khách → lô / serial | BR-RPT-24, BR-INV-42 | Hoàn thành | `ledgerAndTraceability` (gồm người xem chi nhánh khác không thấy dòng) | Dòng đảo lấy đối tượng của dòng gốc |
+| Phân quyền, phạm vi kho, điều kiện sai | AT-10, BR-RPT-12 | Hoàn thành | `accessAndValidation` | |
+| Màn hình nhóm Báo cáo: Thẻ kho, Nhập - xuất - tồn, Tồn lâu / ngoại lệ / thiếu hồ sơ, Truy xuất lô / serial; bấm số chứng từ mở phiếu kho; In, Excel, PDF | BR-UI, BR-RPT-11, 13 | Hoàn thành, test giao diện một phần | `inventoryReports.test.ts`, `navigation.test.ts`; lint, TypeScript, build | Kiểm thử thủ công trên trình duyệt: chưa thực hiện. Bảng báo cáo dùng chung `shared/report` cho các đợt 10B..10D |
+
+## Giai đoạn 10B - Báo cáo mua / bán (2026-10-14, V27, ADR-18)
+| Hạng mục | Mã yêu cầu | Trạng thái | Test chứng minh | Ghi chú / hạn chế |
+|---|---|---|---|---|
+| Tình hình thực hiện đơn mua / đơn bán: trạng thái, hẹn nhận / giao, trễ hẹn, trả lại / giảm giá, đã thanh toán / thu, còn nợ | BR-RPT-25, 26, AT-08, AT-12 | Hoàn thành | `OrderReportIntegrationTest.salesReports`, `purchaseReports` | Sau D-54 đơn nhập / xuất đủ khi ghi sổ nên "thực hiện" là hẹn nhận / giao, giao hàng, trả lại, thanh toán `[Suy luận]`. Đã thanh toán = dòng thu / chi / bù trừ trên sổ công nợ (không gồm trả lại, giảm giá) |
+| Lịch sử giá mua (giá sau chiết khấu theo đơn vị cơ sở, thấp / cao / gần nhất) | BR-RPT-25 | Hoàn thành | `purchaseReports` | Chỉ đơn đang ghi sổ (không tính đơn đã đảo) |
+| Hàng lỗi theo NCC, truy NCC qua lô | BR-RPT-25 | Hoàn thành | `purchaseReports` | NCC = lần nhập mua đầu tiên của lô; phiếu không ghi lô / lô không từ đơn mua: "Không xác định NCC" (chủ dự án chọn 2026-10-14) |
+| Sổ nhật ký bán hàng từ chứng từ bán (phải thu, doanh thu hàng hóa / dịch vụ, giảm trừ, thuế) | BR-RPT-26 | Hoàn thành | `salesReports` | Chủ dự án chọn nguồn chứng từ (không theo bút toán); mẫu sổ TT133 `[Chưa kiểm chứng]`, kế toán trưởng xác nhận |
+| Tồn so với đặt hàng chưa giao (đặt, tồn, giữ chỗ, khả dụng, đang về, thiếu) | BR-RPT-26, H-06 | Hoàn thành | `salesReports` | Thiếu = đặt − tồn thực tế − đang về `[Suy luận]` (giữ chỗ của chính các đơn đã nằm trong tồn) |
+| Phân quyền, phạm vi chi nhánh, điều kiện sai | AT-10, BR-RPT-12 | Hoàn thành | `OrderReportIntegrationTest.accessAndValidation` | |
+| Màn hình: Tình hình thực hiện đơn mua / bán, Giá mua và hàng lỗi theo NCC, Sổ nhật ký bán hàng, Tồn so với đặt hàng; mở đơn / phiếu hàng lỗi (`?id=`); In, Excel, PDF | BR-UI, BR-RPT-11, 13 | Hoàn thành, test giao diện một phần | `orderReports.test.ts`, `navigation.test.ts`; lint, TypeScript, build | Kiểm thử thủ công trên trình duyệt: chưa thực hiện |
+
+## Giai đoạn 10C - Dashboard điều hành (2026-10-14, V28, ADR-18)
+| Hạng mục | Mã yêu cầu | Trạng thái | Test chứng minh | Ghi chú / hạn chế |
+|---|---|---|---|---|
+| Doanh thu thuần trong kỳ (bán − trả lại / giảm giá, chưa thuế), giá trị mua thuần | BR-RPT-01 | Hoàn thành một phần | `DashboardIntegrationTest.tradeMetrics` | Nguồn chứng từ đã ghi sổ (chủ dự án chọn 2026-10-14), cùng cách tính sổ nhật ký bán hàng; đơn mua quy đổi VND theo tỷ giá đơn. Giá vốn, lợi nhuận: chờ Giai đoạn 8 (`costAvailable = false`) |
+| Công nợ phải thu / phải trả còn lại, quá hạn theo mốc tuổi nợ | BR-RPT-02 | Hoàn thành | `statusMetrics` | Mốc theo tham số `finance.aging-bucket-1..3-days` (dùng chung báo cáo tuổi nợ). Chưa trừ tiền trả trước chưa phân bổ `[Suy luận]` |
+| Hàng đã / sắp hết hạn (lô × kho còn tồn) | BR-RPT-04 | Hoàn thành | `statusMetrics` | Ngưỡng `inventory.expiry-warning-days`; gồm mọi trạng thái chất lượng |
+| Đơn mua chưa nhận, đơn bán chưa giao đủ, trễ hẹn | BR-RPT-05, 06 | Hoàn thành | `statusMetrics` | Sau D-54: đơn mua gửi / duyệt chưa ghi sổ; đơn bán chưa ghi sổ hoặc đã ghi sổ khách chưa nhận `[Suy luận]` |
+| Top hàng, khách (doanh thu thuần), NCC (giá trị mua thuần) | BR-RPT-10 | Hoàn thành | `tradeMetrics` | Top 5 / 10 / 20 trên màn hình (API 1..50) |
+| Bấm chỉ tiêu / dòng top xem chứng từ nguồn; tổng chi tiết = số trên dashboard | BR-RPT-11, AT-12 | Hoàn thành | `tradeMetrics`, `statusMetrics` | Chi tiết có In / Excel / PDF |
+| Phạm vi dữ liệu, quyền, điều kiện sai; thời điểm số liệu | BR-RPT-12, 13, AT-10 | Hoàn thành | `accessAndValidation` | |
+| Màn hình: dashboard trên trang chủ (người có `dashboard:view`), kỳ mặc định Tháng này, chọn đơn vị và số dòng top | BR-UI-02, BR-RPT-11, 13 | Hoàn thành, test giao diện một phần | `dashboard.test.ts`; lint, TypeScript, build | Kiểm thử thủ công trên trình duyệt: chưa thực hiện. BR-RPT-03 (giá trị tồn), 07, 08 (đấu thầu) chờ Giai đoạn 8, 7; dòng tiền dự kiến (BR-RPT-09) ở đợt 10D |
+
+## Giai đoạn 10D - Dòng tiền dự kiến (2026-10-14, V29, ADR-18)
+| Hạng mục | Mã yêu cầu | Trạng thái | Test chứng minh | Ghi chú / hạn chế |
+|---|---|---|---|---|
+| Số dư quỹ / ngân hàng hôm nay; dự thu (phải thu còn lại theo hạn, đơn bán đã duyệt chưa ghi sổ), dự chi (phải trả còn lại theo hạn, đơn mua đã duyệt chưa ghi sổ) theo kỳ ngày / tuần / tháng; cột Quá hạn, cột Sau kỳ cuối; số dư cuối lũy kế | BR-RPT-30 (phần dự kiến), BR-CSH-06 | Hoàn thành một phần | `CashForecastIntegrationTest.forecastMatchesItems`, `ForecastPeriodsTest` | Đơn bán đã duyệt chưa ghi sổ: chủ dự án chọn thêm (ngoài BR). Lịch thu hợp đồng thầu chờ Giai đoạn 7. Ngày dự kiến của đơn chưa ghi sổ: ngày dự kiến giao / nhận + số ngày được nợ `[Suy luận]`. Chưa tính trả trước chưa phân bổ, phiếu chi đã duyệt chưa ghi sổ. Số dư quỹ ngoại tệ cộng thẳng như VND `[Suy luận]` |
+| Bấm ô xem khoản cấu thành; tổng = số trong ô | BR-RPT-11, AT-12 | Hoàn thành | `forecastMatchesItems` (mọi ô × nguồn) | Mở đơn bán / mua; công nợ đầu kỳ chỉ hiện số |
+| Thẻ "Số dư dự kiến sau 4 tuần" trên dashboard | BR-RPT-09 | Hoàn thành | `cashForecast.test.ts`; lint, TypeScript, build | Hiện khi có `dashboard:view` và `cash-forecast:view`; bấm mở báo cáo |
+| Phân quyền, phạm vi chi nhánh, điều kiện sai | AT-10, BR-RPT-12 | Hoàn thành | `CashForecastIntegrationTest.accessAndValidation` | "Chỉ dữ liệu của mình": không gồm số dư quỹ |
+| Màn hình Báo cáo → Dòng tiền dự kiến; In, Excel, PDF | BR-UI, BR-RPT-13 | Hoàn thành, test giao diện một phần | `cashForecast.test.ts`, `navigation.test.ts` | Kiểm thử thủ công trên trình duyệt: chưa thực hiện |
 
 ## Giả định đã dùng
 - Giai đoạn 3 (chốt 2026-10-10): ghi sổ kho ở READ COMMITTED với thứ tự khóa cố định (ADR-08); API chung `/inventory-documents` (ADR-10); chế độ duyệt mặc định của loại chứng từ kho và ngưỡng cảnh báo hạn dùng 90 ngày (D-52); mỗi chính sách xuất vượt tồn một chứng từ (D-53). Luồng duyệt mẫu chỉ là dữ liệu dev/test.

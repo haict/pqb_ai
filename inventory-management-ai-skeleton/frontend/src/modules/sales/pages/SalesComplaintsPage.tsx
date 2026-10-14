@@ -22,6 +22,7 @@ import {
 } from 'antd';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { newIdempotencyKey } from '../../../shared/api/httpClient';
 import { useServerTable } from '../../../shared/api/useServerTable';
 import { useCan } from '../../../shared/auth/authContext';
@@ -73,7 +74,9 @@ export function SalesComplaintsPage() {
   const branches = useMyBranches();
   const [keyword, setKeyword] = useState('');
   const [status, setStatus] = useState<ComplaintStatus>();
-  const [selected, setSelected] = useState<number | null>(null);
+  // Mở thẳng phiếu từ liên kết ?id= (truy ngược từ báo cáo hàng lỗi theo NCC, BR-RPT-11).
+  const [searchParams] = useSearchParams();
+  const [selected, setSelected] = useState<number | null>(() => Number(searchParams.get('id')) || null);
   const [creating, setCreating] = useState(false);
   const [step, setStep] = useState<Step | null>(null);
   const { tableProps } = useServerTable('sales-complaints', salesComplaintApi.list, {

@@ -1,8 +1,10 @@
-import { getOne, getPage, postWithKey, putJson } from '../../shared/api/rest';
+import { getOne, getPage, idList, postWithKey, putJson } from '../../shared/api/rest';
 import type { ListParams } from '../../shared/api/useServerTable';
 import type {
   CostAllocationSource,
   PurchaseCostAllocation,
+  PurchaseLedger,
+  PurchaseLedgerParams,
   PurchaseOrder,
   PurchaseReturn,
   ReturnableLine,
@@ -36,4 +38,13 @@ export const costAllocationApi = {
   ...documentApi<PurchaseCostAllocation>('/purchase-cost-allocations'),
   costLines: (params: { branchId: number }) =>
     getOne<CostAllocationSource[]>('/purchase-cost-allocations/cost-lines', params),
+};
+
+export const purchaseLedgerApi = {
+  get: (params: PurchaseLedgerParams) =>
+    getOne<PurchaseLedger>('/purchasing/reports/detail-ledger', {
+      ...params,
+      productIds: idList(params.productIds),
+      supplierIds: idList(params.supplierIds),
+    }),
 };

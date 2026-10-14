@@ -2,11 +2,15 @@ import { Card, Col, Descriptions, Row, Space, Typography } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import { useAuth, useCan } from '../../shared/auth/authContext';
 import { ServerStatusBadge } from '../../shared/components/ServerStatusBadge';
+import { DashboardPanel } from '../../modules/reporting/components/DashboardPanel';
 import { GROUP_ICONS, ITEM_ICONS } from '../navIcons';
 import { visibleNavGroups } from '../navigation';
 import { BRAND } from '../theme';
 
-/** Trang chủ: lời chào, trạng thái máy chủ và lối tắt tới các chức năng người dùng có quyền xem. */
+/**
+ * Trang chủ: lời chào, trạng thái máy chủ, dashboard điều hành (quyền `dashboard:view`, BR-UI-02) và lối tắt tới các
+ * chức năng người dùng có quyền xem.
+ */
 export function HomePage() {
   const { user } = useAuth();
   const can = useCan();
@@ -32,6 +36,7 @@ export function HomePage() {
           </span>
         </Space>
       </Card>
+      {can('dashboard:view') && <DashboardPanel />}
       <Typography.Title level={5} style={{ marginTop: 0 }}>
         Truy cập nhanh
       </Typography.Title>
