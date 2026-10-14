@@ -1,3 +1,4 @@
+import { EditOutlined } from '@ant-design/icons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { App, Button, Card, Descriptions, Result, Space, Spin, Table, Tabs, Typography } from 'antd';
 import dayjs from 'dayjs';
@@ -176,7 +177,9 @@ export function InventoryDocumentDetailPage() {
         </Typography.Title>
         <Space wrap>
           {document.allowedActions.includes('update') && (
-            <Button onClick={() => setEditing(true)}>Sửa</Button>
+            <Button onClick={() => setEditing(true)} icon={<EditOutlined />}>
+              Sửa
+            </Button>
           )}
           <DocumentActions actions={document.allowedActions} onAction={act} />
         </Space>

@@ -6,7 +6,20 @@ body,
 }
 
 body {
-  background: #f5f7fa;
+  background: #f4f7f9;
+}
+
+/* Thanh cuộn mảnh cho menu trái và bảng. */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: #c9d6dc;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
 }
 
 /* In báo giá, biên bản giao nhận (BR-SAL-04, BR-SAL-22): chỉ in vùng .print-area. */
@@ -17,6 +30,9 @@ body {
   .print-area,
   .print-area * {
     visibility: visible;
+  }
+  .print-area .no-print {
+    display: none;
   }
   .print-area {
     position: absolute;

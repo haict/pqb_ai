@@ -1,4 +1,4 @@
-import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
+import { DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   App,
@@ -121,7 +121,9 @@ function OpeningDrawer({
             <DocumentStatusTag status={document.status} />
             <Space wrap>
               {editable && can('debt-opening:create') && (
-                <Button onClick={() => onEdit(document)}>Sửa</Button>
+                <Button onClick={() => onEdit(document)} icon={<EditOutlined />}>
+                  Sửa
+                </Button>
               )}
               <DocumentActions
                 actions={openingActions(document.status, can)}

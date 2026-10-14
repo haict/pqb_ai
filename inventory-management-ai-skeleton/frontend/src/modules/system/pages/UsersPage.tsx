@@ -1,4 +1,4 @@
-import { DownOutlined } from '@ant-design/icons';
+import { DownOutlined, EditOutlined } from '@ant-design/icons';
 import {
   App,
   Button,
@@ -133,7 +133,11 @@ export function UsersPage() {
         return (
           <Space>
             {can('user:update') && (
-              <Button size="small" onClick={() => setDialog({ kind: 'edit', user: item })}>
+              <Button
+                size="small"
+                onClick={() => setDialog({ kind: 'edit', user: item })}
+                icon={<EditOutlined />}
+              >
                 Sửa
               </Button>
             )}

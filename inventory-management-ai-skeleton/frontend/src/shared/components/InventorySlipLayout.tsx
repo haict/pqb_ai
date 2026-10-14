@@ -1,78 +1,26 @@
 import type { CSSProperties } from 'react';
 import { moneyInWords } from '../moneyWords';
+import {
+  AMOUNT_DIGITS,
+  formatDecimal as decimal,
+  longDate,
+  ORIGINAL_DOCUMENTS_LINE,
+  PRICE_DIGITS,
+  QUANTITY_DIGITS,
+  SIGN_DATE_LINE,
+  SIGN_HINT,
+  SLIP_COLUMN_KEYS as COLUMN_KEYS,
+  SLIP_COLUMNS as COLUMNS,
+  taxRatesText,
+  type InventorySlipView,
+} from '../inventorySlip/slipContent';
+
+export type { InventorySlipView, SlipLineView } from '../inventorySlip/slipContent';
 
 const PAGE: CSSProperties = { fontFamily: '"Times New Roman", serif', fontSize: 14, color: '#000' };
 const CELL: CSSProperties = { border: '1px solid #000', padding: '2px 4px', verticalAlign: 'top' };
 const HEAD: CSSProperties = { ...CELL, textAlign: 'center', fontWeight: 'bold' };
 const NUMBER: CSSProperties = { ...CELL, textAlign: 'right', whiteSpace: 'nowrap' };
-const COLUMNS = [
-  'STT',
-  'Mã hàng',
-  'Tên hàng',
-  'Số lô',
-  'Hạn sử dụng',
-  'Mã kho',
-  'ĐVT',
-  'Số lượng',
-  'Đơn giá',
-  'Thành tiền',
-];
-const COLUMN_KEYS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', '1', '2', '3'];
-
-/** Một dòng hàng trên phiếu kho; một dòng có thể xuất nhiều lô (mỗi lô / hạn dùng một dòng trong ô). */
-export interface SlipLineView {
-  lineNo: number;
-  productCode: string | null;
-  productName: string | null;
-  /** Ghi chú dưới tên hàng (ví dụ danh sách serial). */
-  productNote?: string;
-  lots: string[];
-  expiries: string[];
-  warehouseCode: string | null;
-  unitName: string;
-  quantity: number;
-  unitPrice: number;
-  amount: number;
-}
-
-/** Nội dung phiếu nhập / xuất kho theo mẫu doanh nghiệp. */
-export interface InventorySlipView {
-  title: string;
-  companyName: string | null;
-  companyAddress: string | null;
-  slipDate: string | null;
-  slipNo: string | null;
-  debitAccounts: string[];
-  creditAccounts: string[];
-  /** Các dòng thông tin chung, in theo thứ tự, mỗi dòng bắt đầu bằng "- ". */
-  infoRows: string[];
-  lines: SlipLineView[];
-  /** Cộng tiền hàng (trước thuế). */
-  totalAmount: number;
-  /** Thuế suất GTGT (%) của các dòng; nhiều mức thì in cách nhau dấu phẩy. */
-  taxRates: number[];
-  taxAmount: number;
-  /** Tổng tiền thanh toán = tiền hàng + thuế; số tiền bằng chữ đọc theo số này. */
-  paymentAmount: number;
-  signers: string[];
-}
-
-function decimal(value: number, fractionDigits: number) {
-  return new Intl.NumberFormat('vi-VN', {
-    minimumFractionDigits: fractionDigits,
-    maximumFractionDigits: fractionDigits,
-  }).format(value);
-}
-
-/** "Ngày 07 tháng 10 năm 2026" từ ngày dạng YYYY-MM-DD. */
-function longDate(value: string | null) {
-  if (!value) {
-    return '';
-  }
-  const [year, month, day] = value.split('-');
-  return `Ngày ${day} tháng ${month} năm ${year}`;
-}
-
 function Stacked({ values }: { values: string[] }) {
   return (
     <>
@@ -139,9 +87,9 @@ export function InventorySlipLayout({ slip }: { slip: InventorySlipView }) {
               </td>
               <td style={CELL}>{line.warehouseCode}</td>
               <td style={CELL}>{line.unitName}</td>
-              <td style={NUMBER}>{decimal(line.quantity, 2)}</td>
-              <td style={NUMBER}>{decimal(line.unitPrice, 2)}</td>
-              <td style={NUMBER}>{decimal(line.amount, 0)}</td>
+              <td style={NUMBER}>{decimal(line.quantity, QUANTITY_DIGITS)}</td>
+              <td style={NUMBER}>{decimal(line.unitPrice, PRICE_DIGITS)}</td>
+              <td style={NUMBER}>{decimal(line.amount, AMOUNT_DIGITS)}</td>
             </tr>
           ))}
           <tr>
@@ -151,33 +99,33 @@ export function InventorySlipLayout({ slip }: { slip: InventorySlipView }) {
             {Array.from({ length: 6 }, (_, index) => (
               <td key={index} style={CELL} />
             ))}
-            <td style={{ ...NUMBER, fontWeight: 'bold' }}>{decimal(slip.totalAmount, 0)}</td>
+            <td style={{ ...NUMBER, fontWeight: 'bold' }}>{decimal(slip.totalAmount, AMOUNT_DIGITS)}</td>
           </tr>
           <tr>
             <td style={CELL} colSpan={6} />
             <td style={CELL} colSpan={3}>
               Cộng tiền hàng:
             </td>
-            <td style={{ ...NUMBER, fontWeight: 'bold' }}>{decimal(slip.totalAmount, 0)}</td>
+            <td style={{ ...NUMBER, fontWeight: 'bold' }}>{decimal(slip.totalAmount, AMOUNT_DIGITS)}</td>
           </tr>
           <tr>
             <td style={CELL} colSpan={6}>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span>Thuế suất GTGT:</span>
-                <strong>{slip.taxRates.map((rate) => `${decimal(rate, 0)}%`).join(', ')}</strong>
+                <strong>{taxRatesText(slip)}</strong>
               </div>
             </td>
             <td style={CELL} colSpan={3}>
               Tiền thuế GTGT:
             </td>
-            <td style={{ ...NUMBER, fontWeight: 'bold' }}>{decimal(slip.taxAmount, 0)}</td>
+            <td style={{ ...NUMBER, fontWeight: 'bold' }}>{decimal(slip.taxAmount, AMOUNT_DIGITS)}</td>
           </tr>
           <tr>
             <td style={CELL} colSpan={6} />
             <td style={CELL} colSpan={3}>
               Tổng tiền thanh toán:
             </td>
-            <td style={{ ...NUMBER, fontWeight: 'bold' }}>{decimal(slip.paymentAmount, 0)}</td>
+            <td style={{ ...NUMBER, fontWeight: 'bold' }}>{decimal(slip.paymentAmount, AMOUNT_DIGITS)}</td>
           </tr>
         </tbody>
       </table>
@@ -186,16 +134,14 @@ export function InventorySlipLayout({ slip }: { slip: InventorySlipView }) {
           - Số tiền bằng chữ:{' '}
           <strong style={{ fontStyle: 'italic' }}>{moneyInWords(slip.paymentAmount)}</strong>
         </div>
-        <div>- Số chứng từ gốc kèm theo: ..............................................................</div>
+        <div>{ORIGINAL_DOCUMENTS_LINE}</div>
       </div>
-      <div style={{ textAlign: 'right', fontStyle: 'italic', marginTop: 8 }}>
-        Ngày ..... tháng ..... năm ........
-      </div>
+      <div style={{ textAlign: 'right', fontStyle: 'italic', marginTop: 8 }}>{SIGN_DATE_LINE}</div>
       <div style={{ display: 'flex', textAlign: 'center', marginTop: 4, minHeight: 120 }}>
         {slip.signers.map((signer) => (
           <div key={signer} style={{ flex: 1 }}>
             <div style={{ fontWeight: 'bold' }}>{signer}</div>
-            <div style={{ fontStyle: 'italic' }}>(Ký, họ tên)</div>
+            <div style={{ fontStyle: 'italic' }}>{SIGN_HINT}</div>
           </div>
         ))}
       </div>

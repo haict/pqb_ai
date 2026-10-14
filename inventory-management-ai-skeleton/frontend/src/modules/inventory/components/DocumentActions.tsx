@@ -1,6 +1,22 @@
+import {
+  BookOutlined,
+  CarOutlined,
+  CheckOutlined,
+  CloseOutlined,
+  ImportOutlined,
+  InboxOutlined,
+  LockOutlined,
+  PlayCircleOutlined,
+  PushpinOutlined,
+  RollbackOutlined,
+  SendOutlined,
+  StopOutlined,
+  SwapOutlined,
+  UnlockOutlined,
+} from '@ant-design/icons';
 import { Alert, App, Button, DatePicker, Form, Input, Modal, Space } from 'antd';
 import type { Dayjs } from 'dayjs';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { newIdempotencyKey } from '../../../shared/api/httpClient';
 import { ApiError } from '../../../shared/api/apiError';
 import { validated } from '../../../shared/forms';
@@ -30,6 +46,24 @@ const DEFAULT_ORDER = [
   'cancel',
 ];
 const DATE_ACTIONS = new Set(['reverse', 'receive', 'fail']);
+
+/** Biểu tượng theo ý nghĩa hành động; aria-hidden để tên nút (đọc màn hình, test) chỉ là nhãn tiếng Việt. */
+const ACTION_ICONS: Record<string, ReactNode> = {
+  start: <PlayCircleOutlined aria-hidden />,
+  submit: <SendOutlined aria-hidden />,
+  approve: <CheckOutlined aria-hidden />,
+  reject: <CloseOutlined aria-hidden />,
+  post: <BookOutlined aria-hidden />,
+  receive: <InboxOutlined aria-hidden />,
+  reverse: <RollbackOutlined aria-hidden />,
+  close: <LockOutlined aria-hidden />,
+  cancel: <StopOutlined aria-hidden />,
+  'stock-in': <ImportOutlined aria-hidden />,
+  reserve: <PushpinOutlined aria-hidden />,
+  release: <UnlockOutlined aria-hidden />,
+  ship: <CarOutlined aria-hidden />,
+  'create-exchange-order': <SwapOutlined aria-hidden />,
+};
 
 /**
  * Nút thao tác chứng từ theo trạng thái và quyền (server trả {@code allowedActions}; server vẫn kiểm tra lại).
@@ -89,6 +123,7 @@ export function DocumentActions({ actions, order = DEFAULT_ORDER, onAction }: Pr
             key={action}
             type={action === 'post' || action === 'approve' ? 'primary' : 'default'}
             danger={action === 'cancel' || action === 'reject' || action === 'reverse'}
+            icon={ACTION_ICONS[action]}
             onClick={() => open(action)}
           >
             {ACTION_LABELS[action] ?? action}

@@ -1,3 +1,4 @@
+import { CheckCircleOutlined, EditOutlined, StopOutlined } from '@ant-design/icons';
 import {
   App,
   Button,
@@ -144,10 +145,14 @@ export function ComplianceDocumentsPage() {
       render: (_, document) =>
         canManage && (
           <Space>
-            <Button size="small" onClick={() => setEditing(document)}>
+            <Button size="small" onClick={() => setEditing(document)} icon={<EditOutlined />}>
               Sửa
             </Button>
-            <Button size="small" onClick={() => statusChange.open(document)}>
+            <Button
+              size="small"
+              onClick={() => statusChange.open(document)}
+              icon={document.status === 'ACTIVE' ? <StopOutlined /> : <CheckCircleOutlined />}
+            >
               {document.status === 'ACTIVE' ? 'Ngừng' : 'Kích hoạt'}
             </Button>
           </Space>

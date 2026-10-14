@@ -1,3 +1,4 @@
+import { CheckCircleOutlined, EditOutlined, StopOutlined } from '@ant-design/icons';
 import {
   App,
   Button,
@@ -157,10 +158,15 @@ export function PostingRulesPage() {
       render: (_, rule) =>
         canManage && (
           <Space>
-            <Button size="small" onClick={() => setEditing(rule)}>
+            <Button size="small" onClick={() => setEditing(rule)} icon={<EditOutlined />}>
               Sửa
             </Button>
-            <Button size="small" danger={rule.status === 'ACTIVE'} onClick={() => statusChange.open(rule)}>
+            <Button
+              size="small"
+              danger={rule.status === 'ACTIVE'}
+              onClick={() => statusChange.open(rule)}
+              icon={rule.status === 'ACTIVE' ? <StopOutlined /> : <CheckCircleOutlined />}
+            >
               {rule.status === 'ACTIVE' ? 'Ngừng' : 'Kích hoạt'}
             </Button>
           </Space>

@@ -2,10 +2,10 @@
 
 | Thuộc tính | Giá trị |
 |---|---|
-| Phiên bản | 0.2 |
-| Ngày cập nhật | 2026-10-09 |
+| Phiên bản | 0.3 |
+| Ngày cập nhật | 2026-10-14 |
 | Quy tắc | `.claude/rules/deployment.md`, `.claude/rules/security.md` |
-| Thay đổi | Bỏ Docker (D-44): dev/test dùng MySQL local, backend chạy Eclipse + Tomcat 10.1 |
+| Thay đổi | Bỏ Docker (D-44): dev/test dùng MySQL local, backend chạy Eclipse + Tomcat 10.1. 0.3: ngoại lệ dữ liệu mẫu trên máy chủ UAT (mục 2.1) |
 
 ## 1. Phiên bản nền tảng
 | Thành phần | Phiên bản |
@@ -28,6 +28,20 @@
 Thư mục `db/dev-local` (chỉ dev, tùy chọn): dữ liệu tiện thử nghiệm trên máy cá nhân (admin toàn quyền); không nằm trong profile `test`, không bao giờ ở `uat`/`prod`. File dùng placeholder `${flyway:timestamp}` để chạy lại mỗi lần khởi động `[Chưa kiểm chứng]`.
 
 Cấu hình gốc (`application.yml`) không có profile mặc định và an toàn cho production (không dữ liệu mẫu, không Swagger).
+
+### 2.1 Ngoại lệ: dữ liệu mẫu trên máy chủ UAT (2026-10-14)
+Lệch khỏi bảng mục 2 (`uat`: không dữ liệu mẫu). Chủ dự án yêu cầu, áp dụng tạm thời cho đợt UAT hiện tại.
+
+| Mục | Nội dung |
+|---|---|
+| Phạm vi | Máy chủ UAT: service Windows `Tomcat10`, database `erp`, file cấu hình `D:\erp\config\application-prod.yml` (`ERP_CONFIG_FILE`) |
+| Hiện trạng | Database `erp` đã chạy các script `db/dev-data/R__dev_*` (lần khởi động trước bằng profile `dev`). Service chạy profile `prod`, không có `db/dev-data` trong `spring.flyway.locations`, nên Flyway báo `Detected applied migration not resolved locally` và ứng dụng không khởi động |
+| Xử lý | Chỉ bỏ qua migration có trong lịch sử nhưng không có trong classpath, đặt trong file cấu hình ngoài (không sửa mã, không sửa migration):<br>`spring.flyway.ignore-migration-patterns: "*:missing"` `[Chưa kiểm chứng]` trên máy chủ |
+| Không dùng | `spring.flyway.validate-on-migrate: false` (tắt cả kiểm tra checksum migration `V*`), `flyway repair` |
+| Rủi ro | Người dùng mẫu (`admin`, `giamdoc`, `kinhdoanh.hn`, `kho.hcm`...) dùng chung mật khẩu, mã băm công khai trong `R__dev_organization_and_users.sql` → đổi mật khẩu hoặc khóa ngay sau khi triển khai nếu máy chủ truy cập được qua mạng.<br>Dữ liệu mẫu không tự cập nhật: profile `prod`/`uat` không chạy lại `R__dev_*` |
+| Điều kiện kết thúc | Trước UAT chính thức hoặc production: tạo database trống, bỏ `ignore-migration-patterns`, khởi động bằng `uat`/`prod` để Flyway chỉ chạy `db/migration` |
+
+Không áp dụng ngoại lệ này cho production: `db/dev-data` không bao giờ được cấu hình ở `prod` (`.claude/rules/database.md` mục 2).
 
 ## 3. File cấu hình riêng của máy
 `application.yml` nạp thêm (nếu có) file `~/.erp/application-local.yml` — Windows: `C:\Users\<tên>\.erp\application-local.yml`; đổi vị trí bằng biến `ERP_CONFIG_FILE`.

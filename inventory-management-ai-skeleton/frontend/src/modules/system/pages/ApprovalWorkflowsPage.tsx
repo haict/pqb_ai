@@ -1,4 +1,10 @@
-import { MinusCircleOutlined, PlusOutlined } from '@ant-design/icons';
+import {
+  CheckCircleOutlined,
+  EditOutlined,
+  MinusCircleOutlined,
+  PlusOutlined,
+  StopOutlined,
+} from '@ant-design/icons';
 import {
   App,
   Button,
@@ -109,13 +115,14 @@ function WorkflowTable({ companyId }: { companyId: number }) {
       render: (_, workflow) =>
         canManage && (
           <Space>
-            <Button size="small" onClick={() => setEditing(workflow)}>
+            <Button size="small" onClick={() => setEditing(workflow)} icon={<EditOutlined />}>
               Sửa
             </Button>
             <Button
               size="small"
               danger={workflow.status === 'ACTIVE'}
               onClick={() => statusChange.open(workflow)}
+              icon={workflow.status === 'ACTIVE' ? <StopOutlined /> : <CheckCircleOutlined />}
             >
               {workflow.status === 'ACTIVE' ? 'Ngừng' : 'Kích hoạt'}
             </Button>

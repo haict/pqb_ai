@@ -1,3 +1,4 @@
+import { CheckCircleOutlined, EditOutlined, StopOutlined } from '@ant-design/icons';
 import {
   App,
   Button,
@@ -79,7 +80,7 @@ export function RolesPage() {
       render: (_, role) => (
         <Space>
           {can('role:update') && (
-            <Button size="small" onClick={() => setDialog({ kind: 'edit', role })}>
+            <Button size="small" onClick={() => setDialog({ kind: 'edit', role })} icon={<EditOutlined />}>
               Sửa
             </Button>
           )}
@@ -89,7 +90,12 @@ export function RolesPage() {
             </Button>
           )}
           {can('role:update') && !(role.systemRole && role.status === 'ACTIVE') && (
-            <Button size="small" danger={role.status === 'ACTIVE'} onClick={() => statusChange.open(role)}>
+            <Button
+              size="small"
+              danger={role.status === 'ACTIVE'}
+              onClick={() => statusChange.open(role)}
+              icon={role.status === 'ACTIVE' ? <StopOutlined /> : <CheckCircleOutlined />}
+            >
               {role.status === 'ACTIVE' ? 'Ngừng' : 'Kích hoạt'}
             </Button>
           )}

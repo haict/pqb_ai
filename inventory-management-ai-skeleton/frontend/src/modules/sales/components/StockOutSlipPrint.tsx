@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Alert, Spin } from 'antd';
 import { toApiError } from '../../../shared/api/apiError';
 import { InventorySlipLayout, type InventorySlipView } from '../../../shared/components/InventorySlipLayout';
+import { SlipDownloadButton } from '../../../shared/inventorySlip/SlipDownloadButton';
 import { formatDate, formatNumber } from '../../inventory/labels';
 import { useCatalog } from '../../masterdata/lookups';
 import { salesOrderApi } from '../api';
@@ -20,7 +21,15 @@ export function StockOutSlipPrint({ orderId }: { orderId: number }) {
   if (slip.isError) {
     return <Alert type="error" showIcon message={toApiError(slip.error).message} />;
   }
-  return <InventorySlipLayout slip={toView(slip.data, units.nameOf)} />;
+  const view = toView(slip.data, units.nameOf);
+  return (
+    <>
+      <div className="no-print" style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+        <SlipDownloadButton slip={view} />
+      </div>
+      <InventorySlipLayout slip={view} />
+    </>
+  );
 }
 
 /** Lô thực xuất của dòng: một lô thì chỉ ghi số lô; nhiều lô thì kèm số lượng (đơn vị cơ sở) từng lô. */

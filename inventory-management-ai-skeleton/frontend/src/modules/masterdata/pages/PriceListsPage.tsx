@@ -1,3 +1,4 @@
+import { CheckCircleOutlined, EditOutlined, StopOutlined } from '@ant-design/icons';
 import {
   App,
   Button,
@@ -245,10 +246,15 @@ export function PriceListsPage() {
           </Button>
           {canManage && (
             <>
-              <Button size="small" onClick={() => setEditing(list)}>
+              <Button size="small" onClick={() => setEditing(list)} icon={<EditOutlined />}>
                 Sửa
               </Button>
-              <Button size="small" danger={list.status === 'ACTIVE'} onClick={() => statusChange.open(list)}>
+              <Button
+                size="small"
+                danger={list.status === 'ACTIVE'}
+                onClick={() => statusChange.open(list)}
+                icon={list.status === 'ACTIVE' ? <StopOutlined /> : <CheckCircleOutlined />}
+              >
                 {list.status === 'ACTIVE' ? 'Ngừng' : 'Kích hoạt'}
               </Button>
             </>

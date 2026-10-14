@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Alert, Spin } from 'antd';
 import { toApiError } from '../../../shared/api/apiError';
 import { InventorySlipLayout, type InventorySlipView } from '../../../shared/components/InventorySlipLayout';
+import { SlipDownloadButton } from '../../../shared/inventorySlip/SlipDownloadButton';
 import { formatDate } from '../../inventory/labels';
 import { useCatalog } from '../../masterdata/lookups';
 import { purchaseOrderApi } from '../api';
@@ -20,7 +21,15 @@ export function StockInSlipPrint({ orderId }: { orderId: number }) {
   if (slip.isError) {
     return <Alert type="error" showIcon message={toApiError(slip.error).message} />;
   }
-  return <InventorySlipLayout slip={toView(slip.data, units.nameOf)} />;
+  const view = toView(slip.data, units.nameOf);
+  return (
+    <>
+      <div className="no-print" style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+        <SlipDownloadButton slip={view} />
+      </div>
+      <InventorySlipLayout slip={view} />
+    </>
+  );
 }
 
 function toView(slip: StockInSlip, unitName: (id: number | null) => string): InventorySlipView {

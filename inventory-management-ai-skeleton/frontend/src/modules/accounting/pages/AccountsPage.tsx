@@ -1,4 +1,4 @@
-import { UploadOutlined } from '@ant-design/icons';
+import { CheckCircleOutlined, EditOutlined, StopOutlined, UploadOutlined } from '@ant-design/icons';
 import {
   App,
   Button,
@@ -140,7 +140,11 @@ export function AccountsPage() {
       render: (_, row) =>
         canManage && (
           <Space>
-            <Button size="small" onClick={() => setEditing({ mode: 'edit', account: row })}>
+            <Button
+              size="small"
+              onClick={() => setEditing({ mode: 'edit', account: row })}
+              icon={<EditOutlined />}
+            >
               Sửa
             </Button>
             {row.status === 'ACTIVE' && (
@@ -148,7 +152,12 @@ export function AccountsPage() {
                 Thêm TK con
               </Button>
             )}
-            <Button size="small" danger={row.status === 'ACTIVE'} onClick={() => statusChange.open(row)}>
+            <Button
+              size="small"
+              danger={row.status === 'ACTIVE'}
+              onClick={() => statusChange.open(row)}
+              icon={row.status === 'ACTIVE' ? <StopOutlined /> : <CheckCircleOutlined />}
+            >
               {row.status === 'ACTIVE' ? 'Ngừng' : 'Kích hoạt'}
             </Button>
           </Space>

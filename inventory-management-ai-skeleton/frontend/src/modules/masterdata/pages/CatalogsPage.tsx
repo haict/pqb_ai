@@ -1,3 +1,4 @@
+import { CheckCircleOutlined, EditOutlined, StopOutlined } from '@ant-design/icons';
 import {
   Button,
   Card,
@@ -106,10 +107,15 @@ function CrudTab<T extends Entity, F extends object>(props: CrudTabProps<T, F>) 
       render: (_, item) =>
         canManage && (
           <Space>
-            <Button size="small" onClick={() => setEditing(item)}>
+            <Button size="small" onClick={() => setEditing(item)} icon={<EditOutlined />}>
               Sửa
             </Button>
-            <Button size="small" danger={item.status === 'ACTIVE'} onClick={() => statusChange.open(item)}>
+            <Button
+              size="small"
+              danger={item.status === 'ACTIVE'}
+              onClick={() => statusChange.open(item)}
+              icon={item.status === 'ACTIVE' ? <StopOutlined /> : <CheckCircleOutlined />}
+            >
               {item.status === 'ACTIVE' ? 'Ngừng' : 'Kích hoạt'}
             </Button>
           </Space>

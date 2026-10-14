@@ -1,3 +1,4 @@
+import { EyeOutlined } from '@ant-design/icons';
 import { Button, Card, Drawer, Space, Table, Typography, type TableColumnsType } from 'antd';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -52,7 +53,7 @@ export function ApprovalsPage() {
       title: 'Thao tác',
       width: 110,
       render: (_, request) => (
-        <Button size="small" onClick={() => setViewing(request)}>
+        <Button size="small" onClick={() => setViewing(request)} icon={<EyeOutlined />}>
           Chi tiết
         </Button>
       ),

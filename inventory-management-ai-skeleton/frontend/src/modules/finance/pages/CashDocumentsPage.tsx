@@ -1,3 +1,4 @@
+import { EditOutlined } from '@ant-design/icons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   App,
@@ -143,7 +144,9 @@ function CashDocumentDrawer({
             <DocumentStatusTag status={document.status} />
             <Space wrap>
               {editable && can('cash-document:create') && (
-                <Button onClick={() => onEdit(document)}>Sửa</Button>
+                <Button onClick={() => onEdit(document)} icon={<EditOutlined />}>
+                  Sửa
+                </Button>
               )}
               <DocumentActions
                 actions={cashActions(document.status, can)}

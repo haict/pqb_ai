@@ -1,3 +1,4 @@
+import { EditOutlined } from '@ant-design/icons';
 import {
   App,
   Button,
@@ -105,7 +106,7 @@ export function ParametersPage() {
       render: (_, parameter) =>
         can('parameter:update') &&
         !parameter.locked && (
-          <Button size="small" onClick={() => setEditing(parameter)}>
+          <Button size="small" onClick={() => setEditing(parameter)} icon={<EditOutlined />}>
             Sửa
           </Button>
         ),

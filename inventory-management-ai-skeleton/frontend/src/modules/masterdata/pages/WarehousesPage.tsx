@@ -1,3 +1,4 @@
+import { CheckCircleOutlined, EditOutlined, StopOutlined } from '@ant-design/icons';
 import {
   App,
   Button,
@@ -116,11 +117,15 @@ function LocationsDrawer({ warehouse, onClose }: { warehouse: Warehouse; onClose
             render: (_, location) =>
               canManage && (
                 <Space>
-                  <Button size="small" onClick={() => setEditing(location)}>
+                  <Button size="small" onClick={() => setEditing(location)} icon={<EditOutlined />}>
                     Sửa
                   </Button>
                   {!location.defaultLocation && (
-                    <Button size="small" onClick={() => statusChange.open(location)}>
+                    <Button
+                      size="small"
+                      onClick={() => statusChange.open(location)}
+                      icon={location.status === 'ACTIVE' ? <StopOutlined /> : <CheckCircleOutlined />}
+                    >
                       {location.status === 'ACTIVE' ? 'Ngừng' : 'Kích hoạt'}
                     </Button>
                   )}
@@ -231,13 +236,14 @@ export function WarehousesPage() {
           </Button>
           {canManage && (
             <>
-              <Button size="small" onClick={() => setEditing(warehouse)}>
+              <Button size="small" onClick={() => setEditing(warehouse)} icon={<EditOutlined />}>
                 Sửa
               </Button>
               <Button
                 size="small"
                 danger={warehouse.status === 'ACTIVE'}
                 onClick={() => statusChange.open(warehouse)}
+                icon={warehouse.status === 'ACTIVE' ? <StopOutlined /> : <CheckCircleOutlined />}
               >
                 {warehouse.status === 'ACTIVE' ? 'Ngừng' : 'Kích hoạt'}
               </Button>

@@ -1,3 +1,4 @@
+import { EditOutlined } from '@ant-design/icons';
 import {
   Alert,
   App,
@@ -115,7 +116,7 @@ function FormatTable({ companyId }: { companyId: number }) {
         canUpdate &&
         format.status !== 'SUPERSEDED' && (
           <Space>
-            <Button size="small" onClick={() => setEditing(format)}>
+            <Button size="small" onClick={() => setEditing(format)} icon={<EditOutlined />}>
               Sửa
             </Button>
             {format.status === 'SCHEDULED' && (

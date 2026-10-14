@@ -15,7 +15,7 @@
 ## 2. Công nghệ
 | Lớp | Công nghệ |
 |---|---|
-| Frontend | React + TypeScript (strict), Vite, Ant Design (`vi_VN`), TanStack Query |
+| Frontend | React + TypeScript (strict), Vite, Ant Design (`vi_VN`), TanStack Query; exceljs, docx, pdfmake (tải phiếu kho dạng Excel / Word / PDF, nạp khi dùng) |
 | Backend | Java 17, Spring Boot 3.x (MVC, Data JPA/Hibernate, Security, Validation), springdoc-openapi, Lombok |
 | Database | MySQL 8.x (InnoDB, utf8mb4), Flyway |
 | Bảo mật | Spring Security, JWT access token + refresh token xoay vòng (D-38) |

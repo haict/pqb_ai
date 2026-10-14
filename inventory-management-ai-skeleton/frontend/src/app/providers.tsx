@@ -6,6 +6,7 @@ import 'dayjs/locale/vi';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from '../shared/auth/AuthProvider';
 import { createQueryClient } from './queryClient';
+import { APP_THEME } from './theme';
 
 dayjs.locale('vi');
 
@@ -13,7 +14,7 @@ export function AppProviders({ children }: { children: ReactNode }) {
   const [queryClient] = useState(createQueryClient);
   return (
     <QueryClientProvider client={queryClient}>
-      <ConfigProvider locale={viVN} theme={{ token: { colorPrimary: '#1565c0', borderRadius: 4 } }}>
+      <ConfigProvider locale={viVN} theme={APP_THEME}>
         <AntApp>
           <AuthProvider>{children}</AuthProvider>
         </AntApp>

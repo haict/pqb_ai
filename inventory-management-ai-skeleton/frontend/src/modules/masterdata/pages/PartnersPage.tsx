@@ -1,4 +1,11 @@
-import { MinusCircleOutlined, PlusOutlined, UploadOutlined } from '@ant-design/icons';
+import {
+  CheckCircleOutlined,
+  EditOutlined,
+  MinusCircleOutlined,
+  PlusOutlined,
+  StopOutlined,
+  UploadOutlined,
+} from '@ant-design/icons';
 import {
   App,
   Button,
@@ -419,13 +426,14 @@ export function PartnersPage() {
       render: (_, partner) =>
         canManage && (
           <Space>
-            <Button size="small" onClick={() => openEdit(partner)}>
+            <Button size="small" onClick={() => openEdit(partner)} icon={<EditOutlined />}>
               Sửa
             </Button>
             <Button
               size="small"
               danger={partner.status === 'ACTIVE'}
               onClick={() => statusChange.open(partner)}
+              icon={partner.status === 'ACTIVE' ? <StopOutlined /> : <CheckCircleOutlined />}
             >
               {partner.status === 'ACTIVE' ? 'Ngừng' : 'Kích hoạt'}
             </Button>

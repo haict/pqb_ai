@@ -1,4 +1,10 @@
-import { UploadOutlined } from '@ant-design/icons';
+import {
+  CheckCircleOutlined,
+  EditOutlined,
+  EyeOutlined,
+  StopOutlined,
+  UploadOutlined,
+} from '@ant-design/icons';
 import {
   Alert,
   App,
@@ -533,18 +539,19 @@ export function ProductsPage() {
       width: 220,
       render: (_, product) => (
         <Space>
-          <Button size="small" onClick={() => setViewing(product.id)}>
+          <Button size="small" onClick={() => setViewing(product.id)} icon={<EyeOutlined />}>
             Chi tiết
           </Button>
           {canManage && (
             <>
-              <Button size="small" onClick={() => openEdit(product)}>
+              <Button size="small" onClick={() => openEdit(product)} icon={<EditOutlined />}>
                 Sửa
               </Button>
               <Button
                 size="small"
                 danger={product.status === 'ACTIVE'}
                 onClick={() => statusChange.open(product)}
+                icon={product.status === 'ACTIVE' ? <StopOutlined /> : <CheckCircleOutlined />}
               >
                 {product.status === 'ACTIVE' ? 'Ngừng' : 'Kích hoạt'}
               </Button>

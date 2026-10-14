@@ -1,3 +1,4 @@
+import { PrinterOutlined } from '@ant-design/icons';
 import { Button, Modal } from 'antd';
 import { useState, type ReactNode } from 'react';
 
@@ -14,12 +15,15 @@ export function PrintButton({
   const [open, setOpen] = useState(false);
   return (
     <>
-      <Button onClick={() => setOpen(true)}>{label}</Button>
+      <Button icon={<PrinterOutlined />} onClick={() => setOpen(true)}>
+        {label}
+      </Button>
       <Modal
         open={open}
         title={title}
         width={900}
         okText="In"
+        okButtonProps={{ icon: <PrinterOutlined /> }}
         cancelText="Đóng"
         onOk={() => window.print()}
         onCancel={() => setOpen(false)}

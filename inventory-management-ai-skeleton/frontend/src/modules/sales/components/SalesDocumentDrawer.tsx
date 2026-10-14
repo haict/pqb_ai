@@ -1,3 +1,4 @@
+import { EditOutlined } from '@ant-design/icons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button, Drawer, Space, Typography } from 'antd';
 import type { ReactNode } from 'react';
@@ -60,7 +61,9 @@ export function SalesDocumentDrawer<T extends SalesDocumentBase>(props: Props<T>
             <DocumentStatusTag status={document.status} />
             <Space wrap>
               {editable && can(`${permission}:create`) && (
-                <Button onClick={() => onEdit(document)}>Sửa</Button>
+                <Button onClick={() => onEdit(document)} icon={<EditOutlined />}>
+                  Sửa
+                </Button>
               )}
               {extra?.(document)}
               <DocumentActions

@@ -1,3 +1,4 @@
+import { EditOutlined } from '@ant-design/icons';
 import { App, Button, Card, Form, Select, Switch, Table, Tag, Typography, type TableColumnsType } from 'antd';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
@@ -59,7 +60,7 @@ export function DocumentTypesPage() {
       width: 100,
       render: (_, type) =>
         can('approval-workflow:manage') && (
-          <Button size="small" onClick={() => setEditing(type)}>
+          <Button size="small" onClick={() => setEditing(type)} icon={<EditOutlined />}>
             Sửa
           </Button>
         ),
