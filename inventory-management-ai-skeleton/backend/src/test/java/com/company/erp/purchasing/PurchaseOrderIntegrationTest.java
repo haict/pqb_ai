@@ -1,5 +1,6 @@
 package com.company.erp.purchasing;
 
+import static com.company.erp.support.ApiTestSupport.login;
 import static com.company.erp.support.ApiTestSupport.newKey;
 import static com.company.erp.support.ApiTestSupport.unique;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -10,6 +11,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.company.erp.common.application.IdempotentCommand;
+import com.company.erp.support.ApiTestSupport.Session;
 import com.company.erp.support.MySqlIntegrationTest;
 import java.math.BigDecimal;
 import java.util.List;
@@ -115,6 +117,33 @@ class PurchaseOrderIntegrationTest extends PurchasingIntegrationSupport {
                 .andExpect(jsonPath("$.data.taxRates[0]").value(10))
                 .andExpect(jsonPath("$.data.taxAmount").value(1100000))
                 .andExpect(jsonPath("$.data.paymentAmount").value(12100000));
+
+        // D-58: đầu phiếu theo công ty chọn khi in; ngoài phạm vi bị từ chối; in theo công ty khác ghi nhật ký
+        String otherCode = unique("CT");
+        jdbc.update("INSERT INTO companies (code, name, address, status, created_at, updated_at) "
+                + "VALUES (?, 'Công ty in thử', '12 Phố In, Hà Nội', 'ACTIVE', UTC_TIMESTAMP(3), UTC_TIMESTAMP(3))",
+                otherCode);
+        Long other = jdbc.queryForObject("SELECT id FROM companies WHERE code = ?", Long.class, otherCode);
+        mockMvc.perform(as(buyer, get(ORDERS + "/" + order + "/stock-in-slip")).param("companyId",
+                        String.valueOf(other)))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.errors[0].field").value("companyId"));
+        jdbc.update("INSERT INTO sys_user_data_scopes (user_id, scope_type, scope_id) "
+                + "SELECT id, 'COMPANY', ? FROM sys_users WHERE username = 'muahang.hn'", other);
+        try {
+            Session scoped = login(mockMvc, "muahang.hn");
+            mockMvc.perform(as(scoped, get(ORDERS + "/print-companies"))).andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data[?(@.id == 1)]").isNotEmpty())
+                    .andExpect(jsonPath("$.data[?(@.id == " + other + ")].address").value("12 Phố In, Hà Nội"));
+            mockMvc.perform(as(scoped, get(ORDERS + "/" + order + "/stock-in-slip")).param("companyId",
+                            String.valueOf(other)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.companyName").value("Công ty in thử"))
+                    .andExpect(jsonPath("$.data.companyAddress").value("12 Phố In, Hà Nội"));
+            assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM sys_audit_logs WHERE action = 'PRINT_AS_COMPANY' "
+                    + "AND entity_type = 'PURCHASE_ORDER' AND entity_id = ?", Integer.class, order)).isEqualTo(1);
+        } finally {
+            jdbc.update("DELETE FROM sys_user_data_scopes WHERE scope_type = 'COMPANY' AND scope_id = ?", other);
+        }
 
         send(buyer, post(ORDERS), orderWithInvoice(supplier, warehouse, series.toLowerCase(), " 123 ", List.of(
                 orderLine(service, unit("CAI"), "1", "1000", null, null))), newKey())

@@ -132,7 +132,7 @@ Người dùng giao làm hết Giai đoạn 6 theo khuyến cáo (2026-10-10): 6
 - [ ] Test: AT-12
 
 ## Giai đoạn 11 - Chuyển đổi dữ liệu, nghiệm thu, triển khai
-- [ ] Công cụ nhập số dư đầu kỳ (tồn theo lô/serial, công nợ theo hóa đơn, quỹ, hợp đồng)
+- [ ] Công cụ nhập số dư đầu kỳ (tồn theo lô/serial, công nợ theo hóa đơn, quỹ, hợp đồng). Đã có nhập tay: công nợ đầu kỳ (4B), tồn kho đầu kỳ (PNK `OPENING`, 2026-10-15); còn nhập Excel, quỹ, hợp đồng
 - [ ] Kiểm thử hiệu năng theo BR-NF-11
 - [ ] Kiểm thử bảo mật cơ bản
 - [ ] Hướng dẫn triển khai Tomcat 10.1 (`docs/10-deployment.md`), backup/restore (`docs/09-backup-restore.md`) đã diễn tập

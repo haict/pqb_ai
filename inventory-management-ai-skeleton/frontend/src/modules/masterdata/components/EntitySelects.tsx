@@ -8,7 +8,7 @@ type Props = Omit<SelectProps<number>, 'options' | 'showSearch' | 'filterOption'
   selectedLabel?: string;
 };
 
-/** Chọn hàng hóa đang kinh doanh (tìm theo mã, tên, mã cũ, model). */
+/** Chọn hàng hóa đang kinh doanh (tìm theo mã, tên, model). */
 export function ProductSelect(props: Props & { onProduct?: (product: Product | undefined) => void }) {
   const companyId = useCompanyId();
   const { onProduct, ...rest } = props;

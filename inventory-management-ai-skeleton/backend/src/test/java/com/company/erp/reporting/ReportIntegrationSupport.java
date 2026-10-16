@@ -84,9 +84,16 @@ abstract class ReportIntegrationSupport {
     }
 
     void stockIn(long product, String quantity, String lot, String expiryDate) throws Exception {
+        stockIn(product, quantity, lot, expiryDate, null);
+    }
+
+    /** {@code qualityStatus} trống: nhập ở trạng thái ĐẠT (D-56). */
+    void stockIn(long product, String quantity, String lot, String expiryDate, String qualityStatus)
+            throws Exception {
         String body = "{\"documentType\":\"PNK\",\"documentDate\":\"" + DATE + "\",\"warehouseId\":" + warehouse()
                 + ",\"lines\":[{\"productId\":" + product + ",\"unitId\":" + unit() + ",\"quantity\":" + quantity
-                + ",\"unitCost\":50000,\"lotNo\":\"" + lot + "\",\"expiryDate\":\"" + expiryDate + "\"}]}";
+                + ",\"unitCost\":50000,\"lotNo\":\"" + lot + "\",\"expiryDate\":\"" + expiryDate + "\""
+                + (qualityStatus == null ? "" : ",\"qualityStatus\":\"" + qualityStatus + "\"") + "}]}";
         long document = jsonId(send(keeper, post(DOCUMENTS), body).andExpect(status().isCreated()).andReturn());
         act(keeper, DOCUMENTS, document, "submit");
         act(keeper, DOCUMENTS, document, "post").andExpect(jsonPath("$.data.status").value("POSTED"));

@@ -1,4 +1,4 @@
-import { formatDateTime } from '../../shared/format';
+import { QUANTITY_DIGITS, formatDateTime } from '../../shared/format';
 import { formatDecimal } from '../../shared/inventorySlip/slipContent';
 import { displayDate } from '../../shared/reportPeriod';
 import { asciiFileName, type ReportRow, type TableReport } from '../../shared/report/tableReport';
@@ -10,7 +10,7 @@ import type { OrderProgress, PriceHistory, SalesJournal, StockBacklog, SupplierD
 /** Chuyển dữ liệu báo cáo mua / bán đợt 10B (BR-RPT-25, 26) sang bảng báo cáo dùng chung. */
 
 const MONEY = 0;
-const QUANTITY = 3;
+const QUANTITY = QUANTITY_DIGITS;
 const PRICE = 2;
 
 function price(value: number | null) {

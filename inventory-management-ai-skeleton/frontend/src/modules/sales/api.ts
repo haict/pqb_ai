@@ -1,5 +1,6 @@
 import { getOne, getPage, idList, postWithKey, putJson } from '../../shared/api/rest';
 import type { ListParams } from '../../shared/api/useServerTable';
+import type { PrintCompany } from '../../shared/components/CompanyPrintButton';
 import type {
   PriceSuggestion,
   ReturnableSalesLine,
@@ -38,7 +39,10 @@ export const salesPriceApi = {
 
 export const salesOrderApi = {
   ...documentApi<SalesOrder>('/sales-orders'),
-  stockOutSlip: (id: number) => getOne<StockOutSlip>(`/sales-orders/${id}/stock-out-slip`),
+  /** {@code companyId}: công ty in đầu phiếu (D-58); trống là công ty của đơn. */
+  stockOutSlip: (id: number, companyId?: number) =>
+    getOne<StockOutSlip>(`/sales-orders/${id}/stock-out-slip`, { companyId }),
+  printCompanies: () => getOne<PrintCompany[]>('/sales-orders/print-companies'),
 };
 
 export const salesReturnApi = {

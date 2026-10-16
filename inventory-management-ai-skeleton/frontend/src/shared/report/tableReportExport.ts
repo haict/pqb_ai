@@ -1,12 +1,26 @@
 import ExcelJS from 'exceljs';
 import type { TableCell, TDocumentDefinitions } from 'pdfmake/interfaces';
 import { pdfBlob } from '../pdfmakeLoader';
-import { isNumberColumn, reportCellText, type TableReport } from './tableReport';
+import {
+  cellSpan,
+  headerRows,
+  isNegativeCell,
+  isNumberColumn,
+  reportCellText,
+  type TableReport,
+} from './tableReport';
 
 const FONT = 'Times New Roman';
 const THIN = { style: 'thin' as const };
 const BORDER = { top: THIN, left: THIN, bottom: THIN, right: THIN };
 const MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+const GROUP_FILL = 'FFFDF3D0';
+
+/** Định dạng số Excel như hiển thị (D-57): số âm đỏ trong ngoặc. */
+function numberFormat(digits: number) {
+  const positive = digits > 0 ? `#,##0.${'0'.repeat(digits)}` : '#,##0';
+  return `${positive};[Red](${positive})`;
+}
 
 /** Báo cáo bảng dạng .xlsx (A4 ngang, vừa một trang ngang); ô số giữ kiểu số. */
 export async function tableReportToExcel(report: TableReport): Promise<Blob> {
@@ -48,28 +62,56 @@ export async function tableReportExcelBuffer(report: TableReport) {
     line(report.subtitle, { bold: true, italic: true, center: true });
   }
   row += 1;
-  const header = sheet.getRow(row);
-  report.columns.forEach((column, index) => {
-    const cell = header.getCell(index + 1);
-    cell.value = column.title;
-    cell.font = { name: FONT, size: 11, bold: true };
-    cell.border = BORDER;
-    cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+  const headers = headerRows(report);
+  const topRow = headers[0] ?? [];
+  headers.forEach((cells, level) => {
+    let column = 1;
+    cells.forEach((headerCell) => {
+      while (level > 0 && topRow.some((top, i) => top.rowSpan === 2 && topStart(topRow, i) === column)) {
+        column += 1;
+      }
+      const cell = sheet.getCell(row + level, column);
+      cell.value = headerCell.title;
+      if (headerCell.colSpan > 1 || headerCell.rowSpan > 1) {
+        sheet.mergeCells(
+          row + level,
+          column,
+          row + level + headerCell.rowSpan - 1,
+          column + headerCell.colSpan - 1,
+        );
+      }
+      column += headerCell.colSpan;
+    });
   });
-  row += 1;
+  for (let level = 0; level < headers.length; level += 1) {
+    for (let column = 1; column <= count; column += 1) {
+      const cell = sheet.getCell(row + level, column);
+      cell.font = { name: FONT, size: 11, bold: true };
+      cell.border = BORDER;
+      cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+    }
+  }
+  row += headers.length;
   report.rows.forEach((reportRow) => {
     const excelRow = sheet.getRow(row);
-    reportRow.cells.forEach((value, index) => {
+    report.columns.forEach((_, index) => {
+      const value = reportRow.cells[index] ?? null;
       const cell = excelRow.getCell(index + 1);
-      cell.value = value;
+      cell.value = cellSpan(reportRow, index) === 0 ? null : value;
       cell.border = BORDER;
       cell.font = { name: FONT, size: 11, bold: reportRow.bold, italic: reportRow.italic };
       cell.alignment = { vertical: 'top', wrapText: !isNumberColumn(report, index) };
+      if (reportRow.group) {
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: GROUP_FILL } };
+      }
       const digits = report.columns[index]?.digits;
       if (digits !== undefined && typeof value === 'number') {
-        cell.numFmt = digits > 0 ? `#,##0.${'0'.repeat(digits)}` : '#,##0';
+        cell.numFmt = numberFormat(digits);
       }
     });
+    if ((reportRow.labelSpan ?? 1) > 1) {
+      sheet.mergeCells(row, 1, row, reportRow.labelSpan ?? 1);
+    }
     row += 1;
   });
   row += 1;
@@ -80,6 +122,7 @@ export async function tableReportExcelBuffer(report: TableReport) {
 /** Định nghĩa pdfmake (A4 ngang); tách riêng để kiểm thử không cần trình duyệt. */
 export function tableReportPdfDefinition(report: TableReport): TDocumentDefinitions {
   const widths = report.columns.map((column) => column.width ?? '*');
+  const headers = headerRows(report);
   return {
     pageSize: 'A4',
     pageOrientation: 'landscape',
@@ -96,21 +139,25 @@ export function tableReportPdfDefinition(report: TableReport): TDocumentDefiniti
         margin: [0, 6, 0, 0],
         fontSize: 7.5,
         table: {
-          headerRows: 1,
+          headerRows: headers.length,
           widths,
           body: [
-            report.columns.map((column): TableCell => ({
-              text: column.title,
-              bold: true,
-              alignment: 'center',
-            })),
+            ...pdfHeaderRows(report),
             ...report.rows.map((row) =>
-              report.columns.map((_, index): TableCell => ({
-                text: reportCellText(report, row.cells, index),
-                alignment: isNumberColumn(report, index) ? 'right' : 'left',
-                bold: row.bold,
-                italics: row.italic,
-              })),
+              report.columns.map((_, index): TableCell =>
+                cellSpan(row, index) === 0
+                  ? {}
+                  : {
+                      text: reportCellText(report, row.cells, index),
+                      colSpan: cellSpan(row, index),
+                      alignment:
+                        isNumberColumn(report, index) && cellSpan(row, index) === 1 ? 'right' : 'left',
+                      bold: row.bold,
+                      italics: row.italic,
+                      color: isNegativeCell(row.cells, index) ? '#d4380d' : undefined,
+                      fillColor: row.group ? '#fdf3d0' : undefined,
+                    },
+              ),
             ),
           ],
         },
@@ -127,4 +174,38 @@ export function tableReportPdfDefinition(report: TableReport): TDocumentDefiniti
 
 export async function tableReportToPdf(report: TableReport): Promise<Blob> {
   return pdfBlob(tableReportPdfDefinition(report));
+}
+
+/** Cột Excel (từ 1) bắt đầu của ô thứ {@code index} trên hàng tiêu đề trên. */
+function topStart(top: ReturnType<typeof headerRows>[number], index: number) {
+  return 1 + top.slice(0, index).reduce((sum, cell) => sum + cell.colSpan, 0);
+}
+
+/** Hàng tiêu đề pdfmake: ô gộp kèm ô rỗng giữ chỗ theo quy ước colSpan / rowSpan của pdfmake. */
+function pdfHeaderRows(report: TableReport): TableCell[][] {
+  const headers = headerRows(report);
+  const grid: TableCell[][] = headers.map(() => report.columns.map((): TableCell => ({})));
+  const spansDown = (column: number) =>
+    (grid[0]?.[column] as { rowSpan?: number } | undefined)?.rowSpan === 2;
+  headers.forEach((cells, level) => {
+    const target = grid[level];
+    let column = 0;
+    cells.forEach((cell) => {
+      while (level > 0 && spansDown(column)) {
+        column += 1;
+      }
+      if (!target) {
+        return;
+      }
+      target[column] = {
+        text: cell.title,
+        bold: true,
+        alignment: 'center',
+        colSpan: cell.colSpan,
+        rowSpan: cell.rowSpan,
+      };
+      column += cell.colSpan;
+    });
+  });
+  return grid;
 }

@@ -1,7 +1,6 @@
 package com.company.erp.masterdata.domain;
 
 import com.company.erp.common.domain.BusinessException;
-import com.company.erp.common.domain.QualityStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -23,7 +22,6 @@ import java.util.Set;
 public class Product extends CodeNameEntity {
 
     private static final Set<String> DEVICE_CLASSES = Set.of("A", "B", "C", "D");
-    private static final Set<String> INSPECTED_DEVICE_CLASSES = Set.of("C", "D");
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -184,13 +182,6 @@ public class Product extends CodeNameEntity {
         this.lotTracked = lot;
         this.expiryTracked = expiry;
         this.serialTracked = serial;
-    }
-
-    /** Trạng thái chất lượng mặc định khi nhập kho (D-09): thuốc thử và TTBYT loại C/D phải qua chờ kiểm tra. */
-    public QualityStatus initialQualityStatus() {
-        boolean inspected = productType == ProductType.REAGENT
-                || (medicalDeviceClass != null && INSPECTED_DEVICE_CLASSES.contains(medicalDeviceClass));
-        return inspected ? QualityStatus.PENDING_INSPECTION : QualityStatus.PASSED;
     }
 
     public boolean isStockTracked() {

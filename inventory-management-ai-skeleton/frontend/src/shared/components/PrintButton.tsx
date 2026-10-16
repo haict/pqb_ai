@@ -9,7 +9,7 @@ export function PrintButton({
   children,
 }: {
   label: string;
-  title: string;
+  title: ReactNode;
   children: ReactNode;
 }) {
   const [open, setOpen] = useState(false);

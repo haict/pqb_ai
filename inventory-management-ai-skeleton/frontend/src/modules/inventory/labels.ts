@@ -1,4 +1,5 @@
 import type { InventoryDocumentStatus, InventoryDocumentType, SerialStatus, TransactionType } from './types';
+import { formatAmount, formatQuantity } from '../../shared/format';
 
 export const DOCUMENT_TYPES: Record<InventoryDocumentType, string> = {
   PNK: 'Phiếu nhập kho',
@@ -12,6 +13,13 @@ export const DOCUMENT_TYPES: Record<InventoryDocumentType, string> = {
 
 /** Loại chứng từ người dùng lập trực tiếp (chứng từ đảo chỉ sinh từ thao tác đảo). */
 export const CREATABLE_TYPES: InventoryDocumentType[] = ['PNK', 'PXK', 'PXH', 'PCK', 'PDC', 'PCL'];
+
+/** Loại nghiệp vụ của phiếu nhập kho người dùng chọn được; để trống là nhập kho thông thường. */
+export const OPENING_SUB_TYPE = 'OPENING';
+export const RECEIPT_SUB_TYPES: Record<string, string> = {
+  [OPENING_SUB_TYPE]: 'Tồn kho đầu kỳ',
+  RECALL_IN: 'Nhập hàng thu hồi từ khách',
+};
 
 export const DOCUMENT_TYPE_PERMISSION: Record<InventoryDocumentType, string> = {
   PNK: 'inventory-receipt',
@@ -108,10 +116,19 @@ export const SOURCE_TYPES: Record<string, string> = {
 /** Hành động bắt buộc lý do (api.md mục 3). */
 export const REASON_ACTIONS = new Set(['reject', 'cancel', 'reverse', 'close']);
 
-/** Định dạng số lượng / tiền theo Việt Nam; không làm tròn số liệu do server tính. */
-export function formatNumber(value: number | null | undefined, maximumFractionDigits = 3): string {
+/**
+ * Định dạng theo Việt Nam: không truyền số lẻ là số lượng (2 số lẻ), 0 là giá trị tiền (D-57); số khác (đơn giá,
+ * phần trăm) hiển thị tối đa số lẻ đó. Không làm tròn số liệu do server tính.
+ */
+export function formatNumber(value: number | null | undefined, maximumFractionDigits?: number): string {
   if (value === null || value === undefined) {
     return '';
+  }
+  if (maximumFractionDigits === undefined) {
+    return formatQuantity(value);
+  }
+  if (maximumFractionDigits === 0) {
+    return formatAmount(value);
   }
   return new Intl.NumberFormat('vi-VN', { maximumFractionDigits }).format(value);
 }

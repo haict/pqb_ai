@@ -22,6 +22,20 @@ body {
   background: transparent;
 }
 
+/*
+ * Modal cao vừa màn hình: thân modal tự cuộn, tiêu đề và nút Lưu / Hủy luôn hiện (form dài như đơn bán, hàng hóa).
+ */
+.ant-modal {
+  top: 24px;
+  padding-bottom: 24px;
+}
+.app-modal-body {
+  max-height: calc(100vh - 190px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 4px;
+}
+
 /* In báo giá, biên bản giao nhận (BR-SAL-04, BR-SAL-22): chỉ in vùng .print-area. */
 @media print {
   body * {
@@ -33,6 +47,10 @@ body {
   }
   .print-area .no-print {
     display: none;
+  }
+  .app-modal-body {
+    max-height: none;
+    overflow: visible;
   }
   .print-area {
     position: absolute;

@@ -45,6 +45,12 @@ export interface MovementRow {
   inQuantity: number;
   outQuantity: number;
   closing: number;
+  /** Đơn giá nhập bình quân tạm tính; giá trị trống khi hàng chưa có đơn giá nhập. */
+  averageUnitCost: number | null;
+  openingValue: number | null;
+  inValue: number | null;
+  outValue: number | null;
+  closingValue: number | null;
 }
 
 export interface InventoryMovement {
@@ -52,6 +58,7 @@ export interface InventoryMovement {
   dateTo: string;
   rows: MovementRow[];
   valueAvailable: boolean;
+  valueProvisional: boolean;
   generatedAt: string;
 }
 

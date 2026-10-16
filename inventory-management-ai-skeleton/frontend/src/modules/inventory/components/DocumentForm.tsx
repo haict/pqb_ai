@@ -8,7 +8,7 @@ import { QUALITY_STATUSES } from '../../masterdata/labels';
 import { useCatalog, useCompanyId, useWarehouses } from '../../masterdata/lookups';
 import type { QualityStatus } from '../../masterdata/types';
 import { policyApi, stockApi } from '../api';
-import { CREATABLE_TYPES, DOCUMENT_TYPES } from '../labels';
+import { CREATABLE_TYPES, DOCUMENT_TYPES, OPENING_SUB_TYPE, RECEIPT_SUB_TYPES } from '../labels';
 import type { InventoryDocumentType, Lot, StockIssuePolicy } from '../types';
 import type { DocumentFormValues } from './documentFormValues';
 import { DecimalInput } from '../../../shared/components/DecimalInput';
@@ -27,11 +27,13 @@ function LineFields({
   form,
   name,
   type,
+  openingStock,
   onRemove,
 }: {
   form: FormInstance<DocumentFormValues>;
   name: number;
   type: InventoryDocumentType;
+  openingStock: boolean;
   onRemove(): void;
 }) {
   const units = useCatalog('units');
@@ -181,13 +183,18 @@ function LineFields({
           <Select mode="tags" tokenSeparators={[',', ' ']} open={false} />
         </Form.Item>
       )}
-      {(type === 'PCL' || type === 'PCK' || (type === 'PDC' && direction)) && (
+      {(type === 'PCL' || type === 'PCK' || (type === 'PDC' && direction) || openingStock) && (
         <Row gutter={8}>
-          <Col xs={12} md={8}>
+          <Col xs={12} md={openingStock ? 16 : 8}>
             <Form.Item
               name={[name, 'qualityStatus']}
               label={type === 'PCL' ? 'Trạng thái hiện tại' : 'Trạng thái chất lượng'}
               rules={[{ required: type === 'PCL', message: 'Chọn trạng thái' }]}
+              extra={
+                openingStock
+                  ? 'Để trống: theo cấu hình hàng. Hàng không xác định được lô: nhập lô tạm, chọn Cách ly (D-13).'
+                  : undefined
+              }
             >
               <Select allowClear options={QUALITY_OPTIONS} />
             </Form.Item>
@@ -209,13 +216,18 @@ function LineFields({
   );
 }
 
-/** Nội dung form lập / sửa chứng từ kho; trường hiển thị theo loại chứng từ và cấu hình lô / hạn / serial. */
+/**
+ * Nội dung form lập / sửa chứng từ kho; trường hiển thị theo loại chứng từ và cấu hình lô / hạn / serial.
+ * {@code opening}: form của màn hình tồn kho đầu kỳ, cố định phiếu nhập loại tồn đầu kỳ.
+ */
 export function DocumentFormFields({
   form,
   editing,
+  opening = false,
 }: {
   form: FormInstance<DocumentFormValues>;
   editing: boolean;
+  opening?: boolean;
 }) {
   const warehouses = useWarehouses();
   const companyId = useCompanyId();
@@ -227,7 +239,7 @@ export function DocumentFormFields({
         <Col xs={24} md={8}>
           <Form.Item name="documentType" label="Loại chứng từ" rules={[{ required: true }]}>
             <Select
-              disabled={editing}
+              disabled={editing || opening}
               options={CREATABLE_TYPES.map((value) => ({ value, label: DOCUMENT_TYPES[value] }))}
             />
           </Form.Item>
@@ -268,8 +280,9 @@ export function DocumentFormFields({
             <Form.Item name="subType" label="Nghiệp vụ nhập">
               <Select
                 allowClear
+                disabled={opening}
                 placeholder="Nhập kho"
-                options={[{ value: 'RECALL_IN', label: 'Nhập hàng thu hồi từ khách' }]}
+                options={Object.entries(RECEIPT_SUB_TYPES).map(([value, label]) => ({ value, label }))}
               />
             </Form.Item>
           </Col>
@@ -332,6 +345,7 @@ export function DocumentFormFields({
                 form={form}
                 name={field.name}
                 type={type}
+                openingStock={type === 'PNK' && subType === OPENING_SUB_TYPE}
                 onRemove={() => remove(field.name)}
               />
             ))}

@@ -134,6 +134,10 @@ export const router = createBrowserRouter([
         path: 'inventory/documents/:id',
         element: guarded(INVENTORY_DOCUMENT_VIEW, <InventoryDocumentDetailPage />),
       },
+      {
+        path: 'inventory/opening-stock',
+        element: guarded('inventory-receipt:view', <InventoryDocumentsPage opening />),
+      },
       { path: 'inventory/lots', element: guarded('inventory:view', <LotsSerialsPage />) },
       { path: 'inventory/stock-counts', element: guarded('stock-count:view', <StockCountsPage />) },
       { path: 'inventory/recalls', element: guarded('recall:view', <RecallsPage />) },

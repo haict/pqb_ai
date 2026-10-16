@@ -99,7 +99,6 @@ class MasterDataIntegrationTest {
         MvcResult created = send(admin, post("/api/v1/products"),
                 product(unique("P"), "REAGENT", category, box, true, true, false), newKey())
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.data.initialQualityStatus").value("PENDING_INSPECTION"))
                 .andReturn();
         Integer productId = json(created, "$.data.id");
 
@@ -312,7 +311,7 @@ class MasterDataIntegrationTest {
     }
 
     private static String[] row(String code, String category, String type) {
-        return new String[] {code, "", "Hàng nhập " + code, "", category, type, "CAI", "", "", "VN", "", "", "C", "C"};
+        return new String[] {code, "Hàng nhập " + code, "", category, type, "CAI", "", "", "VN", "", "", "C", "C"};
     }
 
     private static byte[] workbook(List<String[]> rows) throws Exception {

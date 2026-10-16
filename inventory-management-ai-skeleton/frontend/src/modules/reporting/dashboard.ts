@@ -1,4 +1,4 @@
-import { formatDateTime } from '../../shared/format';
+import { QUANTITY_DIGITS, formatDateTime } from '../../shared/format';
 import { formatDecimal } from '../../shared/inventorySlip/slipContent';
 import { displayDate } from '../../shared/reportPeriod';
 import { asciiFileName, type ReportRow, type TableReport } from '../../shared/report/tableReport';
@@ -11,7 +11,7 @@ import type { BacklogDetails, DebtDetails, ExpiryDetails, TradeDetails } from '.
 /** Danh sách chi tiết của chỉ tiêu dashboard (BR-RPT-11) sang bảng báo cáo dùng chung: xem, In, Excel, PDF. */
 
 const MONEY = 0;
-const QUANTITY = 3;
+const QUANTITY = QUANTITY_DIGITS;
 
 const DOCUMENT_TYPES: Record<string, string> = {
   DBH: 'Đơn bán',

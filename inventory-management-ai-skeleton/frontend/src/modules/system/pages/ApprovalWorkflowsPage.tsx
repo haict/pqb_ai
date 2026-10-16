@@ -30,6 +30,7 @@ import { approvalWorkflowApi, type ApprovalWorkflowInput } from '../api';
 import { UserSelect } from '../components/UserSelect';
 import { useActiveRoles, useCompanies, useDocumentTypes, useMyBranches } from '../lookups';
 import type { ApprovalStep, ApprovalWorkflow } from '../types';
+import { formatAmount } from '../../../shared/format';
 
 const FIELDS = ['documentType', 'name', 'branchId', 'minAmount', 'minDiscountPercent', 'priority', 'steps'];
 
@@ -88,7 +89,7 @@ function WorkflowTable({ companyId }: { companyId: number }) {
           <span>{workflow.branchId ? branches.nameOf(workflow.branchId) : 'Mọi chi nhánh'}</span>
           {workflow.minAmount !== null && (
             <Typography.Text type="secondary">
-              Giá trị từ {Number(workflow.minAmount).toLocaleString('vi-VN')}
+              Giá trị từ {formatAmount(Number(workflow.minAmount))}
             </Typography.Text>
           )}
           {workflow.minDiscountPercent !== null && (

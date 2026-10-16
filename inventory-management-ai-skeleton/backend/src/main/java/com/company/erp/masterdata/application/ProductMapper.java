@@ -45,7 +45,7 @@ final class ProductMapper {
                 product.getBaseUnitId(), product.getBrandId(), product.getManufacturerId(),
                 product.getOriginCountryCode(), product.getModel(), product.getSpecification(),
                 product.getDescription(), product.isLotTracked(), product.isExpiryTracked(), product.isSerialTracked(),
-                product.initialQualityStatus(), product.getMedicalDeviceClass(), product.getRegistrationNo(),
+                product.getMedicalDeviceClass(), product.getRegistrationNo(),
                 product.getRegistrationHolder(), product.getRegistrationValidTo(), product.getStorageMinTemp(),
                 product.getStorageMaxTemp(), product.isColdChain(), product.isHazardous(), product.getWarrantyMonths(),
                 product.getMaintenanceCycleMonths(), product.isRequiresInstallation(),

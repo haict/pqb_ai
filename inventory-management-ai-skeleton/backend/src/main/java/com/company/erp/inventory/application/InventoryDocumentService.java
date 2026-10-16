@@ -72,8 +72,9 @@ public class InventoryDocumentService {
     }
 
     /** Bộ lọc danh sách chứng từ kho. */
-    public record SearchFilter(Long companyId, InventoryDocumentType documentType, InventoryDocumentStatus status,
-                               Long warehouseId, String keyword, LocalDate dateFrom, LocalDate dateTo) {
+    public record SearchFilter(Long companyId, InventoryDocumentType documentType, String subType,
+                               InventoryDocumentStatus status, Long warehouseId, String keyword, LocalDate dateFrom,
+                               LocalDate dateTo) {
     }
 
     @Transactional(readOnly = true)
@@ -93,6 +94,9 @@ public class InventoryDocumentService {
             if (warehouses != null) {
                 predicates.add(cb.or(root.get("warehouseId").in(warehouses),
                         root.get("destinationWarehouseId").in(warehouses)));
+            }
+            if (filter.subType() != null && !filter.subType().isBlank()) {
+                predicates.add(cb.equal(root.get("subType"), filter.subType().trim()));
             }
             if (filter.status() != null) {
                 predicates.add(cb.equal(root.get("status"), filter.status()));

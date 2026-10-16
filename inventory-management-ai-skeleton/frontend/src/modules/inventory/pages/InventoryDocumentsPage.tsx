@@ -15,6 +15,7 @@ import {
   DOCUMENT_STATUSES,
   DOCUMENT_TYPE_PERMISSION,
   DOCUMENT_TYPES,
+  OPENING_SUB_TYPE,
   formatDate,
   formatNumber,
   statusLabel,
@@ -22,8 +23,11 @@ import {
 import { DocumentStatusTag } from '../components/StatusTags';
 import type { InventoryDocumentStatus, InventoryDocumentSummary, InventoryDocumentType } from '../types';
 
-/** Danh sách chứng từ kho, lọc ở server; lập chứng từ mới theo loại người dùng có quyền. */
-export function InventoryDocumentsPage() {
+/**
+ * Danh sách chứng từ kho, lọc ở server; lập chứng từ mới theo loại người dùng có quyền.
+ * {@code opening}: màn hình tồn kho đầu kỳ (BR-MIG-02), chỉ phiếu nhập loại tồn đầu kỳ.
+ */
+export function InventoryDocumentsPage({ opening = false }: { opening?: boolean }) {
   const can = useCan();
   const { message } = App.useApp();
   const navigate = useNavigate();
@@ -38,13 +42,17 @@ export function InventoryDocumentsPage() {
   const { tableProps } = useServerTable('inventory-documents', documentApi.list, {
     companyId,
     keyword,
-    documentType,
+    documentType: opening ? 'PNK' : documentType,
+    subType: opening ? OPENING_SUB_TYPE : undefined,
     status,
     warehouseId,
     dateFrom: range?.[0]?.format('YYYY-MM-DD'),
     dateTo: range?.[1]?.format('YYYY-MM-DD'),
   });
-  const creatable = CREATABLE_TYPES.filter((type) => can(`${DOCUMENT_TYPE_PERMISSION[type]}:create`));
+  const creatable = (opening ? (['PNK'] as InventoryDocumentType[]) : CREATABLE_TYPES).filter((type) =>
+    can(`${DOCUMENT_TYPE_PERMISSION[type]}:create`),
+  );
+  const title = opening ? 'Tồn kho đầu kỳ' : 'Chứng từ kho';
 
   const create = async (values: DocumentFormValues, key: string) => {
     const created = await documentApi.create(toDocumentInput(values), key);
@@ -88,25 +96,27 @@ export function InventoryDocumentsPage() {
 
   return (
     <Card>
-      <Typography.Title level={4}>Chứng từ kho</Typography.Title>
+      <Typography.Title level={4}>{title}</Typography.Title>
       <ListToolbar
         searchPlaceholder="Tìm theo số chứng từ"
         onSearch={(value) => setKeyword(value || undefined)}
-        createLabel="Lập chứng từ"
+        createLabel={opening ? 'Lập phiếu tồn đầu kỳ' : 'Lập chứng từ'}
         onCreate={creatable.length > 0 ? () => setCreating(true) : undefined}
         extraFilters={
           <>
-            <Select
-              allowClear
-              placeholder="Loại chứng từ"
-              style={{ width: 210 }}
-              value={documentType}
-              onChange={setDocumentType}
-              options={(Object.keys(DOCUMENT_TYPES) as InventoryDocumentType[]).map((value) => ({
-                value,
-                label: DOCUMENT_TYPES[value],
-              }))}
-            />
+            {!opening && (
+              <Select
+                allowClear
+                placeholder="Loại chứng từ"
+                style={{ width: 210 }}
+                value={documentType}
+                onChange={setDocumentType}
+                options={(Object.keys(DOCUMENT_TYPES) as InventoryDocumentType[]).map((value) => ({
+                  value,
+                  label: DOCUMENT_TYPES[value],
+                }))}
+              />
+            )}
             <Select
               allowClear
               placeholder="Trạng thái"
@@ -132,15 +142,20 @@ export function InventoryDocumentsPage() {
       <Table<InventoryDocumentSummary> {...tableProps} columns={columns} scroll={{ x: 900 }} />
       <FormModal<DocumentFormValues>
         open={creating}
-        title="Lập chứng từ kho"
+        title={opening ? 'Lập phiếu nhập tồn kho đầu kỳ' : 'Lập chứng từ kho'}
         width={980}
         okText="Lưu nháp"
-        initialValues={{ documentType: creatable[0], documentDate: dayjs(), lines: [{}] as never }}
+        initialValues={{
+          documentType: creatable[0],
+          subType: opening ? OPENING_SUB_TYPE : undefined,
+          documentDate: dayjs(),
+          lines: [{}] as never,
+        }}
         fieldNames={DOCUMENT_FIELDS}
         onSubmit={create}
         onClose={() => setCreating(false)}
       >
-        {(form) => <DocumentFormFields form={form} editing={false} />}
+        {(form) => <DocumentFormFields form={form} editing={false} opening={opening} />}
       </FormModal>
     </Card>
   );

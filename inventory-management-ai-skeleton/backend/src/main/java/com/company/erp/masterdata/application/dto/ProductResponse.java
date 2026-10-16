@@ -1,6 +1,5 @@
 package com.company.erp.masterdata.application.dto;
 
-import com.company.erp.common.domain.QualityStatus;
 import com.company.erp.common.domain.RecordStatus;
 import com.company.erp.masterdata.domain.ProductType;
 import java.math.BigDecimal;
@@ -28,7 +27,6 @@ public record ProductResponse(
         boolean lotTracked,
         boolean expiryTracked,
         boolean serialTracked,
-        QualityStatus initialQualityStatus,
         String medicalDeviceClass,
         String registrationNo,
         String registrationHolder,

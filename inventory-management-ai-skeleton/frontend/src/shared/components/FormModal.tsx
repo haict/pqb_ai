@@ -73,8 +73,16 @@ export function FormModal<T extends object>({
       onCancel={onClose}
       destroyOnHidden
       forceRender
+      footer={(_, { OkBtn, CancelBtn }) => (
+        <>
+          {error && (
+            <Alert type="error" showIcon message={error} style={{ marginBottom: 8, textAlign: 'left' }} />
+          )}
+          <CancelBtn />
+          <OkBtn />
+        </>
+      )}
     >
-      {error && <Alert type="error" showIcon message={error} style={{ marginBottom: 16 }} />}
       <Form form={form} layout="vertical" initialValues={initialValues} disabled={submitting}>
         {typeof children === 'function' ? children(form) : children}
       </Form>

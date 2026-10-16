@@ -43,7 +43,6 @@ import type { Partner, PartnerRole } from '../types';
 
 const FIELDS = [
   'code',
-  'legacyCode',
   'name',
   'shortName',
   'partnerKind',
@@ -109,9 +108,6 @@ function PartnerForm({ editing }: { editing: Partner | null }) {
                   }
                 >
                   <Input disabled={editing !== null} style={{ width: 200 }} />
-                </Form.Item>
-                <Form.Item name="legacyCode" label="Mã cũ (MISA)">
-                  <Input maxLength={50} style={{ width: 180 }} />
                 </Form.Item>
                 <Form.Item name="partnerKind" label="Loại" rules={[{ required: true }]}>
                   <Select
@@ -382,7 +378,12 @@ export function PartnersPage() {
       await partnerApi.create({ ...payload, companyId }, key);
       message.success('Đã thêm đối tác.');
     } else if (editing) {
-      await partnerApi.update(editing.id, { ...payload, version: editing.version });
+      // Mã cũ MISA không còn nhập trên màn hình; gửi lại giá trị đang lưu để không bị xóa khi sửa.
+      await partnerApi.update(editing.id, {
+        ...payload,
+        legacyCode: editing.legacyCode,
+        version: editing.version,
+      });
       message.success('Đã lưu đối tác.');
     }
     await refresh();

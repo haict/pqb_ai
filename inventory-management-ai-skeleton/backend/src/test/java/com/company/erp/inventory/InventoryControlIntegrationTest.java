@@ -48,11 +48,17 @@ class InventoryControlIntegrationTest extends InventoryIntegrationSupport {
     }
 
     @Test
-    @DisplayName("BR-INV-03, D-09: thuốc thử nhập ở trạng thái chờ kiểm tra, không xuất được cho tới khi phiếu chuyển trạng thái được duyệt và ghi sổ")
+    @DisplayName("BR-INV-03, D-56: thuốc thử nhập mặc định đạt; hàng chờ kiểm tra không xuất được cho tới khi phiếu chuyển trạng thái được duyệt và ghi sổ")
     void qualityStatusChange() throws Exception {
         long warehouse = warehouse(1);
         long reagent = product("REAGENT", true, true, false);
-        createAndPost(manager, "PNK", warehouse, List.of(receiptLine(reagent, 4, "LQ" + reagent, "2027-09-30", null)));
+        long passedReagent = product("REAGENT", true, true, false);
+        createAndPost(manager, "PNK", warehouse,
+                List.of(receiptLine(passedReagent, 2, "LD" + passedReagent, "2027-09-30", null)));
+        assertThat(onHand(passedReagent, warehouse, "PASSED")).isEqualByComparingTo("2");
+
+        createAndPost(manager, "PNK", warehouse, List.of(receiptLine(reagent, 4, "LQ" + reagent, "2027-09-30", null)
+                .replace("}", ",\"qualityStatus\":\"PENDING_INSPECTION\"}")));
         assertThat(onHand(reagent, warehouse, "PENDING_INSPECTION")).isEqualByComparingTo("4");
 
         long blockedIssue = create(manager, "PXK", warehouse, List.of(issueLine(reagent, 1, null, null)));
@@ -294,6 +300,38 @@ class InventoryControlIntegrationTest extends InventoryIntegrationSupport {
     private ResultActions lockInventory(Session accountant, long periodId) throws Exception {
         return send(accountant, post("/api/v1/fiscal-periods/" + periodId + "/lock"),
                 "{\"module\":\"INVENTORY\",\"branchIds\":[1]}", newKey());
+    }
+
+    @Test
+    @DisplayName("BR-MIG-02, D-13: phiếu nhập tồn đầu kỳ theo lô / hạn dùng, hàng chưa xác định lô vào lô tạm cách ly; lọc danh sách theo loại nghiệp vụ")
+    void openingStock() throws Exception {
+        long warehouse = warehouse(1);
+        long product = product(true, true, false);
+        String quarantineLine = receiptLine(product, 2, "TAM" + product, "2027-12-31", null)
+                .replace("}", ",\"qualityStatus\":\"QUARANTINE\"}");
+        long opening = createDocument(manager, withHeader(document("PNK", warehouse,
+                List.of(receiptLine(product, 5, "LO" + product, "2027-06-30", null), quarantineLine), "2026-10-01"),
+                "\"subType\":\"OPENING\""));
+        submitApproveAndPost(manager, opening);
+        long plainReceipt = createAndPost(manager, "PNK", warehouse,
+                List.of(receiptLine(product, 1, "LP" + product, "2027-06-30", null)));
+
+        assertThat(onHand(product, warehouse, "PASSED")).isEqualByComparingTo("6");
+        assertThat(onHand(product, warehouse, "QUARANTINE")).isEqualByComparingTo("2");
+        assertThat(count("SELECT COUNT(*) FROM inventory_transactions WHERE reference_id = " + opening
+                + " AND transaction_type = 'OPENING'")).isEqualTo(2);
+
+        MvcResult list = mockMvc.perform(as(manager, get(DOCS)).param("companyId", "1")
+                        .param("warehouseId", String.valueOf(warehouse)).param("subType", "OPENING"))
+                .andExpect(status().isOk()).andReturn();
+        List<Integer> ids = json(list, "$.data.items[*].id");
+        assertThat(ids).contains((int) opening).doesNotContain((int) plainReceipt);
+
+        send(manager, post(DOCS), withHeader(document("PXK", warehouse, List.of(issueLine(product, 1, null, null)),
+                "2026-10-05"), "\"subType\":\"OPENING\""), newKey())
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[0].field").value("subType"));
+        assertLedgerConsistent(product);
     }
 
     private long lotId(long product, String lotNo) {

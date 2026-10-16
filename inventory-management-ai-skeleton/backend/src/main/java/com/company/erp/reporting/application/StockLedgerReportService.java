@@ -7,15 +7,19 @@ import com.company.erp.reporting.application.dto.StockCardResponse;
 import com.company.erp.reporting.application.dto.StockCardResponse.Line;
 import com.company.erp.reporting.infrastructure.StockLedgerReportJdbc;
 import com.company.erp.reporting.infrastructure.StockLedgerReportJdbc.CardRow;
+import com.company.erp.reporting.infrastructure.StockLedgerReportJdbc.MovementRow;
 import com.company.erp.reporting.infrastructure.StockLedgerReportJdbc.ProductHeader;
 import com.company.erp.reporting.infrastructure.StockLedgerReportJdbc.Scope;
 import com.company.erp.system.application.CurrentUser;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,6 +34,8 @@ public class StockLedgerReportService {
     /** Số dòng thẻ kho tối đa một lần xem; vượt thì yêu cầu thu hẹp khoảng ngày / kho / lô. */
     static final int MAX_CARD_LINES = 20_000;
     static final int MAX_PRODUCTS = 200;
+    /** Đơn giá theo D-05: 4 chữ số thập phân. */
+    private static final int UNIT_COST_SCALE = 4;
 
     private final StockLedgerReportJdbc jdbc;
     private final ReportAccess access;
@@ -115,13 +121,29 @@ public class StockLedgerReportService {
                 throw BusinessException.invalidField("productCategoryId", "Nhóm hàng không tồn tại.");
             }
         }
-        List<InventoryMovementResponse.Row> rows = jdbc.movement(scope, criteria.productIds(), categories,
-                        criteria.dateFrom(), criteria.dateTo()).stream()
-                .map(row -> new InventoryMovementResponse.Row(row.productId(), row.productCode(), row.productName(),
-                        row.unitName(), row.warehouseId(), row.warehouseCode(), row.warehouseName(), row.opening(),
-                        row.inQuantity(), row.outQuantity(),
-                        row.opening().add(row.inQuantity()).subtract(row.outQuantity())))
+        List<MovementRow> movements = jdbc.movement(scope, criteria.productIds(), categories, criteria.dateFrom(),
+                criteria.dateTo());
+        Map<Long, BigDecimal> costs = jdbc.averageReceiptCosts(criteria.companyId(), movements.stream()
+                .map(MovementRow::productId).collect(Collectors.toSet()), criteria.dateTo());
+        List<InventoryMovementResponse.Row> rows = movements.stream()
+                .map(row -> toMovementRow(row, costs.get(row.productId())))
                 .toList();
-        return new InventoryMovementResponse(criteria.dateFrom(), criteria.dateTo(), rows, false, clock.instant());
+        return new InventoryMovementResponse(criteria.dateFrom(), criteria.dateTo(), rows, false, true,
+                clock.instant());
+    }
+
+    /** Giá trị tạm tính = số lượng × đơn giá nhập bình quân, làm tròn đến đồng (D-05); chưa phải giá vốn (D-51). */
+    private static InventoryMovementResponse.Row toMovementRow(MovementRow row, BigDecimal unitCost) {
+        BigDecimal closing = row.opening().add(row.inQuantity()).subtract(row.outQuantity());
+        return new InventoryMovementResponse.Row(row.productId(), row.productCode(), row.productName(),
+                row.unitName(), row.warehouseId(), row.warehouseCode(), row.warehouseName(), row.opening(),
+                row.inQuantity(), row.outQuantity(), closing,
+                unitCost == null ? null : unitCost.setScale(UNIT_COST_SCALE, RoundingMode.HALF_UP),
+                value(row.opening(), unitCost), value(row.inQuantity(), unitCost),
+                value(row.outQuantity(), unitCost), value(closing, unitCost));
+    }
+
+    private static BigDecimal value(BigDecimal quantity, BigDecimal unitCost) {
+        return unitCost == null ? null : quantity.multiply(unitCost).setScale(0, RoundingMode.HALF_UP);
     }
 }

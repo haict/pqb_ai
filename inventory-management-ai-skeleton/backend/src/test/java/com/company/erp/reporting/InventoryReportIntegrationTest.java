@@ -72,7 +72,13 @@ class InventoryReportIntegrationTest extends ReportIntegrationSupport {
                 .andExpect(jsonPath("$.data.rows[0].inQuantity").value(11))
                 .andExpect(jsonPath("$.data.rows[0].outQuantity").value(4))
                 .andExpect(jsonPath("$.data.rows[0].closing").value(7))
-                .andExpect(jsonPath("$.data.valueAvailable").value(false));
+                .andExpect(jsonPath("$.data.valueAvailable").value(false))
+                .andExpect(jsonPath("$.data.valueProvisional").value(true))
+                .andExpect(jsonPath("$.data.rows[0].averageUnitCost").value(50000))
+                .andExpect(jsonPath("$.data.rows[0].openingValue").value(0))
+                .andExpect(jsonPath("$.data.rows[0].inValue").value(550000))
+                .andExpect(jsonPath("$.data.rows[0].outValue").value(200000))
+                .andExpect(jsonPath("$.data.rows[0].closingValue").value(350000));
 
         mockMvc.perform(report(keeper, "/lot-trace").param("lotId", String.valueOf(lotId)))
                 .andExpect(status().isOk())
@@ -99,10 +105,10 @@ class InventoryReportIntegrationTest extends ReportIntegrationSupport {
     }
 
     @Test
-    @DisplayName("BR-RPT-23: thuốc thử nhập ở trạng thái chờ kiểm vào ngoại lệ, thiếu số lưu hành; tồn lâu theo số ngày")
+    @DisplayName("BR-RPT-23: hàng ở trạng thái chờ kiểm vào ngoại lệ, thiếu số lưu hành; tồn lâu theo số ngày")
     void exceptionsAndMissingDocuments() throws Exception {
         long reagent = newProduct("REAGENT");
-        stockIn(reagent, "5", unique("L"));
+        stockIn(reagent, "5", unique("L"), "2028-12-31", "PENDING_INSPECTION");
         String pending = "$.data.rows[?(@.productId == " + reagent + ")]";
 
         mockMvc.perform(report(keeper, "/stock-exceptions"))

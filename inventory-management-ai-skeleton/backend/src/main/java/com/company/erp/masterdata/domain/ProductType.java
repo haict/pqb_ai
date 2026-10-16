@@ -6,7 +6,7 @@ public enum ProductType {
     MACHINE,
     /** Vật tư tiêu hao: mặc định lô và hạn dùng. */
     CONSUMABLE,
-    /** Thuốc thử - hóa chất: mặc định lô và hạn dùng; nhập ở trạng thái chờ kiểm tra (D-09). */
+    /** Thuốc thử - hóa chất: mặc định lô và hạn dùng. */
     REAGENT,
     SPARE_PART,
     TOOL,

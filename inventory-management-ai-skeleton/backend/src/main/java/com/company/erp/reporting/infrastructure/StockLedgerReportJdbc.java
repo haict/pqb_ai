@@ -4,7 +4,9 @@ import java.math.BigDecimal;
 import java.sql.Date;
 import java.time.LocalDate;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -154,6 +156,48 @@ public class StockLedgerReportJdbc {
                 rs.getString("product_code"), rs.getString("product_name"), rs.getString("unit_name"),
                 rs.getLong("warehouse_id"), rs.getString("warehouse_code"), rs.getString("warehouse_name"),
                 rs.getBigDecimal("opening"), rs.getBigDecimal("in_qty"), rs.getBigDecimal("out_qty")));
+    }
+
+    /**
+     * Loại nhập mang đơn giá thật: phiếu nhập kho (gồm nhập theo đơn mua, tồn đầu kỳ), điều chỉnh tăng, kiểm kê thừa.
+     * Hàng bán trả lại, thu hồi, chuyển kho, đổi trạng thái không mang giá mua nên không tính vào bình quân.
+     */
+    private static final String COSTED_RECEIPT_TYPES = "'OPENING', 'ADJUST_IN', 'COUNT_GAIN'";
+
+    /**
+     * Đơn giá nhập bình quân (theo đơn vị cơ sở) của từng hàng trên toàn công ty, tính từ các dòng nhập có đơn giá đến
+     * hết ngày {@code to}; dòng đảo phiếu nhập trừ lại theo đơn giá dòng gốc. Hàng chưa có giá trị nhập dương không có
+     * trong kết quả.
+     */
+    public Map<Long, BigDecimal> averageReceiptCosts(Long companyId, Collection<Long> productIds, LocalDate to) {
+        if (productIds.isEmpty()) {
+            return Map.of();
+        }
+        MapSqlParameterSource params = new MapSqlParameterSource("companyId", companyId)
+                .addValue("productIds", productIds).addValue("to", Date.valueOf(to));
+        String sql = """
+                SELECT c.product_id, c.amount / c.quantity AS unit_cost
+                FROM (
+                  SELECT t.product_id,
+                         SUM(CASE WHEN t.transaction_type <> 'REVERSAL' THEN t.quantity * t.unit_cost
+                                  ELSE -t.quantity * o.unit_cost END) AS amount,
+                         SUM(CASE WHEN t.transaction_type <> 'REVERSAL' THEN t.quantity ELSE -t.quantity END)
+                             AS quantity
+                  FROM inventory_transactions t
+                  LEFT JOIN inventory_transactions o ON o.id = t.reversal_of_id
+                  WHERE t.company_id = :companyId AND t.product_id IN (:productIds) AND t.posting_date <= :to
+                    AND ((t.transaction_type IN (%1$s) AND t.unit_cost IS NOT NULL)
+                      OR (t.transaction_type = 'REVERSAL' AND o.transaction_type IN (%1$s)
+                          AND o.unit_cost IS NOT NULL))
+                  GROUP BY t.product_id
+                ) c
+                WHERE c.quantity > 0 AND c.amount >= 0
+                """.formatted(COSTED_RECEIPT_TYPES);
+        Map<Long, BigDecimal> costs = new HashMap<>();
+        jdbc.query(sql, params, rs -> {
+            costs.put(rs.getLong("product_id"), rs.getBigDecimal("unit_cost"));
+        });
+        return costs;
     }
 
     private static MapSqlParameterSource cardParams(Scope scope, Long productId, Long lotId, Long serialId) {

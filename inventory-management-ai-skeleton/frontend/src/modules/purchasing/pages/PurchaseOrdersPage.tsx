@@ -34,9 +34,9 @@ import { PartnerSelect, ProductSelect } from '../../masterdata/components/Entity
 import { useCatalog, useCompanyId, useTaxRates, useWarehouses } from '../../masterdata/lookups';
 import { useMyBranches } from '../../system/lookups';
 import { purchaseOrderApi } from '../api';
-import { PrintButton } from '../../../shared/components/PrintButton';
 import { PurchaseDocumentDrawer } from '../components/PurchaseDocumentDrawer';
-import { StockInSlipPrint } from '../components/StockInSlipPrint';
+import { StockInSlipDownload, StockInSlipPrint } from '../components/StockInSlipPrint';
+import { CompanyPrintButton } from '../../../shared/components/CompanyPrintButton';
 import { SourceJournal } from '../components/SourceJournal';
 import { useProductUnits } from '../components/productUnits';
 import { PURCHASE_STATUSES } from '../labels';
@@ -289,12 +289,17 @@ export function PurchaseOrdersPage() {
           onClose={() => setSelected(null)}
           extra={(document) =>
             document.status === 'POSTED' && (
-              <PrintButton
+              <CompanyPrintButton
                 label="In phiếu nhập kho"
-                title={`Phiếu nhập kho ${document.inventoryDocumentNo ?? ''}`}
+                queryKey="purchase-orders"
+                fetchCompanies={purchaseOrderApi.printCompanies}
+                defaultCompanyId={companyId}
+                extra={(printCompanyId) => (
+                  <StockInSlipDownload orderId={document.id} companyId={printCompanyId} />
+                )}
               >
-                <StockInSlipPrint orderId={document.id} />
-              </PrintButton>
+                {(printCompanyId) => <StockInSlipPrint orderId={document.id} companyId={printCompanyId} />}
+              </CompanyPrintButton>
             )
           }
         >

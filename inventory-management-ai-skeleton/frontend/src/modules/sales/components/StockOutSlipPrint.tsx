@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Alert, Spin } from 'antd';
 import { toApiError } from '../../../shared/api/apiError';
 import { InventorySlipLayout, type InventorySlipView } from '../../../shared/components/InventorySlipLayout';
@@ -9,11 +9,11 @@ import { salesOrderApi } from '../api';
 import type { StockOutSlip, StockOutSlipLine } from '../types';
 
 /** Phiếu xuất kho in từ đơn bán đã ghi sổ: dữ liệu do server tổng hợp, chỉ dòng hàng hóa, lô / serial thực xuất. */
-export function StockOutSlipPrint({ orderId }: { orderId: number }) {
+export function StockOutSlipPrint({ orderId, companyId }: { orderId: number; companyId?: number }) {
   const units = useCatalog('units');
   const slip = useQuery({
-    queryKey: ['sales-orders', orderId, 'stock-out-slip'],
-    queryFn: () => salesOrderApi.stockOutSlip(orderId),
+    queryKey: ['sales-orders', orderId, 'stock-out-slip', companyId],
+    queryFn: () => salesOrderApi.stockOutSlip(orderId, companyId),
   });
   if (slip.isPending) {
     return <Spin />;
@@ -21,14 +21,25 @@ export function StockOutSlipPrint({ orderId }: { orderId: number }) {
   if (slip.isError) {
     return <Alert type="error" showIcon message={toApiError(slip.error).message} />;
   }
-  const view = toView(slip.data, units.nameOf);
+  return <InventorySlipLayout slip={toView(slip.data, units.nameOf)} />;
+}
+
+/** Tải phiếu xuất kho về máy (Excel, Word, PDF) theo công ty đang chọn, đặt ngoài hộp xem trước. */
+export function StockOutSlipDownload({ orderId, companyId }: { orderId: number; companyId?: number }) {
+  const units = useCatalog('units');
+  const queryClient = useQueryClient();
   return (
-    <>
-      <div className="no-print" style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
-        <SlipDownloadButton slip={view} />
-      </div>
-      <InventorySlipLayout slip={view} />
-    </>
+    <SlipDownloadButton
+      load={async () =>
+        toView(
+          await queryClient.fetchQuery({
+            queryKey: ['sales-orders', orderId, 'stock-out-slip', companyId],
+            queryFn: () => salesOrderApi.stockOutSlip(orderId, companyId),
+          }),
+          units.nameOf,
+        )
+      }
+    />
   );
 }
 

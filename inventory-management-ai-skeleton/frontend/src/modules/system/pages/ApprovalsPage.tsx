@@ -9,6 +9,7 @@ import { approvalApi } from '../api';
 import { ApprovalHistory } from '../components/ApprovalHistory';
 import { useDocumentTypes, useMyBranches } from '../lookups';
 import type { ApprovalRequest } from '../types';
+import { formatAmount } from '../../../shared/format';
 
 const NO_FILTERS = {};
 
@@ -40,7 +41,7 @@ export function ApprovalsPage() {
       dataIndex: 'amount',
       width: 150,
       align: 'right',
-      render: (value: number | null) => (value === null ? '' : Number(value).toLocaleString('vi-VN')),
+      render: (value: number | null) => formatAmount(value),
     },
     {
       title: 'Bước',

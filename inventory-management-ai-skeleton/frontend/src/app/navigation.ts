@@ -51,6 +51,7 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { path: '/inventory/stock', label: 'Tồn kho', permission: 'inventory:view' },
       { path: '/inventory/documents', label: 'Chứng từ kho', permission: 'inventory:view' },
+      { path: '/inventory/opening-stock', label: 'Tồn kho đầu kỳ', permission: 'inventory-receipt:view' },
       { path: '/inventory/lots', label: 'Lô, serial', permission: 'inventory:view' },
       { path: '/inventory/stock-counts', label: 'Kiểm kê', permission: 'stock-count:view' },
       { path: '/inventory/recalls', label: 'Thu hồi', permission: 'recall:view' },

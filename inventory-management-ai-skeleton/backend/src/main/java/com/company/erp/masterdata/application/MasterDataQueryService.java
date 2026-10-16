@@ -1,7 +1,6 @@
 package com.company.erp.masterdata.application;
 
 import com.company.erp.common.domain.BusinessException;
-import com.company.erp.common.domain.QualityStatus;
 import com.company.erp.common.domain.RecordStatus;
 import com.company.erp.masterdata.domain.LocationZone;
 import com.company.erp.masterdata.domain.Partner;
@@ -41,7 +40,7 @@ public class MasterDataQueryService {
 
     public record ProductInfo(Long id, Long companyId, String code, String name, ProductType productType,
                               Long baseUnitId, boolean lotTracked, boolean expiryTracked, boolean serialTracked,
-                              QualityStatus initialQualityStatus, boolean active, boolean stockTracked,
+                              boolean active, boolean stockTracked,
                               Long defaultTaxRateId, Long categoryId) {
 
         /** Mã loại hàng dạng chuỗi (điều kiện quy tắc hạch toán) cho module khác. */
@@ -290,7 +289,7 @@ public class MasterDataQueryService {
     private static ProductInfo toInfo(Product product) {
         return new ProductInfo(product.getId(), product.getCompanyId(), product.getCode(), product.getName(),
                 product.getProductType(), product.getBaseUnitId(), product.isLotTracked(), product.isExpiryTracked(),
-                product.isSerialTracked(), product.initialQualityStatus(), product.isActive(),
+                product.isSerialTracked(), product.isActive(),
                 product.isStockTracked(), product.getDefaultTaxRateId(), product.getCategoryId());
     }
 

@@ -1,3 +1,4 @@
+import { formatFixed } from '../format';
 /** Một dòng hàng trên phiếu kho; một dòng có thể xuất nhiều lô (mỗi lô / hạn dùng một dòng trong ô). */
 export interface SlipLineView {
   lineNo: number;
@@ -59,10 +60,7 @@ export const SIGN_DATE_LINE = 'Ngày ..... tháng ..... năm ........';
 export const SIGN_HINT = '(Ký, họ tên)';
 
 export function formatDecimal(value: number, fractionDigits: number) {
-  return new Intl.NumberFormat('vi-VN', {
-    minimumFractionDigits: fractionDigits,
-    maximumFractionDigits: fractionDigits,
-  }).format(value);
+  return formatFixed(value, fractionDigits);
 }
 
 /** "Ngày 07 tháng 10 năm 2026" từ ngày dạng YYYY-MM-DD. */

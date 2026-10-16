@@ -4,7 +4,7 @@ import {
   type ReportRow,
   type TableReport,
 } from '../../shared/report/tableReport';
-import { formatDateTime } from '../../shared/format';
+import { AMOUNT_DIGITS, QUANTITY_DIGITS, formatDateTime } from '../../shared/format';
 import { displayDate } from '../../shared/reportPeriod';
 import { TRANSACTION_TYPES } from '../inventory/labels';
 import type { TransactionType } from '../inventory/types';
@@ -16,6 +16,7 @@ import type {
   InventoryMovement,
   LotTrace,
   MissingDocuments,
+  MovementRow,
   SlowMoving,
   StockCard,
   StockExceptions,
@@ -24,7 +25,7 @@ import type {
 
 /** Chuyển dữ liệu báo cáo kho (BR-RPT-21..24) sang bảng báo cáo dùng chung cho màn hình, bản in, Excel, PDF. */
 
-const QUANTITY = 3;
+const QUANTITY = QUANTITY_DIGITS;
 export const REASON_LABELS: Record<ExceptionReason, string> = {
   EXPIRED: 'Hết hạn dùng',
   QUALITY: 'Trạng thái chất lượng',
@@ -107,37 +108,75 @@ export function stockCardReport(card: StockCard): TableReport {
   };
 }
 
+const AMOUNT = AMOUNT_DIGITS;
+const MOVEMENT_SECTIONS = ['Đầu kỳ', 'Nhập kho', 'Xuất kho', 'Cuối kỳ'];
+
+function movementCells(row: MovementRow): (number | null)[] {
+  return [
+    row.opening,
+    row.openingValue,
+    row.inQuantity,
+    row.inValue,
+    row.outQuantity,
+    row.outValue,
+    row.closing,
+    row.closingValue,
+  ];
+}
+
+/** Cộng từng cột của dòng kho; cột giá trị trống khi không hàng nào có giá trị. */
+function sumCells(rows: (number | null)[][]): (number | null)[] {
+  return (rows[0] ?? []).map((_, index) => {
+    const values = rows.map((cells) => cells[index]).filter((value): value is number => value !== null);
+    return values.length === 0 ? null : values.reduce((sum, value) => sum + value, 0);
+  });
+}
+
+/** Nhập - xuất - tồn nhóm theo kho, mỗi kho một dòng tổng; số lượng và giá trị theo từng nhóm cột (BR-RPT-22). */
 export function movementReport(movement: InventoryMovement): TableReport {
+  const columns: ReportColumn[] = [
+    { title: 'Mã hàng', width: 14 },
+    { title: 'Tên hàng', width: 30 },
+    { title: 'ĐVT', width: 8 },
+    ...MOVEMENT_SECTIONS.flatMap((group): ReportColumn[] => [
+      { title: 'Số lượng', digits: QUANTITY, width: 12, group },
+      { title: 'Giá trị', digits: AMOUNT, width: 15, group },
+    ]),
+  ];
+  const warehouses = new Map<number, MovementRow[]>();
+  [...movement.rows]
+    .sort(
+      (a, b) => a.warehouseCode.localeCompare(b.warehouseCode) || a.productCode.localeCompare(b.productCode),
+    )
+    .forEach((row) => warehouses.set(row.warehouseId, [...(warehouses.get(row.warehouseId) ?? []), row]));
+  const rows: ReportRow[] = [...warehouses.values()].flatMap((items) => [
+    {
+      cells: [
+        `Tên kho : ${items[0]?.warehouseName ?? ''} (${items.length})`,
+        null,
+        null,
+        ...sumCells(items.map(movementCells)),
+      ],
+      bold: true,
+      group: true,
+      labelSpan: 3,
+    },
+    ...items.map((row) => ({
+      cells: [row.productCode, row.productName, row.unitName, ...movementCells(row)],
+    })),
+  ]);
   return {
     title: 'TỔNG HỢP NHẬP - XUẤT - TỒN',
     subtitle: period(movement.dateFrom, movement.dateTo),
-    columns: [
-      { title: 'Mã hàng', width: 14 },
-      { title: 'Tên hàng', width: 34 },
-      { title: 'ĐVT', width: 8 },
-      { title: 'Kho', width: 10 },
-      { title: 'Tồn đầu kỳ', digits: QUANTITY, width: 12 },
-      { title: 'Nhập trong kỳ', digits: QUANTITY, width: 12 },
-      { title: 'Xuất trong kỳ', digits: QUANTITY, width: 12 },
-      { title: 'Tồn cuối kỳ', digits: QUANTITY, width: 12 },
-    ],
-    rows: movement.rows.map((row) => ({
-      cells: [
-        row.productCode,
-        row.productName,
-        row.unitName,
-        row.warehouseCode,
-        row.opening,
-        row.inQuantity,
-        row.outQuantity,
-        row.closing,
-      ],
-    })),
+    columns,
+    rows,
     notes: [
       'Số lượng theo đơn vị cơ sở; đảo chứng từ trừ vào chiều của chứng từ gốc; chuyển trạng thái chất lượng không tính.',
       ...(movement.valueAvailable
         ? []
-        : ['Giá trị nhập - xuất - tồn chưa có: giá vốn được tính từ Giai đoạn 8.']),
+        : [
+            'Giá trị tạm tính = số lượng × đơn giá nhập bình quân đến cuối kỳ, chưa phải giá vốn (giá vốn tính ở Giai đoạn 8). Hàng chưa có đơn giá nhập để trống giá trị.',
+          ]),
       generatedNote(movement.generatedAt),
     ],
     fileName: fileName('Nhap-xuat-ton', `${movement.dateFrom}_${movement.dateTo}`),

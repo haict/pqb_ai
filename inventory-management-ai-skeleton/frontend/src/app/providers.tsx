@@ -14,7 +14,7 @@ export function AppProviders({ children }: { children: ReactNode }) {
   const [queryClient] = useState(createQueryClient);
   return (
     <QueryClientProvider client={queryClient}>
-      <ConfigProvider locale={viVN} theme={APP_THEME}>
+      <ConfigProvider locale={viVN} theme={APP_THEME} modal={{ classNames: { body: 'app-modal-body' } }}>
         <AntApp>
           <AuthProvider>{children}</AuthProvider>
         </AntApp>

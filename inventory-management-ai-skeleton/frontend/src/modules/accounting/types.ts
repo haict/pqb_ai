@@ -69,6 +69,8 @@ export interface JournalEntryLine {
   transactionCode: string;
   postingRuleId: number | null;
   partnerId: number | null;
+  partnerCode: string | null;
+  partnerName: string | null;
   productId: number | null;
   warehouseId: number | null;
   departmentId: number | null;

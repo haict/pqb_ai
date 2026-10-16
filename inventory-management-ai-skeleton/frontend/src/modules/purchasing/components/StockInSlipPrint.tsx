@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Alert, Spin } from 'antd';
 import { toApiError } from '../../../shared/api/apiError';
 import { InventorySlipLayout, type InventorySlipView } from '../../../shared/components/InventorySlipLayout';
@@ -9,11 +9,11 @@ import { purchaseOrderApi } from '../api';
 import type { StockInSlip } from '../types';
 
 /** Phiếu nhập kho in từ đơn mua đã ghi sổ (BR-PUR-08): dữ liệu do server tổng hợp, chỉ dòng hàng hóa. */
-export function StockInSlipPrint({ orderId }: { orderId: number }) {
+export function StockInSlipPrint({ orderId, companyId }: { orderId: number; companyId?: number }) {
   const units = useCatalog('units');
   const slip = useQuery({
-    queryKey: ['purchase-orders', orderId, 'stock-in-slip'],
-    queryFn: () => purchaseOrderApi.stockInSlip(orderId),
+    queryKey: ['purchase-orders', orderId, 'stock-in-slip', companyId],
+    queryFn: () => purchaseOrderApi.stockInSlip(orderId, companyId),
   });
   if (slip.isPending) {
     return <Spin />;
@@ -21,14 +21,25 @@ export function StockInSlipPrint({ orderId }: { orderId: number }) {
   if (slip.isError) {
     return <Alert type="error" showIcon message={toApiError(slip.error).message} />;
   }
-  const view = toView(slip.data, units.nameOf);
+  return <InventorySlipLayout slip={toView(slip.data, units.nameOf)} />;
+}
+
+/** Tải phiếu nhập kho về máy (Excel, Word, PDF) theo công ty đang chọn, đặt ngoài hộp xem trước. */
+export function StockInSlipDownload({ orderId, companyId }: { orderId: number; companyId?: number }) {
+  const units = useCatalog('units');
+  const queryClient = useQueryClient();
   return (
-    <>
-      <div className="no-print" style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
-        <SlipDownloadButton slip={view} />
-      </div>
-      <InventorySlipLayout slip={view} />
-    </>
+    <SlipDownloadButton
+      load={async () =>
+        toView(
+          await queryClient.fetchQuery({
+            queryKey: ['purchase-orders', orderId, 'stock-in-slip', companyId],
+            queryFn: () => purchaseOrderApi.stockInSlip(orderId, companyId),
+          }),
+          units.nameOf,
+        )
+      }
+    />
   );
 }
 

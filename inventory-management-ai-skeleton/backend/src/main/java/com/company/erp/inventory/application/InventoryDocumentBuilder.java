@@ -86,7 +86,8 @@ class InventoryDocumentBuilder {
         if (value == null) {
             return null;
         }
-        if (type == InventoryDocumentType.PNK && DocumentPostingPlanner.RECALL_IN.equals(value)) {
+        if (type == InventoryDocumentType.PNK && (DocumentPostingPlanner.RECALL_IN.equals(value)
+                || DocumentPostingPlanner.OPENING.equals(value))) {
             return value;
         }
         throw BusinessException.invalidField("subType", "Loại nghiệp vụ '" + value + "' không áp dụng cho " + type

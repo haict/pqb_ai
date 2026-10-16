@@ -33,7 +33,7 @@ public class StockInService {
 
     private static final Logger log = LoggerFactory.getLogger(StockInService.class);
 
-    /** Dòng nhập; {@code qualityStatus} trống thì theo trạng thái ban đầu của hàng (D-09). */
+    /** Dòng nhập; {@code qualityStatus} trống thì ĐẠT (D-56). */
     public record StockInLine(Long sourceLineId, Long productId, Long unitId, BigDecimal quantity, Long locationId,
                               String lotNo, LocalDate manufactureDate, LocalDate expiryDate,
                               QualityStatus qualityStatus, BigDecimal unitCost, String note,

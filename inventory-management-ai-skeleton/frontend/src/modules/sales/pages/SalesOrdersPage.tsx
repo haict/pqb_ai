@@ -36,11 +36,12 @@ import { SourceJournal } from '../../purchasing/components/SourceJournal';
 import { useMyBranches } from '../../system/lookups';
 import { salesOrderApi } from '../api';
 import { ConfirmDeliveryModal, DeliveryNote, EinvoiceModal } from '../components/OrderModals';
-import { StockOutSlipPrint } from '../components/StockOutSlipPrint';
+import { StockOutSlipDownload, StockOutSlipPrint } from '../components/StockOutSlipPrint';
 import { SalesDocumentDrawer } from '../components/SalesDocumentDrawer';
 import { SalesLinesEditor } from '../components/SalesLineFields';
 import { toLineForm, toLineInput, type SalesLineForm } from '../components/salesLines';
 import { PrintButton } from '../../../shared/components/PrintButton';
+import { CompanyPrintButton } from '../../../shared/components/CompanyPrintButton';
 import { SalesLinesTable } from '../components/SalesLinesTable';
 import { DELIVERY_STATUSES, DUE_BASES, ORDER_ACTION_ORDER, orderActions, POSTING_STATUSES } from '../labels';
 import type {
@@ -283,12 +284,17 @@ export function SalesOrdersPage() {
           extra={(document) => (
             <>
               {document.status === 'POSTED' && (
-                <PrintButton
+                <CompanyPrintButton
                   label="In phiếu xuất kho"
-                  title={`Phiếu xuất kho ${document.inventoryDocumentNo ?? ''}`}
+                  queryKey="sales-orders"
+                  fetchCompanies={salesOrderApi.printCompanies}
+                  defaultCompanyId={companyId}
+                  extra={(printCompanyId) => (
+                    <StockOutSlipDownload orderId={document.id} companyId={printCompanyId} />
+                  )}
                 >
-                  <StockOutSlipPrint orderId={document.id} />
-                </PrintButton>
+                  {(printCompanyId) => <StockOutSlipPrint orderId={document.id} companyId={printCompanyId} />}
+                </CompanyPrintButton>
               )}
               {document.status === 'POSTED' && (
                 <PrintButton

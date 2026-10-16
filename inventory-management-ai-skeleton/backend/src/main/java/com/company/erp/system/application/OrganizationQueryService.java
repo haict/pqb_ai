@@ -8,6 +8,7 @@ import com.company.erp.system.infrastructure.persistence.BranchRepository;
 import com.company.erp.system.infrastructure.persistence.CompanyRepository;
 import com.company.erp.system.infrastructure.persistence.UserRepository;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.stereotype.Service;
@@ -43,6 +44,16 @@ public class OrganizationQueryService {
     @Transactional(readOnly = true)
     public Optional<CompanyRef> company(Long id) {
         return id == null ? Optional.empty() : companyRepository.findById(id).map(OrganizationQueryService::toRef);
+    }
+
+    /** Công ty đang hoạt động trong danh sách cho trước, theo mã (ô chọn công ty khi in chứng từ). */
+    @Transactional(readOnly = true)
+    public List<CompanyRef> activeCompanies(Collection<Long> ids) {
+        return companyRepository.findAllById(ids).stream()
+                .filter(company -> company.getStatus() == RecordStatus.ACTIVE)
+                .sorted(Comparator.comparing(Company::getCode))
+                .map(OrganizationQueryService::toRef)
+                .toList();
     }
 
     @Transactional(readOnly = true)

@@ -27,6 +27,8 @@ import org.springframework.stereotype.Component;
 class DocumentPostingPlanner {
 
     static final String RECALL_IN = "RECALL_IN";
+    /** Phiếu nhập tồn kho đầu kỳ khi chuyển đổi dữ liệu (BR-MIG-02); ghi sổ như phiếu nhập không loại nghiệp vụ. */
+    static final String OPENING = "OPENING";
     static final String COUNT = "COUNT";
     /** Loại nghiệp vụ của phiếu kho do chứng từ nguồn module khác sinh ({@link StockOutService}, {@link StockInService}). */
     static final String SALE = "SALE";
@@ -48,8 +50,8 @@ class DocumentPostingPlanner {
         for (InventoryDocumentLine line : document.getLines()) {
             ProductInfo product = products.get(line.getProductId());
             switch (document.getDocumentType()) {
-                case PNK -> movements.addAll(receipt(document, line, product, actorId, receiptStatus(document, line,
-                        product), receiptType(document)));
+                case PNK -> movements.addAll(receipt(document, line, product, actorId, receiptStatus(document, line),
+                        receiptType(document)));
                 case PXK -> movements.addAll(sourceIssue(document, line, product));
                 case PXH -> movements.addAll(issue(document, line, product, TransactionType.SCRAP,
                         StockMovement.OutRule.DISPOSABLE, null));
@@ -239,13 +241,12 @@ class DocumentPostingPlanner {
                 .toList();
     }
 
-    /** Thu hồi về: trạng thái THU HỒI; nhập khác: theo dòng, mặc định theo loại hàng (D-09). */
-    private static QualityStatus receiptStatus(InventoryDocument document, InventoryDocumentLine line,
-                                               ProductInfo product) {
+    /** Thu hồi về: trạng thái THU HỒI; nhập khác: theo dòng, mặc định ĐẠT (D-56). */
+    private static QualityStatus receiptStatus(InventoryDocument document, InventoryDocumentLine line) {
         if (RECALL_IN.equals(document.getSubType())) {
             return QualityStatus.RECALLED;
         }
-        return line.getQualityStatus() != null ? line.getQualityStatus() : product.initialQualityStatus();
+        return line.getQualityStatus() != null ? line.getQualityStatus() : QualityStatus.PASSED;
     }
 
     /** Đơn giá theo đơn vị cơ sở = đơn giá theo đơn vị giao dịch / hệ số quy đổi. */

@@ -1,8 +1,7 @@
 package com.company.erp.common.domain;
 
 /**
- * Trạng thái chất lượng của tồn kho (BR-INV-03). Dùng chung: danh mục quyết định trạng thái mặc định khi nhập (D-09),
- * kho theo dõi tồn theo trạng thái.
+ * Trạng thái chất lượng của tồn kho (BR-INV-03). Nhập kho mặc định ĐẠT (D-56); kho theo dõi tồn theo trạng thái.
  */
 public enum QualityStatus {
     /** Chờ kiểm tra. */

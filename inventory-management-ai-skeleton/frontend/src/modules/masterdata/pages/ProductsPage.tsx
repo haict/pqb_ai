@@ -40,7 +40,7 @@ import { useStatusChange } from '../../../shared/components/useStatusChange';
 import { formValues } from '../../../shared/forms';
 import { productApi } from '../api';
 import { ImportModal } from '../components/ImportModal';
-import { PRODUCT_TYPES, QUALITY_STATUSES, toOptions } from '../labels';
+import { PRODUCT_TYPES, toOptions } from '../labels';
 import {
   useCatalog,
   useCategories,
@@ -55,7 +55,6 @@ type FormValues = Omit<Partial<Product>, 'registrationValidTo'> & { registration
 
 const FIELDS = [
   'code',
-  'legacyCode',
   'name',
   'tradeName',
   'categoryId',
@@ -129,9 +128,6 @@ function ProductForm({ form, editing }: { form: FormInstance<FormValues>; editin
                   }
                 >
                   <Input disabled={editing !== null} style={{ width: 200 }} />
-                </Form.Item>
-                <Form.Item name="legacyCode" label="Mã cũ (MISA)">
-                  <Input maxLength={50} style={{ width: 200 }} />
                 </Form.Item>
               </Space>
               <Form.Item
@@ -372,11 +368,6 @@ function ProductDetail({ productId, onClose }: { productId: number; onClose(): v
                 .filter(Boolean)
                 .join(', ') || 'Không'}
             </Descriptions.Item>
-            <Descriptions.Item label="Trạng thái khi nhập">
-              <Tag color={QUALITY_STATUSES[product.initialQualityStatus].color}>
-                {QUALITY_STATUSES[product.initialQualityStatus].label}
-              </Tag>
-            </Descriptions.Item>
           </Descriptions>
           <div>
             <Typography.Title level={5}>Đơn vị giao dịch và hệ số quy đổi</Typography.Title>
@@ -492,7 +483,12 @@ export function ProductsPage() {
       await productApi.create({ ...payload, companyId }, key);
       message.success('Đã thêm hàng hóa.');
     } else if (editing) {
-      await productApi.update(editing.id, { ...payload, version: editing.version });
+      // Mã cũ MISA không còn nhập trên màn hình; gửi lại giá trị đang lưu để không bị xóa khi sửa.
+      await productApi.update(editing.id, {
+        ...payload,
+        legacyCode: editing.legacyCode,
+        version: editing.version,
+      });
       message.success('Đã lưu hàng hóa.');
     }
     await refresh();
@@ -568,7 +564,7 @@ export function ProductsPage() {
         Hàng hóa
       </Typography.Title>
       <ListToolbar
-        searchPlaceholder="Tìm theo mã, tên, mã cũ, model"
+        searchPlaceholder="Tìm theo mã, tên, model"
         onSearch={setKeyword}
         status={status}
         onStatusChange={setStatus}

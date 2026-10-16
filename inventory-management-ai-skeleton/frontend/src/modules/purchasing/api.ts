@@ -1,5 +1,6 @@
 import { getOne, getPage, idList, postWithKey, putJson } from '../../shared/api/rest';
 import type { ListParams } from '../../shared/api/useServerTable';
+import type { PrintCompany } from '../../shared/components/CompanyPrintButton';
 import type {
   CostAllocationSource,
   PurchaseCostAllocation,
@@ -25,7 +26,10 @@ function documentApi<T>(path: string) {
 
 export const purchaseOrderApi = {
   ...documentApi<PurchaseOrder>('/purchase-orders'),
-  stockInSlip: (id: number) => getOne<StockInSlip>(`/purchase-orders/${id}/stock-in-slip`),
+  /** {@code companyId}: công ty in đầu phiếu (D-58); trống là công ty của đơn. */
+  stockInSlip: (id: number, companyId?: number) =>
+    getOne<StockInSlip>(`/purchase-orders/${id}/stock-in-slip`, { companyId }),
+  printCompanies: () => getOne<PrintCompany[]>('/purchase-orders/print-companies'),
 };
 
 export const purchaseReturnApi = {

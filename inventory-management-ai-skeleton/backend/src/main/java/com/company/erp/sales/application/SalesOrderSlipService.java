@@ -8,6 +8,7 @@ import com.company.erp.inventory.application.StockOutService;
 import com.company.erp.masterdata.application.MasterDataQueryService.PartnerInfo;
 import com.company.erp.masterdata.application.MasterDataQueryService.ProductInfo;
 import com.company.erp.masterdata.application.MasterDataQueryService.WarehouseInfo;
+import com.company.erp.sales.application.dto.PrintCompanyResponse;
 import com.company.erp.sales.application.dto.StockOutSlipResponse;
 import com.company.erp.sales.domain.SalesDocumentStatus;
 import com.company.erp.sales.domain.SalesOrder;
@@ -26,9 +27,15 @@ import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/** Mẫu in phiếu xuất kho từ đơn bán đã ghi sổ (BR-SAL-21, BR-UI); chỉ đọc, quyền xem đơn bán. */
+/**
+ * Mẫu in phiếu xuất kho từ đơn bán đã ghi sổ (BR-SAL-21, BR-UI); quyền xem đơn bán. Đầu phiếu theo công ty người in
+ * chọn (D-58): công ty đang hoạt động trong phạm vi người dùng, mặc định công ty của đơn; in theo công ty khác ghi nhật
+ * ký.
+ */
 @Service
 public class SalesOrderSlipService {
+
+    static final String PRINT_AS_COMPANY = "PRINT_AS_COMPANY";
 
     private final SalesOrderRepository repository;
     private final SalesDocumentFlow flow;
@@ -48,8 +55,19 @@ public class SalesOrderSlipService {
         this.journals = journals;
     }
 
+    /** Công ty được chọn để in đầu phiếu: đang hoạt động, trong phạm vi người dùng. */
     @Transactional(readOnly = true)
-    public StockOutSlipResponse stockOutSlip(CurrentUser actor, Long id) {
+    public List<PrintCompanyResponse> printCompanies(CurrentUser actor) {
+        access.requirePermission(actor, SalesOrderService.VIEW);
+        return organization.activeCompanies(actor.dataScope().companyIds()).stream()
+                .map(company -> new PrintCompanyResponse(company.id(), company.code(), company.name(),
+                        company.address()))
+                .toList();
+    }
+
+    /** {@code printCompanyId} trống: đầu phiếu theo công ty của đơn. */
+    @Transactional
+    public StockOutSlipResponse stockOutSlip(CurrentUser actor, Long id, Long printCompanyId) {
         access.requirePermission(actor, SalesOrderService.VIEW);
         SalesOrder order = flow.visible(actor, repository.findById(id).orElseThrow(BusinessException::notFound));
         if (order.getStatus() != SalesDocumentStatus.POSTED) {
@@ -57,7 +75,7 @@ public class SalesOrderSlipService {
                     + " chưa ghi sổ (hoặc đã đảo) nên không có phiếu xuất kho để in.");
         }
         List<SalesOrderLine> goods = order.getLines().stream().filter(line -> !line.isServiceLine()).toList();
-        CompanyRef company = organization.company(order.getCompanyId()).orElse(null);
+        CompanyRef company = printCompany(actor, order, printCompanyId);
         PartnerInfo customer = access.partners(List.of(order.getCustomerId())).get(order.getCustomerId());
         WarehouseInfo warehouse = order.getWarehouseId() == null ? null
                 : access.warehouses(List.of(order.getWarehouseId())).get(order.getWarehouseId());
@@ -81,6 +99,21 @@ public class SalesOrderSlipService {
                 order.getEinvoiceSeries(), order.getEinvoiceNo(), order.getEinvoiceDate(),
                 warehouse == null ? null : warehouse.code(), warehouse == null ? null : warehouse.name(), lines, total,
                 taxRates, tax, total.add(tax));
+    }
+
+    private CompanyRef printCompany(CurrentUser actor, SalesOrder order, Long printCompanyId) {
+        if (printCompanyId == null || printCompanyId.equals(order.getCompanyId())) {
+            return organization.company(order.getCompanyId()).orElse(null);
+        }
+        CompanyRef company = organization.activeCompanies(actor.dataScope().companyIds()).stream()
+                .filter(candidate -> candidate.id().equals(printCompanyId)).findFirst()
+                .orElseThrow(() -> BusinessException.invalidField("companyId",
+                        "Công ty in phiếu không tồn tại, đã ngừng hoạt động hoặc ngoài phạm vi của bạn."));
+        access.audit(actor, PRINT_AS_COMPANY, SalesOrderService.ENTITY, order.getId(), order.getDocumentNo(),
+                "In phiếu xuất kho theo công ty " + company.code() + " - " + company.name(),
+                Map.of("companyId", order.getCompanyId()), Map.of("printCompanyId", company.id()),
+                order.getCompanyId(), order.getBranchId());
+        return company;
     }
 
     private List<StockOutSlipResponse.Line> lines(List<SalesOrderLine> goods) {

@@ -13,6 +13,8 @@ public record JournalEntryLineResponse(
         String transactionCode,
         Long postingRuleId,
         Long partnerId,
+        String partnerCode,
+        String partnerName,
         Long productId,
         Long warehouseId,
         Long departmentId,

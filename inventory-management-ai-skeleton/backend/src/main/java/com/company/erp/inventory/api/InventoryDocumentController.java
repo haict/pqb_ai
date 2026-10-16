@@ -61,6 +61,7 @@ public class InventoryDocumentController {
     public ApiResponse<PageResponse<InventoryDocumentSummary>> search(@AuthenticationPrincipal CurrentUser user,
             @RequestParam Long companyId,
             @RequestParam(required = false) InventoryDocumentType documentType,
+            @RequestParam(required = false) String subType,
             @RequestParam(required = false) InventoryDocumentStatus status,
             @RequestParam(required = false) Long warehouseId,
             @RequestParam(required = false) String keyword,
@@ -68,7 +69,7 @@ public class InventoryDocumentController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo,
             Pageable pageable) {
         InventoryDocumentService.SearchFilter filter = new InventoryDocumentService.SearchFilter(companyId,
-                documentType, status, warehouseId, keyword, dateFrom, dateTo);
+                documentType, subType, status, warehouseId, keyword, dateFrom, dateTo);
         return ApiResponse.ok(PageResponse.from(documentService.search(user, filter, pageable), Function.identity()));
     }
 

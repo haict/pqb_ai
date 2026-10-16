@@ -105,7 +105,6 @@ export interface Product {
   lotTracked: boolean;
   expiryTracked: boolean;
   serialTracked: boolean;
-  initialQualityStatus: QualityStatus;
   medicalDeviceClass: string | null;
   registrationNo: string | null;
   registrationHolder: string | null;

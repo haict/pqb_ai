@@ -31,10 +31,15 @@ export function formValues<T extends object>(item: T): Partial<{ [K in keyof T]:
  * Kiểm tra form; trường sai thì antd đã hiển thị lỗi tại trường, trả {@code null} để dừng gửi (không để lời hứa bị
  * từ chối mà không xử lý).
  */
+/** Kiểm tra form; sai thì cuộn tới trường lỗi đầu tiên (form dài trong modal tự cuộn) và trả {@code null}. */
 export async function validated<T>(form: FormInstance<T>): Promise<T | null> {
   try {
     return await form.validateFields();
-  } catch {
+  } catch (error) {
+    const first = (error as { errorFields?: { name: (string | number)[] }[] }).errorFields?.[0];
+    if (first) {
+      form.scrollToField(first.name, { block: 'center', behavior: 'smooth' });
+    }
     return null;
   }
 }

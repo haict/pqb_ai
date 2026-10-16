@@ -7,6 +7,7 @@ import com.company.erp.purchasing.application.PurchaseOrderPostingService;
 import com.company.erp.purchasing.application.PurchaseOrderService;
 import com.company.erp.purchasing.application.PurchaseOrderSlipService;
 import com.company.erp.purchasing.application.dto.CommentRequest;
+import com.company.erp.purchasing.application.dto.PrintCompanyResponse;
 import com.company.erp.purchasing.application.dto.PurchaseOrderRequest;
 import com.company.erp.purchasing.application.dto.PurchaseOrderResponse;
 import com.company.erp.purchasing.application.dto.StockInSlipResponse;
@@ -18,6 +19,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.function.Function;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
@@ -79,8 +81,17 @@ public class PurchaseOrderController {
     @GetMapping("/{id}/stock-in-slip")
     @PreAuthorize("hasAuthority('purchase-order:view')")
     public ApiResponse<StockInSlipResponse> stockInSlip(@AuthenticationPrincipal CurrentUser user,
-                                                        @PathVariable Long id) {
-        return ApiResponse.ok(slips.stockInSlip(user, id));
+                                                        @PathVariable Long id,
+                                                        @RequestParam(required = false) Long companyId) {
+        return ApiResponse.ok(slips.stockInSlip(user, id, companyId));
+    }
+
+    @Operation(summary = "Công ty in đầu phiếu",
+            description = "Công ty đang hoạt động trong phạm vi người dùng, để chọn tên / địa chỉ in trên phiếu nhập kho.")
+    @GetMapping("/print-companies")
+    @PreAuthorize("hasAuthority('purchase-order:view')")
+    public ApiResponse<List<PrintCompanyResponse>> printCompanies(@AuthenticationPrincipal CurrentUser user) {
+        return ApiResponse.ok(slips.printCompanies(user));
     }
 
     @Operation(summary = "Lập chứng từ", description = "Bắt buộc Idempotency-Key.")

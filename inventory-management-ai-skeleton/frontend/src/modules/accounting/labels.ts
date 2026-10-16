@@ -1,3 +1,4 @@
+import { formatAmount } from '../../shared/format';
 import type { BalanceSide, JournalEntryKind, JournalEntryStatus } from './types';
 
 export const BALANCE_SIDES: Record<BalanceSide, string> = {
@@ -20,8 +21,5 @@ export const JOURNAL_STATUSES: Record<JournalEntryStatus, { label: string; color
 
 /** Tiền hiển thị làm tròn đến đồng (D-05); số liệu do server tính, client chỉ định dạng. */
 export function formatMoney(value: number | null | undefined): string {
-  if (value === null || value === undefined) {
-    return '';
-  }
-  return new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 0 }).format(value);
+  return formatAmount(value);
 }

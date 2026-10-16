@@ -12,7 +12,14 @@ import { documentApi } from '../api';
 import { DocumentActions } from '../components/DocumentActions';
 import { DocumentFormFields } from '../components/DocumentForm';
 import { DOCUMENT_FIELDS, toDocumentInput, type DocumentFormValues } from '../components/documentFormValues';
-import { DOCUMENT_TYPES, SOURCE_TYPES, TRANSACTION_TYPES, formatDate, formatNumber } from '../labels';
+import {
+  DOCUMENT_TYPES,
+  RECEIPT_SUB_TYPES,
+  SOURCE_TYPES,
+  TRANSACTION_TYPES,
+  formatDate,
+  formatNumber,
+} from '../labels';
 import { DocumentStatusTag, QualityTag } from '../components/StatusTags';
 import type { InventoryDocument, InventoryLine, InventoryTransaction } from '../types';
 
@@ -185,6 +192,9 @@ export function InventoryDocumentDetailPage() {
         </Space>
       </Space>
       <Descriptions size="small" column={{ xs: 1, md: 3 }} style={{ marginTop: 16 }}>
+        {document.documentType === 'PNK' && document.subType && RECEIPT_SUB_TYPES[document.subType] && (
+          <Descriptions.Item label="Nghiệp vụ">{RECEIPT_SUB_TYPES[document.subType]}</Descriptions.Item>
+        )}
         <Descriptions.Item label="Ngày chứng từ">{formatDate(document.documentDate)}</Descriptions.Item>
         <Descriptions.Item label="Ngày hạch toán">{formatDate(document.postingDate)}</Descriptions.Item>
         <Descriptions.Item label="Kho">{warehouseName(document.warehouseId)}</Descriptions.Item>

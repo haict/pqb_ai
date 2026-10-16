@@ -54,11 +54,11 @@ public class MasterDataImportService {
             "KH", PartnerRole.CUSTOMER, "NCC", PartnerRole.SUPPLIER, "DL", PartnerRole.AGENT,
             "BMT", PartnerRole.TENDER_OWNER, "NV", PartnerRole.EMPLOYEE, "KHAC", PartnerRole.OTHER);
 
-    static final List<String> PRODUCT_HEADERS = List.of("Mã hàng*", "Mã cũ (MISA)", "Tên hàng*", "Tên thương mại",
+    static final List<String> PRODUCT_HEADERS = List.of("Mã hàng*", "Tên hàng*", "Tên thương mại",
             "Mã nhóm hàng*", "Loại hàng*", "Mã ĐVT cơ sở*", "Mã nhãn hiệu", "Mã nhà sản xuất", "Xuất xứ (ISO)",
             "Model", "Quy cách", "Theo lô (C/K)", "Theo hạn dùng (C/K)", "Theo serial (C/K)", "Phân loại TTBYT",
             "Số lưu hành", "Hiệu lực số lưu hành (dd/mm/yyyy)", "Bảo hành (tháng)");
-    static final List<String> PARTNER_HEADERS = List.of("Mã đối tác*", "Mã cũ (MISA)", "Tên*", "Tên viết tắt",
+    static final List<String> PARTNER_HEADERS = List.of("Mã đối tác*", "Tên*", "Tên viết tắt",
             "Vai trò* (KH,NCC,DL,BMT,NV,KHAC)", "Loại (TC/CN)", "Mã số thuế", "Địa chỉ", "Điện thoại", "Email",
             "Loại khách", "Số ngày nợ", "Hạn mức tín dụng", "Số ngày thanh toán NCC");
 
@@ -180,32 +180,32 @@ public class MasterDataImportService {
         } else if (productRepository.existsByCompanyIdAndCode(companyId, code)) {
             errors.add("code", "Mã hàng '" + code + "' đã tồn tại.");
         }
-        String name = ExcelSupport.text(row, 2);
+        String name = ExcelSupport.text(row, 1);
         if (name.isEmpty()) {
             errors.add("name", "Tên hàng bắt buộc.");
         }
-        Long categoryId = reference(categoryRepository, companyId, ExcelSupport.text(row, 4), true, errors, "categoryId",
+        Long categoryId = reference(categoryRepository, companyId, ExcelSupport.text(row, 3), true, errors, "categoryId",
                 "Nhóm hàng");
-        ProductType type = enumValue(ProductType.class, ExcelSupport.text(row, 5), true, errors, "productType",
+        ProductType type = enumValue(ProductType.class, ExcelSupport.text(row, 4), true, errors, "productType",
                 "Loại hàng");
-        Long unitId = reference(unitRepository, companyId, ExcelSupport.text(row, 6), true, errors, "baseUnitId",
+        Long unitId = reference(unitRepository, companyId, ExcelSupport.text(row, 5), true, errors, "baseUnitId",
                 "Đơn vị tính");
-        Long brandId = reference(brandRepository, companyId, ExcelSupport.text(row, 7), false, errors, "brandId",
+        Long brandId = reference(brandRepository, companyId, ExcelSupport.text(row, 6), false, errors, "brandId",
                 "Nhãn hiệu");
-        Long manufacturerId = reference(manufacturerRepository, companyId, ExcelSupport.text(row, 8), false, errors,
+        Long manufacturerId = reference(manufacturerRepository, companyId, ExcelSupport.text(row, 7), false, errors,
                 "manufacturerId", "Nhà sản xuất");
-        String country = ExcelSupport.nullable(row, 9);
+        String country = ExcelSupport.nullable(row, 8);
         if (country != null && countryRepository.findById(country).isEmpty()) {
             errors.add("originCountryCode", "Xuất xứ '" + country + "' không có trong danh mục quốc gia.");
         }
-        boolean lot = ExcelSupport.flag(row, 12, errors, "lotTracked");
-        boolean expiry = ExcelSupport.flag(row, 13, errors, "expiryTracked");
-        boolean serial = ExcelSupport.flag(row, 14, errors, "serialTracked");
-        ProductDetails details = new ProductDetails(ExcelSupport.nullable(row, 1), name,
-                null, categoryId, brandId, manufacturerId, country, ExcelSupport.nullable(row, 10),
-                ExcelSupport.nullable(row, 11), null, ExcelSupport.nullable(row, 15), ExcelSupport.nullable(row, 16),
-                null, ExcelSupport.date(row, 17, errors, "registrationValidTo"), null, null, false, false,
-                ExcelSupport.integer(row, 18, errors, "warrantyMonths"), null, false, false, null, null);
+        boolean lot = ExcelSupport.flag(row, 11, errors, "lotTracked");
+        boolean expiry = ExcelSupport.flag(row, 12, errors, "expiryTracked");
+        boolean serial = ExcelSupport.flag(row, 13, errors, "serialTracked");
+        ProductDetails details = new ProductDetails(null, name,
+                null, categoryId, brandId, manufacturerId, country, ExcelSupport.nullable(row, 9),
+                ExcelSupport.nullable(row, 10), null, ExcelSupport.nullable(row, 14), ExcelSupport.nullable(row, 15),
+                null, ExcelSupport.date(row, 16, errors, "registrationValidTo"), null, null, false, false,
+                ExcelSupport.integer(row, 17, errors, "warrantyMonths"), null, false, false, null, null);
         if (name.isEmpty() || categoryId == null || type == null || unitId == null) {
             return null;
         }
@@ -252,36 +252,36 @@ public class MasterDataImportService {
         } else if (partnerRepository.existsByCompanyIdAndCode(companyId, code)) {
             errors.add("code", "Mã đối tác '" + code + "' đã tồn tại.");
         }
-        String name = ExcelSupport.text(row, 2);
+        String name = ExcelSupport.text(row, 1);
         if (name.isEmpty()) {
             errors.add("name", "Tên đối tác bắt buộc.");
         }
-        Set<PartnerRole> roles = roles(ExcelSupport.text(row, 4), errors);
-        String kindText = ExcelSupport.text(row, 5).toUpperCase(Locale.ROOT);
+        Set<PartnerRole> roles = roles(ExcelSupport.text(row, 3), errors);
+        String kindText = ExcelSupport.text(row, 4).toUpperCase(Locale.ROOT);
         PartnerKind kind = kindText.equals("CN") ? PartnerKind.INDIVIDUAL : PartnerKind.ORGANIZATION;
         if (!kindText.isEmpty() && !kindText.equals("CN") && !kindText.equals("TC")) {
             errors.add("partnerKind", "Loại đối tác chỉ gồm TC hoặc CN.");
         }
-        String taxCode = ExcelSupport.nullable(row, 6);
+        String taxCode = ExcelSupport.nullable(row, 5);
         if (taxCode != null && !TAX_CODE.matcher(taxCode).matches()) {
             errors.add("taxCode", "Mã số thuế gồm 10 số hoặc 10 số-3 số.");
         }
         boolean supplierMissingIdentity = roles.contains(PartnerRole.SUPPLIER)
-                && (taxCode == null || ExcelSupport.nullable(row, 7) == null);
+                && (taxCode == null || ExcelSupport.nullable(row, 6) == null);
         if (supplierMissingIdentity) {
             errors.add(taxCode == null ? "taxCode" : "address", "Nhà cung cấp phải có mã số thuế và địa chỉ.");
         }
-        CustomerType customerType = enumValue(CustomerType.class, ExcelSupport.text(row, 10), false, errors,
+        CustomerType customerType = enumValue(CustomerType.class, ExcelSupport.text(row, 9), false, errors,
                 "customerType", "Loại khách");
-        Integer paymentTermDays = ExcelSupport.integer(row, 11, errors, "paymentTermDays");
-        BigDecimal creditLimit = ExcelSupport.decimal(row, 12, errors, "creditLimit");
-        Integer supplierTermDays = ExcelSupport.integer(row, 13, errors, "supplierPaymentTermDays");
+        Integer paymentTermDays = ExcelSupport.integer(row, 10, errors, "paymentTermDays");
+        BigDecimal creditLimit = ExcelSupport.decimal(row, 11, errors, "creditLimit");
+        Integer supplierTermDays = ExcelSupport.integer(row, 12, errors, "supplierPaymentTermDays");
         if (name.isEmpty() || roles.isEmpty() || supplierMissingIdentity) {
             return null;
         }
-        PartnerDetails details = PartnerService.details(ExcelSupport.nullable(row, 1), name,
-                ExcelSupport.nullable(row, 3), kind, taxCode, ExcelSupport.nullable(row, 7),
-                ExcelSupport.nullable(row, 8), ExcelSupport.nullable(row, 9), null, null, roles, customerType, null,
+        PartnerDetails details = PartnerService.details(null, name,
+                ExcelSupport.nullable(row, 2), kind, taxCode, ExcelSupport.nullable(row, 6),
+                ExcelSupport.nullable(row, 7), ExcelSupport.nullable(row, 8), null, null, roles, customerType, null,
                 null, paymentTermDays, creditLimit, null, null, supplierTermDays, null, null, null, null, null);
         return new Partner(companyId, code, details);
     }

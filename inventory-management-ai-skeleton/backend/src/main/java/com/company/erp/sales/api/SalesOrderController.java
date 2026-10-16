@@ -9,6 +9,7 @@ import com.company.erp.sales.application.SalesOrderSlipService;
 import com.company.erp.sales.application.dto.CommentRequest;
 import com.company.erp.sales.application.dto.ConfirmDeliveryRequest;
 import com.company.erp.sales.application.dto.EinvoiceReferenceRequest;
+import com.company.erp.sales.application.dto.PrintCompanyResponse;
 import com.company.erp.sales.application.dto.ReasonRequest;
 import com.company.erp.sales.application.dto.ReverseRequest;
 import com.company.erp.sales.application.dto.SalesOrderRequest;
@@ -21,6 +22,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.function.Function;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
@@ -81,8 +83,17 @@ public class SalesOrderController {
     @GetMapping("/{id}/stock-out-slip")
     @PreAuthorize("hasAuthority('sales-order:view')")
     public ApiResponse<StockOutSlipResponse> stockOutSlip(@AuthenticationPrincipal CurrentUser user,
-                                                          @PathVariable Long id) {
-        return ApiResponse.ok(slips.stockOutSlip(user, id));
+                                                          @PathVariable Long id,
+                                                          @RequestParam(required = false) Long companyId) {
+        return ApiResponse.ok(slips.stockOutSlip(user, id, companyId));
+    }
+
+    @Operation(summary = "Công ty in đầu phiếu",
+            description = "Công ty đang hoạt động trong phạm vi người dùng, để chọn tên / địa chỉ in trên phiếu xuất kho.")
+    @GetMapping("/print-companies")
+    @PreAuthorize("hasAuthority('sales-order:view')")
+    public ApiResponse<List<PrintCompanyResponse>> printCompanies(@AuthenticationPrincipal CurrentUser user) {
+        return ApiResponse.ok(slips.printCompanies(user));
     }
 
     @Operation(summary = "Lập", description = "Bắt buộc Idempotency-Key. Đơn giá trống: lấy theo bảng giá (BR-SAL-02).")

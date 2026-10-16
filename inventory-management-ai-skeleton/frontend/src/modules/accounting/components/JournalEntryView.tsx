@@ -34,8 +34,9 @@ const LINE_COLUMNS: TableColumnsType<JournalEntryLine> = [
   {
     title: 'Đối tượng',
     dataIndex: 'partnerId',
-    width: 110,
-    render: (value: number | null) => (value ? `#${value}` : ''),
+    width: 240,
+    render: (value: number | null, line) =>
+      value ? (line.partnerCode ? `${line.partnerCode} - ${line.partnerName ?? ''}` : `#${value}`) : '',
   },
   { title: 'Diễn giải', dataIndex: 'description' },
 ];

@@ -11,6 +11,8 @@ import com.company.erp.accounting.infrastructure.persistence.AccountRepository;
 import com.company.erp.accounting.infrastructure.persistence.JournalEntryRepository;
 import com.company.erp.common.api.PageRequests;
 import com.company.erp.common.domain.BusinessException;
+import com.company.erp.masterdata.application.MasterDataQueryService;
+import com.company.erp.masterdata.application.MasterDataQueryService.PartnerInfo;
 import com.company.erp.system.application.CurrentUser;
 import jakarta.persistence.criteria.Join;
 import jakarta.persistence.criteria.Predicate;
@@ -25,6 +27,7 @@ import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
@@ -57,12 +60,14 @@ public class JournalQueryService {
     private final JournalEntryRepository journalRepository;
     private final AccountRepository accountRepository;
     private final AccountingAccess access;
+    private final MasterDataQueryService masterData;
 
     public JournalQueryService(JournalEntryRepository journalRepository, AccountRepository accountRepository,
-                               AccountingAccess access) {
+                               AccountingAccess access, MasterDataQueryService masterData) {
         this.journalRepository = journalRepository;
         this.accountRepository = accountRepository;
         this.access = access;
+        this.masterData = masterData;
     }
 
     @Transactional(readOnly = true)
@@ -189,12 +194,19 @@ public class JournalQueryService {
         Map<Long, Account> accounts = accountRepository.findByIdIn(entry.getLines().stream()
                         .map(JournalEntryLine::getAccountId).collect(Collectors.toSet())).stream()
                 .collect(Collectors.toMap(Account::getId, Function.identity()));
+        Set<Long> partnerIds = entry.getLines().stream().map(JournalEntryLine::getPartnerId)
+                .filter(Objects::nonNull).collect(Collectors.toSet());
+        Map<Long, PartnerInfo> partners = partnerIds.isEmpty() ? Map.of()
+                : masterData.partners(partnerIds).stream()
+                .collect(Collectors.toMap(PartnerInfo::id, Function.identity()));
         List<JournalEntryLineResponse> lines = entry.getLines().stream().map(line -> {
             Account account = accounts.get(line.getAccountId());
+            PartnerInfo partner = line.getPartnerId() == null ? null : partners.get(line.getPartnerId());
             return new JournalEntryLineResponse(line.getId(), line.getLineNo(), line.getAccountId(),
                     account == null ? null : account.getCode(), account == null ? null : account.getName(),
                     line.getDebitAmount(), line.getCreditAmount(), line.getTransactionCode(), line.getPostingRuleId(),
-                    line.getPartnerId(), line.getProductId(), line.getWarehouseId(), line.getDepartmentId(),
+                    line.getPartnerId(), partner == null ? null : partner.code(),
+                    partner == null ? null : partner.name(), line.getProductId(), line.getWarehouseId(), line.getDepartmentId(),
                     line.getEmployeeId(), line.getSourceLineId(), line.getDescription());
         }).toList();
         JournalEntrySummaryResponse reversedBy = entry.getStatus() == JournalEntryStatus.REVERSED
