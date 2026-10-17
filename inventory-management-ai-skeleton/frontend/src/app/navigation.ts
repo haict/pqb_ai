@@ -1,3 +1,5 @@
+import { whenBranchVisible } from '../shared/branch';
+
 /** Mục menu và quyền xem tương ứng. Chỉ liệt kê chức năng đã triển khai (frontend.md mục 4). */
 export interface NavItem {
   path: string;
@@ -155,7 +157,11 @@ export const NAV_GROUPS: NavGroup[] = [
     label: 'Quản trị hệ thống',
     items: [
       { path: '/system/companies', label: 'Công ty', permission: 'company:view' },
-      { path: '/system/branches', label: 'Chi nhánh', permission: 'branch:view' },
+      ...whenBranchVisible<NavItem>({
+        path: '/system/branches',
+        label: 'Chi nhánh',
+        permission: 'branch:view',
+      }),
       { path: '/system/departments', label: 'Phòng ban', permission: 'department:view' },
       { path: '/system/users', label: 'Người dùng', permission: 'user:view' },
       { path: '/system/roles', label: 'Vai trò và phân quyền', permission: 'role:view' },

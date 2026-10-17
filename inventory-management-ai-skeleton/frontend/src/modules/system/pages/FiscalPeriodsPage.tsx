@@ -27,6 +27,7 @@ import { formatDateTime } from '../../../shared/format';
 import { fiscalPeriodApi, type PeriodLockInput } from '../api';
 import { useCompanies, useMyBranches } from '../lookups';
 import type { FiscalPeriod, PeriodLockStatus, PeriodModule } from '../types';
+import { BRANCH_VISIBLE } from '../../../shared/branch';
 
 const PERIOD_MODULES: { value: PeriodModule; label: string }[] = [
   { value: 'INVENTORY', label: 'Kho' },
@@ -74,6 +75,12 @@ export function FiscalPeriodsPage() {
     value: branch.id,
     label: `${branch.code} - ${branch.name}`,
   }));
+  // Khi ẩn chi nhánh, khóa / mở kỳ áp dụng cho mọi chi nhánh của công ty.
+  const lockBranchIds = BRANCH_VISIBLE
+    ? branchId !== undefined
+      ? [branchId]
+      : []
+    : companyBranches.map((branch) => branch.id);
 
   const query = useQuery({
     queryKey: ['fiscal-periods', companyId, year, branchId],
@@ -200,14 +207,16 @@ export function FiscalPeriodsPage() {
             onChange={(value) => value && setYear(value)}
             style={{ width: 110 }}
           />
-          <Select
-            aria-label="Chi nhánh"
-            placeholder="Chi nhánh"
-            value={branchId}
-            onChange={setBranchId}
-            options={branchOptions}
-            style={{ width: 260 }}
-          />
+          {BRANCH_VISIBLE && (
+            <Select
+              aria-label="Chi nhánh"
+              placeholder="Chi nhánh"
+              value={branchId}
+              onChange={setBranchId}
+              options={branchOptions}
+              style={{ width: 260 }}
+            />
+          )}
         </Space>
         {can('period:manage') && periods.length < 12 && companyId !== undefined && (
           <Button type="primary" onClick={generate}>
@@ -239,7 +248,7 @@ export function FiscalPeriodsPage() {
             : ''
         }
         okText={action?.lock ? 'Khóa kỳ' : 'Mở lại kỳ'}
-        initialValues={{ branchIds: branchId !== undefined ? [branchId] : [] }}
+        initialValues={{ branchIds: lockBranchIds }}
         fieldNames={LOCK_FIELDS}
         onSubmit={submitLock}
         onClose={() => setAction(null)}
@@ -250,6 +259,7 @@ export function FiscalPeriodsPage() {
               name="branchIds"
               label="Chi nhánh"
               rules={[{ required: true, message: 'Chọn ít nhất một chi nhánh' }]}
+              hidden={!BRANCH_VISIBLE}
               extra={
                 <Button
                   type="link"

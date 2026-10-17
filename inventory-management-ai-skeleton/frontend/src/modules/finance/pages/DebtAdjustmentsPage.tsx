@@ -41,6 +41,8 @@ import type {
   DebtType,
   FinanceDocumentStatus,
 } from '../types';
+import { BranchCol } from '../../../shared/components/BranchCol';
+import { BRANCH_VISIBLE } from '../../../shared/branch';
 
 interface LineForm {
   direction: AdjustmentDirection;
@@ -178,7 +180,7 @@ export function DebtAdjustmentsPage({ documentType }: { documentType: Adjustment
           })),
         }
       : {
-          branchId: branches.items[0]?.id,
+          branchId: branches.defaultId,
           debtType: advance ? 'ADVANCE' : 'RECEIVABLE',
           documentDate: dayjs(),
           lines: [{ direction: 'DECREASE' }],
@@ -250,7 +252,11 @@ export function DebtAdjustmentsPage({ documentType }: { documentType: Adjustment
               <Descriptions size="small" column={{ xs: 1, md: 2 }} style={{ marginBottom: 12 }}>
                 <Descriptions.Item label="Loại công nợ">{DEBT_TYPES[document.debtType]}</Descriptions.Item>
                 <Descriptions.Item label="Đối tượng">{`${document.partnerCode ?? ''} - ${document.partnerName ?? ''}`}</Descriptions.Item>
-                <Descriptions.Item label="Chi nhánh">{branches.nameOf(document.branchId)}</Descriptions.Item>
+                {BRANCH_VISIBLE && (
+                  <Descriptions.Item label="Chi nhánh">
+                    {branches.nameOf(document.branchId)}
+                  </Descriptions.Item>
+                )}
                 <Descriptions.Item label="Ngày hạch toán">
                   {formatDate(document.postingDate)}
                 </Descriptions.Item>
@@ -323,7 +329,7 @@ function AdjustmentFields({
   return (
     <>
       <Row gutter={12}>
-        <Col xs={24} md={6}>
+        <BranchCol xs={24} md={6}>
           <Form.Item
             name="branchId"
             label="Chi nhánh"
@@ -331,7 +337,7 @@ function AdjustmentFields({
           >
             <Select disabled={!isNew} options={branchOptions} />
           </Form.Item>
-        </Col>
+        </BranchCol>
         {!advance && (
           <Col xs={24} md={6}>
             <Form.Item

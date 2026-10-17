@@ -24,6 +24,7 @@ import { useMyBranches } from '../../system/lookups';
 import { debtApi } from '../api';
 import { DEBT_ENTRY_TYPES, DEBT_ITEM_STATUSES, DEBT_PARTNER_ROLE, DEBT_TYPES } from '../labels';
 import type { AgingRow, DebtEntryType, DebtItem, DebtItemStatus, DebtLedgerLine, DebtType } from '../types';
+import { whenBranchVisible } from '../../../shared/branch';
 
 const money = (value: number) => formatMoney(value);
 
@@ -46,12 +47,12 @@ function ItemsTab({ debtType }: { debtType: DebtType }) {
     { title: 'Đối tượng', render: (_, item) => `${item.partnerCode ?? ''} - ${item.partnerName ?? ''}` },
     { title: 'Số hóa đơn', dataIndex: 'invoiceNo', width: 140 },
     { title: 'Chứng từ nguồn', dataIndex: 'sourceNo', width: 190 },
-    {
+    ...whenBranchVisible({
       title: 'Chi nhánh',
       dataIndex: 'branchId',
       width: 140,
       render: (value: number) => branches.nameOf(value),
-    },
+    }),
     { title: 'Ngày', dataIndex: 'documentDate', width: 110, sorter: true, render: formatDate },
     { title: 'Hạn', dataIndex: 'dueDate', width: 110, sorter: true, render: formatDate },
     { title: 'Số gốc', dataIndex: 'originalAmount', width: 140, align: 'right', sorter: true, render: money },

@@ -32,6 +32,7 @@ import { userApi, type CreateUserInput, type UpdateUserInput } from '../api';
 import { DataScopeFields } from '../components/DataScopeFields';
 import { useActiveRoles, useCompanies, useMyBranches } from '../lookups';
 import type { DataScope, UserAccount } from '../types';
+import { BRANCH_VISIBLE, whenBranchVisible } from '../../../shared/branch';
 
 type Dialog =
   | { kind: 'create' }
@@ -92,11 +93,11 @@ export function UsersPage() {
   const columns: TableColumnsType<UserAccount> = [
     { title: 'Tên đăng nhập', dataIndex: 'username', sorter: true, width: 150 },
     { title: 'Họ tên', dataIndex: 'fullName', sorter: true },
-    {
+    ...whenBranchVisible({
       title: 'Chi nhánh mặc định',
       dataIndex: 'defaultBranchId',
       render: (id: number | null) => branches.nameOf(id),
-    },
+    }),
     {
       title: 'Vai trò',
       dataIndex: 'roles',
@@ -229,7 +230,7 @@ export function UsersPage() {
           <Form.Item name="companyId" label="Công ty" rules={[{ required: true, message: 'Chọn công ty' }]}>
             <Select options={companies.options} style={{ width: 300 }} />
           </Form.Item>
-          <Form.Item name="defaultBranchId" label="Chi nhánh mặc định">
+          <Form.Item name="defaultBranchId" label="Chi nhánh mặc định" hidden={!BRANCH_VISIBLE}>
             <Select options={branches.options} allowClear style={{ width: 300 }} />
           </Form.Item>
         </Space>
@@ -278,7 +279,7 @@ export function UsersPage() {
         <Form.Item name="phone" label="Điện thoại">
           <Input maxLength={30} />
         </Form.Item>
-        <Form.Item name="defaultBranchId" label="Chi nhánh mặc định">
+        <Form.Item name="defaultBranchId" label="Chi nhánh mặc định" hidden={!BRANCH_VISIBLE}>
           <Select options={branches.options} allowClear />
         </Form.Item>
         <Form.Item name="ownDataOnly" valuePropName="checked">

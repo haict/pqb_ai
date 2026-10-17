@@ -14,6 +14,7 @@ import { useCompanyId } from '../../masterdata/lookups';
 import { useMyBranches } from '../../system/lookups';
 import { orderReportApi } from '../api';
 import { priceHistoryReport, supplierDefectsReport } from '../orderReports';
+import { BranchCol } from '../../../shared/components/BranchCol';
 
 /** Giới hạn của server (PurchaseReportService.MAX_PRODUCTS). */
 const MAX_PRODUCTS = 200;
@@ -85,7 +86,7 @@ export function PurchaseAnalysisPage() {
       <Form<Filters>
         form={form}
         layout="vertical"
-        initialValues={{ ...initialPeriod('YEAR_TO_DATE'), products: [], branchId: branches.items[0]?.id }}
+        initialValues={{ ...initialPeriod('YEAR_TO_DATE'), products: [], branchId: branches.filterDefaultId }}
         onFinish={(values) =>
           setApplied({
             kind,
@@ -98,11 +99,11 @@ export function PurchaseAnalysisPage() {
       >
         <Row gutter={16}>
           <PeriodFields />
-          <Col xs={24} md={10}>
+          <BranchCol xs={24} md={10}>
             <Form.Item name="branchId" label="Đơn vị">
               <Select allowClear placeholder="Toàn công ty" options={branches.options} />
             </Form.Item>
-          </Col>
+          </BranchCol>
           {kind === 'prices' && (
             <>
               <Col xs={24} md={10}>

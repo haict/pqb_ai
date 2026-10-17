@@ -20,6 +20,7 @@ import { useMyBranches } from '../../system/lookups';
 import { salesReportApi } from '../api';
 import { GROUPINGS, RETURN_TYPES } from '../labels';
 import type { SalesReportGrouping, SalesReturnType, SalesSourceDocument, SalesSummaryRow } from '../types';
+import { BRANCH_VISIBLE } from '../../../shared/branch';
 
 const SOURCE_LABELS: Record<string, string> = { DBH: 'Đơn bán', ...RETURN_TYPES };
 
@@ -30,7 +31,7 @@ const SOURCE_LABELS: Record<string, string> = { DBH: 'Đơn bán', ...RETURN_TYP
 export function SalesReportPage() {
   const companyId = useCompanyId();
   const branches = useMyBranches();
-  const [branchId, setBranchId] = useState<number | undefined>(branches.items[0]?.id);
+  const [branchId, setBranchId] = useState<number | undefined>(branches.filterDefaultId);
   const [range, setRange] = useState<[Dayjs, Dayjs]>([dayjs().startOf('month'), dayjs().endOf('month')]);
   const [groupBy, setGroupBy] = useState<SalesReportGrouping>('CUSTOMER');
   const [drill, setDrill] = useState<SalesSummaryRow | null>(null);
@@ -95,14 +96,16 @@ export function SalesReportPage() {
         Báo cáo doanh số
       </Typography.Title>
       <Space wrap style={{ marginBottom: 12 }}>
-        <Select
-          allowClear
-          placeholder="Toàn công ty"
-          style={{ width: 220 }}
-          value={branchId}
-          onChange={setBranchId}
-          options={branches.options}
-        />
+        {BRANCH_VISIBLE && (
+          <Select
+            allowClear
+            placeholder="Toàn công ty"
+            style={{ width: 220 }}
+            value={branchId}
+            onChange={setBranchId}
+            options={branches.options}
+          />
+        )}
         <DatePicker.RangePicker
           format="DD/MM/YYYY"
           value={range}
@@ -113,10 +116,12 @@ export function SalesReportPage() {
           style={{ width: 220 }}
           value={groupBy}
           onChange={setGroupBy}
-          options={(Object.keys(GROUPINGS) as SalesReportGrouping[]).map((value) => ({
-            value,
-            label: `Theo ${GROUPINGS[value].toLowerCase()}`,
-          }))}
+          options={(Object.keys(GROUPINGS) as SalesReportGrouping[])
+            .filter((value) => BRANCH_VISIBLE || value !== 'BRANCH')
+            .map((value) => ({
+              value,
+              label: `Theo ${GROUPINGS[value].toLowerCase()}`,
+            }))}
         />
       </Space>
       {summary.error && (

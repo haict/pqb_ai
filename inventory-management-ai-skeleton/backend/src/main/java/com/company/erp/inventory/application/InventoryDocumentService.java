@@ -134,19 +134,22 @@ public class InventoryDocumentService {
                                             InventoryDocumentRequest request) {
         IdempotentCommand command = new IdempotentCommand(actor.id(), idempotencyKey,
                 "POST /api/v1/inventory-documents", request);
-        return idempotency.execute(command, InventoryDocumentResponse.class, () -> {
-            access.requirePermission(actor, request.documentType().permission("create"));
-            InventoryDocumentBuilder.Built built = builder.build(actor, request, null);
-            String number = numbering.next(built.companyId(), built.branchId(), request.documentType().name(),
-                    request.documentDate());
-            InventoryDocument document = new InventoryDocument(built.companyId(), built.branchId(),
-                    request.documentType(), number, built.header());
-            document.replaceLines(built.lines());
-            documentRepository.saveAndFlush(document);
-            InventoryDocumentResponse response = mapper.toResponse(document, actor);
-            audit(actor, "CREATE", document, null, null, response);
-            return response;
-        });
+        return idempotency.execute(command, InventoryDocumentResponse.class, () -> createDraft(actor, request));
+    }
+
+    /** Lập chứng từ nháp trong transaction của người gọi (dùng chung cho lập tay và nhập Excel). */
+    InventoryDocumentResponse createDraft(CurrentUser actor, InventoryDocumentRequest request) {
+        access.requirePermission(actor, request.documentType().permission("create"));
+        InventoryDocumentBuilder.Built built = builder.build(actor, request, null);
+        String number = numbering.next(built.companyId(), built.branchId(), request.documentType().name(),
+                request.documentDate());
+        InventoryDocument document = new InventoryDocument(built.companyId(), built.branchId(),
+                request.documentType(), number, built.header());
+        document.replaceLines(built.lines());
+        documentRepository.saveAndFlush(document);
+        InventoryDocumentResponse response = mapper.toResponse(document, actor);
+        audit(actor, "CREATE", document, null, null, response);
+        return response;
     }
 
     @Transactional

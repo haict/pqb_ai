@@ -22,6 +22,7 @@ import { cashBookApi } from '../api';
 import { CASH_ACCOUNT_TYPES, CASH_PURPOSES } from '../labels';
 import { useCashAccounts } from '../lookups';
 import type { CashAccountType, CashBookLine, CashFlowAccountRow, CashPurpose } from '../types';
+import { whenBranchVisible } from '../../../shared/branch';
 
 type Range = [Dayjs, Dayjs];
 
@@ -154,12 +155,12 @@ function CashFlowTab() {
       width: 110,
       render: (value: CashAccountType) => CASH_ACCOUNT_TYPES[value],
     },
-    {
+    ...whenBranchVisible({
       title: 'Chi nhánh',
       dataIndex: 'branchId',
       width: 160,
       render: (value: number) => branches.nameOf(value),
-    },
+    }),
     { title: 'Đầu kỳ', dataIndex: 'openingBalance', width: 150, align: 'right', render: formatMoney },
     { title: 'Thu', dataIndex: 'inAmount', width: 150, align: 'right', render: formatMoney },
     { title: 'Chi', dataIndex: 'outAmount', width: 150, align: 'right', render: formatMoney },

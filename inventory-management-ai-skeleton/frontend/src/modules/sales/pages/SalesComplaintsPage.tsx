@@ -37,6 +37,7 @@ import { salesComplaintApi } from '../api';
 import { COMPLAINT_STATUSES, DECISIONS } from '../labels';
 import type { ComplaintDecision, ComplaintStatus, SalesComplaint } from '../types';
 import { DecimalInput } from '../../../shared/components/DecimalInput';
+import { BranchCol } from '../../../shared/components/BranchCol';
 
 interface ComplaintForm {
   branchId: number;
@@ -213,13 +214,13 @@ export function SalesComplaintsPage() {
         title="Tiếp nhận hàng lỗi"
         width={800}
         okText="Lưu"
-        initialValues={{ branchId: branches.items[0]?.id, receivedDate: dayjs(), quantity: 1 }}
+        initialValues={{ branchId: branches.defaultId, receivedDate: dayjs(), quantity: 1 }}
         fieldNames={FIELDS}
         onSubmit={save}
         onClose={() => setCreating(false)}
       >
         <Row gutter={12}>
-          <Col xs={24} md={8}>
+          <BranchCol xs={24} md={8}>
             <Form.Item
               name="branchId"
               label="Chi nhánh"
@@ -227,7 +228,7 @@ export function SalesComplaintsPage() {
             >
               <Select options={branches.options} />
             </Form.Item>
-          </Col>
+          </BranchCol>
           <Col xs={24} md={10}>
             <Form.Item
               name="customerId"

@@ -1,3 +1,4 @@
+import { BRANCH_VISIBLE } from '../branch';
 import type { Me } from './types';
 
 /**
@@ -38,18 +39,24 @@ const WORKING_BRANCH_KEY = 'erp.workingBranch.';
 /** Chi nhánh làm việc được nhớ theo người dùng trên máy này (chỉ là tiện ích, server vẫn kiểm tra). */
 export function rememberedWorkingBranch(user: Me): number | null {
   const allowed = new Set(user.branches.map((branch) => branch.id));
-  try {
-    const stored = Number(localStorage.getItem(WORKING_BRANCH_KEY + user.id));
-    if (allowed.has(stored)) {
-      return stored;
-    }
-  } catch {
-    // localStorage có thể bị chặn; dùng chi nhánh mặc định.
+  // Khi ẩn chi nhánh, người dùng không đổi được nên bỏ qua lựa chọn đã nhớ, luôn về chi nhánh mặc định.
+  const stored = BRANCH_VISIBLE ? storedWorkingBranch(user.id) : null;
+  if (stored !== null && allowed.has(stored)) {
+    return stored;
   }
   if (user.defaultBranchId !== null && allowed.has(user.defaultBranchId)) {
     return user.defaultBranchId;
   }
   return user.branches[0]?.id ?? null;
+}
+
+function storedWorkingBranch(userId: number): number | null {
+  try {
+    return Number(localStorage.getItem(WORKING_BRANCH_KEY + userId));
+  } catch {
+    // localStorage có thể bị chặn; dùng chi nhánh mặc định.
+    return null;
+  }
 }
 
 export function rememberWorkingBranch(userId: number, branchId: number) {

@@ -21,6 +21,7 @@ import {
   tradeDetailsReport,
 } from '../dashboard';
 import type { CashForecast, DashboardDebt, DashboardRanked, TradeKind } from '../types';
+import { BranchCol } from '../../../shared/components/BranchCol';
 
 const TOP_OPTIONS = [5, 10, 20].map((value) => ({ value, label: `Top ${value}` }));
 
@@ -214,11 +215,11 @@ export function DashboardPanel() {
       >
         <Row gutter={16}>
           <PeriodFields />
-          <Col xs={24} md={6}>
+          <BranchCol xs={24} md={6}>
             <Form.Item name="branchId" label="Đơn vị">
               <Select allowClear placeholder="Toàn bộ phạm vi được xem" options={branches.options} />
             </Form.Item>
-          </Col>
+          </BranchCol>
           <Col xs={24} md={4}>
             <Form.Item name="top" label="Số dòng top">
               <Select options={TOP_OPTIONS} />

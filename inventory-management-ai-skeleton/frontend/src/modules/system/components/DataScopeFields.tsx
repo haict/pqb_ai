@@ -1,6 +1,7 @@
 import { MinusCircleOutlined, PlusOutlined } from '@ant-design/icons';
 import { Button, Form, Select, Space } from 'antd';
 import { useCompanies, useMyBranches } from '../lookups';
+import { BRANCH_VISIBLE, whenBranchVisible } from '../../../shared/branch';
 
 /**
  * Danh sách phạm vi dữ liệu (BR-SYS-04) trong form: mỗi dòng là toàn công ty hoặc một chi nhánh.
@@ -21,7 +22,7 @@ export function DataScopeFields({ name = 'dataScopes' }: { name?: string }) {
                   style={{ width: 160 }}
                   options={[
                     { value: 'COMPANY', label: 'Toàn công ty' },
-                    { value: 'BRANCH', label: 'Chi nhánh' },
+                    ...whenBranchVisible({ value: 'BRANCH', label: 'Chi nhánh' }),
                   ]}
                 />
               </Form.Item>
@@ -45,7 +46,11 @@ export function DataScopeFields({ name = 'dataScopes' }: { name?: string }) {
               <MinusCircleOutlined aria-label="Xóa phạm vi" onClick={() => remove(field.name)} />
             </Space>
           ))}
-          <Button type="dashed" icon={<PlusOutlined />} onClick={() => add({ type: 'BRANCH' })}>
+          <Button
+            type="dashed"
+            icon={<PlusOutlined />}
+            onClick={() => add({ type: BRANCH_VISIBLE ? 'BRANCH' : 'COMPANY' })}
+          >
             Thêm phạm vi
           </Button>
         </>

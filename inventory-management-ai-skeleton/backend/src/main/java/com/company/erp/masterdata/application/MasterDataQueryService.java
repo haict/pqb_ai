@@ -18,6 +18,7 @@ import com.company.erp.masterdata.infrastructure.persistence.ProductStockLevelRe
 import com.company.erp.masterdata.infrastructure.persistence.ProductUnitRepository;
 import com.company.erp.masterdata.infrastructure.persistence.ReferenceItemRepository;
 import com.company.erp.masterdata.infrastructure.persistence.TaxRateRepository;
+import com.company.erp.masterdata.infrastructure.persistence.UnitRepository;
 import com.company.erp.masterdata.infrastructure.persistence.WarehouseLocationRepository;
 import com.company.erp.masterdata.infrastructure.persistence.WarehouseRepository;
 import java.math.BigDecimal;
@@ -100,6 +101,9 @@ public class MasterDataQueryService {
     public record StockLevelInfo(Long productId, Long warehouseId, BigDecimal minQuantity, BigDecimal maxQuantity) {
     }
 
+    public record UnitInfo(Long id, String code, String name, boolean active) {
+    }
+
     public record ReferenceInfo(Long id, Long companyId, ReferenceCategory category, String code, String name,
                                 boolean active) {
 
@@ -117,13 +121,14 @@ public class MasterDataQueryService {
     private final PartnerRepository partnerRepository;
     private final ReferenceItemRepository referenceItemRepository;
     private final TaxRateRepository taxRateRepository;
+    private final UnitRepository unitRepository;
 
     public MasterDataQueryService(ProductRepository productRepository, ProductUnitRepository productUnitRepository,
                                   ProductStockLevelRepository stockLevelRepository,
                                   WarehouseRepository warehouseRepository,
                                   WarehouseLocationRepository locationRepository, PartnerRepository partnerRepository,
                                   ReferenceItemRepository referenceItemRepository,
-                                  TaxRateRepository taxRateRepository) {
+                                  TaxRateRepository taxRateRepository, UnitRepository unitRepository) {
         this.productRepository = productRepository;
         this.productUnitRepository = productUnitRepository;
         this.stockLevelRepository = stockLevelRepository;
@@ -132,6 +137,7 @@ public class MasterDataQueryService {
         this.partnerRepository = partnerRepository;
         this.referenceItemRepository = referenceItemRepository;
         this.taxRateRepository = taxRateRepository;
+        this.unitRepository = unitRepository;
     }
 
     /** Mã loại hàng hợp lệ, dùng làm điều kiện quy tắc hạch toán (BR-ACC-02). */
@@ -152,6 +158,25 @@ public class MasterDataQueryService {
     @Transactional(readOnly = true)
     public List<ProductInfo> products(Collection<Long> ids) {
         return productRepository.findAllById(ids).stream().map(MasterDataQueryService::toInfo).toList();
+    }
+
+    /** Tra cứu theo mã trong một công ty (nhập Excel ở module khác); mã không tồn tại thì không có trong kết quả. */
+    @Transactional(readOnly = true)
+    public List<ProductInfo> productsByCodes(Long companyId, Collection<String> codes) {
+        return codes.isEmpty() ? List.of() : productRepository.findByCompanyIdAndCodeIn(companyId, codes).stream()
+                .map(MasterDataQueryService::toInfo).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<WarehouseInfo> warehousesByCodes(Long companyId, Collection<String> codes) {
+        return codes.isEmpty() ? List.of() : warehouseRepository.findByCompanyIdAndCodeIn(companyId, codes).stream()
+                .map(MasterDataQueryService::toInfo).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<UnitInfo> unitsByCodes(Long companyId, Collection<String> codes) {
+        return codes.isEmpty() ? List.of() : unitRepository.findByCompanyIdAndCodeIn(companyId, codes).stream()
+                .map(unit -> new UnitInfo(unit.getId(), unit.getCode(), unit.getName(), unit.isActive())).toList();
     }
 
     /**

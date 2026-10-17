@@ -7,23 +7,30 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.endsWith;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.company.erp.common.application.BusinessCalendar;
+import com.company.erp.common.application.IdempotentCommand;
 import com.company.erp.support.ApiTestSupport.Session;
 import com.company.erp.support.MySqlIntegrationTest;
+import java.io.ByteArrayOutputStream;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.ResultActions;
@@ -332,6 +339,77 @@ class InventoryControlIntegrationTest extends InventoryIntegrationSupport {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errors[0].field").value("subType"));
         assertLedgerConsistent(product);
+    }
+
+    @Test
+    @DisplayName("BR-INV-03, BR-UX-05: nhập tồn đầu kỳ từ Excel lập phiếu nháp theo kho; lỗi theo dòng, không lập phiếu nào")
+    void openingStockImport() throws Exception {
+        mockMvc.perform(as(manager, get(DOCS + "/opening-import-template"))).andExpect(status().isOk());
+        long first = warehouse(1);
+        long second = warehouse(1);
+        long product = product(true, true, false);
+        String firstCode = code("warehouses", first);
+        String secondCode = code("warehouses", second);
+        String productCode = code("products", product);
+        String lot = "XL" + product;
+        long before = count("SELECT COUNT(*) FROM inventory_documents WHERE sub_type = 'OPENING'");
+
+        importOpening(workbookOf(List.of(
+                new String[] {firstCode, productCode, "", "5", "1000", lot, "", "30/06/2027"},
+                new String[] {firstCode, "KHONG_CO_" + product, "", "1", "1000"})))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[0].field").value("rows[3].productId"));
+        importOpening(workbookOf(List.of(
+                new String[] {firstCode, productCode, "", "5", "1000", lot, "", "30/06/2027"},
+                new String[] {firstCode, productCode, "", "1", "1000"})))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[0].field").value("rows[3].lotNo"));
+        assertThat(count("SELECT COUNT(*) FROM inventory_documents WHERE sub_type = 'OPENING'")).isEqualTo(before);
+
+        MvcResult imported = importOpening(workbookOf(List.of(
+                new String[] {firstCode, productCode, "", "5", "1000", lot, "", "30/06/2027"},
+                new String[] {secondCode, productCode, "", "3", "1200", lot, "", "30/06/2027", "",
+                        "QUARANTINE (cách ly)"})))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.created").value(2))
+                .andReturn();
+        List<Integer> ids = json(imported, "$.data.documentIds");
+        assertThat(ids).hasSize(2);
+        assertThat(docStatus(ids.get(0))).isEqualTo("DRAFT");
+        assertThat(count("SELECT COUNT(*) FROM inventory_documents WHERE sub_type = 'OPENING' AND document_type = 'PNK'"
+                + " AND id IN (" + ids.get(0) + "," + ids.get(1) + ")")).isEqualTo(2);
+
+        submitApproveAndPost(manager, ids.get(0));
+        submitApproveAndPost(manager, ids.get(1));
+        assertThat(onHand(product, first, "PASSED")).isEqualByComparingTo("5");
+        assertThat(onHand(product, second, "QUARANTINE")).isEqualByComparingTo("3");
+        assertLedgerConsistent(product);
+    }
+
+    private ResultActions importOpening(byte[] content) throws Exception {
+        return mockMvc.perform(as(manager, multipart(DOCS + "/opening-import")
+                        .file(new MockMultipartFile("file", "ton-dau-ky.xlsx", "application/octet-stream", content)))
+                .param("companyId", "1").param("documentDate", "2026-10-01")
+                .header(IdempotentCommand.HEADER, newKey()));
+    }
+
+    private static byte[] workbookOf(List<String[]> rows) throws Exception {
+        try (XSSFWorkbook workbook = new XSSFWorkbook(); ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+            Sheet sheet = workbook.createSheet("Ton dau ky");
+            sheet.createRow(0).createCell(0).setCellValue("Mã kho*");
+            for (int r = 0; r < rows.size(); r++) {
+                Row row = sheet.createRow(r + 1);
+                for (int c = 0; c < rows.get(r).length; c++) {
+                    row.createCell(c).setCellValue(rows.get(r)[c]);
+                }
+            }
+            workbook.write(output);
+            return output.toByteArray();
+        }
+    }
+
+    private String code(String table, long id) {
+        return jdbc.queryForObject("SELECT code FROM " + table + " WHERE id = ?", String.class, id);
     }
 
     private long lotId(long product, String lotNo) {

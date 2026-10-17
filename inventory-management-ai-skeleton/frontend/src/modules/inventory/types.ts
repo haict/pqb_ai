@@ -333,3 +333,10 @@ export interface StockIssuePolicy {
   version: number;
   approvals: ApprovalRequest[];
 }
+
+/** Kết quả nhập tồn kho đầu kỳ từ Excel: mỗi kho một phiếu nhập kho nháp. */
+export interface OpeningStockImportResult {
+  created: number;
+  documentIds: number[];
+  documentNos: string[];
+}

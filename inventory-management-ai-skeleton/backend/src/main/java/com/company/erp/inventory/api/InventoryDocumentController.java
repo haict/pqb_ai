@@ -5,10 +5,12 @@ import com.company.erp.common.api.PageResponse;
 import com.company.erp.common.application.IdempotentCommand;
 import com.company.erp.inventory.application.InventoryDocumentPostingService;
 import com.company.erp.inventory.application.InventoryDocumentService;
+import com.company.erp.inventory.application.OpeningStockImportService;
 import com.company.erp.inventory.application.dto.CommentRequest;
 import com.company.erp.inventory.application.dto.InventoryDocumentRequest;
 import com.company.erp.inventory.application.dto.InventoryDocumentResponse;
 import com.company.erp.inventory.application.dto.InventoryDocumentSummary;
+import com.company.erp.inventory.application.dto.OpeningStockImportResponse;
 import com.company.erp.inventory.application.dto.ReasonRequest;
 import com.company.erp.inventory.application.dto.ReceiveRequest;
 import com.company.erp.inventory.application.dto.ReverseRequest;
@@ -22,7 +24,10 @@ import java.time.LocalDate;
 import java.util.function.Function;
 import org.springframework.data.domain.Pageable;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -33,8 +38,10 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 /**
  * Chứng từ kho: nhập (PNK), xuất nội bộ (PXK), xuất hủy (PXH), chuyển kho (PCK), điều chỉnh (PDC), chuyển trạng thái
@@ -48,13 +55,41 @@ import org.springframework.web.bind.annotation.RestController;
         + "'inventory-transfer:view', 'inventory-adjustment:view')")
 public class InventoryDocumentController {
 
+    private static final MediaType XLSX =
+            MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+
     private final InventoryDocumentService documentService;
     private final InventoryDocumentPostingService postingService;
+    private final OpeningStockImportService openingImportService;
 
     public InventoryDocumentController(InventoryDocumentService documentService,
-                                       InventoryDocumentPostingService postingService) {
+                                       InventoryDocumentPostingService postingService,
+                                       OpeningStockImportService openingImportService) {
         this.documentService = documentService;
         this.postingService = postingService;
+        this.openingImportService = openingImportService;
+    }
+
+    @Operation(summary = "Tải file mẫu nhập tồn kho đầu kỳ (.xlsx)")
+    @GetMapping("/opening-import-template")
+    @PreAuthorize("hasAuthority('inventory-receipt:create')")
+    public ResponseEntity<byte[]> openingImportTemplate() {
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"mau-ton-kho-dau-ky.xlsx\"")
+                .contentType(XLSX)
+                .body(openingImportService.template());
+    }
+
+    @Operation(summary = "Nhập tồn kho đầu kỳ từ Excel",
+            description = "Mỗi kho trong file lập một phiếu nhập kho đầu kỳ (PNK, OPENING) ở trạng thái nháp. Tất cả "
+                    + "hoặc không: có lỗi thì trả 400 kèm lỗi theo dòng (rows[n].cột). Bắt buộc Idempotency-Key.")
+    @PostMapping(value = "/opening-import", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasAuthority('inventory-receipt:create')")
+    public ApiResponse<OpeningStockImportResponse> importOpeningStock(@AuthenticationPrincipal CurrentUser user,
+            @RequestHeader(IdempotentCommand.HEADER) String idempotencyKey, @RequestParam Long companyId,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate documentDate,
+            @RequestPart("file") MultipartFile file) {
+        return ApiResponse.ok(openingImportService.importFile(user, companyId, documentDate, idempotencyKey, file));
     }
 
     @GetMapping

@@ -35,6 +35,8 @@ import { useMyBranches } from '../../system/lookups';
 import { debtOpeningApi } from '../api';
 import { DEBT_PARTNER_ROLE, DEBT_TYPES } from '../labels';
 import type { DebtOpening, DebtOpeningLine, DebtType, FinanceDocumentStatus } from '../types';
+import { BranchCol } from '../../../shared/components/BranchCol';
+import { BRANCH_VISIBLE, whenBranchVisible } from '../../../shared/branch';
 
 const STATUSES: FinanceDocumentStatus[] = [
   'DRAFT',
@@ -137,7 +139,9 @@ function OpeningDrawer({
           </Space>
           <Descriptions size="small" column={{ xs: 1, md: 2 }} style={{ marginBottom: 12 }}>
             <Descriptions.Item label="Loại công nợ">{DEBT_TYPES[document.debtType]}</Descriptions.Item>
-            <Descriptions.Item label="Chi nhánh">{branches.nameOf(document.branchId)}</Descriptions.Item>
+            {BRANCH_VISIBLE && (
+              <Descriptions.Item label="Chi nhánh">{branches.nameOf(document.branchId)}</Descriptions.Item>
+            )}
             <Descriptions.Item label="Ngày chứng từ">{formatDate(document.documentDate)}</Descriptions.Item>
             <Descriptions.Item label="Ngày hạch toán">{formatDate(document.postingDate)}</Descriptions.Item>
             <Descriptions.Item label="Tổng tiền">{formatMoney(document.totalAmount)}</Descriptions.Item>
@@ -235,7 +239,7 @@ export function DebtOpeningsPage() {
             note: line.note ?? undefined,
           })),
         }
-      : { branchId: branches.items[0]?.id, debtType: 'RECEIVABLE', documentDate: dayjs(), lines: [{}] };
+      : { branchId: branches.defaultId, debtType: 'RECEIVABLE', documentDate: dayjs(), lines: [{}] };
 
   const columns: TableColumnsType<DebtOpening> = [
     {
@@ -247,12 +251,12 @@ export function DebtOpeningsPage() {
     },
     { title: 'Ngày', dataIndex: 'documentDate', width: 120, sorter: true, render: formatDate },
     { title: 'Loại', dataIndex: 'debtType', width: 110, render: (value: DebtType) => DEBT_TYPES[value] },
-    {
+    ...whenBranchVisible({
       title: 'Chi nhánh',
       dataIndex: 'branchId',
       width: 160,
       render: (value: number) => branches.nameOf(value),
-    },
+    }),
     { title: 'Diễn giải', dataIndex: 'description' },
     { title: 'Số dòng', dataIndex: 'lineCount', width: 90, align: 'right' },
     { title: 'Tổng tiền', dataIndex: 'totalAmount', width: 160, align: 'right', render: formatMoney },
@@ -332,7 +336,7 @@ function OpeningFields({
   return (
     <>
       <Row gutter={12}>
-        <Col xs={24} md={6}>
+        <BranchCol xs={24} md={6}>
           <Form.Item
             name="branchId"
             label="Chi nhánh"
@@ -340,7 +344,7 @@ function OpeningFields({
           >
             <Select disabled={!isNew} options={branchOptions} />
           </Form.Item>
-        </Col>
+        </BranchCol>
         <Col xs={24} md={6}>
           <Form.Item name="debtType" label="Loại công nợ" rules={[{ required: true, message: 'Chọn loại' }]}>
             <Select

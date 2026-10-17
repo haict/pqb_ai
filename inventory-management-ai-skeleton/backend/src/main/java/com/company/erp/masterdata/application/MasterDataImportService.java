@@ -58,6 +58,13 @@ public class MasterDataImportService {
             "Mã nhóm hàng*", "Loại hàng*", "Mã ĐVT cơ sở*", "Mã nhãn hiệu", "Mã nhà sản xuất", "Xuất xứ (ISO)",
             "Model", "Quy cách", "Theo lô (C/K)", "Theo hạn dùng (C/K)", "Theo serial (C/K)", "Phân loại TTBYT",
             "Số lưu hành", "Hiệu lực số lưu hành (dd/mm/yyyy)", "Bảo hành (tháng)");
+    /** Danh sách chọn cột "Loại hàng" của file mẫu: mã + diễn giải, khi nhập chỉ đọc phần mã. */
+    static final List<String> PRODUCT_TYPE_OPTIONS = List.of("MACHINE (máy móc - thiết bị)",
+            "CONSUMABLE (vật tư tiêu hao)", "REAGENT (thuốc thử - hóa chất)", "SPARE_PART (linh kiện - phụ tùng)",
+            "TOOL (dụng cụ)", "SERVICE (dịch vụ)", "OTHER (khác)");
+    private static final int PRODUCT_TYPE_COLUMN = 4;
+    private static final int[] TRACKING_FLAG_COLUMNS = {11, 12, 13};
+    private static final List<String> FLAG_OPTIONS = List.of("C", "K");
     static final List<String> PARTNER_HEADERS = List.of("Mã đối tác*", "Tên*", "Tên viết tắt",
             "Vai trò* (KH,NCC,DL,BMT,NV,KHAC)", "Loại (TC/CN)", "Mã số thuế", "Địa chỉ", "Điện thoại", "Email",
             "Loại khách", "Số ngày nợ", "Hạn mức tín dụng", "Số ngày thanh toán NCC");
@@ -91,13 +98,18 @@ public class MasterDataImportService {
     public byte[] productTemplate() {
         List<List<String>> guide = new ArrayList<>();
         guide.add(List.of("Cột", "Giá trị hợp lệ"));
-        guide.add(List.of("Loại hàng", "MACHINE (máy móc), CONSUMABLE (vật tư tiêu hao), REAGENT (thuốc thử - hóa chất), "
-                + "SPARE_PART (linh kiện), TOOL (dụng cụ), SERVICE (dịch vụ), OTHER (khác)"));
+        guide.add(List.of("Loại hàng", "Chọn trong danh sách: " + String.join(", ", PRODUCT_TYPE_OPTIONS)
+                + ". Có thể chỉ nhập mã, ví dụ REAGENT."));
         guide.add(List.of("Theo lô / hạn dùng / serial", "C = có, K hoặc để trống = không. Theo hạn dùng phải theo lô."));
         guide.add(List.of("Phân loại TTBYT", "A, B, C, D hoặc để trống"));
         guide.add(List.of("Mã nhóm, ĐVT, nhãn hiệu, NSX", "Mã đã khai báo trong danh mục, đang hoạt động"));
         guide.add(List.of("Số dòng tối đa", String.valueOf(ExcelSupport.MAX_ROWS)));
-        return ExcelSupport.toBytes(ExcelSupport.template("Hang hoa", PRODUCT_HEADERS, guide));
+        Workbook workbook = ExcelSupport.template("Hang hoa", PRODUCT_HEADERS, guide);
+        ExcelSupport.dropdown(workbook, PRODUCT_TYPE_COLUMN, PRODUCT_TYPE_OPTIONS);
+        for (int column : TRACKING_FLAG_COLUMNS) {
+            ExcelSupport.dropdown(workbook, column, FLAG_OPTIONS);
+        }
+        return ExcelSupport.toBytes(workbook);
     }
 
     public byte[] partnerTemplate() {
@@ -333,7 +345,7 @@ public class MasterDataImportService {
             return null;
         }
         try {
-            return Enum.valueOf(type, text.trim().toUpperCase(Locale.ROOT));
+            return Enum.valueOf(type, ExcelSupport.leadingCode(text).toUpperCase(Locale.ROOT));
         } catch (IllegalArgumentException ex) {
             errors.add(field, label + " '" + text + "' không hợp lệ.");
             return null;

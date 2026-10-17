@@ -23,6 +23,7 @@ import { useStatusChange } from '../../../shared/components/useStatusChange';
 import { departmentApi, type DepartmentInput } from '../api';
 import { useMyBranches } from '../lookups';
 import type { Department } from '../types';
+import { BRANCH_VISIBLE, whenBranchVisible } from '../../../shared/branch';
 
 const FIELDS = ['branchId', 'code', 'name'];
 
@@ -57,7 +58,11 @@ export function DepartmentsPage() {
   const columns: TableColumnsType<Department> = [
     { title: 'Mã', dataIndex: 'code', sorter: true, width: 110 },
     { title: 'Tên phòng ban', dataIndex: 'name', sorter: true },
-    { title: 'Chi nhánh', dataIndex: 'branchId', render: (id: number) => branches.nameOf(id) },
+    ...whenBranchVisible({
+      title: 'Chi nhánh',
+      dataIndex: 'branchId',
+      render: (id: number) => branches.nameOf(id),
+    }),
     {
       title: 'Trạng thái',
       dataIndex: 'status',
@@ -97,14 +102,16 @@ export function DepartmentsPage() {
         status={status}
         onStatusChange={setStatus}
         extraFilters={
-          <Select
-            placeholder="Chi nhánh"
-            allowClear
-            value={branchId}
-            onChange={setBranchId}
-            options={branches.options}
-            style={{ width: 240 }}
-          />
+          BRANCH_VISIBLE && (
+            <Select
+              placeholder="Chi nhánh"
+              allowClear
+              value={branchId}
+              onChange={setBranchId}
+              options={branches.options}
+              style={{ width: 240 }}
+            />
+          )
         }
         createLabel="Thêm phòng ban"
         onCreate={can('department:create') ? () => setEditing('new') : undefined}
@@ -114,12 +121,17 @@ export function DepartmentsPage() {
       <FormModal<DepartmentInput>
         open={editing !== null}
         title={editing === 'new' ? 'Thêm phòng ban' : 'Sửa phòng ban'}
-        initialValues={editing && editing !== 'new' ? editing : { branchId }}
+        initialValues={editing && editing !== 'new' ? editing : { branchId: branchId ?? branches.defaultId }}
         fieldNames={FIELDS}
         onSubmit={save}
         onClose={() => setEditing(null)}
       >
-        <Form.Item name="branchId" label="Chi nhánh" rules={[{ required: true, message: 'Chọn chi nhánh' }]}>
+        <Form.Item
+          name="branchId"
+          label="Chi nhánh"
+          rules={[{ required: true, message: 'Chọn chi nhánh' }]}
+          hidden={!BRANCH_VISIBLE}
+        >
           <Select options={branches.options} disabled={editing !== 'new'} />
         </Form.Item>
         <Form.Item

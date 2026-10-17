@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../../shared/auth/authContext';
+import { BRANCH_VISIBLE } from '../../shared/branch';
 import { ALL, companyApi, documentTypeApi, roleApi } from './api';
 
 /** Công ty trong phạm vi người dùng, dùng cho ô chọn và hiển thị tên. */
@@ -15,10 +16,14 @@ export function useCompanies() {
 
 /** Chi nhánh đang hoạt động trong phạm vi người dùng (lấy từ /auth/me). */
 export function useMyBranches() {
-  const { user } = useAuth();
+  const { user, workingBranchId } = useAuth();
   const items = user?.branches ?? [];
   return {
     items,
+    /** Chi nhánh ngầm định khi lập chứng từ: chi nhánh làm việc, nếu chưa có thì chi nhánh đầu tiên. */
+    defaultId: workingBranchId ?? items[0]?.id,
+    /** Chi nhánh lọc sẵn trên báo cáo; khi ẩn chi nhánh thì để trống (toàn công ty). */
+    filterDefaultId: BRANCH_VISIBLE ? items[0]?.id : undefined,
     options: items.map((branch) => ({ value: branch.id, label: `${branch.code} - ${branch.name}` })),
     nameOf: (id: number | null | undefined) => {
       const branch = items.find((item) => item.id === id);

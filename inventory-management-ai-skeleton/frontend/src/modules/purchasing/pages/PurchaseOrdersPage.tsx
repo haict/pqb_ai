@@ -41,6 +41,8 @@ import { SourceJournal } from '../components/SourceJournal';
 import { useProductUnits } from '../components/productUnits';
 import { PURCHASE_STATUSES } from '../labels';
 import type { PurchaseDocumentStatus, PurchaseOrder, PurchaseOrderLine } from '../types';
+import { BranchCol } from '../../../shared/components/BranchCol';
+import { BRANCH_VISIBLE } from '../../../shared/branch';
 
 interface LineForm {
   productId?: number;
@@ -225,7 +227,7 @@ export function PurchaseOrdersPage() {
             note: line.note ?? undefined,
           })),
         }
-      : { branchId: branches.items[0]?.id, documentDate: dayjs(), lines: [{}] };
+      : { branchId: branches.defaultId, documentDate: dayjs(), lines: [{}] };
 
   const columns: TableColumnsType<PurchaseOrder> = [
     {
@@ -310,7 +312,11 @@ export function PurchaseOrdersPage() {
                   {`${document.supplierCode ?? ''} - ${document.supplierName ?? ''}`}
                 </Descriptions.Item>
                 <Descriptions.Item label="Kho nhận">{document.warehouseName}</Descriptions.Item>
-                <Descriptions.Item label="Chi nhánh">{branches.nameOf(document.branchId)}</Descriptions.Item>
+                {BRANCH_VISIBLE && (
+                  <Descriptions.Item label="Chi nhánh">
+                    {branches.nameOf(document.branchId)}
+                  </Descriptions.Item>
+                )}
                 <Descriptions.Item label="Ngày đơn">{formatDate(document.documentDate)}</Descriptions.Item>
                 <Descriptions.Item label="Ngày hạch toán">
                   {formatDate(document.postingDate)}
@@ -398,7 +404,7 @@ function OrderFields({
   return (
     <>
       <Row gutter={12}>
-        <Col xs={24} md={6}>
+        <BranchCol xs={24} md={6}>
           <Form.Item
             name="branchId"
             label="Chi nhánh"
@@ -410,7 +416,7 @@ function OrderFields({
               onChange={() => form.setFieldsValue({ warehouseId: undefined })}
             />
           </Form.Item>
-        </Col>
+        </BranchCol>
         <Col xs={24} md={8}>
           <Form.Item
             name="supplierId"

@@ -16,6 +16,7 @@ import { purchaseLedgerApi } from '../api';
 import { purchaseLedgerFileName } from '../ledger/purchaseLedgerContent';
 import { PurchaseLedgerSheet } from '../ledger/PurchaseLedgerSheet';
 import type { PurchaseLedger, PurchaseLedgerParams } from '../types';
+import { BranchCol } from '../../../shared/components/BranchCol';
 
 /** Giới hạn của server (PurchaseLedgerService.MAX_SELECTED): số hàng / NCC chọn mỗi lần xem. */
 const MAX_SELECTED = 200;
@@ -93,7 +94,7 @@ export function PurchaseLedgerPage() {
       <Form<Filters>
         form={form}
         layout="vertical"
-        initialValues={initialFilters(branches.items[0]?.id)}
+        initialValues={initialFilters(branches.filterDefaultId)}
         onFinish={(values) => setApplied(toParams(companyId, values))}
       >
         <Row gutter={16}>
@@ -122,11 +123,11 @@ export function PurchaseLedgerPage() {
               />
             </Form.Item>
           </Col>
-          <Col xs={24} md={8}>
+          <BranchCol xs={24} md={8}>
             <Form.Item name="branchId" label="Đơn vị">
               <Select allowClear placeholder="Toàn công ty" options={branches.options} />
             </Form.Item>
-          </Col>
+          </BranchCol>
           <Col xs={24} md={8}>
             <Form.Item name="productCategoryId" label="Nhóm VTHH">
               <Select

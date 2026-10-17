@@ -17,6 +17,7 @@ import { GROUP_ICONS, ITEM_ICONS } from './navIcons';
 import { visibleNavGroups } from './navigation';
 import { NotificationBell } from './NotificationBell';
 import { BRAND } from './theme';
+import { BRANCH_VISIBLE } from '../shared/branch';
 
 const { Header, Sider, Content } = Layout;
 
@@ -110,7 +111,7 @@ export function AppLayout() {
             boxShadow: '0 1px 4px rgba(15, 60, 70, 0.06)',
           }}
         >
-          <Space size="small" wrap>
+          <Space size="small" wrap style={BRANCH_VISIBLE ? undefined : { visibility: 'hidden' }}>
             <ApartmentOutlined style={{ color: BRAND.primary }} />
             <Typography.Text type="secondary">Chi nhánh làm việc:</Typography.Text>
             <Select

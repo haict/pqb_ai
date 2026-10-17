@@ -12,6 +12,7 @@ import { useCompanyId } from '../../masterdata/lookups';
 import { useMyBranches } from '../../system/lookups';
 import { orderReportApi } from '../api';
 import { orderProgressReport } from '../orderReports';
+import { BranchCol } from '../../../shared/components/BranchCol';
 
 const STATUSES = ['DRAFT', 'SUBMITTED', 'REJECTED', 'APPROVED', 'POSTED', 'CANCELLED', 'REVERSED'];
 
@@ -53,7 +54,7 @@ export function OrderProgressPage({ kind }: { kind: 'purchase' | 'sales' }) {
       <Form<Filters>
         form={form}
         layout="vertical"
-        initialValues={{ ...initialPeriod(), branchId: branches.items[0]?.id }}
+        initialValues={{ ...initialPeriod(), branchId: branches.filterDefaultId }}
         onFinish={(values) =>
           setApplied({
             companyId,
@@ -66,11 +67,11 @@ export function OrderProgressPage({ kind }: { kind: 'purchase' | 'sales' }) {
       >
         <Row gutter={16}>
           <PeriodFields />
-          <Col xs={24} md={10}>
+          <BranchCol xs={24} md={10}>
             <Form.Item name="branchId" label="Đơn vị">
               <Select allowClear placeholder="Toàn công ty" options={branches.options} />
             </Form.Item>
-          </Col>
+          </BranchCol>
           <Col xs={24} md={14}>
             <Form.Item name="partnerId" label={sales ? 'Khách hàng' : 'Nhà cung cấp'}>
               <PartnerSelect role={sales ? 'CUSTOMER' : 'SUPPLIER'} allowClear />

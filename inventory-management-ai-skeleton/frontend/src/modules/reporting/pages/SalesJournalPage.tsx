@@ -1,6 +1,6 @@
 import { SearchOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
-import { Button, Card, Col, Form, Row, Select, Space, Typography } from 'antd';
+import { Button, Card, Form, Row, Select, Space, Typography } from 'antd';
 import { useMemo, useState } from 'react';
 import { PeriodFields } from '../../../shared/report/PeriodFields';
 import { ReportActions } from '../../../shared/report/ReportActions';
@@ -10,6 +10,7 @@ import { useCompanyId } from '../../masterdata/lookups';
 import { useMyBranches } from '../../system/lookups';
 import { orderReportApi } from '../api';
 import { salesJournalReport } from '../orderReports';
+import { BranchCol } from '../../../shared/components/BranchCol';
 
 interface Filters extends PeriodValues {
   branchId?: number;
@@ -38,18 +39,18 @@ export function SalesJournalPage() {
       <Form<Filters>
         form={form}
         layout="vertical"
-        initialValues={{ ...initialPeriod(), branchId: branches.items[0]?.id }}
+        initialValues={{ ...initialPeriod(), branchId: branches.filterDefaultId }}
         onFinish={(values) =>
           setApplied({ companyId, branchId: values.branchId, ...rangeParams(values.range) })
         }
       >
         <Row gutter={16}>
           <PeriodFields />
-          <Col xs={24} md={10}>
+          <BranchCol xs={24} md={10}>
             <Form.Item name="branchId" label="Đơn vị">
               <Select allowClear placeholder="Toàn công ty" options={branches.options} />
             </Form.Item>
-          </Col>
+          </BranchCol>
         </Row>
         <Space wrap style={{ marginBottom: 16 }}>
           <Button type="primary" htmlType="submit" icon={<SearchOutlined />} loading={query.isFetching}>

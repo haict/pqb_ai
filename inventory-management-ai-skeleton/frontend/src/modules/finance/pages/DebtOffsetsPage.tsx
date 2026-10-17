@@ -33,6 +33,8 @@ import { moneyInputProps, useOpenDebtItemOptions } from '../components/debtInput
 import { FinanceDocumentDrawer } from '../components/FinanceDocumentDrawer';
 import { DEBT_PARTNER_ROLE, DEBT_TYPES, FINANCE_STATUSES, OFFSET_TYPES } from '../labels';
 import type { DebtOffset, DebtOffsetLine, DebtType, FinanceDocumentStatus, OffsetType } from '../types';
+import { BranchCol } from '../../../shared/components/BranchCol';
+import { BRANCH_VISIBLE } from '../../../shared/branch';
 
 interface OffsetForm {
   branchId: number;
@@ -145,7 +147,7 @@ export function DebtOffsetsPage() {
           })),
         }
       : {
-          branchId: branches.items[0]?.id,
+          branchId: branches.defaultId,
           offsetType: 'PREPAYMENT',
           debtType: 'RECEIVABLE',
           documentDate: dayjs(),
@@ -231,7 +233,11 @@ export function DebtOffsetsPage() {
                   <Descriptions.Item label="Loại công nợ">{DEBT_TYPES[document.debtType]}</Descriptions.Item>
                 )}
                 <Descriptions.Item label="Đối tượng">{`${document.partnerCode ?? ''} - ${document.partnerName ?? ''}`}</Descriptions.Item>
-                <Descriptions.Item label="Chi nhánh">{branches.nameOf(document.branchId)}</Descriptions.Item>
+                {BRANCH_VISIBLE && (
+                  <Descriptions.Item label="Chi nhánh">
+                    {branches.nameOf(document.branchId)}
+                  </Descriptions.Item>
+                )}
                 <Descriptions.Item label="Ngày hạch toán">
                   {formatDate(document.postingDate)}
                 </Descriptions.Item>
@@ -296,7 +302,7 @@ function OffsetFields({
   return (
     <>
       <Row gutter={12}>
-        <Col xs={24} md={6}>
+        <BranchCol xs={24} md={6}>
           <Form.Item
             name="branchId"
             label="Chi nhánh"
@@ -304,7 +310,7 @@ function OffsetFields({
           >
             <Select disabled={!isNew} options={branchOptions} />
           </Form.Item>
-        </Col>
+        </BranchCol>
         <Col xs={24} md={6}>
           <Form.Item name="offsetType" label="Loại bù trừ" rules={[{ required: true, message: 'Chọn loại' }]}>
             <Select

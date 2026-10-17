@@ -1,4 +1,6 @@
-import { App, Card, DatePicker, Select, Table, Typography, type TableColumnsType } from 'antd';
+import { UploadOutlined } from '@ant-design/icons';
+import { useQueryClient } from '@tanstack/react-query';
+import { App, Button, Card, DatePicker, Form, Select, Table, Typography, type TableColumnsType } from 'antd';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
@@ -21,7 +23,13 @@ import {
   statusLabel,
 } from '../labels';
 import { DocumentStatusTag } from '../components/StatusTags';
-import type { InventoryDocumentStatus, InventoryDocumentSummary, InventoryDocumentType } from '../types';
+import type {
+  InventoryDocumentStatus,
+  InventoryDocumentSummary,
+  InventoryDocumentType,
+  OpeningStockImportResult,
+} from '../types';
+import { ImportModal } from '../../masterdata/components/ImportModal';
 
 /**
  * Danh sách chứng từ kho, lọc ở server; lập chứng từ mới theo loại người dùng có quyền.
@@ -39,6 +47,9 @@ export function InventoryDocumentsPage({ opening = false }: { opening?: boolean 
   const [warehouseId, setWarehouseId] = useState<number>();
   const [range, setRange] = useState<[Dayjs | null, Dayjs | null] | null>(null);
   const [creating, setCreating] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importDate, setImportDate] = useState<Dayjs>(dayjs());
+  const queryClient = useQueryClient();
   const { tableProps } = useServerTable('inventory-documents', documentApi.list, {
     companyId,
     keyword,
@@ -136,6 +147,11 @@ export function InventoryDocumentsPage({ opening = false }: { opening?: boolean 
               options={warehouses.options}
             />
             <DatePicker.RangePicker format="DD/MM/YYYY" value={range} onChange={setRange} />
+            {opening && creatable.length > 0 && (
+              <Button icon={<UploadOutlined />} onClick={() => setImporting(true)}>
+                Nhập Excel
+              </Button>
+            )}
           </>
         }
       />
@@ -157,6 +173,34 @@ export function InventoryDocumentsPage({ opening = false }: { opening?: boolean 
       >
         {(form) => <DocumentFormFields form={form} editing={false} opening={opening} />}
       </FormModal>
+      {opening && (
+        <ImportModal<OpeningStockImportResult>
+          open={importing}
+          title="Nhập tồn kho đầu kỳ từ Excel"
+          onDownloadTemplate={documentApi.downloadOpeningTemplate}
+          onImport={(file, key) =>
+            documentApi.importOpening(file, companyId, importDate.format('YYYY-MM-DD'), key)
+          }
+          successMessage={(result) =>
+            `Đã nhập ${result.created} dòng, lập phiếu nháp ${result.documentNos.join(', ')}. Kiểm tra rồi gửi duyệt, ghi sổ.`
+          }
+          onDone={() => void queryClient.invalidateQueries({ queryKey: ['inventory-documents'] })}
+          onClose={() => setImporting(false)}
+        >
+          <Form.Item
+            label="Ngày chứng từ"
+            extra="Mỗi kho trong file lập một phiếu nhập kho đầu kỳ ở trạng thái nháp."
+            style={{ marginBottom: 0 }}
+          >
+            <DatePicker
+              format="DD/MM/YYYY"
+              allowClear={false}
+              value={importDate}
+              onChange={(value) => value && setImportDate(value)}
+            />
+          </Form.Item>
+        </ImportModal>
+      )}
     </Card>
   );
 }

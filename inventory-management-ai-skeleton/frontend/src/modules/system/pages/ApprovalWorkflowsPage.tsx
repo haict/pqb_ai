@@ -31,6 +31,7 @@ import { UserSelect } from '../components/UserSelect';
 import { useActiveRoles, useCompanies, useDocumentTypes, useMyBranches } from '../lookups';
 import type { ApprovalStep, ApprovalWorkflow } from '../types';
 import { formatAmount } from '../../../shared/format';
+import { BRANCH_VISIBLE } from '../../../shared/branch';
 
 const FIELDS = ['documentType', 'name', 'branchId', 'minAmount', 'minDiscountPercent', 'priority', 'steps'];
 
@@ -86,7 +87,9 @@ function WorkflowTable({ companyId }: { companyId: number }) {
       width: 260,
       render: (_, workflow) => (
         <Space direction="vertical" size={0}>
-          <span>{workflow.branchId ? branches.nameOf(workflow.branchId) : 'Mọi chi nhánh'}</span>
+          {BRANCH_VISIBLE && (
+            <span>{workflow.branchId ? branches.nameOf(workflow.branchId) : 'Mọi chi nhánh'}</span>
+          )}
           {workflow.minAmount !== null && (
             <Typography.Text type="secondary">
               Giá trị từ {formatAmount(Number(workflow.minAmount))}
@@ -204,7 +207,12 @@ function WorkflowTable({ companyId }: { companyId: number }) {
           <Input maxLength={200} />
         </Form.Item>
         <Space wrap>
-          <Form.Item name="branchId" label="Chi nhánh" extra="Bỏ trống: mọi chi nhánh">
+          <Form.Item
+            name="branchId"
+            label="Chi nhánh"
+            extra="Bỏ trống: mọi chi nhánh"
+            hidden={!BRANCH_VISIBLE}
+          >
             <Select allowClear options={branchOptions} style={{ width: 240 }} />
           </Form.Item>
           <Form.Item name="minAmount" label="Giá trị từ" extra="Bỏ trống: không xét">

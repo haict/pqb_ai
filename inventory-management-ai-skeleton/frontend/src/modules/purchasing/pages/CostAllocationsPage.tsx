@@ -41,6 +41,7 @@ import type {
   PurchaseCostAllocation,
   PurchaseDocumentStatus,
 } from '../types';
+import { BranchCol } from '../../../shared/components/BranchCol';
 
 interface AllocationForm {
   branchId: number;
@@ -135,7 +136,7 @@ export function CostAllocationsPage() {
           orderIds: editing.orderIds,
         }
       : {
-          branchId: branches.items[0]?.id,
+          branchId: branches.defaultId,
           documentDate: dayjs(),
           method: 'VALUE',
           sources: [{}],
@@ -285,7 +286,7 @@ function AllocationFields({
   return (
     <>
       <Row gutter={12}>
-        <Col xs={24} md={6}>
+        <BranchCol xs={24} md={6}>
           <Form.Item
             name="branchId"
             label="Chi nhánh"
@@ -297,7 +298,7 @@ function AllocationFields({
               onChange={() => form.setFieldsValue({ sources: [{}], orderIds: [] })}
             />
           </Form.Item>
-        </Col>
+        </BranchCol>
         <Col xs={12} md={5}>
           <Form.Item
             name="documentDate"

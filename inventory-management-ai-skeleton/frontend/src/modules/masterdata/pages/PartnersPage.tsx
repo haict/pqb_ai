@@ -40,6 +40,7 @@ import { ImportModal } from '../components/ImportModal';
 import { CUSTOMER_TYPES, PARTNER_ROLES, toOptions } from '../labels';
 import { useCatalog, useCompanyId, useCountries } from '../lookups';
 import type { Partner, PartnerRole } from '../types';
+import { BRANCH_VISIBLE } from '../../../shared/branch';
 
 const FIELDS = [
   'code',
@@ -196,7 +197,7 @@ function PartnerForm({ editing }: { editing: Partner | null }) {
                 <Form.Item name="salesUserId" label="Nhân viên phụ trách">
                   <UserSelect allowClear style={{ width: 260 }} />
                 </Form.Item>
-                <Form.Item name="managingBranchId" label="Chi nhánh phụ trách">
+                <Form.Item name="managingBranchId" label="Chi nhánh phụ trách" hidden={!BRANCH_VISIBLE}>
                   <Select allowClear options={branches.options} style={{ width: 220 }} />
                 </Form.Item>
               </Space>

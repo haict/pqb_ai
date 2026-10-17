@@ -34,6 +34,7 @@ import {
   type ForecastRow,
 } from '../cashForecast';
 import type { CashForecast, ForecastGranularity, ForecastSource } from '../types';
+import { BranchCol } from '../../../shared/components/BranchCol';
 
 /** Giới hạn số kỳ của server (ForecastPeriods.Granularity). */
 const MAX_PERIODS: Record<ForecastGranularity, number> = { DAY: 92, WEEK: 53, MONTH: 24 };
@@ -98,11 +99,11 @@ export function CashForecastPage() {
         onFinish={(values) => setApplied(values)}
       >
         <Row gutter={16}>
-          <Col xs={24} md={10}>
+          <BranchCol xs={24} md={10}>
             <Form.Item name="branchId" label="Đơn vị">
               <Select allowClear placeholder="Toàn bộ phạm vi được xem" options={branches.options} />
             </Form.Item>
-          </Col>
+          </BranchCol>
           <Col xs={12} md={6}>
             <Form.Item name="granularity" label="Chia kỳ theo">
               <Select

@@ -17,6 +17,7 @@ import { LEDGER_GROUPINGS } from '../labels';
 import { ledgerFileName } from '../ledger/ledgerContent';
 import { SalesLedgerSheet } from '../ledger/SalesLedgerSheet';
 import type { SalesLedger, SalesLedgerGrouping, SalesLedgerParams } from '../types';
+import { BranchCol } from '../../../shared/components/BranchCol';
 
 /** Giới hạn của server (SalesLedgerService.MAX_SELECTED): số hàng / khách chọn mỗi lần xem. */
 const MAX_SELECTED = 200;
@@ -98,7 +99,7 @@ export function SalesLedgerPage() {
       <Form<Filters>
         form={form}
         layout="vertical"
-        initialValues={initialFilters(branches.items[0]?.id)}
+        initialValues={initialFilters(branches.filterDefaultId)}
         onFinish={(values) => setApplied(toParams(companyId, values))}
       >
         <Row gutter={16}>
@@ -137,11 +138,11 @@ export function SalesLedgerPage() {
               />
             </Form.Item>
           </Col>
-          <Col xs={24} md={6}>
+          <BranchCol xs={24} md={6}>
             <Form.Item name="branchId" label="Đơn vị">
               <Select allowClear placeholder="Toàn công ty" options={branches.options} />
             </Form.Item>
-          </Col>
+          </BranchCol>
           <Col xs={24} md={6}>
             <Form.Item name="salesUserId" label="Nhân viên">
               <UserSelect allowClear placeholder="Tất cả nhân viên" />

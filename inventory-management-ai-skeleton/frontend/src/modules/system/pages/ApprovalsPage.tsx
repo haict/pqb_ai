@@ -10,6 +10,7 @@ import { ApprovalHistory } from '../components/ApprovalHistory';
 import { useDocumentTypes, useMyBranches } from '../lookups';
 import type { ApprovalRequest } from '../types';
 import { formatAmount } from '../../../shared/format';
+import { whenBranchVisible } from '../../../shared/branch';
 
 const NO_FILTERS = {};
 
@@ -35,7 +36,12 @@ export function ApprovalsPage() {
         return link ? <Link to={link}>{label}</Link> : label;
       },
     },
-    { title: 'Chi nhánh', dataIndex: 'branchId', width: 200, render: (id: number) => branches.nameOf(id) },
+    ...whenBranchVisible({
+      title: 'Chi nhánh',
+      dataIndex: 'branchId',
+      width: 200,
+      render: (id: number) => branches.nameOf(id),
+    }),
     {
       title: 'Giá trị',
       dataIndex: 'amount',

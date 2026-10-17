@@ -39,6 +39,7 @@ import type {
   FinanceDocumentStatus,
   PaymentAllocation,
 } from '../types';
+import { BRANCH_VISIBLE } from '../../../shared/branch';
 
 const STATUSES: FinanceDocumentStatus[] = [
   'DRAFT',
@@ -161,7 +162,9 @@ function CashDocumentDrawer({
           </Space>
           <Descriptions size="small" column={{ xs: 1, md: 2 }} style={{ marginBottom: 12 }}>
             <Descriptions.Item label="Nội dung">{CASH_PURPOSES[document.purpose]}</Descriptions.Item>
-            <Descriptions.Item label="Chi nhánh">{branches.nameOf(document.branchId)}</Descriptions.Item>
+            {BRANCH_VISIBLE && (
+              <Descriptions.Item label="Chi nhánh">{branches.nameOf(document.branchId)}</Descriptions.Item>
+            )}
             <Descriptions.Item label="Ngày chứng từ">{formatDate(document.documentDate)}</Descriptions.Item>
             <Descriptions.Item label="Ngày hạch toán">{formatDate(document.postingDate)}</Descriptions.Item>
             <Descriptions.Item label={document.targetCashAccountId ? 'Quỹ chuyển' : 'Quỹ / tài khoản'}>
@@ -326,7 +329,7 @@ export function CashDocumentsPage() {
           })),
         }
       : {
-          branchId: branches.items[0]?.id,
+          branchId: branches.defaultId,
           documentType: 'PT',
           purpose: 'CUSTOMER_RECEIPT',
           allocationMode: 'AUTO',

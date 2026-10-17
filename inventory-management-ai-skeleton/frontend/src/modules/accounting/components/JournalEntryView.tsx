@@ -3,6 +3,7 @@ import { formatDate } from '../../inventory/labels';
 import { useMyBranches } from '../../system/lookups';
 import { JOURNAL_KINDS, JOURNAL_STATUSES, formatMoney } from '../labels';
 import type { JournalEntry, JournalEntryLine, JournalEntryStatus } from '../types';
+import { BRANCH_VISIBLE } from '../../../shared/branch';
 
 export function JournalStatusTag({ status }: { status: JournalEntryStatus }) {
   const { label, color } = JOURNAL_STATUSES[status];
@@ -53,7 +54,9 @@ export function JournalEntryView({ journal }: { journal: JournalEntry }) {
           <JournalStatusTag status={entry.status} />
         </Descriptions.Item>
         <Descriptions.Item label="Ngày hạch toán">{formatDate(entry.postingDate)}</Descriptions.Item>
-        <Descriptions.Item label="Chi nhánh">{branches.nameOf(entry.branchId)}</Descriptions.Item>
+        {BRANCH_VISIBLE && (
+          <Descriptions.Item label="Chi nhánh">{branches.nameOf(entry.branchId)}</Descriptions.Item>
+        )}
         <Descriptions.Item label="Chứng từ nguồn">
           {entry.sourceType} {entry.sourceNo}
         </Descriptions.Item>

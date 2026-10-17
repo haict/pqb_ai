@@ -19,6 +19,7 @@ import {
 } from '../labels';
 import { useCashAccounts } from '../lookups';
 import type { AllocationMode, CashDocumentType, CashPurpose, DebtType } from '../types';
+import { BranchCol } from '../../../shared/components/BranchCol';
 
 export interface CashLineForm {
   debtItemId?: number;
@@ -86,7 +87,7 @@ export function CashDocumentFields({
   return (
     <>
       <Row gutter={12}>
-        <Col xs={24} md={6}>
+        <BranchCol xs={24} md={6}>
           <Form.Item
             name="branchId"
             label="Chi nhánh"
@@ -98,7 +99,7 @@ export function CashDocumentFields({
               onChange={() => form.setFieldsValue({ cashAccountId: undefined })}
             />
           </Form.Item>
-        </Col>
+        </BranchCol>
         <Col xs={24} md={6}>
           <Form.Item
             name="documentType"

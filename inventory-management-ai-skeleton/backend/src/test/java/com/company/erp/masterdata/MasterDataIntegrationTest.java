@@ -18,10 +18,12 @@ import com.company.erp.common.application.IdempotentCommand;
 import com.company.erp.masterdata.application.MasterDataQueryService;
 import com.company.erp.support.ApiTestSupport.Session;
 import com.company.erp.support.MySqlIntegrationTest;
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import org.apache.poi.ss.usermodel.DataValidation;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
@@ -281,7 +283,15 @@ class MasterDataIntegrationTest {
     @DisplayName("BR-UX-05: nhập hàng hóa từ Excel tất cả hoặc không; lỗi báo theo dòng; file sai định dạng bị từ chối")
     void productImport() throws Exception {
         Session admin = login(mockMvc, "admin");
-        mockMvc.perform(as(admin, get("/api/v1/products/import-template"))).andExpect(status().isOk());
+        byte[] template = mockMvc.perform(as(admin, get("/api/v1/products/import-template")))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsByteArray();
+        try (XSSFWorkbook workbook = new XSSFWorkbook(new ByteArrayInputStream(template))) {
+            List<? extends DataValidation> validations = workbook.getSheetAt(0).getDataValidations();
+            assertThat(validations).hasSize(4);
+            assertThat(validations).anySatisfy(validation -> assertThat(
+                    validation.getValidationConstraint().getExplicitListValues())
+                    .contains("REAGENT (thuốc thử - hóa chất)"));
+        }
         String first = unique("IMP");
         String second = unique("IMP");
 
@@ -291,11 +301,14 @@ class MasterDataIntegrationTest {
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM products WHERE code IN (?, ?)", Integer.class, first,
                 second)).isZero();
 
-        importFile(admin, workbook(List.of(row(first, "VT", "CONSUMABLE"), row(second, "VT", "CONSUMABLE"))))
+        importFile(admin, workbook(List.of(row(first, "VT", "CONSUMABLE"),
+                row(second, "VT", "REAGENT (thuốc thử - hóa chất)"))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.created").value(2));
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM products WHERE code IN (?, ?) AND lot_tracked = TRUE",
                 Integer.class, first, second)).isEqualTo(2);
+        assertThat(jdbc.queryForObject("SELECT product_type FROM products WHERE code = ?", String.class, second))
+                .isEqualTo("REAGENT");
 
         mockMvc.perform(as(admin, multipart("/api/v1/products/import")
                         .file(new MockMultipartFile("file", "a.xlsx", "application/octet-stream", "not excel".getBytes())))

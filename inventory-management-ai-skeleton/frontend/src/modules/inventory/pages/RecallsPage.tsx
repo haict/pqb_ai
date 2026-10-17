@@ -30,6 +30,7 @@ import { DocumentActions } from '../components/DocumentActions';
 import { formatDate, formatNumber, statusLabel } from '../labels';
 import { DocumentStatusTag } from '../components/StatusTags';
 import type { Lot, Recall, RecallCustomer, RecallStatus, Serial } from '../types';
+import { BRANCH_VISIBLE } from '../../../shared/branch';
 
 const STATUSES: RecallStatus[] = ['DRAFT', 'SUBMITTED', 'REJECTED', 'ACTIVE', 'CLOSED', 'CANCELLED'];
 
@@ -132,6 +133,7 @@ function RecallFormFields({ companyId }: { companyId: number }) {
         name="branchId"
         label="Chi nhánh lập"
         rules={[{ required: true, message: 'Chọn chi nhánh' }]}
+        hidden={!BRANCH_VISIBLE}
       >
         <Select options={branches.options} />
       </Form.Item>
@@ -177,6 +179,7 @@ export function RecallsPage() {
   const can = useCan();
   const { message } = App.useApp();
   const companyId = useCompanyId();
+  const branches = useMyBranches();
   const [params, setParams] = useSearchParams();
   const [status, setStatus] = useState<RecallStatus>();
   const [creating, setCreating] = useState(false);
@@ -233,7 +236,7 @@ export function RecallsPage() {
       <FormModal<RecallForm>
         open={creating}
         title="Lập phiếu thu hồi"
-        initialValues={{ recallDate: dayjs() }}
+        initialValues={{ branchId: branches.defaultId, recallDate: dayjs() }}
         fieldNames={['branchId', 'recallDate', 'productId', 'lotId', 'serialId', 'reason']}
         onSubmit={create}
         onClose={() => setCreating(false)}

@@ -51,6 +51,7 @@ import type {
   SalesDocumentStatus,
   SalesOrder,
 } from '../types';
+import { BranchCol } from '../../../shared/components/BranchCol';
 
 interface TermForm {
   percent?: number;
@@ -206,7 +207,7 @@ export function SalesOrdersPage() {
           })),
         }
       : {
-          branchId: branches.items[0]?.id,
+          branchId: branches.defaultId,
           documentDate: dayjs(),
           lines: [{ quantity: 1 }],
           paymentTerms: [],
@@ -470,7 +471,7 @@ function OrderFields({
   return (
     <>
       <Row gutter={12}>
-        <Col xs={24} md={5}>
+        <BranchCol xs={24} md={5}>
           <Form.Item
             name="branchId"
             label="Chi nhánh"
@@ -478,7 +479,7 @@ function OrderFields({
           >
             <Select disabled={!isNew} options={branchOptions} />
           </Form.Item>
-        </Col>
+        </BranchCol>
         <Col xs={24} md={7}>
           <Form.Item name="customerId" label="Khách hàng" rules={[{ required: true, message: 'Chọn khách' }]}>
             <PartnerSelect

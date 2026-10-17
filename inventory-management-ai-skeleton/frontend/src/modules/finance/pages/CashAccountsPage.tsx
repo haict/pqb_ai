@@ -3,8 +3,10 @@ import {
   App,
   Button,
   Card,
+  Col,
   Form,
   Input,
+  Row,
   Select,
   Space,
   Table,
@@ -27,6 +29,8 @@ import { useMyBranches } from '../../system/lookups';
 import { cashAccountApi } from '../api';
 import { CASH_ACCOUNT_TYPES } from '../labels';
 import type { CashAccount, CashAccountType } from '../types';
+import { whenBranchVisible } from '../../../shared/branch';
+import { BranchCol } from '../../../shared/components/BranchCol';
 
 interface AccountForm {
   branchId: number;
@@ -94,12 +98,12 @@ export function CashAccountsPage() {
       width: 110,
       render: (value: CashAccountType) => CASH_ACCOUNT_TYPES[value],
     },
-    {
+    ...whenBranchVisible({
       title: 'Chi nhánh',
       dataIndex: 'branchId',
       width: 160,
       render: (value: number) => branches.nameOf(value),
-    },
+    }),
     { title: 'TK kế toán', dataIndex: 'glAccountCode', width: 110 },
     {
       title: 'Ngân hàng',
@@ -147,7 +151,7 @@ export function CashAccountsPage() {
           bankName: editing.bankName ?? undefined,
           bankAccountNo: editing.bankAccountNo ?? undefined,
         }
-      : { branchId: branches.items[0]?.id, accountType: 'CASH' };
+      : { branchId: branches.defaultId, accountType: 'CASH' };
 
   return (
     <Card>
@@ -210,17 +214,25 @@ function AccountFields({
   const accountType = Form.useWatch('accountType', form) as CashAccountType | undefined;
   return (
     <>
-      <Space style={{ width: '100%' }} styles={{ item: { flex: 1 } }}>
-        <Form.Item name="branchId" label="Chi nhánh" rules={[{ required: true, message: 'Chọn chi nhánh' }]}>
-          <Select disabled={!isNew} options={branchOptions} />
-        </Form.Item>
-        <Form.Item name="accountType" label="Loại" rules={[{ required: true, message: 'Chọn loại' }]}>
-          <Select
-            disabled={!isNew}
-            options={Object.entries(CASH_ACCOUNT_TYPES).map(([value, label]) => ({ value, label }))}
-          />
-        </Form.Item>
-      </Space>
+      <Row gutter={8}>
+        <BranchCol flex={1}>
+          <Form.Item
+            name="branchId"
+            label="Chi nhánh"
+            rules={[{ required: true, message: 'Chọn chi nhánh' }]}
+          >
+            <Select disabled={!isNew} options={branchOptions} />
+          </Form.Item>
+        </BranchCol>
+        <Col flex={1}>
+          <Form.Item name="accountType" label="Loại" rules={[{ required: true, message: 'Chọn loại' }]}>
+            <Select
+              disabled={!isNew}
+              options={Object.entries(CASH_ACCOUNT_TYPES).map(([value, label]) => ({ value, label }))}
+            />
+          </Form.Item>
+        </Col>
+      </Row>
       <Form.Item
         name="code"
         label="Mã"

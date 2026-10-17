@@ -46,6 +46,7 @@ import type {
   ReturnableLine,
 } from '../types';
 import { DecimalInput } from '../../../shared/components/DecimalInput';
+import { BranchCol } from '../../../shared/components/BranchCol';
 
 interface LineForm {
   sourceKey?: string;
@@ -193,7 +194,7 @@ export function PurchaseReturnsPage() {
             description: line.description ?? undefined,
           })),
         }
-      : { documentType: 'THN', branchId: branches.items[0]?.id, documentDate: dayjs(), lines: [] };
+      : { documentType: 'THN', branchId: branches.defaultId, documentDate: dayjs(), lines: [] };
 
   const columns: TableColumnsType<PurchaseReturn> = [
     {
@@ -398,7 +399,7 @@ function ReturnFields({
             />
           </Form.Item>
         </Col>
-        <Col xs={24} md={5}>
+        <BranchCol xs={24} md={5}>
           <Form.Item
             name="branchId"
             label="Chi nhánh"
@@ -406,7 +407,7 @@ function ReturnFields({
           >
             <Select disabled={!isNew} options={branchOptions} onChange={resetLines} />
           </Form.Item>
-        </Col>
+        </BranchCol>
         <Col xs={24} md={7}>
           <Form.Item name="supplierId" label="Nhà cung cấp" rules={[{ required: true, message: 'Chọn NCC' }]}>
             <PartnerSelect

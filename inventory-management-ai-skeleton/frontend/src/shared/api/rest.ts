@@ -83,7 +83,8 @@ export async function uploadFile<T>(
   form.append('file', file);
   const response = await httpClient.post<ApiResponse<T>>(url, form, {
     params: withoutEmpty(params),
-    headers: { [IDEMPOTENCY_HEADER]: idempotencyKey },
+    // Ghi đè Content-Type JSON mặc định: nếu giữ, axios chuyển FormData thành JSON và backend trả 415.
+    headers: { [IDEMPOTENCY_HEADER]: idempotencyKey, 'Content-Type': 'multipart/form-data' },
   });
   return response.data.data;
 }

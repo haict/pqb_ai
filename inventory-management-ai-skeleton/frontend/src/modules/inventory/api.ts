@@ -1,4 +1,4 @@
-import { getOne, getPage, postWithKey, putJson } from '../../shared/api/rest';
+import { downloadFile, getOne, getPage, postWithKey, putJson, uploadFile } from '../../shared/api/rest';
 import type { ListParams } from '../../shared/api/useServerTable';
 import type {
   FefoAllocation,
@@ -7,6 +7,7 @@ import type {
   InventoryDocumentSummary,
   InventoryTransaction,
   Lot,
+  OpeningStockImportResult,
   Recall,
   Serial,
   StockAlert,
@@ -34,6 +35,15 @@ export const documentApi = {
   update: (id: number, input: InventoryDocumentInput) =>
     putJson<InventoryDocument>(`/inventory-documents/${id}`, input),
   act: action<InventoryDocument>('/inventory-documents'),
+  downloadOpeningTemplate: () =>
+    downloadFile('/inventory-documents/opening-import-template', 'mau-ton-kho-dau-ky.xlsx'),
+  importOpening: (file: File, companyId: number, documentDate: string, key: string) =>
+    uploadFile<OpeningStockImportResult>(
+      '/inventory-documents/opening-import',
+      file,
+      { companyId, documentDate },
+      key,
+    ),
 };
 
 export const stockApi = {

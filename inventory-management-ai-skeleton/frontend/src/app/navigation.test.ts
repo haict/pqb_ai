@@ -1,14 +1,23 @@
+import { BRANCH_VISIBLE } from '../shared/branch';
 import { visibleNavGroups } from './navigation';
 
 describe('visibleNavGroups', () => {
   it('chỉ hiện mục người dùng có quyền xem', () => {
-    const groups = visibleNavGroups((permission) => ['branch:view', 'department:view'].includes(permission));
+    const groups = visibleNavGroups((permission) => ['company:view', 'department:view'].includes(permission));
 
     expect(groups.map((group) => group.key)).toEqual(['work', 'system']);
     expect(groups.find((group) => group.key === 'system')?.items.map((item) => item.label)).toEqual([
-      'Chi nhánh',
+      'Công ty',
       'Phòng ban',
     ]);
+  });
+
+  it('menu Chi nhánh ẩn khi tạm ẩn thông tin chi nhánh', () => {
+    const groups = visibleNavGroups((permission) => permission === 'branch:view');
+
+    expect(groups.find((group) => group.key === 'system')?.items.map((item) => item.path) ?? []).toEqual(
+      BRANCH_VISIBLE ? ['/system/branches'] : [],
+    );
   });
 
   it('kỳ, tham số, số chứng từ hiện theo quyền xem riêng', () => {

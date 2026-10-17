@@ -19,11 +19,15 @@ import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellStyle;
 import org.apache.poi.ss.usermodel.CellType;
 import org.apache.poi.ss.usermodel.DataFormatter;
+import org.apache.poi.ss.usermodel.DataValidation;
+import org.apache.poi.ss.usermodel.DataValidationConstraint;
+import org.apache.poi.ss.usermodel.DataValidationHelper;
 import org.apache.poi.ss.usermodel.DateUtil;
 import org.apache.poi.ss.usermodel.Font;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.ss.util.CellRangeAddressList;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -94,6 +98,27 @@ public final class ExcelSupport {
         help.setColumnWidth(0, 30 * 256);
         help.setColumnWidth(1, 80 * 256);
         return workbook;
+    }
+
+    /**
+     * Danh sách chọn cho một cột của sheet dữ liệu (sheet đầu), áp dụng cho mọi dòng nhập được.
+     * Excel giới hạn danh sách khai báo trực tiếp 255 ký tự; giá trị không được chứa dấu phẩy.
+     */
+    public static void dropdown(Workbook workbook, int column, List<String> options) {
+        Sheet sheet = workbook.getSheetAt(0);
+        DataValidationHelper helper = sheet.getDataValidationHelper();
+        DataValidationConstraint constraint = helper.createExplicitListConstraint(options.toArray(String[]::new));
+        DataValidation validation = helper.createValidation(constraint,
+                new CellRangeAddressList(1, MAX_ROWS, column, column));
+        validation.setShowErrorBox(true);
+        validation.setSuppressDropDownArrow(true);
+        sheet.addValidationData(validation);
+    }
+
+    /** Mã ở đầu giá trị chọn dạng "MÃ (diễn giải)"; giá trị chỉ có mã được giữ nguyên. */
+    public static String leadingCode(String value) {
+        int end = value.indexOf('(');
+        return (end < 0 ? value : value.substring(0, end)).trim();
     }
 
     public static boolean isBlankRow(Row row, int columns) {

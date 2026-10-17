@@ -1,24 +1,36 @@
 import { DownloadOutlined, UploadOutlined } from '@ant-design/icons';
 import { Alert, App, Button, List, Modal, Space, Typography, Upload } from 'antd';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { ApiError, toApiError } from '../../../shared/api/apiError';
 import { useIdempotencyKey } from '../../../shared/api/useIdempotencyKey';
 import type { ImportResult } from '../types';
 
-interface Props {
+interface Props<R extends ImportResult> {
   open: boolean;
   title: string;
   onDownloadTemplate(): Promise<void>;
-  onImport(file: File, idempotencyKey: string): Promise<ImportResult>;
-  onDone(): void;
+  onImport(file: File, idempotencyKey: string): Promise<R>;
+  onDone(result: R): void;
   onClose(): void;
+  /** Trường nhập thêm (ví dụ ngày chứng từ) hiển thị trước ô chọn file. */
+  children?: ReactNode;
+  successMessage?(result: R): string;
 }
 
 /**
  * Nhập danh mục từ Excel (BR-UX-05): tải mẫu, chọn file .xlsx, nhập. Server kiểm tra mọi dòng; có lỗi thì không ghi dòng
  * nào và trả lỗi theo dòng để hiển thị ở đây. Cùng một file trong một lần mở giữ cùng Idempotency-Key.
  */
-export function ImportModal({ open, title, onDownloadTemplate, onImport, onDone, onClose }: Props) {
+export function ImportModal<R extends ImportResult = ImportResult>({
+  open,
+  title,
+  onDownloadTemplate,
+  onImport,
+  onDone,
+  onClose,
+  children,
+  successMessage,
+}: Props<R>) {
   const { message } = App.useApp();
   const { key, renew } = useIdempotencyKey();
   const [file, setFile] = useState<File | null>(null);
@@ -41,8 +53,8 @@ export function ImportModal({ open, title, onDownloadTemplate, onImport, onDone,
     setError(null);
     try {
       const result = await onImport(file, key);
-      message.success(`Đã nhập ${result.created} dòng.`);
-      onDone();
+      message.success(successMessage ? successMessage(result) : `Đã nhập ${result.created} dòng.`);
+      onDone(result);
       onClose();
     } catch (err) {
       setError(toApiError(err));
@@ -71,6 +83,7 @@ export function ImportModal({ open, title, onDownloadTemplate, onImport, onDone,
         <Button icon={<DownloadOutlined />} onClick={() => onDownloadTemplate()}>
           Tải file mẫu
         </Button>
+        {children}
         <Upload
           accept=".xlsx"
           maxCount={1}

@@ -31,6 +31,8 @@ import { FinanceDocumentDrawer } from '../components/FinanceDocumentDrawer';
 import { FINANCE_STATUSES } from '../labels';
 import { useCashAccounts } from '../lookups';
 import type { CashAccount, CashCount, FinanceDocumentStatus } from '../types';
+import { BranchCol } from '../../../shared/components/BranchCol';
+import { BRANCH_VISIBLE } from '../../../shared/branch';
 
 interface CountForm {
   branchId: number;
@@ -91,7 +93,7 @@ export function CashCountsPage() {
           countedAmount: editing.countedAmount,
           description: editing.description ?? undefined,
         }
-      : { branchId: branches.items[0]?.id, documentDate: dayjs() };
+      : { branchId: branches.defaultId, documentDate: dayjs() };
 
   const columns: TableColumnsType<CashCount> = [
     {
@@ -156,7 +158,9 @@ export function CashCountsPage() {
           {(count) => (
             <Descriptions size="small" column={{ xs: 1, md: 2 }}>
               <Descriptions.Item label="Quỹ">{`${count.cashAccountCode ?? ''} - ${count.cashAccountName ?? ''}`}</Descriptions.Item>
-              <Descriptions.Item label="Chi nhánh">{branches.nameOf(count.branchId)}</Descriptions.Item>
+              {BRANCH_VISIBLE && (
+                <Descriptions.Item label="Chi nhánh">{branches.nameOf(count.branchId)}</Descriptions.Item>
+              )}
               <Descriptions.Item label="Ngày kiểm kê">{formatDate(count.documentDate)}</Descriptions.Item>
               <Descriptions.Item label="Ngày hạch toán">{formatDate(count.postingDate)}</Descriptions.Item>
               <Descriptions.Item label="Thực đếm">{formatMoney(count.countedAmount)}</Descriptions.Item>
@@ -219,11 +223,11 @@ function CountFields({
     .map((item) => ({ value: item.id, label: `${item.code} - ${item.name}` }));
   return (
     <Row gutter={12}>
-      <Col xs={24} md={12}>
+      <BranchCol xs={24} md={12}>
         <Form.Item name="branchId" label="Chi nhánh" rules={[{ required: true, message: 'Chọn chi nhánh' }]}>
           <Select disabled={!isNew} options={branchOptions} />
         </Form.Item>
-      </Col>
+      </BranchCol>
       <Col xs={24} md={12}>
         <Form.Item
           name="cashAccountId"

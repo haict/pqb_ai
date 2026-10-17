@@ -34,6 +34,7 @@ import type {
   WarehouseLocation,
   WarehouseType,
 } from '../types';
+import { BRANCH_VISIBLE, whenBranchVisible } from '../../../shared/branch';
 
 const WAREHOUSE_FIELDS = [
   'branchId',
@@ -209,7 +210,12 @@ export function WarehousesPage() {
   const columns: TableColumnsType<Warehouse> = [
     { title: 'Mã kho', dataIndex: 'code', sorter: true, width: 140 },
     { title: 'Tên kho', dataIndex: 'name', sorter: true },
-    { title: 'Chi nhánh', dataIndex: 'branchId', width: 200, render: (id: number) => branches.nameOf(id) },
+    ...whenBranchVisible({
+      title: 'Chi nhánh',
+      dataIndex: 'branchId',
+      width: 200,
+      render: (id: number) => branches.nameOf(id),
+    }),
     {
       title: 'Loại',
       width: 200,
@@ -284,7 +290,11 @@ export function WarehousesPage() {
       <FormModal<Partial<Warehouse>>
         open={editing !== null}
         title={editing === 'new' ? 'Thêm kho' : 'Sửa kho'}
-        initialValues={editing && editing !== 'new' ? formValues(editing) : { warehouseType: 'NORMAL' }}
+        initialValues={
+          editing && editing !== 'new'
+            ? formValues(editing)
+            : { branchId: branches.defaultId, warehouseType: 'NORMAL' }
+        }
         fieldNames={WAREHOUSE_FIELDS}
         onSubmit={save}
         onClose={() => setEditing(null)}
@@ -295,6 +305,7 @@ export function WarehousesPage() {
               name="branchId"
               label="Chi nhánh"
               rules={[{ required: true, message: 'Chọn chi nhánh' }]}
+              hidden={!BRANCH_VISIBLE}
             >
               <Select options={branches.options} disabled={editing !== 'new'} />
             </Form.Item>
