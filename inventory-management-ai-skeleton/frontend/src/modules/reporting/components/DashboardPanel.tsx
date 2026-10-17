@@ -90,7 +90,7 @@ function MetricCard({
   onOpen: () => void;
 }) {
   return (
-    <Card size="small" hoverable onClick={onOpen} style={{ height: '100%' }}>
+    <Card size="small" hoverable onClick={onOpen} className="app-metric-card" style={{ height: '100%' }}>
       <Statistic title={title} value={value} />
       {extra && <Typography.Text type="secondary">{extra}</Typography.Text>}
     </Card>

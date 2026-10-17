@@ -5,7 +5,9 @@ import static com.company.erp.support.ApiTestSupport.newKey;
 import static com.company.erp.support.ApiTestSupport.unique;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.hasItems;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -13,14 +15,19 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.company.erp.common.application.IdempotentCommand;
 import com.company.erp.support.ApiTestSupport.Session;
 import com.company.erp.support.MySqlIntegrationTest;
+import java.io.ByteArrayOutputStream;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.ResultActions;
@@ -244,6 +251,61 @@ class SalesOrderIntegrationTest extends SalesIntegrationSupport {
         assertThat(lotOnHand(expiring)).isEqualByComparingTo("2");
         assertThat(jdbc.queryForObject("SELECT status FROM sales_orders WHERE id = ?", String.class, blocked))
                 .isEqualTo("APPROVED");
+    }
+
+    @Test
+    @DisplayName("BR-SAL-01, BR-UX-05: đọc dòng hàng đơn bán từ Excel để điền form; giá / lô trống giữ trống; không lưu")
+    void importLines() throws Exception {
+        mockMvc.perform(as(seller, get(ORDERS + "/line-import-template"))).andExpect(status().isOk());
+        long tube = product("VT_ONG_01");
+        long vat = jdbc.queryForObject("SELECT id FROM tax_rates WHERE company_id = 1 AND code = 'VAT10'", Long.class);
+        long ordersBefore = jdbc.queryForObject("SELECT COUNT(*) FROM sales_orders", Long.class);
+
+        importLines(workbookOf(List.of(
+                new String[] {"VT_ONG_01", "", "0"},
+                new String[] {"KHONG_CO_MA", "", "1"},
+                new String[] {"VT_ONG_01", "", "1", "", "", "", "X_SAI"})))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[*].field").value(
+                        hasItems("rows[2].quantity", "rows[3].productId", "rows[4].promotional")));
+
+        importLines(workbookOf(List.of(
+                new String[] {"vt_ong_01", "HOP", "2", "", "", "", "", "20/10/2026"},
+                new String[] {"VT_ONG_01", "", "1", "150000", "10", "VAT10", "C", "", "LO-CHI-DINH", "Khách yêu cầu"})))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.created").value(2))
+                .andExpect(jsonPath("$.data.lines[0].productId").value(tube))
+                .andExpect(jsonPath("$.data.lines[0].unitId").value(unit("HOP")))
+                .andExpect(jsonPath("$.data.lines[0].unitPrice").doesNotExist())
+                .andExpect(jsonPath("$.data.lines[0].lotNo").doesNotExist())
+                .andExpect(jsonPath("$.data.lines[0].expectedDate").value("2026-10-20"))
+                .andExpect(jsonPath("$.data.lines[1].unitPrice").value(150000))
+                .andExpect(jsonPath("$.data.lines[1].taxRateId").value(vat))
+                .andExpect(jsonPath("$.data.lines[1].promotional").value(true))
+                .andExpect(jsonPath("$.data.lines[1].lotNo").value("LO-CHI-DINH"))
+                .andExpect(jsonPath("$.data.lines[1].lotOverrideReason").value("Khách yêu cầu"));
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM sales_orders", Long.class)).isEqualTo(ordersBefore);
+    }
+
+    private ResultActions importLines(byte[] content) throws Exception {
+        return mockMvc.perform(as(seller, multipart(ORDERS + "/line-import")
+                        .file(new MockMultipartFile("file", "dong-don-ban.xlsx", "application/octet-stream", content)))
+                .param("companyId", "1").param("documentDate", DATE));
+    }
+
+    private static byte[] workbookOf(List<String[]> rows) throws Exception {
+        try (XSSFWorkbook workbook = new XSSFWorkbook(); ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+            Sheet sheet = workbook.createSheet("Dong don ban");
+            sheet.createRow(0).createCell(0).setCellValue("Mã hàng*");
+            for (int r = 0; r < rows.size(); r++) {
+                Row row = sheet.createRow(r + 1);
+                for (int c = 0; c < rows.get(r).length; c++) {
+                    row.createCell(c).setCellValue(rows.get(r)[c]);
+                }
+            }
+            workbook.write(output);
+            return output.toByteArray();
+        }
     }
 
     private ResultActions postOrder(long order, String key) throws Exception {

@@ -276,3 +276,26 @@ export interface PurchaseLedgerParams {
   productIds?: number[];
   supplierIds?: number[];
 }
+
+/** Dòng hàng đọc từ Excel để điền form đơn mua (chưa lưu). */
+export interface ImportedOrderLine {
+  productId: number;
+  productCode: string;
+  productName: string;
+  serviceLine: boolean;
+  unitId: number;
+  quantity: number;
+  unitPrice: number;
+  discountPercent: number | null;
+  taxRateId: number | null;
+  lotNo: string | null;
+  manufactureDate: string | null;
+  expiryDate: string | null;
+  serialNumbers: string[];
+  note: string | null;
+}
+
+export interface OrderLineImportResult {
+  created: number;
+  lines: ImportedOrderLine[];
+}

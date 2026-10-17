@@ -21,20 +21,14 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Set;
-import java.util.TreeMap;
-import java.util.TreeSet;
-import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.apache.poi.ss.usermodel.Row;
-import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -129,16 +123,7 @@ public class OpeningStockImportService {
 
     private List<ParsedLine> parse(Long companyId, MultipartFile file) {
         try (Workbook workbook = ExcelSupport.open(file)) {
-            Sheet sheet = workbook.getSheetAt(0);
-            ExcelSupport.requireRowCount(sheet);
-            List<Row> rows = new ArrayList<>();
-            for (int r = 1; r <= sheet.getLastRowNum(); r++) {
-                Row row = sheet.getRow(r);
-                if (!ExcelSupport.isBlankRow(row, HEADERS.size())) {
-                    rows.add(row);
-                }
-            }
-            ExcelSupport.requireNotEmpty(rows.isEmpty());
+            List<Row> rows = ExcelSupport.dataRows(workbook.getSheetAt(0), HEADERS.size());
             Lookups lookups = lookups(companyId, rows);
             RowErrors errors = new RowErrors();
             List<ParsedLine> parsed = new ArrayList<>();
@@ -158,21 +143,12 @@ public class OpeningStockImportService {
 
     private Lookups lookups(Long companyId, List<Row> rows) {
         return new Lookups(
-                byCode(masterData.warehousesByCodes(companyId, codes(rows, WAREHOUSE)), WarehouseInfo::code),
-                byCode(masterData.productsByCodes(companyId, codes(rows, PRODUCT)), ProductInfo::code),
-                byCode(masterData.unitsByCodes(companyId, codes(rows, UNIT)), UnitInfo::code));
-    }
-
-    private static Set<String> codes(List<Row> rows, int column) {
-        return rows.stream().map(row -> ExcelSupport.text(row, column)).filter(code -> !code.isEmpty())
-                .collect(Collectors.toCollection(() -> new TreeSet<>(String.CASE_INSENSITIVE_ORDER)));
-    }
-
-    /** Mã danh mục so khớp không phân biệt hoa thường (cùng collation của database). */
-    private static <T> Map<String, T> byCode(List<T> items, Function<T, String> code) {
-        Map<String, T> map = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
-        items.forEach(item -> map.put(code.apply(item), item));
-        return map;
+                ExcelSupport.byCode(masterData.warehousesByCodes(companyId, ExcelSupport.codes(rows, WAREHOUSE)),
+                        WarehouseInfo::code),
+                ExcelSupport.byCode(masterData.productsByCodes(companyId, ExcelSupport.codes(rows, PRODUCT)),
+                        ProductInfo::code),
+                ExcelSupport.byCode(masterData.unitsByCodes(companyId, ExcelSupport.codes(rows, UNIT)),
+                        UnitInfo::code));
     }
 
     private static ParsedLine parseRow(Row row, Lookups lookups, RowErrors errors) {
@@ -254,10 +230,7 @@ public class OpeningStockImportService {
     }
 
     private static List<String> serials(String text) {
-        if (text.isEmpty()) {
-            return null;
-        }
-        return Arrays.stream(text.split("[,;\\n]")).map(String::trim).filter(serial -> !serial.isEmpty()).toList();
+        return text.isEmpty() ? null : ExcelSupport.serials(text);
     }
 
     /**

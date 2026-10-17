@@ -85,7 +85,7 @@ export function NotificationBell() {
   return (
     <Popover content={content} trigger="click" open={open} onOpenChange={setOpen} placement="bottomRight">
       <Badge count={unread.data ?? 0} size="small">
-        <Button type="text" aria-label="Thông báo" icon={<BellOutlined />} />
+        <Button className="app-header-icon" aria-label="Thông báo" icon={<BellOutlined />} />
       </Badge>
     </Popover>
   );

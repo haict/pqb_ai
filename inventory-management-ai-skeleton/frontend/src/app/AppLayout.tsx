@@ -30,6 +30,11 @@ export function AppLayout() {
 
   const groups = visibleNavGroups(can);
   const activeGroup = groups.find((group) => group.items.some((item) => item.path === location.pathname));
+  // Trang chi tiết (ví dụ /inventory/documents/12) thuộc mục menu có đường dẫn là tiền tố.
+  const current = groups
+    .flatMap((group) => group.items.map((item) => ({ group, item })))
+    .filter(({ item }) => location.pathname === item.path || location.pathname.startsWith(`${item.path}/`))
+    .sort((a, b) => b.item.path.length - a.item.path.length)[0];
   const menuItems: MenuProps['items'] = [
     { key: '/', icon: <HomeOutlined />, label: 'Trang chủ' },
     ...groups.map((group) => ({
@@ -69,6 +74,7 @@ export function AppLayout() {
         onCollapse={setCollapsed}
         collapsedWidth={64}
         width={248}
+        className="app-sider"
         style={{
           position: 'sticky',
           top: 0,
@@ -79,21 +85,23 @@ export function AppLayout() {
       >
         <div
           style={{
-            height: 56,
-            padding: collapsed ? '0 15px' : '0 16px',
+            height: 64,
+            padding: collapsed ? '0 15px' : '0 20px',
             display: 'flex',
             alignItems: 'center',
+            borderBottom: `1px solid ${BRAND.border}`,
           }}
         >
           <BrandLogo compact={collapsed} />
         </div>
+        {!collapsed && <div className="app-sider-label">Menu chính</div>}
         <Menu
           mode="inline"
           selectedKeys={[location.pathname]}
           defaultOpenKeys={activeGroup ? [activeGroup.key] : []}
           items={menuItems}
           onClick={({ key }) => navigate(key)}
-          style={{ borderInlineEnd: 'none', padding: '0 4px 8px' }}
+          style={{ borderInlineEnd: 'none', paddingBottom: 8, marginTop: collapsed ? 8 : 0 }}
         />
       </Sider>
       <Layout>
@@ -108,42 +116,71 @@ export function AppLayout() {
             gap: 12,
             flexWrap: 'wrap',
             borderBottom: `1px solid ${BRAND.border}`,
-            boxShadow: '0 1px 4px rgba(15, 60, 70, 0.06)',
           }}
         >
-          <Space size="small" wrap style={BRANCH_VISIBLE ? undefined : { visibility: 'hidden' }}>
-            <ApartmentOutlined style={{ color: BRAND.primary }} />
-            <Typography.Text type="secondary">Chi nhánh làm việc:</Typography.Text>
-            <Select
-              aria-label="Chi nhánh làm việc"
-              value={workingBranchId ?? undefined}
-              onChange={selectWorkingBranch}
-              style={{ minWidth: 220 }}
-              options={(user?.branches ?? []).map((branch) => ({
-                value: branch.id,
-                label: `${branch.code} - ${branch.name}`,
-              }))}
-              notFoundContent="Chưa được gán chi nhánh"
-            />
+          <Space size="middle" wrap>
+            <div style={{ lineHeight: 1.25 }}>
+              {current && (
+                <Typography.Text type="secondary" style={{ display: 'block', fontSize: 12 }}>
+                  {current.group.label}
+                </Typography.Text>
+              )}
+              <Typography.Text strong style={{ fontSize: current ? 18 : 20, color: BRAND.text }}>
+                {current ? current.item.label : 'Trang chủ'}
+              </Typography.Text>
+            </div>
+            {BRANCH_VISIBLE && (
+              <Space size="small">
+                <ApartmentOutlined style={{ color: BRAND.primary }} />
+                <Select
+                  aria-label="Chi nhánh làm việc"
+                  value={workingBranchId ?? undefined}
+                  onChange={selectWorkingBranch}
+                  style={{ minWidth: 220 }}
+                  options={(user?.branches ?? []).map((branch) => ({
+                    value: branch.id,
+                    label: `${branch.code} - ${branch.name}`,
+                  }))}
+                  notFoundContent="Chưa được gán chi nhánh"
+                />
+              </Space>
+            )}
           </Space>
-          <Space size="large" wrap>
-            <ServerStatusBadge />
+          <Space size="middle" wrap>
+            <span className="app-status-pill">
+              <ServerStatusBadge />
+            </span>
             <NotificationBell />
+            <span style={{ width: 1, height: 28, background: BRAND.border }} />
             <Dropdown menu={{ items: userMenu, onClick: onUserMenu }} trigger={['click']}>
-              <Button type="text" style={{ height: 40 }}>
-                <Space size={8}>
-                  <Avatar size="small" icon={<UserOutlined />} style={{ background: BRAND.primary }} />
-                  {user?.fullName}
-                  <DownOutlined style={{ fontSize: 10 }} />
+              <Button type="text" style={{ height: 48, padding: '0 8px' }}>
+                <Space size={10}>
+                  <Avatar style={{ background: BRAND.gradient, fontWeight: 600 }}>
+                    {initials(user?.fullName) || <UserOutlined />}
+                  </Avatar>
+                  <span style={{ textAlign: 'left', lineHeight: 1.25 }}>
+                    <span style={{ display: 'block', fontWeight: 600 }}>{user?.fullName}</span>
+                    <span style={{ display: 'block', fontSize: 12, color: BRAND.muted }}>
+                      {user?.username}
+                    </span>
+                  </span>
+                  <DownOutlined style={{ fontSize: 10, color: BRAND.muted }} />
                 </Space>
               </Button>
             </Dropdown>
           </Space>
         </Header>
-        <Content style={{ padding: 20 }}>
+        <Content style={{ padding: 24 }}>
           <Outlet />
         </Content>
       </Layout>
     </Layout>
   );
+}
+
+/** Chữ cái đầu của họ tên (tối đa 2 ký tự) cho ảnh đại diện. */
+function initials(fullName: string | undefined): string {
+  const words = (fullName ?? '').trim().split(/\s+/).filter(Boolean);
+  const picked = words.length > 1 ? [words[0], words[words.length - 1]] : words;
+  return picked.map((word) => word?.charAt(0).toUpperCase() ?? '').join('');
 }

@@ -5,8 +5,133 @@ body,
   min-height: 100%;
 }
 
+/* Màu dùng chung với app/theme.ts (BRAND). */
+:root {
+  --app-primary: #0d9488;
+  --app-primary-dark: #0f766e;
+  --app-primary-soft: #e6f6f4;
+  --app-gradient: linear-gradient(135deg, #14b8a6 0%, #0f766e 100%);
+  --app-border: #e8edf2;
+  --app-muted: #6b7280;
+  --app-shadow-card: 0 1px 2px rgba(16, 24, 40, 0.04), 0 1px 3px rgba(16, 24, 40, 0.06);
+  --app-shadow-hover: 0 8px 24px rgba(16, 24, 40, 0.08);
+}
+
 body {
-  background: #f4f7f9;
+  background: #f5f7fa;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---- Menu trái: mục đang chọn dạng viên thuốc màu gradient. ---- */
+.app-sider .ant-menu-light .ant-menu-item-selected {
+  background: var(--app-gradient);
+  color: #fff;
+  box-shadow: 0 6px 14px rgba(13, 148, 136, 0.28);
+}
+.app-sider .ant-menu-light .ant-menu-item-selected .anticon {
+  color: #fff;
+}
+.app-sider .ant-menu-light .ant-menu-submenu-selected > .ant-menu-submenu-title {
+  color: var(--app-primary-dark);
+  font-weight: 600;
+}
+.app-sider .ant-menu-light .ant-menu-sub.ant-menu-inline {
+  background: transparent;
+}
+.app-sider-label {
+  padding: 8px 24px 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: #9ca3af;
+  text-transform: uppercase;
+}
+
+/* ---- Thanh tiêu đề: nút biểu tượng vuông bo góc có viền. ---- */
+.app-header-icon.ant-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  border: 1px solid var(--app-border);
+  background: #fff;
+  color: #4b5563;
+}
+.app-header-icon.ant-btn:hover {
+  border-color: var(--app-primary);
+  color: var(--app-primary);
+}
+.app-status-pill {
+  display: inline-flex;
+  align-items: center;
+  height: 38px;
+  padding: 0 12px;
+  border: 1px solid var(--app-border);
+  border-radius: 10px;
+  background: #fff;
+}
+
+/* ---- Nút: nút chính gradient, nút phụ viền nhạt. ---- */
+.ant-btn-primary:not(.ant-btn-dangerous):not(:disabled):not(.ant-btn-background-ghost) {
+  background: var(--app-gradient);
+  border: none;
+}
+.ant-btn-primary:not(.ant-btn-dangerous):not(:disabled):not(.ant-btn-background-ghost):hover {
+  background: linear-gradient(135deg, #2dd4bf 0%, #0d9488 100%);
+}
+.ant-btn-default:not(:disabled):hover {
+  background: #f8fafc;
+}
+
+/* ---- Thẻ: viền mảnh, bóng mềm, nổi lên khi rê chuột nếu bấm được. ---- */
+.ant-card {
+  border: 1px solid var(--app-border);
+  box-shadow: var(--app-shadow-card);
+}
+.ant-card.ant-card-hoverable:hover {
+  box-shadow: var(--app-shadow-hover);
+  transform: translateY(-1px);
+}
+.ant-card .ant-card-head {
+  border-bottom-color: var(--app-border);
+}
+.ant-card-body > h4.ant-typography:first-child {
+  margin-top: 0;
+  font-weight: 650;
+}
+/* Thẻ chỉ tiêu dashboard: vạch màu trên cùng, luân phiên màu như bảng điều khiển. */
+.app-metric-card {
+  border-top: 3px solid #3b82f6;
+}
+.ant-col:nth-child(4n + 2) > .app-metric-card {
+  border-top-color: var(--app-primary);
+}
+.ant-col:nth-child(4n + 3) > .app-metric-card {
+  border-top-color: #22c55e;
+}
+.ant-col:nth-child(4n + 4) > .app-metric-card {
+  border-top-color: #f59e0b;
+}
+.ant-statistic .ant-statistic-title {
+  font-size: 13px;
+  color: var(--app-muted);
+}
+.ant-statistic .ant-statistic-content {
+  font-weight: 700;
+}
+
+/* ---- Bảng: tiêu đề chữ đậm nhỏ, góc bo theo thẻ. ---- */
+.ant-table-wrapper .ant-table-thead > tr > th {
+  font-size: 13px;
+  font-weight: 600;
+}
+.ant-table-wrapper .ant-table {
+  border-radius: 10px;
+}
+
+/* ---- Ô nhập trên thanh công cụ danh sách nền xám nhạt như ô tìm kiếm. ---- */
+.ant-input-search .ant-input-affix-wrapper,
+.ant-input-search .ant-input {
+  background: #f8fafc;
 }
 
 /* Thanh cuộn mảnh cho menu trái và bảng. */

@@ -383,3 +383,26 @@ export interface SalesLedgerParams {
   customerIds?: number[];
   groupBy: SalesLedgerGrouping;
 }
+
+/** Dòng hàng đọc từ Excel để điền form đơn bán (chưa lưu); giá, chiết khấu, lô trống: server xử lý khi lưu / ghi sổ. */
+export interface ImportedSalesLine {
+  productId: number;
+  productCode: string;
+  productName: string;
+  unitId: number;
+  quantity: number;
+  unitPrice: number | null;
+  discountPercent: number | null;
+  taxRateId: number | null;
+  promotional: boolean;
+  expectedDate: string | null;
+  lotNo: string | null;
+  lotOverrideReason: string | null;
+  serialNumbers: string[];
+  description: string | null;
+}
+
+export interface SalesLineImportResult {
+  created: number;
+  lines: ImportedSalesLine[];
+}

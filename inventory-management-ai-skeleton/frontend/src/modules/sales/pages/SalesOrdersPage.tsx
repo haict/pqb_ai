@@ -52,6 +52,7 @@ import type {
   SalesOrder,
 } from '../types';
 import { BranchCol } from '../../../shared/components/BranchCol';
+import { SalesLineImportButton } from '../components/SalesLineImportButton';
 
 interface TermForm {
   percent?: number;
@@ -556,6 +557,7 @@ function OrderFields({
           </Form.Item>
         </Col>
       </Row>
+      <SalesLineImportButton form={form} />
       <SalesLinesEditor form={form} withExpectedDate />
       <Typography.Title level={5} style={{ marginTop: 16 }}>
         Lịch thu tiền (tùy chọn, tổng 100%)

@@ -8,25 +8,32 @@ export function BrandLogo({ compact = false, inverse = false }: { compact?: bool
       <span
         style={{
           flex: 'none',
-          width: 34,
-          height: 34,
-          borderRadius: 8,
+          width: 36,
+          height: 36,
+          borderRadius: 10,
           display: 'grid',
           placeItems: 'center',
-          fontSize: 18,
+          fontSize: 19,
           color: inverse ? BRAND.primary : '#fff',
-          background: inverse ? '#fff' : `linear-gradient(135deg, ${BRAND.primary}, ${BRAND.primaryDark})`,
+          background: inverse ? '#fff' : BRAND.gradient,
+          boxShadow: inverse ? undefined : '0 4px 10px rgba(13, 148, 136, 0.3)',
         }}
       >
         <MedicineBoxOutlined />
       </span>
       {!compact && (
         <span style={{ lineHeight: 1.2 }}>
-          <span style={{ display: 'block', fontWeight: 700, color: inverse ? '#fff' : BRAND.primaryDark }}>
+          <span
+            style={{ display: 'block', fontWeight: 700, fontSize: 15, color: inverse ? '#fff' : BRAND.text }}
+          >
             ERP Y tế
           </span>
           <span
-            style={{ display: 'block', fontSize: 12, color: inverse ? 'rgba(255,255,255,0.85)' : '#6b7c85' }}
+            style={{
+              display: 'block',
+              fontSize: 12,
+              color: inverse ? 'rgba(255,255,255,0.85)' : BRAND.muted,
+            }}
           >
             Thiết bị - Vật tư y tế
           </span>

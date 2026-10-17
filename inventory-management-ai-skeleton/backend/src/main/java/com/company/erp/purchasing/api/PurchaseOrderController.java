@@ -3,11 +3,13 @@ package com.company.erp.purchasing.api;
 import com.company.erp.common.api.ApiResponse;
 import com.company.erp.common.api.PageResponse;
 import com.company.erp.common.application.IdempotentCommand;
+import com.company.erp.purchasing.application.PurchaseOrderLineImportService;
 import com.company.erp.purchasing.application.PurchaseOrderPostingService;
 import com.company.erp.purchasing.application.PurchaseOrderService;
 import com.company.erp.purchasing.application.PurchaseOrderSlipService;
 import com.company.erp.purchasing.application.dto.CommentRequest;
 import com.company.erp.purchasing.application.dto.PrintCompanyResponse;
+import com.company.erp.purchasing.application.dto.PurchaseOrderLineImportResponse;
 import com.company.erp.purchasing.application.dto.PurchaseOrderRequest;
 import com.company.erp.purchasing.application.dto.PurchaseOrderResponse;
 import com.company.erp.purchasing.application.dto.StockInSlipResponse;
@@ -22,7 +24,11 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.function.Function;
 import org.springframework.data.domain.Pageable;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -33,8 +39,10 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 /**
  * Đơn mua hàng (DMH, BR-PUR-04, D-54): chứng từ ghi sổ duy nhất của nghiệp vụ mua, mang hóa đơn của nhà cung cấp; duyệt
@@ -45,15 +53,20 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/purchase-orders")
 public class PurchaseOrderController {
 
+    private static final MediaType XLSX =
+            MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+
     private final PurchaseOrderService service;
     private final PurchaseOrderPostingService posting;
     private final PurchaseOrderSlipService slips;
+    private final PurchaseOrderLineImportService lineImport;
 
     public PurchaseOrderController(PurchaseOrderService service, PurchaseOrderPostingService posting,
-                                   PurchaseOrderSlipService slips) {
+                                   PurchaseOrderSlipService slips, PurchaseOrderLineImportService lineImport) {
         this.service = service;
         this.posting = posting;
         this.slips = slips;
+        this.lineImport = lineImport;
     }
 
     @GetMapping
@@ -92,6 +105,28 @@ public class PurchaseOrderController {
     @PreAuthorize("hasAuthority('purchase-order:view')")
     public ApiResponse<List<PrintCompanyResponse>> printCompanies(@AuthenticationPrincipal CurrentUser user) {
         return ApiResponse.ok(slips.printCompanies(user));
+    }
+
+    @Operation(summary = "Tải file mẫu nhập dòng hàng đơn mua (.xlsx)")
+    @GetMapping("/line-import-template")
+    @PreAuthorize("hasAuthority('purchase-order:create')")
+    public ResponseEntity<byte[]> lineImportTemplate() {
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"mau-dong-don-mua.xlsx\"")
+                .contentType(XLSX)
+                .body(lineImport.template());
+    }
+
+    @Operation(summary = "Đọc dòng hàng đơn mua từ Excel",
+            description = "Chỉ đọc và kiểm tra file, trả dòng để điền vào form; không lưu nên không cần Idempotency-Key. "
+                    + "Có lỗi thì trả 400 kèm lỗi theo dòng (rows[n].cột).")
+    @PostMapping(value = "/line-import", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasAuthority('purchase-order:create')")
+    public ApiResponse<PurchaseOrderLineImportResponse> importLines(@AuthenticationPrincipal CurrentUser user,
+            @RequestParam Long companyId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate documentDate,
+            @RequestPart("file") MultipartFile file) {
+        return ApiResponse.ok(lineImport.parse(user, companyId, documentDate, file));
     }
 
     @Operation(summary = "Lập chứng từ", description = "Bắt buộc Idempotency-Key.")

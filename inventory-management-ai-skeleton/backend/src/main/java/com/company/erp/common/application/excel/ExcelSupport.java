@@ -11,10 +11,17 @@ import java.security.NoSuchAlgorithmException;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
+import java.util.TreeSet;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellStyle;
 import org.apache.poi.ss.usermodel.CellType;
@@ -119,6 +126,38 @@ public final class ExcelSupport {
     public static String leadingCode(String value) {
         int end = value.indexOf('(');
         return (end < 0 ? value : value.substring(0, end)).trim();
+    }
+
+    /** Mã (không trống) của một cột trên các dòng, không phân biệt hoa thường (cùng collation của database). */
+    public static Set<String> codes(List<Row> rows, int column) {
+        return rows.stream().map(row -> text(row, column)).filter(code -> !code.isEmpty())
+                .collect(Collectors.toCollection(() -> new TreeSet<>(String.CASE_INSENSITIVE_ORDER)));
+    }
+
+    /** Bảng tra danh mục theo mã, không phân biệt hoa thường. */
+    public static <T> Map<String, T> byCode(List<T> items, Function<T, String> code) {
+        Map<String, T> map = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
+        items.forEach(item -> map.put(code.apply(item), item));
+        return map;
+    }
+
+    /** Các dòng dữ liệu không trống của sheet (bỏ dòng tiêu đề); không có dòng nào thì báo lỗi trên trường file. */
+    public static List<Row> dataRows(Sheet sheet, int columns) {
+        requireRowCount(sheet);
+        List<Row> rows = new ArrayList<>();
+        for (int r = 1; r <= sheet.getLastRowNum(); r++) {
+            Row row = sheet.getRow(r);
+            if (!isBlankRow(row, columns)) {
+                rows.add(row);
+            }
+        }
+        requireNotEmpty(rows.isEmpty());
+        return rows;
+    }
+
+    /** Danh sách serial trong một ô, phân tách bằng dấu phẩy, chấm phẩy hoặc xuống dòng. */
+    public static List<String> serials(String text) {
+        return Arrays.stream(text.split("[,;\\n]")).map(String::trim).filter(serial -> !serial.isEmpty()).toList();
     }
 
     public static boolean isBlankRow(Row row, int columns) {

@@ -8,6 +8,7 @@ import com.company.erp.masterdata.domain.PartnerRole;
 import com.company.erp.masterdata.domain.Product;
 import com.company.erp.masterdata.domain.ProductType;
 import com.company.erp.masterdata.domain.ReferenceCategory;
+import com.company.erp.masterdata.domain.TaxRate;
 import com.company.erp.masterdata.domain.VirtualWarehouseKind;
 import com.company.erp.masterdata.domain.Warehouse;
 import com.company.erp.masterdata.domain.WarehouseLocation;
@@ -306,9 +307,18 @@ public class MasterDataQueryService {
 
     @Transactional(readOnly = true)
     public Optional<TaxRateInfo> taxRate(Long id) {
-        return taxRateRepository.findById(id).map(rate -> new TaxRateInfo(rate.getId(), rate.getCompanyId(),
-                rate.getCode(), rate.getName(), rate.getRate(), rate.getValidFrom(), rate.getValidTo(),
-                rate.isActive()));
+        return taxRateRepository.findById(id).map(MasterDataQueryService::toInfo);
+    }
+
+    @Transactional(readOnly = true)
+    public List<TaxRateInfo> taxRatesByCodes(Long companyId, Collection<String> codes) {
+        return codes.isEmpty() ? List.of() : taxRateRepository.findByCompanyIdAndCodeIn(companyId, codes).stream()
+                .map(MasterDataQueryService::toInfo).toList();
+    }
+
+    private static TaxRateInfo toInfo(TaxRate rate) {
+        return new TaxRateInfo(rate.getId(), rate.getCompanyId(), rate.getCode(), rate.getName(), rate.getRate(),
+                rate.getValidFrom(), rate.getValidTo(), rate.isActive());
     }
 
     private static ProductInfo toInfo(Product product) {

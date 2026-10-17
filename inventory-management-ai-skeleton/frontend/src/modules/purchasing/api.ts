@@ -1,8 +1,17 @@
-import { getOne, getPage, idList, postWithKey, putJson } from '../../shared/api/rest';
+import {
+  downloadFile,
+  getOne,
+  getPage,
+  idList,
+  postWithKey,
+  putJson,
+  uploadFile,
+} from '../../shared/api/rest';
 import type { ListParams } from '../../shared/api/useServerTable';
 import type { PrintCompany } from '../../shared/components/CompanyPrintButton';
 import type {
   CostAllocationSource,
+  OrderLineImportResult,
   PurchaseCostAllocation,
   PurchaseLedger,
   PurchaseLedgerParams,
@@ -30,6 +39,10 @@ export const purchaseOrderApi = {
   stockInSlip: (id: number, companyId?: number) =>
     getOne<StockInSlip>(`/purchase-orders/${id}/stock-in-slip`, { companyId }),
   printCompanies: () => getOne<PrintCompany[]>('/purchase-orders/print-companies'),
+  downloadLineTemplate: () => downloadFile('/purchase-orders/line-import-template', 'mau-dong-don-mua.xlsx'),
+  /** Chỉ đọc file, trả dòng để điền form; không lưu đơn (server không cần Idempotency-Key, gửi kèm vô hại). */
+  importLines: (file: File, companyId: number, documentDate: string | undefined, key: string) =>
+    uploadFile<OrderLineImportResult>('/purchase-orders/line-import', file, { companyId, documentDate }, key),
 };
 
 export const purchaseReturnApi = {

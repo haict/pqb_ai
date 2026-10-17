@@ -1,4 +1,4 @@
-import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
+import { DeleteOutlined, PlusOutlined, UploadOutlined } from '@ant-design/icons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   App,
@@ -40,9 +40,16 @@ import { CompanyPrintButton } from '../../../shared/components/CompanyPrintButto
 import { SourceJournal } from '../components/SourceJournal';
 import { useProductUnits } from '../components/productUnits';
 import { PURCHASE_STATUSES } from '../labels';
-import type { PurchaseDocumentStatus, PurchaseOrder, PurchaseOrderLine } from '../types';
+import type {
+  ImportedOrderLine,
+  OrderLineImportResult,
+  PurchaseDocumentStatus,
+  PurchaseOrder,
+  PurchaseOrderLine,
+} from '../types';
 import { BranchCol } from '../../../shared/components/BranchCol';
 import { BRANCH_VISIBLE } from '../../../shared/branch';
+import { ImportModal } from '../../masterdata/components/ImportModal';
 
 interface LineForm {
   productId?: number;
@@ -390,8 +397,18 @@ function OrderFields({
   branchOptions: { value: number; label: string }[];
 }) {
   const warehouses = useWarehouses();
+  const companyId = useCompanyId();
+  const [importing, setImporting] = useState(false);
   const branchId = Form.useWatch('branchId', form) as number | undefined;
   const supplierId = Form.useWatch('supplierId', form) as number | undefined;
+  const documentDate = Form.useWatch('documentDate', form) as Dayjs | undefined;
+  // Dòng nhập từ Excel nối sau các dòng đã chọn hàng; dòng trống bị bỏ.
+  const fillLines = (result: OrderLineImportResult) => {
+    const kept = ((form.getFieldValue('lines') as LineForm[] | undefined) ?? []).filter(
+      (line) => line.productId,
+    );
+    form.setFieldValue('lines', [...kept, ...result.lines.map(toLineForm)]);
+  };
   // MST, địa chỉ người bán luôn theo danh mục nhà cung cấp, chỉ hiển thị
   const supplier = useQuery({
     queryKey: ['partners', supplierId],
@@ -491,6 +508,22 @@ function OrderFields({
         Hóa đơn của nhà cung cấp không bắt buộc; nhập thì đủ ký hiệu, số, ngày. Hàng nhiều lô: mỗi lô một
         dòng.
       </Typography.Text>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', margin: '8px 0' }}>
+        <Button icon={<UploadOutlined />} onClick={() => setImporting(true)}>
+          Nhập dòng từ Excel
+        </Button>
+      </div>
+      <ImportModal<OrderLineImportResult>
+        open={importing}
+        title="Nhập dòng hàng đơn mua từ Excel"
+        onDownloadTemplate={purchaseOrderApi.downloadLineTemplate}
+        onImport={(file, key) =>
+          purchaseOrderApi.importLines(file, companyId, documentDate?.format('YYYY-MM-DD'), key)
+        }
+        successMessage={(result) => `Đã điền ${result.created} dòng vào đơn. Kiểm tra rồi bấm Lưu.`}
+        onDone={fillLines}
+        onClose={() => setImporting(false)}
+      />
       <Form.List name="lines">
         {(fields, { add, remove }) => (
           <>
@@ -643,4 +676,22 @@ function OrderLineFields({
       </Row>
     </Card>
   );
+}
+
+function toLineForm(line: ImportedOrderLine): LineForm {
+  return {
+    productId: line.productId,
+    productLabel: `${line.productCode} - ${line.productName}`,
+    serviceLine: line.serviceLine,
+    unitId: line.unitId,
+    quantity: line.quantity,
+    unitPrice: line.unitPrice,
+    discountPercent: line.discountPercent ?? undefined,
+    taxRateId: line.taxRateId ?? undefined,
+    lotNo: line.lotNo ?? undefined,
+    manufactureDate: line.manufactureDate ? dayjs(line.manufactureDate) : undefined,
+    expiryDate: line.expiryDate ? dayjs(line.expiryDate) : undefined,
+    serialNumbers: line.serialNumbers,
+    note: line.note ?? undefined,
+  };
 }
