@@ -16,6 +16,7 @@ import type {
   Department,
   DocumentNumberFormat,
   FiscalPeriod,
+  LicenseStatus,
   LoginLog,
   NumberResetCycle,
   PeriodLockResult,
@@ -199,6 +200,17 @@ export const fiscalPeriodApi = {
     create<PeriodLockResult>(`/fiscal-periods/${periodId}/lock`, input, key),
   unlock: (periodId: number, input: PeriodLockInput, key: string) =>
     create<PeriodLockResult>(`/fiscal-periods/${periodId}/unlock`, input, key),
+};
+
+export const LICENSE_QUERY_KEY = ['license'];
+
+/** Bản quyền phần mềm (D-59): trạng thái cho mọi người đã đăng nhập; nạp license cần quyền license:manage. */
+export const licenseApi = {
+  status: async (): Promise<LicenseStatus> => {
+    const response = await httpClient.get<ApiResponse<LicenseStatus>>('/license');
+    return response.data.data;
+  },
+  install: (license: string) => put<LicenseStatus>('/license', { license }),
 };
 
 export const parameterApi = {

@@ -168,6 +168,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { path: '/system/login-logs', label: 'Nhật ký đăng nhập', permission: 'login-log:view' },
       { path: '/system/fiscal-periods', label: 'Kỳ kế toán, kỳ kho', permission: 'period:view' },
       { path: '/system/parameters', label: 'Tham số hệ thống', permission: 'parameter:view' },
+      { path: '/system/license', label: 'Bản quyền phần mềm', permission: 'license:manage' },
       { path: '/system/document-number-formats', label: 'Số chứng từ', permission: 'document-number:view' },
       { path: '/system/document-types', label: 'Loại chứng từ', permission: 'approval-workflow:view' },
       { path: '/system/approval-workflows', label: 'Luồng duyệt', permission: 'approval-workflow:view' },

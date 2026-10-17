@@ -1,5 +1,6 @@
 package com.company.erp.system.infrastructure.security;
 
+import com.company.erp.system.application.LicenseService;
 import java.util.List;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -33,7 +34,8 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http,
                                                    SecurityProperties properties,
                                                    JsonSecurityErrorHandler errorHandler,
-                                                   ErpJwtAuthenticationConverter jwtConverter) throws Exception {
+                                                   ErpJwtAuthenticationConverter jwtConverter,
+                                                   LicenseService licenseService) throws Exception {
         http
                 // API stateless dùng Bearer token. Refresh token ở cookie SameSite=Strict, chỉ gửi tới /api/v1/auth.
                 .csrf(AbstractHttpConfigurer::disable)
@@ -50,6 +52,8 @@ public class SecurityConfig {
                         .authenticationEntryPoint(errorHandler)
                         .accessDeniedHandler(errorHandler))
                 .addFilterAfter(new PasswordChangeRequiredFilter(errorHandler), BearerTokenAuthenticationFilter.class)
+                .addFilterAfter(new LicenseWriteGuardFilter(licenseService, errorHandler),
+                        PasswordChangeRequiredFilter.class)
                 .authorizeHttpRequests(auth -> {
                     auth.requestMatchers("/actuator/health", "/actuator/health/**").permitAll();
                     auth.requestMatchers(HttpMethod.POST, PUBLIC_AUTH_PATHS).permitAll();

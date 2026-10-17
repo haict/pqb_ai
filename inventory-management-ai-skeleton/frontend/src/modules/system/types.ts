@@ -257,3 +257,22 @@ export interface AppNotification {
   createdAt: string;
   readAt: string | null;
 }
+
+/** Trạng thái bản quyền phần mềm (D-59); chỉ VALID, GRACE được ghi dữ liệu. */
+export type LicenseState =
+  'VALID' | 'GRACE' | 'EXPIRED' | 'MISSING' | 'INVALID' | 'CLOCK_TAMPERED' | 'COMPANY_NOT_LICENSED';
+
+export interface LicenseStatus {
+  state: LicenseState;
+  writable: boolean;
+  message: string;
+  licenseId: string | null;
+  customerName: string | null;
+  taxCodes: string[];
+  validTo: string | null;
+  graceUntil: string | null;
+  daysRemaining: number | null;
+  issuedAt: string | null;
+  installedAt: string | null;
+  unlicensedCompanies: string[];
+}

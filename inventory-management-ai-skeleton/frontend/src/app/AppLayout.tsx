@@ -18,6 +18,7 @@ import { visibleNavGroups } from './navigation';
 import { NotificationBell } from './NotificationBell';
 import { BRAND } from './theme';
 import { BRANCH_VISIBLE } from '../shared/branch';
+import { LicenseBanner } from './LicenseBanner';
 
 const { Header, Sider, Content } = Layout;
 
@@ -171,6 +172,7 @@ export function AppLayout() {
           </Space>
         </Header>
         <Content style={{ padding: 24 }}>
+          <LicenseBanner />
           <Outlet />
         </Content>
       </Layout>

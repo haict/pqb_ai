@@ -64,6 +64,7 @@ import { RequireAuth, RequirePermission } from '../shared/auth/RouteGuards';
 import { AppLayout } from './AppLayout';
 import { HomePage } from './pages/HomePage';
 import { NotFoundPage } from './pages/NotFoundPage';
+import { LicensePage } from '../modules/system/pages/LicensePage';
 
 registerInventoryDocumentRoutes();
 
@@ -199,6 +200,7 @@ export const router = createBrowserRouter([
       { path: 'system/login-logs', element: guarded('login-log:view', <LoginLogsPage />) },
       { path: 'system/fiscal-periods', element: guarded('period:view', <FiscalPeriodsPage />) },
       { path: 'system/parameters', element: guarded('parameter:view', <ParametersPage />) },
+      { path: 'system/license', element: guarded('license:manage', <LicensePage />) },
       {
         path: 'system/document-number-formats',
         element: guarded('document-number:view', <DocumentNumberFormatsPage />),

@@ -180,6 +180,7 @@ flowchart LR
 | Kỳ | `PeriodService` kiểm tra kỳ kho, kỳ kế toán |
 | Thời gian | `Clock` tiêm vào để test xác định |
 | File | `AttachmentService`: kiểm tra loại thật, giới hạn kích thước, lưu ngoài web root |
+| Bản quyền (D-59) | `LicenseService` (module `system`) đánh giá license ký số Ed25519 khi khởi động / mỗi giờ / khi nạp, giữ kết quả trong bộ nhớ; `LicenseWriteGuardFilter` (sau JWT filter) chặn request ghi của người đã đăng nhập khi license không hiệu lực, trả 403 `LICENSE_INACTIVE`; public key nhúng trong WAR, private key chỉ nhà cung cấp giữ |
 
 ## 9. Triển khai
 ### 9.1 Đóng gói

@@ -66,6 +66,11 @@ springdoc:
 erp:
   api:
     version: 0.1.0
+  license:
+    # Bản quyền phần mềm (D-59). File license nạp tự động khi khởi động nếu mới hơn license đang dùng (tùy chọn);
+    # ví dụ file:/opt/erp/license.lic. Không có cấu hình tắt kiểm tra license.
+    import-location: ${ERP_LICENSE_FILE:}
+    refresh-interval: PT1H
   calendar:
     # Múi giờ nghiệp vụ (D-15): xác định "hôm nay", ngày chứng từ, chu kỳ số chứng từ. Thời điểm vẫn lưu UTC.
     time-zone: Asia/Ho_Chi_Minh

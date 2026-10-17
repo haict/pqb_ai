@@ -68,6 +68,7 @@
 | `period:view` / `period:manage` | Xem kỳ và trạng thái khóa / tạo kỳ, khóa kỳ (1C) |
 | `period:unlock` | Mở lại kỳ đã khóa (BR-SYS-32) |
 | `parameter:view` / `parameter:update` | Tham số hệ thống (1C) |
+| `license:manage` | Xem chi tiết và nạp bản quyền phần mềm (D-59, V30); mặc định `SYSTEM_ADMIN`. Trạng thái bản quyền (banner) mọi người đã đăng nhập đều xem được |
 | `document-number:view` / `document-number:update` | Cấu hình số chứng từ (1C) |
 
 Module sau thêm quyền bằng migration của mình và gán cho vai trò mặc định tương ứng.

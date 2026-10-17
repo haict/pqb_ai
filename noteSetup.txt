@@ -1,0 +1,51 @@
+cd "C:\Program Files\MySQL\MySQL Server 8.4\bin";
+mysqldump -u root -p --single-transaction --routines --events --triggers inventory_db > "D:\setup\MySQL\erp_db_20261014.sql"
+mysqldump -u root -p --no-data --routines --events --triggers inventory_db > "D:\setup\MySQL\erp_db_nodata_20261014.sql"
+--backup
+mysql -u root -p erp < "D:\setup\MySQL\erp_db_20261014.sql"
+
+mysql -u root -p erp < "D:\setup\MySQL\erp_db_nodata_20261014.sql"
+
+CREATE DATABASE erp CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
+CREATE USER 'erp_app'@'%' IDENTIFIED BY 'erp_app';
+GRANT ALL PRIVILEGES ON erp.* TO 'erp_app'@'%';
+
+
+D:\erp\config\application-prod.yml
+
+-Dspring.profiles.active=prod
+-DERP_CONFIG_FILE=D:\erp\config\application-prod.yml
+-Derp.log.dir=D:\erp\logs
+-Dfile.encoding=UTF-8
+-Duser.timezone=UTC
+
+
+admin/Erp@2026
+
+CREATE DATABASE erp CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
+CREATE USER 'erp_app_prod'@'%' IDENTIFIED BY 'erp_app_prod';
+GRANT ALL PRIVILEGES ON erp.* TO 'erp_app_prod'@'%';
+
+**LICENSE
+
+C:\Users\ES-HaiCT6\.erp\license-keys\vendor-2026.private.key  
+C:\Users\ES-HaiCT6\.erp\license-keys\vendor-2026.public.key   
+
+cd D:\Projects\DevTrainning\PQB\pqb_ai\inventory-management-ai-skeleton\tools\license-signer
+
+java LicenseSigner.java sign --params D:\Projects\DevTrainning\PQB\pqb_ai\pqb-2026-11.properties --private-key D:\Projects\DevTrainning\PQB\pqb_ai\vendor-2026.private.key --out D:\Projects\DevTrainning\PQB\pqb_ai\pqb-2026-11.lic
+
+java LicenseSigner.java verify --public-key D:\Projects\DevTrainning\PQB\pqb_ai\vendor-2026.public.key --license D:\Projects\DevTrainning\PQB\pqb_ai\pqb-2026-11.lic
+
+
+Khách nạp license
+Có 2 cách:
+
+Quản trị hệ thống của khách vào Quản trị hệ thống › Bản quyền phần mềm, bấm Chọn file license, chọn file .lic, rồi bấm Nạp license.
+Hoặc đặt biến môi trường ERP_LICENSE_FILE=file:/đường/dẫn/pqb-2026-11.lic trên máy chủ. Hệ thống tự nạp khi khởi động, nếu file mới hơn license đang dùng.
+Lưu ý
+Ký trên máy có giờ hệ thống đúng, vì ngày cấp lấy theo giờ máy ký. Nếu giờ máy bạn chạy nhanh hơn máy khách quá 1 ngày, khách sẽ không nạp được.
+[Suy luận] Kỳ sau chỉ cần sửa license-id và valid-to trong file tham số rồi ký lại. Nên gửi license mới trước ngày hết hạn vài ngày; banner bên khách bắt đầu nhắc từ 15 ngày trước khi hết ân hạn.
+Khi khách thêm công ty mới, cấp license mới có thêm mã số thuế của công ty đó.
+
+

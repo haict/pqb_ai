@@ -20,6 +20,8 @@ public enum ErrorCode {
     FORBIDDEN(HttpStatus.FORBIDDEN, "Bạn không có quyền thực hiện thao tác này."),
     SELF_APPROVAL_NOT_ALLOWED(HttpStatus.FORBIDDEN, "Người lập không được tự duyệt chứng từ."),
     PASSWORD_CHANGE_REQUIRED(HttpStatus.FORBIDDEN, "Bạn cần đổi mật khẩu trước khi tiếp tục."),
+    LICENSE_INACTIVE(HttpStatus.FORBIDDEN, "Bản quyền phần mềm chưa có, không hợp lệ hoặc đã hết hạn: hệ thống chỉ cho "
+            + "xem, in, xuất dữ liệu. Liên hệ nhà cung cấp để gia hạn."),
 
     NOT_FOUND(HttpStatus.NOT_FOUND, "Không tìm thấy dữ liệu."),
     METHOD_NOT_ALLOWED(HttpStatus.METHOD_NOT_ALLOWED, "Phương thức không được hỗ trợ."),

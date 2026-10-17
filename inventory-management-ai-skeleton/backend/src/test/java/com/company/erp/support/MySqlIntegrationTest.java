@@ -15,8 +15,10 @@ import org.springframework.test.context.ContextConfiguration;
  */
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)
-// Secret chỉ dùng cho test, không dùng ở môi trường nào khác.
-@SpringBootTest(properties = "erp.auth.jwt-secret=test-only-jwt-secret-0123456789-abcdefghij")
+// Secret chỉ dùng cho test, không dùng ở môi trường nào khác. License test (mọi công ty, khóa "test" chỉ có trong
+// resource của test) được nạp khi khởi động để các test nghiệp vụ ghi được dữ liệu (D-59).
+@SpringBootTest(properties = {"erp.auth.jwt-secret=test-only-jwt-secret-0123456789-abcdefghij",
+        "erp.license.import-location=classpath:license/test.lic"})
 @ActiveProfiles("test")
 @EnabledIf(value = "com.company.erp.support.MySqlTestDatabase#isAvailable",
         disabledReason = "Không có ~/.erp/application-local.yml và không đặt ERP_TEST_DB_URL")

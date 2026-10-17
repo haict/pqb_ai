@@ -83,6 +83,7 @@ Bảng số dư là bản đọc nhanh, tái tạo được từ sổ phụ:
 | `sys_idempotency_keys` | Chống xử lý trùng |
 | `notifications` | Thông báo trong ứng dụng |
 | `attachments` | File đính kèm (owner_type, owner_id) |
+| `sys_licenses`, `sys_license_clock` | License đã nạp (chỉ thêm dòng, dòng mới nhất là license đang dùng; giữ nguyên văn license để kiểm tra lại chữ ký) và mốc thời điểm lớn nhất đã thấy có mã kiểm tra (phát hiện lùi đồng hồ), D-59, V30 |
 
 ### M02 - `masterdata`
 | Bảng | Mục đích |

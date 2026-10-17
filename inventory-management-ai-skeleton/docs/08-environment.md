@@ -65,6 +65,7 @@ Không áp dụng ngoại lệ này cho production: `db/dev-data` không bao gi�
 | `ERP_LOG_DIR` | Không | `logs` | Thư mục log file ở `uat`/`prod` |
 | `ERP_CONFIG_FILE` | Không | `~/.erp/application-local.yml` | Vị trí file cấu hình riêng máy |
 | `ERP_JWT_SECRET` | Có | — | Secret ký JWT (≥ 32 byte, ngẫu nhiên, riêng từng môi trường). Dev đặt trong file local `erp.auth.jwt-secret` |
+| `ERP_LICENSE_FILE` | Không | — | Đường dẫn file license nạp tự động khi khởi động nếu mới hơn license đang dùng (D-59), ví dụ `file:/opt/erp/license.lic`. Trống: nạp qua màn hình Quản trị › Bản quyền phần mềm. Không có biến nào tắt kiểm tra license |
 | `ERP_REFRESH_COOKIE_SECURE` | Không | `true` (`dev`: `false`) | Cờ `Secure` của cookie refresh token; bắt buộc `true` khi chạy HTTPS |
 | `ERP_BOOTSTRAP_ADMIN_USERNAME` | Không | `admin` | Tên quản trị viên đầu tiên |
 | `ERP_BOOTSTRAP_ADMIN_PASSWORD` | Lần cài đầu (uat/prod) | — | Tạo quản trị viên đầu tiên khi DB chưa có người dùng; bỏ biến này sau khi cài |

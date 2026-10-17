@@ -283,6 +283,11 @@ Trạng thái: **Hoàn thành** (test đạt) / **Đã code, chưa kiểm chứn
 | Phân quyền, phạm vi chi nhánh, điều kiện sai | AT-10, BR-RPT-12 | Hoàn thành | `CashForecastIntegrationTest.accessAndValidation` | "Chỉ dữ liệu của mình": không gồm số dư quỹ |
 | Màn hình Báo cáo → Dòng tiền dự kiến; In, Excel, PDF | BR-UI, BR-RPT-13 | Hoàn thành, test giao diện một phần | `cashForecast.test.ts`, `navigation.test.ts` | Kiểm thử thủ công trên trình duyệt: chưa thực hiện |
 
+## D-59 - Bản quyền phần mềm (2026-10-17, V30)
+| Chức năng | Mã | Trạng thái | Test | Ghi chú |
+|---|---|---|---|---|
+| License ký số Ed25519, kiểm tra khi khởi động / mỗi giờ / khi nạp; chỉ đọc khi chưa có, sai chữ ký, hết ân hạn, công ty ngoài danh sách MST, lùi đồng hồ; API `GET/PUT /license`; màn hình Quản trị › Bản quyền phần mềm; banner nhắc hạn (từ 15 ngày); công cụ ký `tools/license-signer` | D-59 | Hoàn thành, chưa thử trên trình duyệt | `LicenseIntegrationTest` (5 test); toàn bộ test tích hợp chạy với license test nạp qua `erp.license.import-location` | [Suy luận] Không chống được người có quyền quản trị máy chủ dịch ngược / sửa WAR, hoặc xóa dòng `sys_license_clock` rồi lùi đồng hồ trong khoảng sau ngày cấp license; khóa test (`test`) chỉ có trong resource test, không đóng gói vào WAR; private key nhà cung cấp phải cất ngoài repo |
+
 ## Giả định đã dùng
 - Tạm ẩn chi nhánh (người dùng yêu cầu 2026-10-17): mọi màn hình (kể cả quản trị, menu Chi nhánh, ô chọn chi nhánh làm việc) không hiển thị chi nhánh; chứng từ ngầm định chi nhánh mặc định của người dùng (không có thì chi nhánh đầu tiên trong phạm vi); bộ lọc báo cáo để trống = toàn công ty; khóa / mở kỳ áp dụng mọi chi nhánh của công ty. Chỉ đổi frontend (cờ `BRANCH_VISIBLE` trong `frontend/src/shared/branch.ts`), backend và dữ liệu giữ nguyên; kho chọn được trên chứng từ chỉ là kho thuộc chi nhánh mặc định.
 - Giai đoạn 3 (chốt 2026-10-10): ghi sổ kho ở READ COMMITTED với thứ tự khóa cố định (ADR-08); API chung `/inventory-documents` (ADR-10); chế độ duyệt mặc định của loại chứng từ kho và ngưỡng cảnh báo hạn dùng 90 ngày (D-52); mỗi chính sách xuất vượt tồn một chứng từ (D-53). Luồng duyệt mẫu chỉ là dữ liệu dev/test.
