@@ -6,7 +6,9 @@ import static com.company.erp.support.ApiTestSupport.login;
 import static com.company.erp.support.ApiTestSupport.newKey;
 import static com.company.erp.support.ApiTestSupport.unique;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.hasItems;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -17,9 +19,13 @@ import com.company.erp.common.application.IdempotentCommand;
 import com.company.erp.support.ApiTestSupport.Session;
 import com.company.erp.support.MySqlIntegrationTest;
 import com.jayway.jsonpath.JsonPath;
+import java.io.ByteArrayOutputStream;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -28,13 +34,15 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
 /**
- * Giai đoạn 4B - sổ công nợ trên MySQL thật: công nợ đầu kỳ theo hóa đơn (BR-MIG-01), hạn thanh toán (BR-AR-02),
+ * Giai đoạn 4B - sổ công nợ trên MySQL thật: công nợ đầu kỳ theo đối tượng và hạn thanh toán, không qua duyệt (BR-MIG-01,
+ * D-60),
  * tuổi nợ (BR-AR-05), sổ chi tiết công nợ, đảo (AT-09), khóa kỳ công nợ (AT-11), phân quyền và phạm vi (AT-10), chống
  * xử lý trùng (AT-13). Sau mỗi kịch bản: số còn lại của khoản công nợ = số dư sổ chi tiết.
  */
@@ -68,22 +76,17 @@ class DebtIntegrationTest {
     }
 
     @Test
-    @DisplayName("BR-MIG-01, BR-AR-02, BR-AR-05: công nợ đầu kỳ qua duyệt, ghi sổ thành khoản công nợ theo hóa đơn; hạn mặc định theo số ngày nợ; tuổi nợ, sổ chi tiết")
+    @DisplayName("BR-MIG-01, D-60, BR-AR-05: công nợ đầu kỳ ghi sổ thẳng từ nháp (không duyệt) thành khoản công nợ theo đối tượng, hạn thanh toán; tuổi nợ, sổ chi tiết")
     void openingReceivables() throws Exception {
         long customer = partner("CUSTOMER", 30);
         LocalDate today = calendar.today();
-        String overdue = unique("HD");
-        String current = unique("HD");
         long document = create(clerk, "RECEIVABLE", List.of(
-                line(customer, overdue, today.minusDays(100), today.minusDays(45), "1000000"),
-                line(customer, current, today.minusDays(10), null, "2500000")));
+                line(customer, today.minusDays(45), "1000000"),
+                line(customer, today.plusDays(20), "2500000")));
         mockMvc.perform(as(clerk, get(OPENINGS + "/" + document))).andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.totalAmount").value(3500000))
-                .andExpect(jsonPath("$.data.lines[1].dueDate").value(today.plusDays(20).toString()));
+                .andExpect(jsonPath("$.data.lines[0].invoiceNo").doesNotExist());
 
-        action(clerk, document, "submit", null).andExpect(jsonPath("$.data.status").value("SUBMITTED"));
-        action(clerk, document, "approve", "{}").andExpect(status().isForbidden());
-        action(chief, document, "approve", "{}").andExpect(jsonPath("$.data.status").value("APPROVED"));
         String postKey = newKey();
         actionWithKey(clerk, document, "post", null, postKey).andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value("POSTED"));
@@ -98,8 +101,8 @@ class DebtIntegrationTest {
                         .param("debtType", "RECEIVABLE").param("partnerId", String.valueOf(customer))
                         .param("overdueOnly", "true"))
                 .andExpect(status().isOk()).andReturn();
-        List<String> overdueInvoices = json(items, "$.data.items[*].invoiceNo");
-        assertThat(overdueInvoices).containsExactly(overdue);
+        List<String> overdueDueDates = json(items, "$.data.items[*].dueDate");
+        assertThat(overdueDueDates).containsExactly(today.minusDays(45).toString());
         assertThat(((Number) JsonPath.read(items.getResponse().getContentAsString(), "$.data.items[0].overdueDays"))
                 .intValue()).isEqualTo(45);
 
@@ -120,35 +123,35 @@ class DebtIntegrationTest {
         assertThat(amount(ledger, "$.data.closingBalance")).isEqualByComparingTo("3500000");
         assertConsistent(customer);
 
-        // Hóa đơn đã có công nợ; đối tượng không phải khách hàng.
-        send(clerk, post(OPENINGS), body("RECEIVABLE", List.of(line(customer, overdue, today.minusDays(5), null,
-                "1"))), newKey()).andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.errors[0].field").value("lines[0].invoiceNo"));
+        // Đối tượng không phải khách hàng.
         long supplier = partner("SUPPLIER", 15);
-        send(clerk, post(OPENINGS), body("RECEIVABLE", List.of(line(supplier, unique("HD"), today, null, "1"))),
+        send(clerk, post(OPENINGS), body("RECEIVABLE", List.of(line(supplier, today, "1"))),
                 newKey()).andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errors[0].field").value("lines[0].partnerId"));
     }
 
     @Test
-    @DisplayName("AT-09, AT-13: đảo công nợ đầu kỳ chỉ người có quyền duyệt, bắt buộc lý do; khoản công nợ và sổ chi tiết về 0")
+    @DisplayName("AT-09, AT-13, D-60: đảo công nợ đầu kỳ chỉ người có quyền ghi sổ, bắt buộc lý do; hạn trống = ngày chứng từ + số ngày nợ; khoản công nợ và sổ chi tiết về 0")
     void reverseOpening() throws Exception {
         long supplier = partner("SUPPLIER", 15);
-        long document = create(clerk, "PAYABLE", List.of(line(supplier, unique("HDM"), LocalDate.parse("2026-09-01"),
-                null, "800000")));
-        submitApproveAndPost(document);
-        assertThat(jdbc.queryForObject("SELECT due_date FROM debt_items WHERE partner_id = ?", LocalDate.class,
-                supplier)).isEqualTo(LocalDate.parse("2026-09-16"));
-        assertThat(jdbc.queryForObject("SELECT credit_amount FROM debt_ledger_entries WHERE partner_id = ?",
+        long document = create(clerk, "PAYABLE", List.of(line(supplier, null, "500000"),
+                line(supplier, LocalDate.parse("2026-11-30"), "300000")));
+        postOpening(document);
+        assertThat(jdbc.queryForList("SELECT due_date FROM debt_items WHERE partner_id = ? ORDER BY id",
+                LocalDate.class, supplier)).containsExactly(LocalDate.parse("2026-10-16"), LocalDate.parse("2026-11-30"));
+        assertThat(jdbc.queryForObject("SELECT SUM(credit_amount) FROM debt_ledger_entries WHERE partner_id = ?",
                 BigDecimal.class, supplier)).isEqualByComparingTo("800000");
 
-        action(clerk, document, "reverse", "{\"reason\":\"Nhập sai\"}").andExpect(status().isForbidden());
+        String director = unique("gd").toLowerCase();
+        createUser(jdbc, director, "DIRECTOR", "COMPANY", 1, 1, false);
+        action(login(mockMvc, director), document, "reverse", "{\"reason\":\"Nhập sai\"}")
+                .andExpect(status().isForbidden());
         action(chief, document, "reverse", "{\"reason\":\" \"}").andExpect(status().isBadRequest());
         action(chief, document, "reverse", "{\"reason\":\"Nhập sai số tiền\",\"postingDate\":\"2026-10-05\"}")
                 .andExpect(status().isOk()).andExpect(jsonPath("$.data.status").value("REVERSED"));
         action(chief, document, "reverse", "{\"reason\":\"Lần hai\"}").andExpect(status().isConflict());
-        assertThat(jdbc.queryForObject("SELECT status FROM debt_items WHERE partner_id = ?", String.class, supplier))
-                .isEqualTo("REVERSED");
+        assertThat(jdbc.queryForList("SELECT DISTINCT status FROM debt_items WHERE partner_id = ?", String.class,
+                supplier)).containsExactly("REVERSED");
         assertThat(jdbc.queryForObject("SELECT SUM(credit_amount) - SUM(debit_amount) FROM debt_ledger_entries "
                 + "WHERE partner_id = ?", BigDecimal.class, supplier)).isEqualByComparingTo("0");
         assertConsistent(supplier);
@@ -164,15 +167,12 @@ class DebtIntegrationTest {
         send(chief, post("/api/v1/fiscal-periods/" + january + "/lock"), "{\"module\":\"DEBT\",\"branchIds\":[1]}",
                 newKey()).andExpect(status().isOk());
         long customer = partner("CUSTOMER", 0);
-        String body = body("RECEIVABLE", List.of(line(customer, unique("HD"), LocalDate.parse("2065-12-20"), null,
-                "100"))).replace("\"documentDate\":\"" + POSTING_DATE + "\"", "\"documentDate\":\"2066-01-05\"");
+        String body = body("RECEIVABLE", List.of(line(customer, null, "100"))).replace("\"documentDate\":\"" + POSTING_DATE + "\"", "\"documentDate\":\"2066-01-05\"");
         long document = jsonId(send(clerk, post(OPENINGS), body, newKey()).andExpect(status().isCreated()).andReturn());
-        action(clerk, document, "submit", null).andExpect(status().isOk());
-        action(chief, document, "approve", "{}").andExpect(status().isOk());
         action(clerk, document, "post", null).andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.code").value("PERIOD_LOCKED"));
         assertThat(jdbc.queryForObject("SELECT status FROM debt_opening_documents WHERE id = ?", String.class,
-                document)).isEqualTo("APPROVED");
+                document)).isEqualTo("DRAFT");
         assertThat(count("SELECT COUNT(*) FROM debt_items WHERE partner_id = " + customer)).isZero();
     }
 
@@ -180,8 +180,7 @@ class DebtIntegrationTest {
     @DisplayName("AT-10: không có quyền công nợ 403; chứng từ chi nhánh khác 404; sửa đồng thời 409")
     void accessAndConcurrency() throws Exception {
         long customer = partner("CUSTOMER", 0);
-        long document = create(clerk, "RECEIVABLE", List.of(line(customer, unique("HD"), LocalDate.parse("2026-09-20"),
-                null, "500000")));
+        long document = create(clerk, "RECEIVABLE", List.of(line(customer, LocalDate.parse("2026-09-20"), "500000")));
         mockMvc.perform(as(login(mockMvc, "kho.hcm"), get(OPENINGS + "/" + document)))
                 .andExpect(status().isForbidden());
         String otherBranch = unique("kthcm").toLowerCase();
@@ -192,8 +191,7 @@ class DebtIntegrationTest {
                         .param("debtType", "RECEIVABLE").param("partnerId", String.valueOf(customer)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.data.totalElements").value(0));
 
-        String update = body("RECEIVABLE", List.of(line(customer, unique("HD"), LocalDate.parse("2026-09-21"), null,
-                "600000"))).replace("}]", "}],\"version\":0");
+        String update = body("RECEIVABLE", List.of(line(customer, LocalDate.parse("2026-09-21"), "600000"))).replace("}]", "}],\"version\":0");
         mockMvc.perform(as(clerk, put(OPENINGS + "/" + document)).contentType(MediaType.APPLICATION_JSON)
                 .content(update.replace("\"version\":0", "\"version\":" + version(document))))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.data.totalAmount").value(600000));
@@ -204,6 +202,67 @@ class DebtIntegrationTest {
 
     // ---- hỗ trợ ----
 
+    @Test
+    @DisplayName("BR-MIG-01, BR-UX-05: đọc dòng công nợ đầu kỳ từ Excel để điền form; lỗi theo dòng; không lưu chứng từ")
+    void importLines() throws Exception {
+        mockMvc.perform(as(clerk, get(OPENINGS + "/line-import-template"))).andExpect(status().isOk());
+        long customer = partner("CUSTOMER", 30);
+        long supplier = partner("SUPPLIER", 30);
+        String customerCode = partnerCode(customer);
+        long documentsBefore = count("SELECT COUNT(*) FROM debt_opening_documents");
+
+        importLines(workbookOf(List.of(
+                new String[] {partnerCode(supplier), "", "1000"},
+                new String[] {customerCode, "31-12-2026", "0"},
+                new String[] {"KHONG_CO_MA", "", "1000"})))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[*].field").value(hasItems("rows[2].partnerId", "rows[3].dueDate",
+                        "rows[3].amount", "rows[4].partnerId")));
+
+        importLines(workbookOf(List.of(
+                new String[] {customerCode.toLowerCase(), "", "1,500,000", "Số dư MISA"},
+                new String[] {customerCode, "30/09/2026", "250000.5"})))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.created").value(2))
+                .andExpect(jsonPath("$.data.lines[0].partnerId").value(customer))
+                .andExpect(jsonPath("$.data.lines[0].dueDate").doesNotExist())
+                .andExpect(jsonPath("$.data.lines[0].amount").value(1500000))
+                .andExpect(jsonPath("$.data.lines[0].note").value("Số dư MISA"))
+                .andExpect(jsonPath("$.data.lines[1].dueDate").value("2026-09-30"));
+        assertThat(count("SELECT COUNT(*) FROM debt_opening_documents")).isEqualTo(documentsBefore);
+
+        mockMvc.perform(as(login(mockMvc, "kho.hcm"), multipart(OPENINGS + "/line-import")
+                        .file(new MockMultipartFile("file", "cong-no.xlsx", "application/octet-stream",
+                                workbookOf(List.<String[]>of(new String[] {customerCode, "", "1"})))))
+                        .param("companyId", "1").param("debtType", "RECEIVABLE"))
+                .andExpect(status().isForbidden());
+    }
+
+    private ResultActions importLines(byte[] content) throws Exception {
+        return mockMvc.perform(as(clerk, multipart(OPENINGS + "/line-import")
+                        .file(new MockMultipartFile("file", "cong-no.xlsx", "application/octet-stream", content)))
+                .param("companyId", "1").param("debtType", "RECEIVABLE"));
+    }
+
+    private static byte[] workbookOf(List<String[]> rows) throws Exception {
+        try (XSSFWorkbook workbook = new XSSFWorkbook(); ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+            Sheet sheet = workbook.createSheet("Cong no dau ky");
+            sheet.createRow(0).createCell(0).setCellValue("Mã đối tượng*");
+            for (int r = 0; r < rows.size(); r++) {
+                Row row = sheet.createRow(r + 1);
+                for (int c = 0; c < rows.get(r).length; c++) {
+                    row.createCell(c).setCellValue(rows.get(r)[c]);
+                }
+            }
+            workbook.write(output);
+            return output.toByteArray();
+        }
+    }
+
+    private String partnerCode(long partnerId) {
+        return jdbc.queryForObject("SELECT code FROM partners WHERE id = ?", String.class, partnerId);
+    }
+
     private long partner(String role, int termDays) throws Exception {
         String code = unique("DT");
         String termField = "SUPPLIER".equals(role) ? "supplierPaymentTermDays" : "paymentTermDays";
@@ -213,10 +272,9 @@ class DebtIntegrationTest {
         return jsonId(send(admin, post("/api/v1/partners"), body, newKey()).andExpect(status().isCreated()).andReturn());
     }
 
-    private static String line(long partner, String invoiceNo, LocalDate invoiceDate, LocalDate dueDate,
-                               String amount) {
-        return "{\"partnerId\":" + partner + ",\"invoiceNo\":\"" + invoiceNo + "\",\"invoiceDate\":\"" + invoiceDate
-                + "\"" + (dueDate == null ? "" : ",\"dueDate\":\"" + dueDate + "\"") + ",\"amount\":" + amount + "}";
+    private static String line(long partner, LocalDate dueDate, String amount) {
+        return "{\"partnerId\":" + partner + (dueDate == null ? "" : ",\"dueDate\":\"" + dueDate + "\"")
+                + ",\"amount\":" + amount + "}";
     }
 
     private static String body(String debtType, List<String> lines) {
@@ -229,9 +287,7 @@ class DebtIntegrationTest {
                 .andExpect(jsonPath("$.data.status").value("DRAFT")).andReturn());
     }
 
-    private void submitApproveAndPost(long document) throws Exception {
-        action(clerk, document, "submit", null).andExpect(status().isOk());
-        action(chief, document, "approve", "{}").andExpect(status().isOk());
+    private void postOpening(long document) throws Exception {
         action(clerk, document, "post", null).andExpect(status().isOk());
     }
 

@@ -135,7 +135,12 @@ public abstract class FinanceDocument extends AuditableEntity {
     }
 
     public void markPosted(Long actorId, Instant now) {
-        requireStatus(EnumSet.of(FinanceDocumentStatus.APPROVED), "ghi sổ");
+        markPosted(EnumSet.of(FinanceDocumentStatus.APPROVED), actorId, now);
+    }
+
+    /** Ghi sổ từ các trạng thái cho phép (chứng từ không qua duyệt được ghi sổ thẳng từ DRAFT). */
+    protected void markPosted(Set<FinanceDocumentStatus> allowed, Long actorId, Instant now) {
+        requireStatus(allowed, "ghi sổ");
         this.status = FinanceDocumentStatus.POSTED;
         this.postedBy = actorId;
         this.postedAt = now;

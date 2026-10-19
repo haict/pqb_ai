@@ -273,6 +273,12 @@ public class MasterDataQueryService {
         return partnerRepository.findAllById(ids).stream().map(MasterDataQueryService::toInfo).toList();
     }
 
+    @Transactional(readOnly = true)
+    public List<PartnerInfo> partnersByCodes(Long companyId, Collection<String> codes) {
+        return codes.isEmpty() ? List.of() : partnerRepository.findByCompanyIdAndCodeIn(companyId, codes).stream()
+                .map(MasterDataQueryService::toInfo).toList();
+    }
+
     /**
      * Hồ sơ bán hàng của khách: nhóm, bảng giá riêng, hạn mức tín dụng (đại lý: hạn mức đại lý nếu có), hạn thanh
      * toán, nhân viên phụ trách, chiết khấu đại lý, hạn dùng còn lại tối thiểu (D-07).

@@ -45,7 +45,7 @@ class DebtOpeningMapper {
             PartnerInfo partner = partners.get(line.getPartnerId());
             return new DebtOpeningLineResponse(line.getId(), line.getLineNo(), line.getPartnerId(),
                     partner == null ? null : partner.code(), partner == null ? null : partner.name(),
-                    line.getInvoiceNo(), line.getInvoiceDate(), line.getDueDate(), line.getAmount(),
+                    line.getDueDate(), line.getAmount(),
                     line.getSalesUserId(), line.getNote());
         }).toList();
     }

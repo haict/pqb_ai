@@ -11,20 +11,26 @@ import jakarta.persistence.OneToMany;
 import jakarta.persistence.OrderBy;
 import jakarta.persistence.Table;
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Set;
 
 /**
- * Chứng từ công nợ đầu kỳ (CNDK, BR-MIG-01): số còn phải thu / phải trả / tạm ứng theo từng hóa đơn cũ khi chuyển từ
- * hệ thống cũ. Vòng đời nhóm A ở {@link FinanceDocument}; đảo khi các khoản công nợ chưa được thanh toán.
+ * Chứng từ công nợ đầu kỳ (CNDK, BR-MIG-01): số còn phải thu / phải trả / tạm ứng theo đối tượng và hạn thanh toán khi
+ * chuyển từ hệ thống cũ. Không qua duyệt (D-60): DRAFT → POSTED; chứng từ đã duyệt theo luồng cũ vẫn ghi sổ được. Đảo
+ * khi các khoản công nợ chưa được thanh toán.
  */
 @Entity
 @Table(name = "debt_opening_documents")
 public class DebtOpeningDocument extends FinanceDocument {
 
     public static final String TYPE_CODE = "CNDK";
+    private static final Set<FinanceDocumentStatus> POSTABLE =
+            EnumSet.of(FinanceDocumentStatus.DRAFT, FinanceDocumentStatus.APPROVED);
 
     @Enumerated(EnumType.STRING)
     @Column(name = "debt_type", nullable = false, updatable = false)
@@ -55,6 +61,11 @@ public class DebtOpeningDocument extends FinanceDocument {
     @Override
     public BigDecimal approvalAmount() {
         return totalAmount;
+    }
+
+    @Override
+    public void markPosted(Long actorId, Instant now) {
+        markPosted(POSTABLE, actorId, now);
     }
 
     /** Thay nội dung (chỉ khi DRAFT / REJECTED). */

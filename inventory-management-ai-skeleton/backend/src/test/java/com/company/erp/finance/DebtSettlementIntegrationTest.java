@@ -52,8 +52,8 @@ class DebtSettlementIntegrationTest extends FinanceIntegrationSupport {
         long customer = partner("CUSTOMER");
         String invoiceA = unique("HD");
         String invoiceB = unique("HD");
-        opening("RECEIVABLE", List.of(openingLine(customer, invoiceA, "2026-08-01", "2026-08-31", "1000000"),
-                openingLine(customer, invoiceB, "2026-09-01", "2026-09-30", "800000")));
+        opening("RECEIVABLE", List.of(openingLine(customer, invoiceA, "2026-08-31", "1000000"),
+                openingLine(customer, invoiceB, "2026-09-30", "800000")));
         long cash = cashAccount("CASH", "1111");
         long receipt = postedCash(cashDoc("PT", "CUSTOMER_RECEIPT", cash, customer, "MANUAL", "1500000",
                 List.of("{\"debtItemId\":" + itemId(customer, invoiceA) + ",\"amount\":1000000}")));
@@ -95,8 +95,8 @@ class DebtSettlementIntegrationTest extends FinanceIntegrationSupport {
         long both = partner("CUSTOMER", "SUPPLIER");
         String sale = unique("HD");
         String purchase = unique("HDM");
-        opening("RECEIVABLE", List.of(openingLine(both, sale, "2026-09-01", "2026-09-30", "1000000")));
-        opening("PAYABLE", List.of(openingLine(both, purchase, "2026-09-05", "2026-10-05", "600000")));
+        opening("RECEIVABLE", List.of(openingLine(both, sale, "2026-09-30", "1000000")));
+        opening("PAYABLE", List.of(openingLine(both, purchase, "2026-10-05", "600000")));
         long receivable = itemId(both, sale);
         long payable = itemId(both, purchase);
 
@@ -121,7 +121,7 @@ class DebtSettlementIntegrationTest extends FinanceIntegrationSupport {
     void reconciliationAndAdjustment() throws Exception {
         long customer = partner("CUSTOMER");
         String invoice = unique("HD");
-        opening("RECEIVABLE", List.of(openingLine(customer, invoice, "2026-09-01", "2026-09-30", "1000000")));
+        opening("RECEIVABLE", List.of(openingLine(customer, invoice, "2026-09-30", "1000000")));
         long cash = cashAccount("CASH", "1111");
         postedCash(cashDoc("PT", "CUSTOMER_RECEIPT", cash, customer, "AUTO", "300000", List.of()));
 
@@ -239,9 +239,9 @@ class DebtSettlementIntegrationTest extends FinanceIntegrationSupport {
         String paid = unique("HD");
         String first = unique("HD");
         String second = unique("HD");
-        opening("RECEIVABLE", List.of(openingLine(customer, paid, "2026-08-01", "2026-08-31", "100000"),
-                openingLine(customer, first, "2026-09-01", "2026-09-30", "500000"),
-                openingLine(customer, second, "2026-09-02", "2026-09-30", "500000")));
+        opening("RECEIVABLE", List.of(openingLine(customer, paid, "2026-08-31", "100000"),
+                openingLine(customer, first, "2026-09-30", "500000"),
+                openingLine(customer, second, "2026-09-30", "500000")));
         long cash = cashAccount("CASH", "1111");
         postedCash(cashDoc("PT", "CUSTOMER_RECEIPT", cash, customer, "MANUAL", "500000",
                 List.of("{\"debtItemId\":" + itemId(customer, paid) + ",\"amount\":100000}")));

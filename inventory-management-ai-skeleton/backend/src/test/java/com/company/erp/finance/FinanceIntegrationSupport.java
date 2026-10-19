@@ -63,9 +63,10 @@ abstract class FinanceIntegrationSupport {
         return jsonId(send(admin, post("/api/v1/partners"), body, newKey()).andExpect(status().isCreated()).andReturn());
     }
 
-    static String openingLine(long partner, String invoiceNo, String invoiceDate, String dueDate, String amount) {
-        return "{\"partnerId\":" + partner + ",\"invoiceNo\":\"" + invoiceNo + "\",\"invoiceDate\":\"" + invoiceDate
-                + "\",\"dueDate\":\"" + dueDate + "\",\"amount\":" + amount + "}";
+    /** Dòng công nợ đầu kỳ; {@code key} ghi vào ghi chú để tìm lại khoản công nợ (D-60: không còn số hóa đơn). */
+    static String openingLine(long partner, String key, String dueDate, String amount) {
+        return "{\"partnerId\":" + partner + ",\"dueDate\":\"" + dueDate + "\",\"amount\":" + amount
+                + ",\"note\":\"" + key + "\"}";
     }
 
     /** Công nợ đầu kỳ đã ghi sổ. */
@@ -74,8 +75,6 @@ abstract class FinanceIntegrationSupport {
                 + "\"lines\":[" + String.join(",", lines) + "]}";
         long id = jsonId(send(clerk, post("/api/v1/debt-openings"), body, newKey()).andExpect(status().isCreated())
                 .andReturn());
-        act(clerk, "/api/v1/debt-openings", id, "submit", null).andExpect(status().isOk());
-        act(chief, "/api/v1/debt-openings", id, "approve", "{}").andExpect(status().isOk());
         act(clerk, "/api/v1/debt-openings", id, "post", null).andExpect(status().isOk());
         return id;
     }
@@ -129,7 +128,7 @@ abstract class FinanceIntegrationSupport {
 
     Map<String, Object> item(long partner, String invoiceNo) {
         return jdbc.queryForMap("SELECT id, status, settled_amount, remaining_amount FROM debt_items "
-                + "WHERE partner_id = ? AND invoice_no = ?", partner, invoiceNo);
+                + "WHERE partner_id = ? AND description = ?", partner, invoiceNo);
     }
 
     long itemId(long partner, String invoiceNo) {

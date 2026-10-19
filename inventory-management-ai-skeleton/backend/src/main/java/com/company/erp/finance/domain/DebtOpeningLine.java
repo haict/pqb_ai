@@ -9,7 +9,7 @@ import jakarta.persistence.Table;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
-/** Dòng công nợ đầu kỳ: số còn nợ của một hóa đơn cũ với một đối tượng. */
+/** Dòng công nợ đầu kỳ: số còn nợ của một đối tượng đến một hạn thanh toán (D-60: không theo dõi hóa đơn). */
 @Entity
 @Table(name = "debt_opening_lines")
 public class DebtOpeningLine {
@@ -23,12 +23,6 @@ public class DebtOpeningLine {
 
     @Column(name = "partner_id", nullable = false)
     private Long partnerId;
-
-    @Column(name = "invoice_no", nullable = false)
-    private String invoiceNo;
-
-    @Column(name = "invoice_date", nullable = false)
-    private LocalDate invoiceDate;
 
     @Column(name = "due_date", nullable = false)
     private LocalDate dueDate;
@@ -45,23 +39,19 @@ public class DebtOpeningLine {
     protected DebtOpeningLine() {
     }
 
-    public DebtOpeningLine(int lineNo, Long partnerId, String invoiceNo, LocalDate invoiceDate, LocalDate dueDate,
-                           BigDecimal amount, Long salesUserId, String note) {
+    public DebtOpeningLine(int lineNo, Long partnerId, LocalDate dueDate, BigDecimal amount, Long salesUserId,
+                           String note) {
         this.lineNo = lineNo;
-        assign(partnerId, invoiceNo, invoiceDate, dueDate, amount, salesUserId, note);
+        assign(partnerId, dueDate, amount, salesUserId, note);
     }
 
     /** Chép nội dung của dòng khác (cùng số thứ tự) khi sửa chứng từ. */
     void copyFrom(DebtOpeningLine other) {
-        assign(other.partnerId, other.invoiceNo, other.invoiceDate, other.dueDate, other.amount, other.salesUserId,
-                other.note);
+        assign(other.partnerId, other.dueDate, other.amount, other.salesUserId, other.note);
     }
 
-    private void assign(Long partnerId, String invoiceNo, LocalDate invoiceDate, LocalDate dueDate,
-                        BigDecimal amount, Long salesUserId, String note) {
+    private void assign(Long partnerId, LocalDate dueDate, BigDecimal amount, Long salesUserId, String note) {
         this.partnerId = partnerId;
-        this.invoiceNo = invoiceNo;
-        this.invoiceDate = invoiceDate;
         this.dueDate = dueDate;
         this.amount = amount;
         this.salesUserId = salesUserId;
@@ -78,14 +68,6 @@ public class DebtOpeningLine {
 
     public Long getPartnerId() {
         return partnerId;
-    }
-
-    public String getInvoiceNo() {
-        return invoiceNo;
-    }
-
-    public LocalDate getInvoiceDate() {
-        return invoiceDate;
     }
 
     public LocalDate getDueDate() {

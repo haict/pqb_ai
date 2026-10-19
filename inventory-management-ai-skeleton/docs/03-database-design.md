@@ -154,7 +154,7 @@ Bảng số dư là bản đọc nhanh, tái tạo được từ sổ phụ:
 |---|---|
 | `debt_items` | Khoản công nợ (phải thu / phải trả, cột `debt_type`) theo chứng từ nguồn: số gốc, đã thanh toán, còn lại, hạn (V10; thay hai bảng `receivables`, `payables` dự kiến vì cùng cấu trúc, ADR-12) |
 | `debt_ledger_entries` | **Sổ chi tiết công nợ** (bất biến) |
-| `debt_opening_documents`, `debt_opening_lines` | Chứng từ công nợ đầu kỳ (CNDK) theo từng hóa đơn cũ (V10) |
+| `debt_opening_documents`, `debt_opening_lines` | Chứng từ công nợ đầu kỳ (CNDK) theo đối tượng và hạn thanh toán (V10, V31) |
 | `cash_accounts` | Quỹ tiền mặt, tài khoản ngân hàng |
 | `cash_documents`, `cash_document_lines` | Chứng từ thu chi: phiếu thu, phiếu chi, giấy báo có, ủy nhiệm chi, chuyển tiền nội bộ (V11; một bảng thay `cash_receipts`, `cash_payments`, `cash_transfers` dự kiến, ADR-13) |
 | `payment_allocations` | Phân bổ thanh toán vào hóa đơn |
@@ -419,6 +419,7 @@ Index `(partner_id, due_date)`, `(status, due_date)`.
 ### 4.9a `debt_opening_documents`, `debt_opening_lines` (V10)
 - Đầu: `company_id, branch_id, document_no` (loại `CNDK`), `debt_type, document_date, posting_date, description, total_amount, status` (nhóm A + `REVERSED`), người / thời điểm gửi, duyệt, ghi sổ, đảo, `reverse_date, reason`, audit, `version`.
 - Dòng: `document_id, line_no` (unique), `partner_id, invoice_no, invoice_date, due_date, amount (> 0), sales_user_id, note`.
+- V31 (D-60): `invoice_no`, `invoice_date` cho phép NULL, bỏ ràng buộc `ck_debt_opening_lines_dates`; ứng dụng không ghi hai cột này nữa (dữ liệu cũ giữ nguyên). Loại `CNDK` chuyển `approval_mode = NONE`, luồng duyệt `CNDK` ngừng hoạt động, xóa quyền `debt-opening:approve`.
 - V10 cũng thêm loại chứng từ `CNDK` (bắt buộc duyệt), tham số `finance.aging-bucket-{1,2,3}-days` (30 / 60 / 90 `[Giả định]`), quyền `debt:view`, `debt-opening:*`.
 
 ### 4.10 `payment_allocations` (V11)

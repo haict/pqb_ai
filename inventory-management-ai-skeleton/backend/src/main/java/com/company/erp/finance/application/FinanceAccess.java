@@ -102,17 +102,22 @@ class FinanceAccess {
         PartnerInfo partner = masterData.partner(partnerId)
                 .filter(found -> found.companyId().equals(companyId) && found.active())
                 .orElseThrow(() -> BusinessException.invalidField(field, "Đối tượng không tồn tại hoặc đã ngừng."));
-        Set<String> roles = partner.roleCodes();
+        String roleError = debtRoleError(partner, debtType);
+        if (roleError != null) {
+            throw BusinessException.invalidField(field, roleError);
+        }
+        return partner;
+    }
+
+    /** Thông báo lỗi khi đối tượng không có vai trò phù hợp loại công nợ (P-07); hợp lệ thì {@code null}. */
+    static String debtRoleError(PartnerInfo partner, DebtType debtType) {
         Set<String> allowed = switch (debtType) {
             case RECEIVABLE -> Set.of("CUSTOMER", "TENDER_OWNER", "AGENT", "EMPLOYEE");
             case PAYABLE -> Set.of("SUPPLIER", "EMPLOYEE");
             case ADVANCE -> Set.of("EMPLOYEE");
         };
-        if (roles.stream().noneMatch(allowed::contains)) {
-            throw BusinessException.invalidField(field, "Đối tượng " + partner.code() + " không có vai trò "
-                    + ROLE_LABELS.get(debtType) + ".");
-        }
-        return partner;
+        return partner.roleCodes().stream().anyMatch(allowed::contains) ? null
+                : "Đối tượng " + partner.code() + " không có vai trò " + ROLE_LABELS.get(debtType) + ".";
     }
 
     /** Đối tượng bất kỳ vai trò: cùng công ty, đang hoạt động. */

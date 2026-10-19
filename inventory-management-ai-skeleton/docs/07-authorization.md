@@ -122,10 +122,9 @@ Không có quyền tạo / sửa bút toán: bút toán chỉ sinh khi chứng t
 | Quyền | Ý nghĩa | Vai trò mặc định `[Suy luận]` |
 |---|---|---|
 | `debt:view` | Xem khoản công nợ, tuổi nợ, sổ chi tiết công nợ (theo phạm vi chi nhánh) | `CHIEF_ACCOUNTANT`, `AR_ACCOUNTANT`, `CASHIER`, `TAX_ACCOUNTANT`, `DIRECTOR`, `BRANCH_DIRECTOR` |
-| `debt-opening:view`, `:create`, `:post` | Xem; lập, sửa, gửi duyệt, hủy; ghi sổ công nợ đầu kỳ | `CHIEF_ACCOUNTANT`, `AR_ACCOUNTANT` (xem: thêm `DIRECTOR`, `BRANCH_DIRECTOR`) |
-| `debt-opening:approve` | Duyệt, từ chối, đảo công nợ đầu kỳ | `CHIEF_ACCOUNTANT` |
+| `debt-opening:view`, `:create`, `:post` | Xem; lập, sửa, hủy; ghi sổ, đảo công nợ đầu kỳ | `CHIEF_ACCOUNTANT`, `AR_ACCOUNTANT` (xem: thêm `DIRECTOR`, `BRANCH_DIRECTOR`) |
 
-Luồng duyệt mẫu công nợ đầu kỳ (chỉ dev/test, `R__dev_phase4_accounting.sql`): `CHIEF_ACCOUNTANT` duyệt một bước. Đảo công nợ đầu kỳ: người có `debt-opening:approve` thực hiện, bắt buộc lý do; hành động đảo được coi là sự phê duyệt (D-04) `[Giả định]`.
+Công nợ đầu kỳ không qua duyệt (D-60, V31 xóa quyền `debt-opening:approve`): người có `debt-opening:post` ghi sổ thẳng từ nháp và đảo (bắt buộc lý do).
 
 ### 2.6 Quyền quỹ, thu chi (M07, Giai đoạn 4C, migration V11)
 | Quyền | Ý nghĩa | Vai trò mặc định `[Suy luận]` |

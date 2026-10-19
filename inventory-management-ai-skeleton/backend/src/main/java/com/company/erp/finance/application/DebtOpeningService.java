@@ -5,8 +5,6 @@ import com.company.erp.common.application.BusinessCalendar;
 import com.company.erp.common.application.IdempotencyService;
 import com.company.erp.common.application.IdempotentCommand;
 import com.company.erp.common.domain.BusinessException;
-import com.company.erp.common.domain.ErrorCode;
-import com.company.erp.finance.application.dto.CommentRequest;
 import com.company.erp.finance.application.dto.DebtOpeningLineRequest;
 import com.company.erp.finance.application.dto.DebtOpeningRequest;
 import com.company.erp.finance.application.dto.DebtOpeningResponse;
@@ -15,20 +13,15 @@ import com.company.erp.finance.domain.DebtOpeningDocument;
 import com.company.erp.finance.domain.DebtOpeningLine;
 import com.company.erp.finance.domain.DebtType;
 import com.company.erp.finance.domain.FinanceDocumentStatus;
-import com.company.erp.finance.infrastructure.persistence.DebtItemRepository;
 import com.company.erp.finance.infrastructure.persistence.DebtOpeningDocumentRepository;
 import com.company.erp.masterdata.application.MasterDataQueryService.PartnerInfo;
 import com.company.erp.system.application.ApprovalService;
-import com.company.erp.system.application.ApprovalSubmission;
 import com.company.erp.system.application.CurrentUser;
 import com.company.erp.system.application.OrganizationQueryService;
 import com.company.erp.system.application.OrganizationQueryService.BranchRef;
 import jakarta.persistence.criteria.Predicate;
-import java.time.Clock;
-import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import org.springframework.data.domain.Page;
@@ -39,8 +32,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Lập, sửa, gửi duyệt, duyệt, từ chối, hủy chứng từ công nợ đầu kỳ (BR-MIG-01, BR-AR-02). Ghi sổ, đảo ở
- * {@link DebtOpeningPostingService}.
+ * Lập, sửa, hủy chứng từ công nợ đầu kỳ (BR-MIG-01). Không qua duyệt (D-60): ghi sổ thẳng từ nháp ở
+ * {@link DebtOpeningPostingService}. Chứng từ đang chờ duyệt theo luồng cũ chỉ còn hủy được.
  */
 @Service
 public class DebtOpeningService {
@@ -48,7 +41,6 @@ public class DebtOpeningService {
     static final String DOCUMENT_TYPE = "CNDK";
     static final String VIEW = "debt-opening:view";
     static final String CREATE = "debt-opening:create";
-    static final String APPROVE = "debt-opening:approve";
     private static final Set<String> SORTABLE = Set.of("documentDate", "documentNo", "createdAt");
 
     public record DebtOpeningFilter(Long companyId, Long branchId, DebtType debtType, FinanceDocumentStatus status,
@@ -56,29 +48,24 @@ public class DebtOpeningService {
     }
 
     private final DebtOpeningDocumentRepository repository;
-    private final DebtItemRepository itemRepository;
     private final DebtOpeningMapper mapper;
     private final FinanceAccess access;
     private final OrganizationQueryService organization;
     private final ApprovalService approvalService;
     private final IdempotencyService idempotency;
     private final BusinessCalendar calendar;
-    private final Clock clock;
 
-    @SuppressWarnings("java:S107")
-    public DebtOpeningService(DebtOpeningDocumentRepository repository, DebtItemRepository itemRepository,
-                              DebtOpeningMapper mapper, FinanceAccess access, OrganizationQueryService organization,
+    public DebtOpeningService(DebtOpeningDocumentRepository repository, DebtOpeningMapper mapper,
+                              FinanceAccess access, OrganizationQueryService organization,
                               ApprovalService approvalService, IdempotencyService idempotency,
-                              BusinessCalendar calendar, Clock clock) {
+                              BusinessCalendar calendar) {
         this.repository = repository;
-        this.itemRepository = itemRepository;
         this.mapper = mapper;
         this.access = access;
         this.organization = organization;
         this.approvalService = approvalService;
         this.idempotency = idempotency;
         this.calendar = calendar;
-        this.clock = clock;
     }
 
     @Transactional(readOnly = true)
@@ -151,61 +138,13 @@ public class DebtOpeningService {
     }
 
     @Transactional
-    public DebtOpeningResponse submit(CurrentUser actor, Long id, String idempotencyKey) {
-        IdempotentCommand command = new IdempotentCommand(actor.id(), idempotencyKey,
-                "POST /api/v1/debt-openings/" + id + "/submit", id);
-        return idempotency.execute(command, DebtOpeningResponse.class, () -> {
-            access.requirePermission(actor, CREATE);
-            DebtOpeningDocument document = lock(actor, id);
-            Instant now = Instant.now(clock);
-            document.submit(actor.id(), now);
-            boolean required = approvalService.submit(actor, new ApprovalSubmission(document.getCompanyId(),
-                    document.getBranchId(), DOCUMENT_TYPE, document.getId(), document.getDocumentNo(),
-                    document.getTotalAmount(), null)).approvalRequired();
-            if (!required) {
-                document.approve(actor.id(), now);
-            }
-            return act(actor, document, "SUBMIT", null);
-        });
-    }
-
-    @Transactional
-    public DebtOpeningResponse approve(CurrentUser actor, Long id, String idempotencyKey, CommentRequest request) {
-        IdempotentCommand command = new IdempotentCommand(actor.id(), idempotencyKey,
-                "POST /api/v1/debt-openings/" + id + "/approve", request);
-        return idempotency.execute(command, DebtOpeningResponse.class, () -> {
-            access.requirePermission(actor, APPROVE);
-            DebtOpeningDocument document = lock(actor, id);
-            requireSubmitted(document);
-            String comment = request == null ? null : request.comment();
-            if (approvalService.approve(actor, DOCUMENT_TYPE, id, comment).completed()) {
-                document.approve(actor.id(), Instant.now(clock));
-            }
-            return act(actor, document, "APPROVE", comment);
-        });
-    }
-
-    @Transactional
-    public DebtOpeningResponse reject(CurrentUser actor, Long id, String idempotencyKey, ReasonRequest request) {
-        IdempotentCommand command = new IdempotentCommand(actor.id(), idempotencyKey,
-                "POST /api/v1/debt-openings/" + id + "/reject", request);
-        return idempotency.execute(command, DebtOpeningResponse.class, () -> {
-            access.requirePermission(actor, APPROVE);
-            DebtOpeningDocument document = lock(actor, id);
-            requireSubmitted(document);
-            approvalService.reject(actor, DOCUMENT_TYPE, id, request.reason());
-            document.reject(request.reason().trim());
-            return act(actor, document, "REJECT", request.reason());
-        });
-    }
-
-    @Transactional
     public DebtOpeningResponse cancel(CurrentUser actor, Long id, String idempotencyKey, ReasonRequest request) {
         IdempotentCommand command = new IdempotentCommand(actor.id(), idempotencyKey,
                 "POST /api/v1/debt-openings/" + id + "/cancel", request);
         return idempotency.execute(command, DebtOpeningResponse.class, () -> {
             access.requirePermission(actor, CREATE);
             DebtOpeningDocument document = lock(actor, id);
+            // Chứng từ đang chờ duyệt theo luồng cũ (trước D-60): đóng yêu cầu duyệt.
             if (document.getStatus() == FinanceDocumentStatus.SUBMITTED) {
                 approvalService.cancelPending(actor, DOCUMENT_TYPE, id, request.reason());
             }
@@ -214,33 +153,22 @@ public class DebtOpeningService {
         });
     }
 
-    /** Kiểm tra và thay nội dung chứng từ: đối tượng, hóa đơn không trùng, hạn thanh toán (BR-AR-02). */
+    /**
+     * Kiểm tra và thay nội dung chứng từ: đối tượng đúng vai trò; hạn thanh toán để trống = ngày chứng từ + số ngày nợ
+     * của đối tượng (D-60). Một đối tượng được nhiều dòng (khác hạn thanh toán).
+     */
     private void fill(DebtOpeningDocument document, DebtOpeningRequest request) {
         List<DebtOpeningLine> lines = new ArrayList<>();
-        Set<String> invoices = new HashSet<>();
         for (int i = 0; i < request.lines().size(); i++) {
             DebtOpeningLineRequest line = request.lines().get(i);
             String field = "lines[" + i + "]";
             PartnerInfo partner = access.debtPartner(document.getCompanyId(), line.partnerId(),
                     document.getDebtType(), field + ".partnerId");
-            String invoiceNo = line.invoiceNo().trim();
-            if (!invoices.add(partner.id() + "|" + invoiceNo)) {
-                throw BusinessException.invalidField(field + ".invoiceNo", "Hóa đơn " + invoiceNo
-                        + " của " + partner.code() + " bị trùng trong chứng từ.");
-            }
-            if (itemRepository.existsActiveInvoice(document.getCompanyId(), document.getDebtType(), partner.id(),
-                    invoiceNo)) {
-                throw BusinessException.invalidField(field + ".invoiceNo", "Hóa đơn " + invoiceNo + " của "
-                        + partner.code() + " đã có công nợ.");
-            }
             requireSalesUser(document.getCompanyId(), line.salesUserId(), field);
             LocalDate dueDate = line.dueDate() != null ? line.dueDate()
-                    : line.invoiceDate().plusDays(termDays(partner, document.getDebtType()));
-            if (dueDate.isBefore(line.invoiceDate())) {
-                throw BusinessException.invalidField(field + ".dueDate", "Hạn thanh toán không được trước ngày hóa đơn.");
-            }
-            lines.add(new DebtOpeningLine(i + 1, partner.id(), invoiceNo, line.invoiceDate(), dueDate,
-                    line.amount(), line.salesUserId(), trim(line.note())));
+                    : request.documentDate().plusDays(termDays(partner, document.getDebtType()));
+            lines.add(new DebtOpeningLine(i + 1, partner.id(), dueDate, line.amount(), line.salesUserId(),
+                    trim(line.note())));
         }
         LocalDate postingDate = request.postingDate() != null ? request.postingDate() : request.documentDate();
         document.replaceContent(request.documentDate(), postingDate, trim(request.description()), lines);
@@ -260,13 +188,6 @@ public class DebtOpeningService {
             case ADVANCE -> 0;
         };
         return days == null ? 0 : days;
-    }
-
-    private static void requireSubmitted(DebtOpeningDocument document) {
-        if (document.getStatus() != FinanceDocumentStatus.SUBMITTED) {
-            throw new BusinessException(ErrorCode.INVALID_DOCUMENT_STATE, "Chứng từ " + document.getDocumentNo()
-                    + " không ở trạng thái chờ duyệt.");
-        }
     }
 
     DebtOpeningDocument lock(CurrentUser actor, Long id) {

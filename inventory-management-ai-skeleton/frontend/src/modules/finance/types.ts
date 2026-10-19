@@ -26,12 +26,25 @@ export interface DebtOpeningLine {
   partnerId: number;
   partnerCode: string | null;
   partnerName: string | null;
-  invoiceNo: string;
-  invoiceDate: string;
   dueDate: string;
   amount: number;
   salesUserId: number | null;
   note: string | null;
+}
+
+/** Dòng công nợ đầu kỳ đọc từ Excel để điền form (chưa lưu); hạn thanh toán trống thì server tính khi lưu. */
+export interface ImportedDebtOpeningLine {
+  partnerId: number;
+  partnerCode: string;
+  partnerName: string;
+  dueDate: string | null;
+  amount: number;
+  note: string | null;
+}
+
+export interface DebtOpeningLineImportResult {
+  created: number;
+  lines: ImportedDebtOpeningLine[];
 }
 
 export interface DebtOpening {

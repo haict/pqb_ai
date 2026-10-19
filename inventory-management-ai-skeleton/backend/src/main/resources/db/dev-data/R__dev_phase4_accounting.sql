@@ -187,14 +187,3 @@ SELECT u.id, r.id FROM sys_users u JOIN sys_roles r
 INSERT IGNORE INTO sys_user_data_scopes (user_id, scope_type, scope_id)
 SELECT id, 'COMPANY', 1 FROM sys_users WHERE username = 'ketoancongno'
 UNION ALL SELECT id, 'BRANCH', 1 FROM sys_users WHERE username = 'thuquy.hn';
-
--- Luồng duyệt mẫu công nợ đầu kỳ (Giai đoạn 4B): Kế toán trưởng duyệt một bước. [Suy luận] doanh nghiệp cấu hình lại.
-INSERT INTO approval_workflows (company_id, document_type, name, branch_id, priority, status, created_at, updated_at)
-SELECT 1, 'CNDK', 'Mẫu - Chứng từ công nợ đầu kỳ', NULL, 0, 'ACTIVE', UTC_TIMESTAMP(3), UTC_TIMESTAMP(3)
-WHERE NOT EXISTS (SELECT 1 FROM approval_workflows w
-                  WHERE w.company_id = 1 AND w.document_type = 'CNDK' AND w.name = 'Mẫu - Chứng từ công nợ đầu kỳ');
-
-INSERT IGNORE INTO approval_workflow_steps (workflow_id, step_no, approver_type, role_id, user_id)
-SELECT w.id, 1, 'ROLE', r.id, NULL
-FROM approval_workflows w JOIN sys_roles r ON r.code = 'CHIEF_ACCOUNTANT'
-WHERE w.company_id = 1 AND w.document_type = 'CNDK' AND w.name = 'Mẫu - Chứng từ công nợ đầu kỳ';

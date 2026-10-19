@@ -33,7 +33,7 @@ export function LicenseBanner() {
       showIcon
       banner
       style={{ marginBottom: 16, borderRadius: 10 }}
-      message={remind ? `Bản quyền phần mềm còn ${data.daysRemaining} ngày. ${data.message}` : data.message}
+      message={data.message}
       action={
         can('license:manage') && (
           <Button size="small" onClick={() => navigate('/system/license')}>

@@ -22,6 +22,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.HexFormat;
 import java.util.List;
@@ -51,6 +52,7 @@ public class LicenseService {
     private static final Logger log = LoggerFactory.getLogger(LicenseService.class);
     /** Sai lệch đồng hồ chấp nhận được (đổi giờ, đồng bộ NTP) trước khi coi là lùi đồng hồ. */
     private static final Duration CLOCK_TOLERANCE = Duration.ofDays(1);
+    private static final DateTimeFormatter VN_DATE = DateTimeFormatter.ofPattern("dd/MM/yyyy");
     /** Khóa mã kiểm tra mốc thời gian: chống sửa tay trong database, không phải bí mật mật mã học. */
     private static final byte[] CLOCK_CHECKSUM_KEY =
             "erp-license-clock-v1:5b0e2c7a-91d4-4f6b-8a3e-d27c1f0e6a94".getBytes(StandardCharsets.UTF_8);
@@ -286,12 +288,23 @@ public class LicenseService {
                 evaluation.unlicensedCompanies());
     }
 
+    /** Số ngày đến hết hạn và đến hết ân hạn tách riêng, để không hiểu nhầm ngày ân hạn là ngày còn hiệu lực. */
+    private static String validMessage(LicensePayload payload, LocalDate today) {
+        long daysToExpiry = ChronoUnit.DAYS.between(today, payload.validTo());
+        String expiry = daysToExpiry == 0 ? "hết hạn hôm nay (" + VN_DATE.format(payload.validTo()) + ")"
+                : "còn hiệu lực đến ngày " + VN_DATE.format(payload.validTo()) + " (còn " + daysToExpiry + " ngày)";
+        String grace = payload.graceDays() == 0 ? ""
+                : "; sau đó có " + payload.graceDays() + " ngày ân hạn đến hết ngày "
+                        + VN_DATE.format(payload.graceUntil());
+        return "Bản quyền " + expiry + grace + ".";
+    }
+
     private static String message(LicenseState state, LicensePayload payload, LocalDate today) {
         return switch (state) {
-            case VALID -> "Bản quyền còn hiệu lực đến ngày " + payload.validTo() + ".";
-            case GRACE -> "Bản quyền đã hết hạn ngày " + payload.validTo() + "; còn "
-                    + ChronoUnit.DAYS.between(today, payload.graceUntil())
-                    + " ngày ân hạn trước khi hệ thống chuyển sang chế độ chỉ đọc.";
+            case VALID -> validMessage(payload, today);
+            case GRACE -> "Bản quyền đã hết hạn ngày " + VN_DATE.format(payload.validTo()) + "; còn "
+                    + ChronoUnit.DAYS.between(today, payload.graceUntil()) + " ngày ân hạn (đến hết ngày "
+                    + VN_DATE.format(payload.graceUntil()) + ") trước khi hệ thống chuyển sang chế độ chỉ đọc.";
             case EXPIRED -> "Bản quyền đã hết hạn và hết ân hạn: hệ thống chỉ cho xem, in, xuất dữ liệu.";
             case MISSING -> "Chưa nạp bản quyền phần mềm: hệ thống chỉ cho xem, in, xuất dữ liệu.";
             case INVALID -> "Bản quyền không hợp lệ: hệ thống chỉ cho xem, in, xuất dữ liệu.";

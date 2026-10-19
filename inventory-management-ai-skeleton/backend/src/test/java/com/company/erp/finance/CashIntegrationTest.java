@@ -81,9 +81,9 @@ class CashIntegrationTest {
         String invoiceB = unique("HD");
         String invoiceC = unique("HD");
         opening("RECEIVABLE", List.of(
-                openingLine(customer, invoiceC, "2026-09-01", "2026-09-30", "3000000"),
-                openingLine(customer, invoiceA, "2026-07-01", "2026-07-31", "1000000"),
-                openingLine(customer, invoiceB, "2026-08-01", "2026-08-31", "2000000")));
+                openingLine(customer, invoiceC, "2026-09-30", "3000000"),
+                openingLine(customer, invoiceA, "2026-07-31", "1000000"),
+                openingLine(customer, invoiceB, "2026-08-31", "2000000")));
         long cash = cashAccount("CASH", "1111");
         long bank = cashAccount("BANK", "1121");
 
@@ -169,8 +169,7 @@ class CashIntegrationTest {
     void reverseReceipt() throws Exception {
         long customer = partner("CUSTOMER");
         String invoice = unique("HD");
-        long openingDoc = opening("RECEIVABLE", List.of(openingLine(customer, invoice, "2026-09-01", "2026-09-30",
-                "1000000")));
+        long openingDoc = opening("RECEIVABLE", List.of(openingLine(customer, invoice, "2026-09-30", "1000000")));
         long cash = cashAccount("CASH", "1111");
         long receipt = create(clerk, doc("PT", "CUSTOMER_RECEIPT", cash, null, customer, "AUTO", "400000",
                 List.of()));
@@ -213,7 +212,7 @@ class CashIntegrationTest {
     void concurrentAllocation() throws Exception {
         long customer = partner("CUSTOMER");
         String invoice = unique("HD");
-        opening("RECEIVABLE", List.of(openingLine(customer, invoice, "2026-09-01", "2026-09-30", "1000000")));
+        opening("RECEIVABLE", List.of(openingLine(customer, invoice, "2026-09-30", "1000000")));
         long target = itemId(customer, invoice);
         long cash = cashAccount("CASH", "1111");
         List<Long> receipts = new ArrayList<>();
@@ -325,10 +324,10 @@ class CashIntegrationTest {
         return jsonId(send(admin, post("/api/v1/partners"), body, newKey()).andExpect(status().isCreated()).andReturn());
     }
 
-    private static String openingLine(long partner, String invoiceNo, String invoiceDate, String dueDate,
-                                      String amount) {
-        return "{\"partnerId\":" + partner + ",\"invoiceNo\":\"" + invoiceNo + "\",\"invoiceDate\":\"" + invoiceDate
-                + "\",\"dueDate\":\"" + dueDate + "\",\"amount\":" + amount + "}";
+    /** Dòng công nợ đầu kỳ; {@code key} ghi vào ghi chú để tìm lại khoản công nợ (D-60: không còn số hóa đơn). */
+    private static String openingLine(long partner, String key, String dueDate, String amount) {
+        return "{\"partnerId\":" + partner + ",\"dueDate\":\"" + dueDate + "\",\"amount\":" + amount
+                + ",\"note\":\"" + key + "\"}";
     }
 
     /** Công nợ đầu kỳ đã ghi sổ (nguồn khoản công nợ để thu / chi). */
@@ -337,15 +336,8 @@ class CashIntegrationTest {
                 + "\"lines\":[" + String.join(",", lines) + "]}";
         long id = jsonId(send(clerk, post("/api/v1/debt-openings"), body, newKey()).andExpect(status().isCreated())
                 .andReturn());
-        for (String[] step : new String[][] {{"submit", null}, {"approve", "{}"}, {"post", null}}) {
-            Session session = "approve".equals(step[0]) ? chief : clerk;
-            MockHttpServletRequestBuilder request = as(session, post("/api/v1/debt-openings/" + id + "/" + step[0]))
-                    .header(IdempotentCommand.HEADER, newKey());
-            if (step[1] != null) {
-                request.contentType(MediaType.APPLICATION_JSON).content(step[1]);
-            }
-            mockMvc.perform(request).andExpect(status().isOk());
-        }
+        mockMvc.perform(as(clerk, post("/api/v1/debt-openings/" + id + "/post"))
+                .header(IdempotentCommand.HEADER, newKey())).andExpect(status().isOk());
         return id;
     }
 
@@ -413,11 +405,11 @@ class CashIntegrationTest {
 
     private Map<String, Object> item(long partner, String invoiceNo) {
         return jdbc.queryForMap("SELECT status, settled_amount, remaining_amount FROM debt_items WHERE partner_id = ? "
-                + "AND invoice_no = ?", partner, invoiceNo);
+                + "AND description = ?", partner, invoiceNo);
     }
 
     private long itemId(long partner, String invoiceNo) {
-        return jdbc.queryForObject("SELECT id FROM debt_items WHERE partner_id = ? AND invoice_no = ?", Long.class,
+        return jdbc.queryForObject("SELECT id FROM debt_items WHERE partner_id = ? AND description = ?", Long.class,
                 partner, invoiceNo);
     }
 

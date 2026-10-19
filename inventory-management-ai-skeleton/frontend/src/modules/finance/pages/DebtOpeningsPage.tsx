@@ -1,4 +1,4 @@
-import { DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
+import { DeleteOutlined, EditOutlined, PlusOutlined, UploadOutlined } from '@ant-design/icons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   App,
@@ -29,12 +29,20 @@ import { DocumentActions } from '../../inventory/components/DocumentActions';
 import { DocumentStatusTag } from '../../inventory/components/StatusTags';
 import { formatDate, statusLabel } from '../../inventory/labels';
 import { PartnerSelect } from '../../masterdata/components/EntitySelects';
+import { ImportModal } from '../../masterdata/components/ImportModal';
 import { useCompanyId } from '../../masterdata/lookups';
 import { ApprovalHistory } from '../../system/components/ApprovalHistory';
 import { useMyBranches } from '../../system/lookups';
 import { debtOpeningApi } from '../api';
 import { DEBT_PARTNER_ROLE, DEBT_TYPES } from '../labels';
-import type { DebtOpening, DebtOpeningLine, DebtType, FinanceDocumentStatus } from '../types';
+import type {
+  DebtOpening,
+  DebtOpeningLine,
+  DebtOpeningLineImportResult,
+  DebtType,
+  FinanceDocumentStatus,
+  ImportedDebtOpeningLine,
+} from '../types';
 import { BranchCol } from '../../../shared/components/BranchCol';
 import { BRANCH_VISIBLE, whenBranchVisible } from '../../../shared/branch';
 
@@ -51,8 +59,6 @@ const STATUSES: FinanceDocumentStatus[] = [
 interface LineForm {
   partnerId?: number;
   partnerLabel?: string;
-  invoiceNo?: string;
-  invoiceDate?: Dayjs;
   dueDate?: Dayjs;
   amount?: number;
   note?: string;
@@ -69,16 +75,19 @@ interface OpeningForm {
 
 const FIELDS = ['branchId', 'debtType', 'documentDate', 'postingDate', 'description', 'lines'];
 
-/** Thao tác hiện theo trạng thái và quyền; server vẫn kiểm tra lại (frontend.md mục 3). */
+/**
+ * Thao tác hiện theo trạng thái và quyền; server vẫn kiểm tra lại (frontend.md mục 3). Không qua duyệt (D-60): ghi sổ
+ * thẳng từ nháp; chứng từ chờ duyệt / đã duyệt / bị từ chối theo luồng cũ chỉ còn hủy, ghi sổ.
+ */
 function openingActions(status: FinanceDocumentStatus, can: (permission: string) => boolean): string[] {
-  const create = can('debt-opening:create');
-  const approve = can('debt-opening:approve');
+  const cancel = can('debt-opening:create') ? ['cancel'] : [];
+  const post = can('debt-opening:post') ? ['post'] : [];
   const actions: Record<FinanceDocumentStatus, string[]> = {
-    DRAFT: create ? ['submit', 'cancel'] : [],
-    REJECTED: create ? ['submit', 'cancel'] : [],
-    SUBMITTED: [...(approve ? ['approve', 'reject'] : []), ...(create ? ['cancel'] : [])],
-    APPROVED: [...(can('debt-opening:post') ? ['post'] : []), ...(create ? ['cancel'] : [])],
-    POSTED: approve ? ['reverse'] : [],
+    DRAFT: [...post, ...cancel],
+    REJECTED: cancel,
+    SUBMITTED: cancel,
+    APPROVED: [...post, ...cancel],
+    POSTED: can('debt-opening:post') ? ['reverse'] : [],
     CANCELLED: [],
     REVERSED: [],
   };
@@ -88,8 +97,6 @@ function openingActions(status: FinanceDocumentStatus, can: (permission: string)
 const LINE_COLUMNS: TableColumnsType<DebtOpeningLine> = [
   { title: '#', dataIndex: 'lineNo', width: 50 },
   { title: 'Đối tượng', render: (_, line) => `${line.partnerCode ?? ''} - ${line.partnerName ?? ''}` },
-  { title: 'Số hóa đơn', dataIndex: 'invoiceNo', width: 140 },
-  { title: 'Ngày hóa đơn', dataIndex: 'invoiceDate', width: 120, render: formatDate },
   { title: 'Hạn thanh toán', dataIndex: 'dueDate', width: 130, render: formatDate },
   { title: 'Số tiền', dataIndex: 'amount', width: 150, align: 'right', render: formatMoney },
   { title: 'Ghi chú', dataIndex: 'note' },
@@ -161,10 +168,14 @@ function OpeningDrawer({
             dataSource={document.lines}
             scroll={{ x: 900 }}
           />
-          <Typography.Title level={5} style={{ marginTop: 16 }}>
-            Lịch sử duyệt
-          </Typography.Title>
-          <ApprovalHistory requests={document.approvals} />
+          {document.approvals.length > 0 && (
+            <>
+              <Typography.Title level={5} style={{ marginTop: 16 }}>
+                Lịch sử duyệt
+              </Typography.Title>
+              <ApprovalHistory requests={document.approvals} />
+            </>
+          )}
         </>
       )}
     </Drawer>
@@ -202,8 +213,6 @@ export function DebtOpeningsPage() {
       description: values.description,
       lines: (values.lines ?? []).map((line) => ({
         partnerId: line.partnerId,
-        invoiceNo: line.invoiceNo,
-        invoiceDate: line.invoiceDate?.format('YYYY-MM-DD'),
         dueDate: line.dueDate ? line.dueDate.format('YYYY-MM-DD') : null,
         amount: line.amount,
         note: line.note,
@@ -232,8 +241,6 @@ export function DebtOpeningsPage() {
           lines: editing.lines.map((line) => ({
             partnerId: line.partnerId,
             partnerLabel: `${line.partnerCode ?? ''} - ${line.partnerName ?? ''}`,
-            invoiceNo: line.invoiceNo,
-            invoiceDate: dayjs(line.invoiceDate),
             dueDate: dayjs(line.dueDate),
             amount: line.amount,
             note: line.note ?? undefined,
@@ -373,16 +380,19 @@ function OpeningFields({
           </Form.Item>
         </Col>
       </Row>
-      <Typography.Text type="secondary">
-        Mỗi dòng là số còn nợ của một hóa đơn. Để trống hạn thanh toán: ngày hóa đơn + số ngày nợ của đối
-        tượng.
-      </Typography.Text>
+      <Space style={{ width: '100%', justifyContent: 'space-between' }} wrap>
+        <Typography.Text type="secondary">
+          Mỗi dòng là số còn nợ của một đối tượng đến một hạn thanh toán. Để trống hạn thanh toán: ngày chứng
+          từ + số ngày nợ của đối tượng.
+        </Typography.Text>
+        <LineImportButton form={form} debtType={debtType} />
+      </Space>
       <Form.List name="lines">
         {(fields, { add, remove }) => (
           <>
             {fields.map((field) => (
               <Row gutter={8} key={field.key} align="top" style={{ marginTop: 8 }}>
-                <Col xs={24} md={6}>
+                <Col xs={24} md={8}>
                   <Form.Item
                     name={[field.name, 'partnerId']}
                     label="Đối tượng"
@@ -394,30 +404,12 @@ function OpeningFields({
                     />
                   </Form.Item>
                 </Col>
-                <Col xs={12} md={3}>
-                  <Form.Item
-                    name={[field.name, 'invoiceNo']}
-                    label="Số hóa đơn"
-                    rules={[{ required: true, whitespace: true, message: 'Nhập số' }]}
-                  >
-                    <Input maxLength={50} />
-                  </Form.Item>
-                </Col>
-                <Col xs={12} md={3}>
-                  <Form.Item
-                    name={[field.name, 'invoiceDate']}
-                    label="Ngày hóa đơn"
-                    rules={[{ required: true, message: 'Chọn ngày' }]}
-                  >
-                    <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} />
-                  </Form.Item>
-                </Col>
-                <Col xs={12} md={3}>
+                <Col xs={12} md={4}>
                   <Form.Item name={[field.name, 'dueDate']} label="Hạn thanh toán">
                     <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} />
                   </Form.Item>
                 </Col>
-                <Col xs={12} md={4}>
+                <Col xs={12} md={5}>
                   <Form.Item
                     name={[field.name, 'amount']}
                     label="Số tiền còn nợ"
@@ -431,7 +423,7 @@ function OpeningFields({
                     />
                   </Form.Item>
                 </Col>
-                <Col xs={20} md={4}>
+                <Col xs={20} md={6}>
                   <Form.Item name={[field.name, 'note']} label="Ghi chú">
                     <Input maxLength={500} />
                   </Form.Item>
@@ -454,4 +446,51 @@ function OpeningFields({
       </Form.List>
     </>
   );
+}
+
+/**
+ * Nhập dòng công nợ từ Excel theo loại công nợ đang chọn: server chỉ đọc file và trả dòng, dòng được nối sau các dòng
+ * đã chọn đối tượng (dòng trống bị bỏ). Không lưu chứng từ; người dùng kiểm tra rồi bấm Lưu như lập tay.
+ */
+function LineImportButton({
+  form,
+  debtType,
+}: {
+  form: ReturnType<typeof Form.useForm<OpeningForm>>[0];
+  debtType: DebtType;
+}) {
+  const companyId = useCompanyId();
+  const [open, setOpen] = useState(false);
+
+  const fillLines = (result: DebtOpeningLineImportResult) => {
+    const kept = (form.getFieldValue('lines') ?? []).filter((line: LineForm) => line.partnerId);
+    form.setFieldValue('lines', [...kept, ...result.lines.map(toLineForm)]);
+  };
+
+  return (
+    <>
+      <Button icon={<UploadOutlined />} onClick={() => setOpen(true)}>
+        Nhập dòng từ Excel
+      </Button>
+      <ImportModal<DebtOpeningLineImportResult>
+        open={open}
+        title={`Nhập dòng công nợ đầu kỳ (${DEBT_TYPES[debtType]}) từ Excel`}
+        onDownloadTemplate={debtOpeningApi.downloadLineTemplate}
+        onImport={(file, key) => debtOpeningApi.importLines(file, companyId, debtType, key)}
+        successMessage={(result) => `Đã điền ${result.created} dòng vào chứng từ. Kiểm tra lại rồi bấm Lưu.`}
+        onDone={fillLines}
+        onClose={() => setOpen(false)}
+      />
+    </>
+  );
+}
+
+function toLineForm(line: ImportedDebtOpeningLine): LineForm {
+  return {
+    partnerId: line.partnerId,
+    partnerLabel: `${line.partnerCode} - ${line.partnerName}`,
+    dueDate: line.dueDate ? dayjs(line.dueDate) : undefined,
+    amount: line.amount,
+    note: line.note ?? undefined,
+  };
 }

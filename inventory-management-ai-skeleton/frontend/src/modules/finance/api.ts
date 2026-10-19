@@ -1,4 +1,12 @@
-import { getOne, getPage, patchStatus, postWithKey, putJson } from '../../shared/api/rest';
+import {
+  downloadFile,
+  getOne,
+  getPage,
+  patchStatus,
+  postWithKey,
+  putJson,
+  uploadFile,
+} from '../../shared/api/rest';
 import type { ListParams } from '../../shared/api/useServerTable';
 import type { RecordStatus } from '../../shared/components/StatusTag';
 import type {
@@ -13,6 +21,7 @@ import type {
   DebtLedger,
   DebtOffset,
   DebtOpening,
+  DebtOpeningLineImportResult,
   DebtPrepayment,
   DebtReconciliation,
   DebtStatement,
@@ -26,6 +35,10 @@ export const debtOpeningApi = {
   update: (id: number, input: object) => putJson<DebtOpening>(`/debt-openings/${id}`, input),
   act: (id: number, action: string, body: object | undefined, key: string) =>
     postWithKey<DebtOpening>(`/debt-openings/${id}/${action}`, body, key),
+  downloadLineTemplate: () => downloadFile('/debt-openings/line-import-template', 'mau-cong-no-dau-ky.xlsx'),
+  /** Chỉ đọc file, trả dòng để điền form; không lưu chứng từ. */
+  importLines: (file: File, companyId: number, debtType: DebtType, key: string) =>
+    uploadFile<DebtOpeningLineImportResult>('/debt-openings/line-import', file, { companyId, debtType }, key),
 };
 
 export const debtApi = {

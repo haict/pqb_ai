@@ -9,8 +9,6 @@ public record DebtOpeningLineResponse(
         Long partnerId,
         String partnerCode,
         String partnerName,
-        String invoiceNo,
-        LocalDate invoiceDate,
         LocalDate dueDate,
         BigDecimal amount,
         Long salesUserId,
