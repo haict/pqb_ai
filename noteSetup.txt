@@ -2,7 +2,7 @@ cd "C:\Program Files\MySQL\MySQL Server 8.4\bin";
 mysqldump -u root -p --single-transaction --routines --events --triggers inventory_db > "D:\setup\MySQL\erp_db_20261014.sql"
 mysqldump -u root -p --no-data --routines --events --triggers inventory_db > "D:\setup\MySQL\erp_db_nodata_20261014.sql"
 --backup
-mysql -u root -p erp < "D:\setup\MySQL\erp_db_20261014.sql"
+mysql -u root -p erp < "D:\setup\MySQL\erp_db_20261018.sql"
 
 mysql -u root -p erp < "D:\setup\MySQL\erp_db_nodata_20261014.sql"
 
