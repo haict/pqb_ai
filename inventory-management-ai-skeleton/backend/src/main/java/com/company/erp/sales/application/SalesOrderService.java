@@ -14,7 +14,6 @@ import com.company.erp.masterdata.application.MasterDataQueryService.PartnerInfo
 import com.company.erp.masterdata.application.MasterDataQueryService.ProductDocumentInfo;
 import com.company.erp.masterdata.application.MasterDataQueryService.ProductInfo;
 import com.company.erp.masterdata.application.MasterDataQueryService.WarehouseInfo;
-import com.company.erp.sales.application.dto.CommentRequest;
 import com.company.erp.sales.application.dto.PaymentTermRequest;
 import com.company.erp.sales.application.dto.PriceSuggestionResponse;
 import com.company.erp.sales.application.dto.ReasonRequest;
@@ -22,6 +21,7 @@ import com.company.erp.sales.application.dto.SalesLineRequest;
 import com.company.erp.sales.application.dto.SalesLineResponse;
 import com.company.erp.sales.application.dto.SalesOrderRequest;
 import com.company.erp.sales.application.dto.SalesOrderResponse;
+import com.company.erp.sales.domain.SalesDocument;
 import com.company.erp.sales.domain.SalesDocumentStatus;
 import com.company.erp.sales.domain.SalesOrder;
 import com.company.erp.sales.domain.SalesOrderLine;
@@ -52,10 +52,10 @@ import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Đơn bán (DBH, BR-SAL-10..14, D-54): lập theo giá ưu tiên, kiểm tra tồn khả dụng (cảnh báo, BR-SAL-12), gửi duyệt
- * (giá dưới sàn, chiết khấu vượt ngưỡng, vượt hạn mức tín dụng / nợ quá hạn phải duyệt; BR-SAL-03, 14), giữ hàng khi
- * duyệt hoặc theo lệnh (BR-SAL-13, D-37), nhả khi hủy. Ghi sổ, đảo, giao hàng, hóa đơn điện tử ở
- * {@link SalesOrderPostingService}. Thứ tự khóa: đơn bán → tổng (hàng, kho) theo thứ tự → giữ chỗ (như ghi sổ kho);
+ * Đơn bán (DBH, BR-SAL-10..14, D-54): lập theo giá ưu tiên, kiểm tra tồn khả dụng (cảnh báo, BR-SAL-12), ghi nhận lý
+ * do cần thẩm quyền (giá dưới sàn, chiết khấu vượt ngưỡng, vượt hạn mức tín dụng / nợ quá hạn; BR-SAL-03, 14), giữ
+ * hàng ngay trên đơn nháp khi lưu hoặc theo lệnh (BR-SAL-13, D-37, D-61), nhả khi hủy. Không qua duyệt (D-61): ghi sổ,
+ * đảo, giao hàng, hóa đơn điện tử ở {@link SalesOrderPostingService}. Thứ tự khóa: đơn bán → tổng (hàng, kho) theo thứ tự → giữ chỗ (như ghi sổ kho);
  * READ COMMITTED khi giữ / nhả hàng.
  */
 @Service
@@ -64,7 +64,8 @@ public class SalesOrderService {
     static final String PATH = "/api/v1/sales-orders";
     static final String VIEW = "sales-order:view";
     static final String CREATE = "sales-order:create";
-    static final String APPROVE = "sales-order:approve";
+    static final String OVERRIDE_PRICE = "sales-order:override-price";
+    static final String OVERRIDE_CREDIT = "sales-order:override-credit";
     static final String ENTITY = "SALES_ORDER";
     static final String RESERVATION_DAYS = "sales.reservation-days";
     private static final Set<SalesDocumentStatus> NOT_POSTED = EnumSet.of(SalesDocumentStatus.DRAFT,
@@ -83,6 +84,7 @@ public class SalesOrderService {
     private final StockAvailabilityService stockAvailability;
     private final StockOutService stockOut;
     private final SalesOrderFacts facts;
+    private final SalesReceiptSourceService receiptSources;
     private final ParameterService parameters;
     private final BusinessCalendar calendar;
     private final Clock clock;
@@ -92,7 +94,8 @@ public class SalesOrderService {
     public SalesOrderService(SalesOrderRepository repository, SalesDocumentFlow flow, SalesAccess access,
                              SalesPricing pricing, ApprovalService approvalService,
                              InventoryReservationService reservations, StockAvailabilityService stockAvailability,
-                             StockOutService stockOut, SalesOrderFacts facts, ParameterService parameters,
+                             StockOutService stockOut, SalesOrderFacts facts,
+                             SalesReceiptSourceService receiptSources, ParameterService parameters,
                              BusinessCalendar calendar, Clock clock) {
         this.repository = repository;
         this.flow = flow;
@@ -103,12 +106,13 @@ public class SalesOrderService {
         this.stockAvailability = stockAvailability;
         this.stockOut = stockOut;
         this.facts = facts;
+        this.receiptSources = receiptSources;
         this.parameters = parameters;
         this.calendar = calendar;
         this.clock = clock;
-        this.spec = new SalesDocumentFlow.Spec<>(PATH, VIEW, CREATE, APPROVE, ENTITY, repository::findByIdForUpdate,
+        this.spec = new SalesDocumentFlow.Spec<>(PATH, VIEW, CREATE, ENTITY, repository::findByIdForUpdate,
                 repository, document -> toResponse(document, true), SalesOrderResponse.class,
-                this::approvalRequired, null, this::reserveOnApproval, this::releaseReservations);
+                this::releaseReservations);
     }
 
     @Transactional(readOnly = true)
@@ -142,7 +146,7 @@ public class SalesOrderService {
         return pricing.suggest(actor, customerId, productId, unitId, quantity, date == null ? calendar.today() : date);
     }
 
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public SalesOrderResponse create(CurrentUser actor, String idempotencyKey, SalesOrderRequest request) {
         return flow.idempotent(actor, idempotencyKey, "POST " + PATH, request, SalesOrderResponse.class,
                 () -> toResponse(createDocument(actor, request, null), true));
@@ -158,11 +162,12 @@ public class SalesOrderService {
         document.assignSalesUser(SalesAccess.salesUser(actor, customer));
         fill(document, customer, request);
         document = repository.saveAndFlush(document);
+        reserveIfRequested(document);
         flow.act(actor, document, "CREATE", null, spec);
         return document;
     }
 
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public SalesOrderResponse update(CurrentUser actor, Long id, SalesOrderRequest request) {
         access.requirePermission(actor, CREATE);
         SalesOrder document = flow.lock(actor, id, spec);
@@ -173,22 +178,11 @@ public class SalesOrderService {
         }
         fill(document, access.customer(actor, document.getCompanyId(), document.getCustomerId(), "customerId"),
                 request);
+        // Dòng có thể đổi: nhả phần đã giữ theo dòng cũ, giữ lại theo nội dung mới nếu đơn chọn giữ hàng.
+        releaseReservations(document);
+        repository.saveAndFlush(document);
+        reserveIfRequested(document);
         return flow.act(actor, document, "UPDATE", null, spec);
-    }
-
-    @Transactional(isolation = Isolation.READ_COMMITTED)
-    public SalesOrderResponse submit(CurrentUser actor, Long id, String key) {
-        return flow.submit(actor, id, key, spec);
-    }
-
-    @Transactional(isolation = Isolation.READ_COMMITTED)
-    public SalesOrderResponse approve(CurrentUser actor, Long id, String key, CommentRequest request) {
-        return flow.approve(actor, id, key, request, spec);
-    }
-
-    @Transactional
-    public SalesOrderResponse reject(CurrentUser actor, Long id, String key, ReasonRequest request) {
-        return flow.reject(actor, id, key, request, spec);
     }
 
     @Transactional(isolation = Isolation.READ_COMMITTED)
@@ -196,14 +190,14 @@ public class SalesOrderService {
         return flow.cancel(actor, id, key, request, spec);
     }
 
-    /** Giữ hàng cho dòng hàng hóa của đơn đã duyệt (giữ lại từ đầu); thiếu tồn khả dụng: 422 {@code INSUFFICIENT_STOCK}. */
+    /** Giữ hàng cho dòng hàng hóa của đơn chưa ghi sổ (giữ lại từ đầu); thiếu tồn khả dụng: 422 {@code INSUFFICIENT_STOCK}. */
     @Transactional(isolation = Isolation.READ_COMMITTED)
     public SalesOrderResponse reserve(CurrentUser actor, Long id, String key) {
         return flow.idempotent(actor, key, "POST " + PATH + "/" + id + "/reserve", id, SalesOrderResponse.class,
                 () -> {
                     access.requirePermission(actor, CREATE);
                     SalesOrder document = flow.lock(actor, id, spec);
-                    document.requireApproved();
+                    document.requirePostable();
                     reservations.releaseAll(document.getCompanyId(), SalesOrder.TYPE_CODE, document.getId());
                     reserveGoods(document);
                     return flow.act(actor, document, "RESERVE", null, spec);
@@ -225,17 +219,32 @@ public class SalesOrderService {
         return spec;
     }
 
-    /** Lý do phải duyệt lúc gửi duyệt: giá (BR-SAL-03) và tín dụng (BR-SAL-14); có lý do thì bắt buộc luồng duyệt. */
-    private boolean approvalRequired(SalesOrder document) {
-        List<String> reasons = new ArrayList<>(pricing.priceReasons(document.getCompanyId(), document.getLines()));
-        CustomerProfile customer = access.customerProfile(document.getCustomerId());
-        reasons.addAll(pricing.creditReasons(document.getCompanyId(), customer, document.getTotalAmount(),
-                calendar.today()));
+    /**
+     * D-61 thay bước duyệt: giá dưới sàn / chiết khấu vượt ngưỡng (BR-SAL-03) cần quyền
+     * {@code sales-order:override-price}, vượt hạn mức tín dụng / nợ quá hạn (BR-SAL-14, D-22) cần quyền
+     * {@code sales-order:override-credit} để ghi sổ; thiếu quyền: 422 {@code PRICE_BELOW_FLOOR} /
+     * {@code CREDIT_LIMIT_EXCEEDED}. Tín dụng tính lại tại thời điểm ghi sổ. Trả ghi chú audit khi dùng quyền vượt.
+     */
+    String requirePostingAuthority(CurrentUser actor, SalesOrder document) {
+        List<String> priceReasons = pricing.priceReasons(document.getCompanyId(), document.getLines());
+        List<String> creditReasons = pricing.creditReasons(document.getCompanyId(),
+                access.customerProfile(document.getCustomerId()), document.getTotalAmount(), calendar.today());
+        List<String> reasons = new ArrayList<>(priceReasons);
+        reasons.addAll(creditReasons);
         document.recordApprovalReasons(reasons);
-        return !reasons.isEmpty();
+        if (!priceReasons.isEmpty() && !actor.hasPermission(OVERRIDE_PRICE)) {
+            throw new BusinessException(ErrorCode.PRICE_BELOW_FLOOR, "Đơn bán " + document.getDocumentNo()
+                    + " cần người có quyền ghi sổ giá dưới sàn / chiết khấu vượt ngưỡng. "
+                    + String.join(" ", priceReasons));
+        }
+        if (!creditReasons.isEmpty() && !actor.hasPermission(OVERRIDE_CREDIT)) {
+            throw new BusinessException(ErrorCode.CREDIT_LIMIT_EXCEEDED, "Đơn bán " + document.getDocumentNo()
+                    + " cần người có quyền ghi sổ vượt hạn mức tín dụng. " + String.join(" ", creditReasons));
+        }
+        return reasons.isEmpty() ? null : "Ghi sổ vượt thẩm quyền: " + String.join(" ", reasons);
     }
 
-    private void reserveOnApproval(SalesOrder document) {
+    private void reserveIfRequested(SalesOrder document) {
         if (document.isReserveStock()) {
             reserveGoods(document);
         }
@@ -263,7 +272,7 @@ public class SalesOrderService {
 
     private Map<Long, BigDecimal> reservedByLine(SalesOrder document) {
         Map<Long, BigDecimal> reserved = new HashMap<>();
-        if (document.getId() != null && document.getStatus() == SalesDocumentStatus.APPROVED) {
+        if (document.getId() != null && SalesDocument.POSTABLE.contains(document.getStatus())) {
             for (ReservationView view : reservations.bySource(document.getCompanyId(), SalesOrder.TYPE_CODE,
                     document.getId())) {
                 if (view.sourceLineId() != null) {
@@ -286,10 +295,12 @@ public class SalesOrderService {
             PricedValues values = pricing.line(document.getCompanyId(), customer, line, request.documentDate(), field);
             ProductInfo product = products.get(line.productId());
             boolean service = product != null && !product.stockTracked();
+            String lotNo = service ? null : SalesAccess.trim(line.lotNo());
+            List<String> serials = service ? List.of() : serials(product, line, values.baseQuantity(), field);
             lines.add(new SalesOrderLine(i + 1, new SalesOrderLine.Values(values, service, line.expectedDate(),
-                    service ? null : SalesAccess.trim(line.lotNo()),
-                    service ? null : SalesAccess.trim(line.lotOverrideReason()),
-                    service ? List.of() : serials(product, line, values.baseQuantity(), field))));
+                    lotNo, service ? null : SalesAccess.trim(line.lotOverrideReason()), serials,
+                    service ? null : receiptSources.resolve(document.getCompanyId(), warehouse.id(), line, lotNo,
+                            serials, field))));
         }
         List<SalesOrder.PaymentTermValues> terms = request.paymentTerms() == null ? List.of()
                 : request.paymentTerms().stream().map(SalesOrderService::term).toList();
@@ -301,6 +312,11 @@ public class SalesOrderService {
                 request.paymentTermDays() != null ? request.paymentTermDays() : customer.paymentTermDays(),
                 Boolean.TRUE.equals(request.reserveStock()), SalesAccess.trim(request.description())),
                 warehouse.id(), lines, terms);
+        // Lý do cần thẩm quyền ghi nhận ngay khi lưu nháp để người lập thấy trước; tín dụng tính lại khi ghi sổ.
+        List<String> reasons = new ArrayList<>(pricing.priceReasons(document.getCompanyId(), document.getLines()));
+        reasons.addAll(pricing.creditReasons(document.getCompanyId(), customer, document.getTotalAmount(),
+                calendar.today()));
+        document.recordApprovalReasons(reasons);
     }
 
     /** Serial chỉ định: chỉ hàng quản lý serial, không trùng, đủ số lượng theo đơn vị cơ sở (BR-INV-02). */

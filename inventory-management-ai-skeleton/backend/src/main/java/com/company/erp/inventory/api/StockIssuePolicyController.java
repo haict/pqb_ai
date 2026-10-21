@@ -4,12 +4,12 @@ import com.company.erp.common.api.ApiResponse;
 import com.company.erp.common.api.PageResponse;
 import com.company.erp.common.application.IdempotentCommand;
 import com.company.erp.inventory.application.StockIssuePolicyService;
-import com.company.erp.inventory.application.dto.CommentRequest;
 import com.company.erp.inventory.application.dto.ReasonRequest;
 import com.company.erp.inventory.application.dto.StockIssuePolicyRequest;
 import com.company.erp.inventory.application.dto.StockIssuePolicyResponse;
 import com.company.erp.inventory.domain.PolicyStatus;
 import com.company.erp.system.application.CurrentUser;
+import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.util.function.Function;
@@ -27,7 +27,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
-/** Chính sách xuất vượt tồn khả dụng (BR-GEN-31, D-10): có hiệu lực sau khi duyệt, dùng dần hạn mức khi ghi sổ. */
+/** Chính sách xuất vượt tồn khả dụng (BR-GEN-31, D-10): có hiệu lực sau khi kích hoạt, dùng dần hạn mức khi ghi sổ. */
 @Tag(name = "Chính sách xuất vượt tồn")
 @RestController
 @RequestMapping("/api/v1/stock-issue-policies")
@@ -62,27 +62,13 @@ public class StockIssuePolicyController {
         return ApiResponse.ok(service.create(user, idempotencyKey, request));
     }
 
-    @PostMapping("/{id}/submit")
-    @PreAuthorize("hasAuthority('stock-policy:create')")
-    public ApiResponse<StockIssuePolicyResponse> submit(@AuthenticationPrincipal CurrentUser user,
+    @Operation(summary = "Kích hoạt", description = "Từ DRAFT (D-61 không qua duyệt): chính sách có hiệu lực "
+            + "(trạng thái APPROVED).")
+    @PostMapping("/{id}/activate")
+    @PreAuthorize("hasAuthority('stock-policy:activate')")
+    public ApiResponse<StockIssuePolicyResponse> activate(@AuthenticationPrincipal CurrentUser user,
             @PathVariable Long id, @RequestHeader(IdempotentCommand.HEADER) String idempotencyKey) {
-        return ApiResponse.ok(service.submit(user, id, idempotencyKey));
-    }
-
-    @PostMapping("/{id}/approve")
-    @PreAuthorize("hasAuthority('stock-policy:approve')")
-    public ApiResponse<StockIssuePolicyResponse> approve(@AuthenticationPrincipal CurrentUser user,
-            @PathVariable Long id, @RequestHeader(IdempotentCommand.HEADER) String idempotencyKey,
-            @Valid @RequestBody(required = false) CommentRequest request) {
-        return ApiResponse.ok(service.approve(user, id, idempotencyKey, request));
-    }
-
-    @PostMapping("/{id}/reject")
-    @PreAuthorize("hasAuthority('stock-policy:approve')")
-    public ApiResponse<StockIssuePolicyResponse> reject(@AuthenticationPrincipal CurrentUser user,
-            @PathVariable Long id, @RequestHeader(IdempotentCommand.HEADER) String idempotencyKey,
-            @Valid @RequestBody ReasonRequest request) {
-        return ApiResponse.ok(service.reject(user, id, idempotencyKey, request));
+        return ApiResponse.ok(service.activate(user, id, idempotencyKey));
     }
 
     @PostMapping("/{id}/cancel")

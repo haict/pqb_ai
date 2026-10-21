@@ -5,7 +5,6 @@ import com.company.erp.common.api.PageResponse;
 import com.company.erp.common.application.IdempotentCommand;
 import com.company.erp.sales.application.SalesReturnPostingService;
 import com.company.erp.sales.application.SalesReturnService;
-import com.company.erp.sales.application.dto.CommentRequest;
 import com.company.erp.sales.application.dto.ReasonRequest;
 import com.company.erp.sales.application.dto.ReturnableSalesLineResponse;
 import com.company.erp.sales.application.dto.ReverseRequest;
@@ -93,36 +92,12 @@ public class SalesReturnController {
         return ApiResponse.ok(service.create(user, idempotencyKey, request));
     }
 
-    @Operation(summary = "Sửa (DRAFT, REJECTED)", description = "Gửi version; đã đổi: 409 CONCURRENT_MODIFICATION.")
+    @Operation(summary = "Sửa (DRAFT)", description = "Gửi version; đã đổi: 409 CONCURRENT_MODIFICATION.")
     @PutMapping("/{id}")
     @PreAuthorize("hasAuthority('sales-return:create')")
     public ApiResponse<SalesReturnResponse> update(@AuthenticationPrincipal CurrentUser user, @PathVariable Long id,
             @Valid @RequestBody SalesReturnRequest request) {
         return ApiResponse.ok(service.update(user, id, request));
-    }
-
-    @Operation(summary = "Gửi duyệt", description = "Duyệt khi có luồng; không có luồng thì tự duyệt.")
-    @PostMapping("/{id}/submit")
-    @PreAuthorize("hasAuthority('sales-return:create')")
-    public ApiResponse<SalesReturnResponse> submit(@AuthenticationPrincipal CurrentUser user,
-            @PathVariable Long id, @RequestHeader(IdempotentCommand.HEADER) String idempotencyKey) {
-        return ApiResponse.ok(service.submit(user, id, idempotencyKey));
-    }
-
-    @PostMapping("/{id}/approve")
-    @PreAuthorize("hasAuthority('sales-return:approve')")
-    public ApiResponse<SalesReturnResponse> approve(@AuthenticationPrincipal CurrentUser user,
-            @PathVariable Long id, @RequestHeader(IdempotentCommand.HEADER) String idempotencyKey,
-            @Valid @RequestBody(required = false) CommentRequest request) {
-        return ApiResponse.ok(service.approve(user, id, idempotencyKey, request));
-    }
-
-    @PostMapping("/{id}/reject")
-    @PreAuthorize("hasAuthority('sales-return:approve')")
-    public ApiResponse<SalesReturnResponse> reject(@AuthenticationPrincipal CurrentUser user,
-            @PathVariable Long id, @RequestHeader(IdempotentCommand.HEADER) String idempotencyKey,
-            @Valid @RequestBody ReasonRequest request) {
-        return ApiResponse.ok(service.reject(user, id, idempotencyKey, request));
     }
 
     @PostMapping("/{id}/cancel")

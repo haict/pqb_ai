@@ -48,6 +48,8 @@ public class CashDocumentPostingService {
 
     static final String POST = "cash-document:post";
     static final String REVERSE = "cash-document:reverse";
+    static final String POST_OVER_THRESHOLD = "cash-document:post-over-threshold";
+    static final String THRESHOLD = "finance.payment-approval-threshold";
     static final String ADVANCE_DUE_DAYS = "finance.advance-due-days";
 
     private final CashDocumentService documents;
@@ -83,6 +85,7 @@ public class CashDocumentPostingService {
         return idempotency.execute(command, CashDocumentResponse.class, () -> {
             access.requirePermission(actor, POST);
             CashDocument document = documents.lock(actor, id);
+            String authorityNote = requireThresholdAuthority(actor, document);
             Instant now = Instant.now(clock);
             document.markPosted(actor.id(), now);
             Map<Long, CashAccount> accounts = cashLedger.lock(accountIds(document));
@@ -100,8 +103,25 @@ public class CashDocumentPostingService {
             journalPosting.post(new PostingRequest(document.getCompanyId(), document.getBranchId(),
                     document.getPostingDate(), sourceType(document), document.getId(), document.getDocumentNo(),
                     journalDescription(document), actor.id(), journalLines(document, cash, target)));
-            return documents.act(actor, document, "POST", null);
+            return documents.act(actor, document, "POST", authorityNote);
         });
+    }
+
+    /**
+     * BR-CSH-03, D-61: chứng từ chi từ ngưỡng {@code finance.payment-approval-threshold} trở lên chỉ người có quyền
+     * ghi sổ vượt ngưỡng được ghi sổ (thay cho bước duyệt). Trả ghi chú audit khi dùng quyền này.
+     */
+    private String requireThresholdAuthority(CurrentUser actor, CashDocument document) {
+        BigDecimal threshold = parameters.decimalValue(document.getCompanyId(), THRESHOLD);
+        if (!document.getDocumentType().outflow() || document.getTotalAmount().compareTo(threshold) < 0) {
+            return null;
+        }
+        if (!actor.hasPermission(POST_OVER_THRESHOLD)) {
+            throw new BusinessException(ErrorCode.AUTHORITY_LIMIT_EXCEEDED, "Chứng từ " + document.getDocumentNo()
+                    + " chi từ ngưỡng " + threshold.stripTrailingZeros().toPlainString() + " đồng trở lên; cần người có quyền ghi sổ chi "
+                    + "vượt ngưỡng.");
+        }
+        return "Ghi sổ chi vượt ngưỡng " + threshold.stripTrailingZeros().toPlainString() + " đồng";
     }
 
     /**

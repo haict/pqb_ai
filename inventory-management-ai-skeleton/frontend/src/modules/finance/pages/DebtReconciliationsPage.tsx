@@ -359,7 +359,7 @@ function RecordsTab() {
         {confirming && (
           <Typography.Paragraph>
             Số dư hệ thống tại {formatDate(confirming.item.asOfDate)}:{' '}
-            {formatMoney(confirming.item.systemBalance)}. Lệch thì lập chứng từ điều chỉnh công nợ có duyệt.
+            {formatMoney(confirming.item.systemBalance)}. Lệch thì lập chứng từ điều chỉnh công nợ.
           </Typography.Paragraph>
         )}
         {error && <Alert type="error" message={error} style={{ marginBottom: 12 }} />}

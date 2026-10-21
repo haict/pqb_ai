@@ -28,7 +28,8 @@ public class CashForecastController {
     }
 
     @Operation(summary = "Dòng tiền dự kiến", description = "Số dư quỹ / ngân hàng hôm nay; dự thu (phải thu còn lại theo "
-            + "hạn, đơn bán đã duyệt chưa ghi sổ), dự chi (phải trả còn lại theo hạn, đơn mua đã duyệt chưa ghi sổ) theo "
+            + "hạn, đơn bán đã duyệt trước D-61 chưa ghi sổ), dự chi (phải trả còn lại theo hạn, đơn mua đã duyệt trước "
+            + "D-61 chưa ghi sổ; đơn nháp không tính) theo "
             + "kỳ từ hôm nay. granularity DAY / WEEK (mặc định) / MONTH, periods mặc định 12. Cột OVERDUE: ngày dự kiến "
             + "trước hôm nay; LATER: sau kỳ cuối.")
     @GetMapping("/cash-flow-forecast")

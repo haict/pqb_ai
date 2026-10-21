@@ -2,9 +2,6 @@ import type { CostAllocationMethod, PurchaseDocumentStatus, PurchaseReturnType }
 
 export const PURCHASE_STATUSES: PurchaseDocumentStatus[] = [
   'DRAFT',
-  'SUBMITTED',
-  'REJECTED',
-  'APPROVED',
   'POSTED',
   'CANCELLED',
   'REVERSED',
@@ -12,22 +9,30 @@ export const PURCHASE_STATUSES: PurchaseDocumentStatus[] = [
 
 /**
  * Thao tác chứng từ mua (đơn mua, trả hàng, phân bổ) theo trạng thái và quyền {@code <prefix>:*} (chỉ hỗ trợ hiển thị;
- * server kiểm tra lại).
+ * server kiểm tra lại). Không qua duyệt (D-61): ghi sổ thẳng từ nháp; chứng từ chờ duyệt / bị từ chối trước D-61 chỉ
+ * còn hủy, đã duyệt vẫn ghi sổ được.
  */
 export function postingActions(
   status: PurchaseDocumentStatus,
   prefix: string,
   can: (permission: string) => boolean,
 ): string[] {
-  const create = can(`${prefix}:create`);
+  const cancel = can(`${prefix}:create`) ? ['cancel'] : [];
+  const post = can(`${prefix}:post`) ? ['post'] : [];
   const actions: Partial<Record<PurchaseDocumentStatus, string[]>> = {
-    DRAFT: create ? ['submit', 'cancel'] : [],
-    REJECTED: create ? ['submit', 'cancel'] : [],
-    SUBMITTED: [...(can(`${prefix}:approve`) ? ['approve', 'reject'] : []), ...(create ? ['cancel'] : [])],
-    APPROVED: [...(can(`${prefix}:post`) ? ['post'] : []), ...(create ? ['cancel'] : [])],
+    DRAFT: [...post, ...cancel],
+    REJECTED: cancel,
+    SUBMITTED: cancel,
+    APPROVED: [...post, ...cancel],
     POSTED: can(`${prefix}:reverse`) ? ['reverse'] : [],
   };
   return actions[status] ?? [];
+}
+
+/** Thao tác đơn mua: như chứng từ ghi sổ, thêm bỏ ghi sổ về nháp để sửa (D-62). */
+export function orderActions(status: PurchaseDocumentStatus, can: (permission: string) => boolean): string[] {
+  const actions = postingActions(status, 'purchase-order', can);
+  return status === 'POSTED' && can('purchase-order:unpost') ? ['unpost', ...actions] : actions;
 }
 
 export const RETURN_TYPES: Record<PurchaseReturnType, string> = {

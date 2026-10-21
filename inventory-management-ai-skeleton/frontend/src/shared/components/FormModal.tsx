@@ -73,6 +73,9 @@ export function FormModal<T extends object>({
       onCancel={onClose}
       destroyOnHidden
       forceRender
+      // forceRender tạo portal trước Drawer chi tiết (cùng z-index 1000) nên form "Sửa" mở từ Drawer bị che; đặt cao
+      // hơn Drawer, vẫn dưới dropdown / date picker (1050).
+      zIndex={1010}
       footer={(_, { OkBtn, CancelBtn }) => (
         <>
           {error && (

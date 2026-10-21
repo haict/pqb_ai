@@ -7,11 +7,12 @@ import com.company.erp.sales.application.SalesOrderLineImportService;
 import com.company.erp.sales.application.SalesOrderPostingService;
 import com.company.erp.sales.application.SalesOrderService;
 import com.company.erp.sales.application.SalesOrderSlipService;
-import com.company.erp.sales.application.dto.CommentRequest;
+import com.company.erp.sales.application.SalesReceiptSourceService;
 import com.company.erp.sales.application.dto.ConfirmDeliveryRequest;
 import com.company.erp.sales.application.dto.EinvoiceReferenceRequest;
 import com.company.erp.sales.application.dto.PrintCompanyResponse;
 import com.company.erp.sales.application.dto.ReasonRequest;
+import com.company.erp.sales.application.dto.ReceiptSourceResponse;
 import com.company.erp.sales.application.dto.ReverseRequest;
 import com.company.erp.sales.application.dto.SalesOrderLineImportResponse;
 import com.company.erp.sales.application.dto.SalesOrderRequest;
@@ -48,8 +49,8 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 /**
- * Đơn bán (BR-SAL-10..14, 21..23, 30, 31, D-54): chứng từ ghi sổ duy nhất của nghiệp vụ bán. Duyệt giá / hạn mức tín
- * dụng, kiểm tra tồn khả dụng, giữ / nhả hàng; ghi sổ = xuất kho + doanh thu + công nợ phải thu + bút toán; số hóa đơn
+ * Đơn bán (BR-SAL-10..14, 21..23, 30, 31, D-54): chứng từ ghi sổ duy nhất của nghiệp vụ bán. Không qua duyệt (D-61):
+ * thẩm quyền giá / hạn mức tín dụng kiểm tra khi ghi sổ; kiểm tra tồn khả dụng, giữ / nhả hàng; ghi sổ = xuất kho + doanh thu + công nợ phải thu + bút toán; số hóa đơn
  * điện tử; theo dõi giao hàng; đảo (kể cả giao thất bại); lịch thu tiền.
  */
 @Tag(name = "Đơn bán")
@@ -64,13 +65,16 @@ public class SalesOrderController {
     private final SalesOrderPostingService posting;
     private final SalesOrderSlipService slips;
     private final SalesOrderLineImportService lineImport;
+    private final SalesReceiptSourceService receiptSources;
 
     public SalesOrderController(SalesOrderService service, SalesOrderPostingService posting,
-                                SalesOrderSlipService slips, SalesOrderLineImportService lineImport) {
+                                SalesOrderSlipService slips, SalesOrderLineImportService lineImport,
+                                SalesReceiptSourceService receiptSources) {
         this.service = service;
         this.posting = posting;
         this.slips = slips;
         this.lineImport = lineImport;
+        this.receiptSources = receiptSources;
     }
 
     @GetMapping
@@ -99,6 +103,16 @@ public class SalesOrderController {
                                                           @PathVariable Long id,
                                                           @RequestParam(required = false) Long companyId) {
         return ApiResponse.ok(slips.stockOutSlip(user, id, companyId));
+    }
+
+    @Operation(summary = "Chứng từ nhập còn tồn (F8)", description = "D-63: dòng nhập kho theo lô / serial còn tồn ĐẠT "
+            + "của hàng tại kho của đơn (FEFO), để chọn xuất đích danh; số lượng theo đơn vị cơ sở. Hàng không quản "
+            + "lý lô / serial: danh sách rỗng.")
+    @GetMapping("/receipt-sources")
+    @PreAuthorize("hasAuthority('sales-order:create')")
+    public ApiResponse<List<ReceiptSourceResponse>> receiptSources(@AuthenticationPrincipal CurrentUser user,
+            @RequestParam Long branchId, @RequestParam Long warehouseId, @RequestParam Long productId) {
+        return ApiResponse.ok(receiptSources.available(user, branchId, warehouseId, productId));
     }
 
     @Operation(summary = "Công ty in đầu phiếu",
@@ -141,38 +155,12 @@ public class SalesOrderController {
         return ApiResponse.ok(service.create(user, idempotencyKey, request));
     }
 
-    @Operation(summary = "Sửa (DRAFT, REJECTED)", description = "Gửi version; đã đổi: 409 CONCURRENT_MODIFICATION.")
+    @Operation(summary = "Sửa (DRAFT)", description = "Gửi version; đã đổi: 409 CONCURRENT_MODIFICATION.")
     @PutMapping("/{id}")
     @PreAuthorize("hasAuthority('sales-order:create')")
     public ApiResponse<SalesOrderResponse> update(@AuthenticationPrincipal CurrentUser user, @PathVariable Long id,
             @Valid @RequestBody SalesOrderRequest request) {
         return ApiResponse.ok(service.update(user, id, request));
-    }
-
-    @Operation(summary = "Gửi duyệt", description = "Giá dưới sàn, chiết khấu vượt ngưỡng, vượt hạn mức tín dụng hoặc có "
-            + "nợ quá hạn: phải duyệt (lý do ở approvalReasons); không vi phạm thì tự duyệt. Giữ hàng khi duyệt nếu "
-            + "reserveStock (thiếu: 422 INSUFFICIENT_STOCK).")
-    @PostMapping("/{id}/submit")
-    @PreAuthorize("hasAuthority('sales-order:create')")
-    public ApiResponse<SalesOrderResponse> submit(@AuthenticationPrincipal CurrentUser user, @PathVariable Long id,
-            @RequestHeader(IdempotentCommand.HEADER) String idempotencyKey) {
-        return ApiResponse.ok(service.submit(user, id, idempotencyKey));
-    }
-
-    @PostMapping("/{id}/approve")
-    @PreAuthorize("hasAuthority('sales-order:approve')")
-    public ApiResponse<SalesOrderResponse> approve(@AuthenticationPrincipal CurrentUser user, @PathVariable Long id,
-            @RequestHeader(IdempotentCommand.HEADER) String idempotencyKey,
-            @Valid @RequestBody(required = false) CommentRequest request) {
-        return ApiResponse.ok(service.approve(user, id, idempotencyKey, request));
-    }
-
-    @PostMapping("/{id}/reject")
-    @PreAuthorize("hasAuthority('sales-order:approve')")
-    public ApiResponse<SalesOrderResponse> reject(@AuthenticationPrincipal CurrentUser user, @PathVariable Long id,
-            @RequestHeader(IdempotentCommand.HEADER) String idempotencyKey,
-            @Valid @RequestBody ReasonRequest request) {
-        return ApiResponse.ok(service.reject(user, id, idempotencyKey, request));
     }
 
     @Operation(summary = "Hủy", description = "Chỉ khi chưa ghi sổ; nhả hàng đang giữ; bắt buộc lý do.")
@@ -184,8 +172,8 @@ public class SalesOrderController {
         return ApiResponse.ok(service.cancel(user, id, idempotencyKey, request));
     }
 
-    @Operation(summary = "Giữ hàng", description = "Đơn đã duyệt: giữ dòng hàng hóa, hết hạn sau sales.reservation-days "
-            + "(D-37).")
+    @Operation(summary = "Giữ hàng", description = "Đơn chưa ghi sổ (nháp; đơn đã duyệt trước D-61): giữ dòng hàng hóa, "
+            + "hết hạn sau sales.reservation-days (D-37).")
     @PostMapping("/{id}/reserve")
     @PreAuthorize("hasAuthority('sales-order:create')")
     public ApiResponse<SalesOrderResponse> reserve(@AuthenticationPrincipal CurrentUser user, @PathVariable Long id,
@@ -201,8 +189,11 @@ public class SalesOrderController {
         return ApiResponse.ok(service.release(user, id, idempotencyKey));
     }
 
-    @Operation(summary = "Ghi sổ", description = "Đơn đã duyệt: phiếu xuất kho (FEFO / lô chỉ định, dùng hàng đã giữ, hạn "
-            + "dùng tối thiểu của khách D-07), doanh thu, công nợ phải thu, bút toán.")
+    @Operation(summary = "Ghi sổ", description = "Từ DRAFT (hoặc APPROVED trước D-61): phiếu xuất kho (FEFO / lô chỉ "
+            + "định, dùng hàng đã giữ, hạn dùng tối thiểu của khách D-07), doanh thu, công nợ phải thu, bút toán. Giá "
+            + "dưới sàn / chiết khấu vượt ngưỡng mà thiếu quyền sales-order:override-price: 422 PRICE_BELOW_FLOOR; "
+            + "vượt hạn mức tín dụng / nợ quá hạn mà thiếu quyền sales-order:override-credit: 422 "
+            + "CREDIT_LIMIT_EXCEEDED.")
     @PostMapping("/{id}/post")
     @PreAuthorize("hasAuthority('sales-order:post')")
     public ApiResponse<SalesOrderResponse> post(@AuthenticationPrincipal CurrentUser user, @PathVariable Long id,
@@ -246,5 +237,17 @@ public class SalesOrderController {
             @RequestHeader(IdempotentCommand.HEADER) String idempotencyKey,
             @Valid @RequestBody ReverseRequest request) {
         return ApiResponse.ok(posting.reverse(user, id, idempotencyKey, request));
+    }
+
+    @Operation(summary = "Bỏ ghi sổ", description = "D-62: đảo phiếu xuất kho, công nợ, bút toán theo ngày hạch toán "
+            + "gốc rồi đưa đơn về nháp (giữ số) để sửa và ghi sổ lại; bắt buộc lý do. Kỳ gốc đã khóa: 422 "
+            + "PERIOD_LOCKED. Đã có hóa đơn điện tử hoặc đã chuyển đi giao: 409 INVALID_DOCUMENT_STATE (dùng đảo). Còn "
+            + "trả hàng / giảm giá chưa đảo, có khiếu nại, đã thu tiền / bù trừ: 409 HAS_DEPENDENT_DOCUMENTS.")
+    @PostMapping("/{id}/unpost")
+    @PreAuthorize("hasAuthority('sales-order:unpost')")
+    public ApiResponse<SalesOrderResponse> unpost(@AuthenticationPrincipal CurrentUser user, @PathVariable Long id,
+            @RequestHeader(IdempotentCommand.HEADER) String idempotencyKey,
+            @Valid @RequestBody ReasonRequest request) {
+        return ApiResponse.ok(posting.unpost(user, id, idempotencyKey, request));
     }
 }

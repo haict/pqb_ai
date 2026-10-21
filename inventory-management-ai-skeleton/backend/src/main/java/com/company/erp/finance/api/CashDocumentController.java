@@ -7,7 +7,6 @@ import com.company.erp.finance.application.CashDocumentPostingService;
 import com.company.erp.finance.application.CashDocumentService;
 import com.company.erp.finance.application.dto.CashDocumentRequest;
 import com.company.erp.finance.application.dto.CashDocumentResponse;
-import com.company.erp.finance.application.dto.CommentRequest;
 import com.company.erp.finance.application.dto.ReasonRequest;
 import com.company.erp.finance.application.dto.ReverseRequest;
 import com.company.erp.finance.domain.CashDocumentType;
@@ -81,36 +80,12 @@ public class CashDocumentController {
         return ApiResponse.ok(service.create(user, idempotencyKey, request));
     }
 
-    @Operation(summary = "Sửa (DRAFT, REJECTED)", description = "Gửi version; đã đổi: 409 CONCURRENT_MODIFICATION.")
+    @Operation(summary = "Sửa (DRAFT)", description = "Gửi version; đã đổi: 409 CONCURRENT_MODIFICATION.")
     @PutMapping("/{id}")
     @PreAuthorize("hasAuthority('cash-document:create')")
     public ApiResponse<CashDocumentResponse> update(@AuthenticationPrincipal CurrentUser user, @PathVariable Long id,
                                                     @Valid @RequestBody CashDocumentRequest request) {
         return ApiResponse.ok(service.update(user, id, request));
-    }
-
-    @Operation(summary = "Gửi duyệt", description = "Chứng từ chi từ ngưỡng finance.payment-approval-threshold trở lên "
-            + "chờ duyệt (chưa cấu hình luồng: 422 APPROVAL_NOT_CONFIGURED); còn lại tự duyệt.")
-    @PostMapping("/{id}/submit")
-    @PreAuthorize("hasAuthority('cash-document:create')")
-    public ApiResponse<CashDocumentResponse> submit(@AuthenticationPrincipal CurrentUser user, @PathVariable Long id,
-                                                    @RequestHeader(IdempotentCommand.HEADER) String idempotencyKey) {
-        return ApiResponse.ok(service.submit(user, id, idempotencyKey));
-    }
-
-    @PostMapping("/{id}/approve")
-    @PreAuthorize("hasAuthority('cash-document:approve')")
-    public ApiResponse<CashDocumentResponse> approve(@AuthenticationPrincipal CurrentUser user, @PathVariable Long id,
-            @RequestHeader(IdempotentCommand.HEADER) String idempotencyKey,
-            @Valid @RequestBody(required = false) CommentRequest request) {
-        return ApiResponse.ok(service.approve(user, id, idempotencyKey, request));
-    }
-
-    @PostMapping("/{id}/reject")
-    @PreAuthorize("hasAuthority('cash-document:approve')")
-    public ApiResponse<CashDocumentResponse> reject(@AuthenticationPrincipal CurrentUser user, @PathVariable Long id,
-            @RequestHeader(IdempotentCommand.HEADER) String idempotencyKey, @Valid @RequestBody ReasonRequest request) {
-        return ApiResponse.ok(service.reject(user, id, idempotencyKey, request));
     }
 
     @PostMapping("/{id}/cancel")
@@ -120,8 +95,10 @@ public class CashDocumentController {
         return ApiResponse.ok(service.cancel(user, id, idempotencyKey, request));
     }
 
-    @Operation(summary = "Ghi sổ", description = "Sổ quỹ, phân bổ công nợ, bút toán trong một transaction. Quỹ tiền "
-            + "mặt không đủ: 422 CASH_BALANCE_NEGATIVE; phân bổ vượt số còn lại: 422 OVER_ALLOCATION; kỳ khóa: 422 "
+    @Operation(summary = "Ghi sổ", description = "Từ DRAFT (hoặc APPROVED trước D-61). Sổ quỹ, phân bổ công nợ, bút "
+            + "toán trong một transaction. Chứng từ chi từ ngưỡng finance.payment-approval-threshold mà thiếu quyền "
+            + "cash-document:post-over-threshold: 422 AUTHORITY_LIMIT_EXCEEDED. Quỹ tiền mặt không đủ: 422 "
+            + "CASH_BALANCE_NEGATIVE; phân bổ vượt số còn lại: 422 OVER_ALLOCATION; kỳ khóa: 422 "
             + "PERIOD_LOCKED; thiếu quy tắc hạch toán: 422 POSTING_RULE_NOT_FOUND.")
     @PostMapping("/{id}/post")
     @PreAuthorize("hasAuthority('cash-document:post')")

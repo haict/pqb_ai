@@ -22,7 +22,7 @@ export type TransactionType =
   | 'STATUS_IN'
   | 'REVERSAL';
 export type DocumentAction =
-  'update' | 'submit' | 'approve' | 'reject' | 'cancel' | 'post' | 'receive' | 'reverse';
+  'update' | 'cancel' | 'post' | 'receive' | 'reverse';
 export type SerialStatus = 'IN_STOCK' | 'ISSUED' | 'SCRAPPED';
 export type StockCountStatus = 'DRAFT' | 'COUNTING' | 'SUBMITTED' | 'APPROVED' | 'POSTED' | 'CANCELLED';
 export type RecallStatus = 'DRAFT' | 'SUBMITTED' | 'REJECTED' | 'ACTIVE' | 'CLOSED' | 'CANCELLED';

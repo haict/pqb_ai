@@ -1,6 +1,6 @@
 package com.company.erp.inventory.domain;
 
-/** Trạng thái kiểm kê (BR-INV-31); bị từ chối thì quay lại {@code COUNTING} để đếm lại. */
+/** Trạng thái kiểm kê (BR-INV-31); {@code SUBMITTED}, {@code APPROVED} chỉ còn ở phiếu lập trước D-61. */
 public enum StockCountStatus {
     DRAFT,
     COUNTING,

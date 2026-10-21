@@ -161,10 +161,9 @@ abstract class PurchasingIntegrationSupport {
                 + "\",\"invoiceNo\":\"" + number + "\",\"invoiceDate\":\"" + DATE + "\",\"lines\"");
     }
 
-    /** Lập, gửi duyệt (dưới ngưỡng: tự duyệt) và ghi sổ đơn mua; trả id. */
+    /** Lập và ghi sổ đơn mua (dưới ngưỡng giá trị); trả id. */
     long postedOrder(String body) throws Exception {
         long order = jsonId(send(buyer, post(ORDERS), body, newKey()).andExpect(status().isCreated()).andReturn());
-        act(buyer, ORDERS, order, "submit", null).andExpect(jsonPath("$.data.status").value("APPROVED"));
         act(keeper, ORDERS, order, "post", null).andExpect(jsonPath("$.data.status").value("POSTED"));
         return order;
     }

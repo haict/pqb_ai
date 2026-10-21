@@ -88,7 +88,6 @@ class CashIntegrationTest {
         long bank = cashAccount("BANK", "1121");
 
         long auto = create(clerk, doc("PT", "CUSTOMER_RECEIPT", cash, null, customer, "AUTO", "1500000", List.of()));
-        action(clerk, auto, "submit", null).andExpect(jsonPath("$.data.status").value("APPROVED"));
         String postKey = newKey();
         actionWithKey(cashier, auto, "post", null, postKey).andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value("POSTED"))
@@ -111,7 +110,6 @@ class CashIntegrationTest {
                 .andExpect(jsonPath("$.errors[0].field").value("lines[0].amount"));
         long manual = create(clerk, doc("BC", "CUSTOMER_RECEIPT", bank, null, customer, "MANUAL", "1200000",
                 List.of(allocationLine(itemC, "1000000"))));
-        action(clerk, manual, "submit", null).andExpect(status().isOk());
         action(cashier, manual, "post", null).andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.prepaymentAmount").value(200000));
         assertThat((BigDecimal) item(customer, invoiceC).get("remaining_amount")).isEqualByComparingTo("2000000");
@@ -129,7 +127,7 @@ class CashIntegrationTest {
     }
 
     @Test
-    @DisplayName("BR-CSH-03, AT-10: chi từ ngưỡng phải duyệt, dưới ngưỡng tự duyệt; quỹ tiền mặt không âm; sổ quỹ khớp")
+    @DisplayName("BR-CSH-03, AT-10, D-61: chi từ ngưỡng cần quyền ghi sổ vượt ngưỡng; quỹ tiền mặt không âm; sổ quỹ khớp")
     void paymentApprovalAndCashLimit() throws Exception {
         long cash = cashAccount("CASH", "1111");
         fund(cash, "30000000");
@@ -137,20 +135,19 @@ class CashIntegrationTest {
 
         long large = create(clerk, doc("PC", "OTHER_PAYMENT", cash, null, null, null, null,
                 List.of(counterLine("6422", "25000000"))));
-        action(clerk, large, "submit", null).andExpect(jsonPath("$.data.status").value("SUBMITTED"));
-        action(cashier, large, "post", null).andExpect(status().isConflict());
-        action(clerk, large, "approve", "{}").andExpect(status().isForbidden());
-        action(chief, large, "approve", "{}").andExpect(jsonPath("$.data.status").value("APPROVED"));
-        action(cashier, large, "post", null).andExpect(status().isOk());
+        action(cashier, large, "post", null).andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.code").value("AUTHORITY_LIMIT_EXCEEDED"));
+        assertThat(jdbc.queryForObject("SELECT status FROM cash_documents WHERE id = ?", String.class, large))
+                .isEqualTo("DRAFT");
+        action(chief, large, "post", null).andExpect(status().isOk());
         assertBalance(cash, "5000000");
 
         long small = create(clerk, doc("PC", "OTHER_PAYMENT", cash, null, null, null, null,
                 List.of(counterLine("6422", "10000000"))));
-        action(clerk, small, "submit", null).andExpect(jsonPath("$.data.status").value("APPROVED"));
         action(cashier, small, "post", null).andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.code").value("CASH_BALANCE_NEGATIVE"));
         assertThat(jdbc.queryForObject("SELECT status FROM cash_documents WHERE id = ?", String.class, small))
-                .isEqualTo("APPROVED");
+                .isEqualTo("DRAFT");
         assertThat(count("SELECT COUNT(*) FROM journal_entries WHERE source_type = 'PC' AND source_id = " + small))
                 .isZero();
         assertBalance(cash, "5000000");
@@ -173,7 +170,6 @@ class CashIntegrationTest {
         long cash = cashAccount("CASH", "1111");
         long receipt = create(clerk, doc("PT", "CUSTOMER_RECEIPT", cash, null, customer, "AUTO", "400000",
                 List.of()));
-        action(clerk, receipt, "submit", null).andExpect(status().isOk());
         action(cashier, receipt, "post", null).andExpect(status().isOk());
 
         mockMvc.perform(as(chief, post("/api/v1/debt-openings/" + openingDoc + "/reverse"))
@@ -198,7 +194,6 @@ class CashIntegrationTest {
         long income = fund(cash, "500000");
         long spend = create(clerk, doc("PC", "OTHER_PAYMENT", cash, null, null, null, null,
                 List.of(counterLine("6422", "400000"))));
-        action(clerk, spend, "submit", null).andExpect(status().isOk());
         action(cashier, spend, "post", null).andExpect(status().isOk());
         action(chief, income, "reverse", "{\"reason\":\"Thử\"}").andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.code").value("CASH_BALANCE_NEGATIVE"));
@@ -219,7 +214,6 @@ class CashIntegrationTest {
         for (int i = 0; i < 2; i++) {
             long receipt = create(clerk, doc("PT", "CUSTOMER_RECEIPT", cash, null, customer, "MANUAL", "700000",
                     List.of(allocationLine(target, "700000"))));
-            action(clerk, receipt, "submit", null).andExpect(status().isOk());
             receipts.add(receipt);
         }
         List<Integer> statuses = postConcurrently(receipts);
@@ -238,7 +232,6 @@ class CashIntegrationTest {
         for (int i = 0; i < 2; i++) {
             long payment = create(clerk, doc("PC", "OTHER_PAYMENT", cash, null, null, null, null,
                     List.of(counterLine("6422", "700000"))));
-            action(clerk, payment, "submit", null).andExpect(jsonPath("$.data.status").value("APPROVED"));
             payments.add(payment);
         }
         List<Integer> statuses = postConcurrently(payments);
@@ -253,7 +246,6 @@ class CashIntegrationTest {
         long bank = cashAccount("BANK", "1121");
         fund(cash, "2000000");
         long transfer = create(clerk, doc("CTN", "INTERNAL_TRANSFER", cash, bank, null, null, "1500000", List.of()));
-        action(clerk, transfer, "submit", null).andExpect(jsonPath("$.data.status").value("APPROVED"));
         action(cashier, transfer, "post", null).andExpect(status().isOk());
         assertBalance(cash, "500000");
         assertBalance(bank, "1500000");
@@ -277,7 +269,6 @@ class CashIntegrationTest {
                 newKey()).andExpect(status().isOk());
         long locked = create(clerk, doc("PT", "OTHER_RECEIPT", cash, null, null, null, null,
                 List.of(counterLine("4111", "100"))).replace(DATE, "2068-01-05"));
-        action(clerk, locked, "submit", null).andExpect(status().isOk());
         action(cashier, locked, "post", null).andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.code").value("PERIOD_LOCKED"));
         assertThat(count("SELECT COUNT(*) FROM cash_ledger_entries WHERE reference_id = " + locked
@@ -357,7 +348,6 @@ class CashIntegrationTest {
                 String.class, cash)) ? "PT" : "BC";
         long receipt = create(clerk, doc(type, "OTHER_RECEIPT", cash, null, null, null, null,
                 List.of(counterLine("4111", amount))));
-        action(clerk, receipt, "submit", null).andExpect(jsonPath("$.data.status").value("APPROVED"));
         action(cashier, receipt, "post", null).andExpect(status().isOk());
         return receipt;
     }

@@ -128,37 +128,21 @@ abstract class InventoryIntegrationSupport {
 
     protected long createAndPost(Session session, String type, long warehouse, List<String> lines) throws Exception {
         long id = create(session, type, warehouse, lines);
-        submitApproveAndPost(session, id);
+        postDocument(session, id);
         return id;
     }
 
-    protected void submitApproveAndPost(Session session, long id) throws Exception {
-        submitAndApprove(id);
+    /** Ghi sổ thẳng từ nháp (D-61 không qua duyệt). */
+    protected void postDocument(Session session, long id) throws Exception {
         action(session, id, "post", null).andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value("POSTED"));
-    }
-
-    protected void submit(long id) throws Exception {
-        action(manager, id, "submit", null).andExpect(status().isOk());
-    }
-
-    protected void submitAndApprove(long id) throws Exception {
-        submit(id);
-        if ("SUBMITTED".equals(docStatus(id))) {
-            approve(director, id);
-        }
-        assertThat(docStatus(id)).isEqualTo("APPROVED");
-    }
-
-    protected void approve(Session session, long id) throws Exception {
-        action(session, id, "approve", "{}").andExpect(status().isOk());
     }
 
     protected long reverse(long id) throws Exception {
         MvcResult result = action(manager, id, "reverse", "{\"reason\":\"Ghi sai\",\"postingDate\":\"2026-10-09\"}")
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data.documentType").value("PDK"))
-                .andExpect(jsonPath("$.data.status").value("SUBMITTED"))
+                .andExpect(jsonPath("$.data.status").value("DRAFT"))
                 .andReturn();
         return jsonValue(result, "$.data.id", Integer.class);
     }

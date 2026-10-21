@@ -5,7 +5,6 @@ import com.company.erp.common.application.IdempotencyService;
 import com.company.erp.common.application.IdempotentCommand;
 import com.company.erp.common.domain.BusinessException;
 import com.company.erp.common.domain.ErrorCode;
-import com.company.erp.inventory.application.dto.CommentRequest;
 import com.company.erp.inventory.application.dto.ReasonRequest;
 import com.company.erp.inventory.application.dto.RecallCustomerResponse;
 import com.company.erp.inventory.application.dto.RecallRequest;
@@ -25,7 +24,6 @@ import com.company.erp.masterdata.application.MasterDataQueryService;
 import com.company.erp.masterdata.application.MasterDataQueryService.PartnerInfo;
 import com.company.erp.masterdata.application.MasterDataQueryService.ProductInfo;
 import com.company.erp.system.application.ApprovalService;
-import com.company.erp.system.application.ApprovalSubmission;
 import com.company.erp.system.application.CurrentUser;
 import jakarta.persistence.criteria.Predicate;
 import java.math.BigDecimal;
@@ -44,13 +42,15 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Thu hồi lô / serial (BR-INV-42): duyệt xong thì khóa lô / serial (không xuất bán, BR-INV-23); danh sách khách đã
+ * Thu hồi lô / serial (BR-INV-42): người có quyền {@code recall:manage} kích hoạt thì khóa lô / serial (không xuất
+ * bán, BR-INV-23; D-61 không qua duyệt); danh sách khách đã
  * nhận và tiến độ thu hồi tính từ sổ nhật ký kho. Hàng thu hồi về nhập bằng phiếu nhập loại RECALL_IN.
  */
 @Service
 public class RecallService {
 
     static final String DOCUMENT_TYPE = "PTH";
+    static final String MANAGE = "recall:manage";
     private static final Set<String> SORT_FIELDS = Set.of("recallDate", "documentNo", "createdAt");
 
     private final RecallRepository recallRepository;
@@ -131,56 +131,16 @@ public class RecallService {
         });
     }
 
+    /** Kích hoạt thu hồi từ nháp: khóa lô / serial ngay (BR-INV-23). */
     @Transactional
-    public RecallResponse submit(CurrentUser actor, Long id, String idempotencyKey) {
+    public RecallResponse activate(CurrentUser actor, Long id, String idempotencyKey) {
         IdempotentCommand command = new IdempotentCommand(actor.id(), idempotencyKey,
-                "POST /api/v1/recalls/" + id + "/submit", id);
+                "POST /api/v1/recalls/" + id + "/activate", id);
         return idempotency.execute(command, RecallResponse.class, () -> {
-            access.requirePermission(actor, "recall:create");
+            access.requirePermission(actor, MANAGE);
             Recall recall = lock(actor, id);
-            Instant now = Instant.now(clock);
-            recall.submit(actor.id(), now);
-            boolean required = approvalService.submit(actor, new ApprovalSubmission(recall.getCompanyId(),
-                    recall.getBranchId(), DOCUMENT_TYPE, recall.getId(), recall.getDocumentNo(), null, null))
-                    .approvalRequired();
-            if (!required) {
-                activate(actor, recall, now);
-            }
-            return act(actor, recall, "SUBMIT", null);
-        });
-    }
-
-    @Transactional
-    public RecallResponse approve(CurrentUser actor, Long id, String idempotencyKey, CommentRequest request) {
-        IdempotentCommand command = new IdempotentCommand(actor.id(), idempotencyKey,
-                "POST /api/v1/recalls/" + id + "/approve", request);
-        return idempotency.execute(command, RecallResponse.class, () -> {
-            access.requirePermission(actor, "recall:approve");
-            Recall recall = lock(actor, id);
-            if (recall.getStatus() != RecallStatus.SUBMITTED) {
-                throw new BusinessException(ErrorCode.INVALID_DOCUMENT_STATE, "Phiếu thu hồi không chờ duyệt.");
-            }
-            String comment = request == null ? null : request.comment();
-            if (approvalService.approve(actor, DOCUMENT_TYPE, id, comment).completed()) {
-                activate(actor, recall, Instant.now(clock));
-            }
-            return act(actor, recall, "APPROVE", comment);
-        });
-    }
-
-    @Transactional
-    public RecallResponse reject(CurrentUser actor, Long id, String idempotencyKey, ReasonRequest request) {
-        IdempotentCommand command = new IdempotentCommand(actor.id(), idempotencyKey,
-                "POST /api/v1/recalls/" + id + "/reject", request);
-        return idempotency.execute(command, RecallResponse.class, () -> {
-            access.requirePermission(actor, "recall:approve");
-            Recall recall = lock(actor, id);
-            if (recall.getStatus() != RecallStatus.SUBMITTED) {
-                throw new BusinessException(ErrorCode.INVALID_DOCUMENT_STATE, "Phiếu thu hồi không chờ duyệt.");
-            }
-            approvalService.reject(actor, DOCUMENT_TYPE, id, request.reason());
-            recall.reject();
-            return act(actor, recall, "REJECT", request.reason());
+            activate(actor, recall, Instant.now(clock));
+            return act(actor, recall, "ACTIVATE", null);
         });
     }
 
@@ -191,6 +151,7 @@ public class RecallService {
         return idempotency.execute(command, RecallResponse.class, () -> {
             access.requirePermission(actor, "recall:create");
             Recall recall = lock(actor, id);
+            // Phiếu gửi duyệt trước D-61: đóng yêu cầu duyệt còn treo để lịch sử duyệt nhất quán.
             if (recall.getStatus() == RecallStatus.SUBMITTED) {
                 approvalService.cancelPending(actor, DOCUMENT_TYPE, id, request.reason());
             }
@@ -205,7 +166,7 @@ public class RecallService {
         IdempotentCommand command = new IdempotentCommand(actor.id(), idempotencyKey,
                 "POST /api/v1/recalls/" + id + "/close", request);
         return idempotency.execute(command, RecallResponse.class, () -> {
-            access.requirePermission(actor, "recall:approve");
+            access.requirePermission(actor, MANAGE);
             Recall recall = lock(actor, id);
             recall.close(actor.id(), Instant.now(clock));
             return act(actor, recall, "CLOSE", request.reason());

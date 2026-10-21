@@ -7,7 +7,6 @@ import com.company.erp.purchasing.application.PurchaseOrderLineImportService;
 import com.company.erp.purchasing.application.PurchaseOrderPostingService;
 import com.company.erp.purchasing.application.PurchaseOrderService;
 import com.company.erp.purchasing.application.PurchaseOrderSlipService;
-import com.company.erp.purchasing.application.dto.CommentRequest;
 import com.company.erp.purchasing.application.dto.PrintCompanyResponse;
 import com.company.erp.purchasing.application.dto.PurchaseOrderLineImportResponse;
 import com.company.erp.purchasing.application.dto.PurchaseOrderRequest;
@@ -45,8 +44,8 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 /**
- * Đơn mua hàng (DMH, BR-PUR-04, D-54): chứng từ ghi sổ duy nhất của nghiệp vụ mua, mang hóa đơn của nhà cung cấp; duyệt
- * theo ngưỡng (cộng hàng đang về), ghi sổ nhập kho + công nợ phải trả + bút toán, đảo.
+ * Đơn mua hàng (DMH, BR-PUR-04, D-54): chứng từ ghi sổ duy nhất của nghiệp vụ mua, mang hóa đơn của nhà cung cấp; không
+ * qua duyệt (D-61): ghi sổ nhập kho + công nợ phải trả + bút toán thẳng từ nháp, đảo.
  */
 @Tag(name = "Đơn mua hàng")
 @RestController
@@ -139,7 +138,7 @@ public class PurchaseOrderController {
         return ApiResponse.ok(service.create(user, idempotencyKey, request));
     }
 
-    @Operation(summary = "Sửa (DRAFT, REJECTED)", description = "Gửi version; đã đổi: 409 CONCURRENT_MODIFICATION.")
+    @Operation(summary = "Sửa (DRAFT)", description = "Gửi version; đã đổi: 409 CONCURRENT_MODIFICATION.")
     @PutMapping("/{id}")
     @PreAuthorize("hasAuthority('purchase-order:create')")
     public ApiResponse<PurchaseOrderResponse> update(@AuthenticationPrincipal CurrentUser user, @PathVariable Long id,
@@ -147,31 +146,8 @@ public class PurchaseOrderController {
         return ApiResponse.ok(service.update(user, id, request));
     }
 
-    @Operation(summary = "Gửi duyệt", description = "Tổng tiền từ ngưỡng purchasing.order-approval-threshold trở lên phải duyệt (chưa cấu hình luồng: 422 APPROVAL_NOT_CONFIGURED); dưới ngưỡng tự duyệt. Duyệt xong cộng hàng đang về.")
-    @PostMapping("/{id}/submit")
-    @PreAuthorize("hasAuthority('purchase-order:create')")
-    public ApiResponse<PurchaseOrderResponse> submit(@AuthenticationPrincipal CurrentUser user, @PathVariable Long id,
-            @RequestHeader(IdempotentCommand.HEADER) String idempotencyKey) {
-        return ApiResponse.ok(service.submit(user, id, idempotencyKey));
-    }
-
-    @PostMapping("/{id}/approve")
-    @PreAuthorize("hasAuthority('purchase-order:approve')")
-    public ApiResponse<PurchaseOrderResponse> approve(@AuthenticationPrincipal CurrentUser user, @PathVariable Long id,
-            @RequestHeader(IdempotentCommand.HEADER) String idempotencyKey,
-            @Valid @RequestBody(required = false) CommentRequest request) {
-        return ApiResponse.ok(service.approve(user, id, idempotencyKey, request));
-    }
-
-    @PostMapping("/{id}/reject")
-    @PreAuthorize("hasAuthority('purchase-order:approve')")
-    public ApiResponse<PurchaseOrderResponse> reject(@AuthenticationPrincipal CurrentUser user, @PathVariable Long id,
-            @RequestHeader(IdempotentCommand.HEADER) String idempotencyKey,
-            @Valid @RequestBody ReasonRequest request) {
-        return ApiResponse.ok(service.reject(user, id, idempotencyKey, request));
-    }
-
-    @Operation(summary = "Hủy", description = "Chỉ khi chưa ghi sổ; đơn đã duyệt thì trừ hàng đang về; bắt buộc lý do.")
+    @Operation(summary = "Hủy", description = "Chỉ khi chưa ghi sổ; đơn đã duyệt trước D-61 thì trừ hàng đang về; "
+            + "bắt buộc lý do.")
     @PostMapping("/{id}/cancel")
     @PreAuthorize("hasAuthority('purchase-order:create')")
     public ApiResponse<PurchaseOrderResponse> cancel(@AuthenticationPrincipal CurrentUser user, @PathVariable Long id,
@@ -180,8 +156,10 @@ public class PurchaseOrderController {
         return ApiResponse.ok(service.cancel(user, id, idempotencyKey, request));
     }
 
-    @Operation(summary = "Ghi sổ", description = "Đơn đã duyệt: phiếu nhập kho (lô, hạn dùng, serial), trừ hàng đang về, "
-            + "công nợ phải trả, bút toán. Hóa đơn trùng: 409 DUPLICATE_DOCUMENT.")
+    @Operation(summary = "Ghi sổ", description = "Từ DRAFT (hoặc APPROVED trước D-61): phiếu nhập kho (lô, hạn dùng, "
+            + "serial), công nợ phải trả, bút toán. Tổng tiền từ ngưỡng purchasing.order-approval-threshold mà thiếu "
+            + "quyền purchase-order:post-over-threshold: 422 AUTHORITY_LIMIT_EXCEEDED. Hóa đơn trùng: 409 "
+            + "DUPLICATE_DOCUMENT.")
     @PostMapping("/{id}/post")
     @PreAuthorize("hasAuthority('purchase-order:post')")
     public ApiResponse<PurchaseOrderResponse> post(@AuthenticationPrincipal CurrentUser user, @PathVariable Long id,
@@ -197,5 +175,17 @@ public class PurchaseOrderController {
             @RequestHeader(IdempotentCommand.HEADER) String idempotencyKey,
             @Valid @RequestBody ReverseRequest request) {
         return ApiResponse.ok(posting.reverse(user, id, idempotencyKey, request));
+    }
+
+    @Operation(summary = "Bỏ ghi sổ", description = "D-62: đảo phiếu nhập kho, công nợ, bút toán theo ngày hạch toán "
+            + "gốc rồi đưa đơn về nháp (giữ số) để sửa và ghi sổ lại; bắt buộc lý do. Kỳ gốc đã khóa: 422 "
+            + "PERIOD_LOCKED. Còn trả hàng / giảm giá / phân bổ chưa đảo, hàng đã xuất hoặc đã thanh toán: 409 "
+            + "HAS_DEPENDENT_DOCUMENTS.")
+    @PostMapping("/{id}/unpost")
+    @PreAuthorize("hasAuthority('purchase-order:unpost')")
+    public ApiResponse<PurchaseOrderResponse> unpost(@AuthenticationPrincipal CurrentUser user, @PathVariable Long id,
+            @RequestHeader(IdempotentCommand.HEADER) String idempotencyKey,
+            @Valid @RequestBody ReasonRequest request) {
+        return ApiResponse.ok(posting.unpost(user, id, idempotencyKey, request));
     }
 }

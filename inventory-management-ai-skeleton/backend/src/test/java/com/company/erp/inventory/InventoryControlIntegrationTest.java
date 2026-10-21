@@ -55,7 +55,7 @@ class InventoryControlIntegrationTest extends InventoryIntegrationSupport {
     }
 
     @Test
-    @DisplayName("BR-INV-03, D-56: thuốc thử nhập mặc định đạt; hàng chờ kiểm tra không xuất được cho tới khi phiếu chuyển trạng thái được duyệt và ghi sổ")
+    @DisplayName("BR-INV-03, D-56: thuốc thử nhập mặc định đạt; hàng chờ kiểm tra không xuất được cho tới khi phiếu chuyển trạng thái được ghi sổ")
     void qualityStatusChange() throws Exception {
         long warehouse = warehouse(1);
         long reagent = product("REAGENT", true, true, false);
@@ -69,7 +69,6 @@ class InventoryControlIntegrationTest extends InventoryIntegrationSupport {
         assertThat(onHand(reagent, warehouse, "PENDING_INSPECTION")).isEqualByComparingTo("4");
 
         long blockedIssue = create(manager, "PXK", warehouse, List.of(issueLine(reagent, 1, null, null)));
-        submitAndApprove(blockedIssue);
         action(manager, blockedIssue, "post", null).andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.code").value("INSUFFICIENT_STOCK"));
 
@@ -83,10 +82,7 @@ class InventoryControlIntegrationTest extends InventoryIntegrationSupport {
 
         long change = create(manager, "PCL", warehouse, List.of(statusLine(reagent, 3, "PENDING_INSPECTION",
                 "PASSED")), "2026-10-06");
-        submit(change);
-        assertThat(docStatus(change)).isEqualTo("SUBMITTED");
-        action(manager, change, "approve", "{}").andExpect(status().isForbidden());
-        approve(director, change);
+        assertThat(docStatus(change)).isEqualTo("DRAFT");
         action(manager, change, "post", null).andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value("POSTED"));
         assertThat(onHand(reagent, warehouse, "PASSED")).isEqualByComparingTo("3");
@@ -117,7 +113,6 @@ class InventoryControlIntegrationTest extends InventoryIntegrationSupport {
         assertThat(available(product, warehouse)).isEqualByComparingTo("0");
 
         long issue = create(manager, "PXK", warehouse, List.of(issueLine(product, 2, lot, null)));
-        submitAndApprove(issue);
         action(manager, issue, "post", null).andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.code").value("LOT_NOT_SELLABLE"));
         assertThat(onHand(product, warehouse)).isEqualByComparingTo("10");
@@ -133,7 +128,7 @@ class InventoryControlIntegrationTest extends InventoryIntegrationSupport {
     }
 
     @Test
-    @DisplayName("BR-INV-42: thu hồi được duyệt thì khóa lô; theo dõi khách đã nhận / đã trả; đóng thu hồi vẫn giữ khóa")
+    @DisplayName("BR-INV-42, D-61: người có quyền kích hoạt thu hồi thì khóa lô; theo dõi khách đã nhận / đã trả; đóng thu hồi vẫn giữ khóa")
     void recall() throws Exception {
         long warehouse = warehouse(1);
         long product = product(true, true, false);
@@ -142,28 +137,25 @@ class InventoryControlIntegrationTest extends InventoryIntegrationSupport {
         long lot = lotId(product, "LH" + product);
         long delivered = createDocument(manager, withHeader(document("PXK", warehouse,
                 List.of(issueLine(product, 3, null, null)), "2026-10-05"), "\"partnerId\":" + customer));
-        submitApproveAndPost(manager, delivered);
+        postDocument(manager, delivered);
 
         long recall = jsonValue(send(manager, post(RECALLS), "{\"branchId\":1,\"recallDate\":\"2026-10-07\","
                         + "\"productId\":" + product + ",\"lotId\":" + lot + ",\"reason\":\"Thông báo thu hồi của hãng\"}",
                 newKey()).andExpect(status().isCreated()).andExpect(jsonPath("$.data.status").value("DRAFT"))
                 .andReturn(), "$.data.id", Integer.class);
-        send(manager, post(RECALLS + "/" + recall + "/submit"), "", newKey())
-                .andExpect(jsonPath("$.data.status").value("SUBMITTED"));
         assertThat(lotBlocked(lot)).isFalse();
-        send(manager, post(RECALLS + "/" + recall + "/approve"), "{}", newKey()).andExpect(status().isForbidden());
-        send(director, post(RECALLS + "/" + recall + "/approve"), "{}", newKey())
+        send(manager, post(RECALLS + "/" + recall + "/activate"), "", newKey()).andExpect(status().isForbidden());
+        send(director, post(RECALLS + "/" + recall + "/activate"), "", newKey())
                 .andExpect(jsonPath("$.data.status").value("ACTIVE"));
         assertThat(lotBlocked(lot)).isTrue();
 
         long issue = create(manager, "PXK", warehouse, List.of(issueLine(product, 1, null, null)));
-        submitAndApprove(issue);
         action(manager, issue, "post", null).andExpect(status().isUnprocessableEntity());
 
         long returned = createDocument(manager, withHeader(document("PNK", warehouse,
                         List.of(receiptLine(product, 2, "LH" + product, "2027-12-31", null)), "2026-10-08"),
                 "\"subType\":\"RECALL_IN\",\"partnerId\":" + customer));
-        submitApproveAndPost(manager, returned);
+        postDocument(manager, returned);
         assertThat(onHand(product, warehouse, "RECALLED")).isEqualByComparingTo("2");
 
         MvcResult detail = mockMvc.perform(as(manager, get(RECALLS + "/" + recall))).andExpect(status().isOk())
@@ -209,7 +201,7 @@ class InventoryControlIntegrationTest extends InventoryIntegrationSupport {
     }
 
     @Test
-    @DisplayName("BR-SYS-31: không khóa được kỳ kho khi còn chứng từ đã duyệt hoặc đang vận chuyển chưa ghi sổ trong kỳ")
+    @DisplayName("BR-SYS-31: không khóa được kỳ kho khi còn chứng từ đã duyệt (trước D-61) hoặc đang vận chuyển chưa ghi sổ trong kỳ")
     void periodCloseCheck() throws Exception {
         Session accountant = login(mockMvc, "ketoantruong");
         send(accountant, post("/api/v1/fiscal-periods/generate"), "{\"companyId\":1,\"year\":2070}", newKey())
@@ -222,7 +214,8 @@ class InventoryControlIntegrationTest extends InventoryIntegrationSupport {
 
         long receipt = create(manager, "PNK", source, List.of(receiptLine(product, 5, null, null, null)),
                 "2070-01-10");
-        submit(receipt);
+        // Chứng từ đã duyệt trước D-61 chưa ghi sổ vẫn chặn khóa kỳ.
+        jdbc.update("UPDATE inventory_documents SET status = 'APPROVED' WHERE id = ?", receipt);
         lockInventory(accountant, january).andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.code").value("PERIOD_CLOSE_PRECONDITION"))
                 .andExpect(jsonPath("$.message").value(containsString(documentNo(receipt))));
@@ -230,7 +223,6 @@ class InventoryControlIntegrationTest extends InventoryIntegrationSupport {
 
         long transfer = createDocument(manager, withHeader(document("PCK", source,
                 List.of(issueLine(product, 2, null, null)), "2070-01-12"), "\"destinationWarehouseId\":" + destination));
-        submit(transfer);
         action(manager, transfer, "post", null).andExpect(jsonPath("$.data.status").value("IN_TRANSIT"));
         lockInventory(accountant, january).andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.message").value(containsString(documentNo(transfer))));
@@ -252,7 +244,6 @@ class InventoryControlIntegrationTest extends InventoryIntegrationSupport {
 
         long transfer = createDocument(manager, withHeader(document("PCK", source,
                 List.of(issueLine(product, 4, null, null)), "2026-10-07"), "\"destinationWarehouseId\":" + destination));
-        submit(transfer);
         action(manager, transfer, "post", null).andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value("POSTED"));
         assertThat(onHand(product, source)).isEqualByComparingTo("2");
@@ -262,7 +253,6 @@ class InventoryControlIntegrationTest extends InventoryIntegrationSupport {
                 .isEqualTo(1);
 
         long reversal = reverse(transfer);
-        approve(login(mockMvc, "ketoantruong"), reversal);
         action(manager, reversal, "post", null).andExpect(status().isOk());
         assertThat(docStatus(transfer)).isEqualTo("REVERSED");
         assertThat(onHand(product, source)).isEqualByComparingTo("6");
@@ -293,7 +283,7 @@ class InventoryControlIntegrationTest extends InventoryIntegrationSupport {
                                 null)), "2026-10-05"), "\"version\":" + current)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.data.lines.length()").value(1));
         assertThat(count("SELECT COUNT(*) FROM inventory_document_lines WHERE document_id = " + receipt)).isEqualTo(1);
-        submitApproveAndPost(manager, receipt);
+        postDocument(manager, receipt);
         assertThat(onHand(product, warehouse)).isEqualByComparingTo("7");
     }
 
@@ -319,7 +309,7 @@ class InventoryControlIntegrationTest extends InventoryIntegrationSupport {
         long opening = createDocument(manager, withHeader(document("PNK", warehouse,
                 List.of(receiptLine(product, 5, "LO" + product, "2027-06-30", null), quarantineLine), "2026-10-01"),
                 "\"subType\":\"OPENING\""));
-        submitApproveAndPost(manager, opening);
+        postDocument(manager, opening);
         long plainReceipt = createAndPost(manager, "PNK", warehouse,
                 List.of(receiptLine(product, 1, "LP" + product, "2027-06-30", null)));
 
@@ -379,8 +369,8 @@ class InventoryControlIntegrationTest extends InventoryIntegrationSupport {
         assertThat(count("SELECT COUNT(*) FROM inventory_documents WHERE sub_type = 'OPENING' AND document_type = 'PNK'"
                 + " AND id IN (" + ids.get(0) + "," + ids.get(1) + ")")).isEqualTo(2);
 
-        submitApproveAndPost(manager, ids.get(0));
-        submitApproveAndPost(manager, ids.get(1));
+        postDocument(manager, ids.get(0));
+        postDocument(manager, ids.get(1));
         assertThat(onHand(product, first, "PASSED")).isEqualByComparingTo("5");
         assertThat(onHand(product, second, "QUARANTINE")).isEqualByComparingTo("3");
         assertLedgerConsistent(product);

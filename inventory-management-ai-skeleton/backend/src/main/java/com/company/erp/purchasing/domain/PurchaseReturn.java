@@ -95,10 +95,6 @@ public class PurchaseReturn extends PurchaseDocument {
         return documentType.name();
     }
 
-    @Override
-    public BigDecimal approvalAmount() {
-        return totalAmount;
-    }
 
     public void replaceContent(Header header, List<PurchaseReturnLine> newLines) {
         if (newLines.isEmpty()) {
@@ -125,7 +121,7 @@ public class PurchaseReturn extends PurchaseDocument {
     }
 
     public void markPosted(Long inventoryDocumentId, Long actorId, Instant now) {
-        requireStatus(EnumSet.of(PurchaseDocumentStatus.APPROVED), "ghi sổ");
+        requireStatus(POSTABLE, "ghi sổ");
         setStatus(PurchaseDocumentStatus.POSTED);
         this.inventoryDocumentId = inventoryDocumentId;
         this.postedBy = actorId;

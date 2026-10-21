@@ -13,9 +13,9 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Hàng đang về (BR mục 5.4): Σ số đặt trên đơn mua đã duyệt − Σ đã nhập kho − phần đã đóng, lưu ở
+ * Hàng đang về (BR mục 5.4): Σ số đặt trên đơn mua đã duyệt trước D-61 − Σ đã nhập kho − phần đã đóng, lưu ở
  * {@code inventory_stock_summaries.incoming_quantity}. API công khai cho phân hệ mua hàng gọi trong transaction của
- * chứng từ nguồn (duyệt, hủy, đóng đơn mua; ghi sổ, đảo phiếu nhập). Không đổi tồn thực tế.
+ * chứng từ nguồn (hủy, đóng đơn mua; ghi sổ, đảo phiếu nhập). Không đổi tồn thực tế.
  */
 @Service
 public class IncomingStockService {

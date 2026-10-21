@@ -4,12 +4,12 @@ import com.company.erp.common.api.ApiResponse;
 import com.company.erp.common.api.PageResponse;
 import com.company.erp.common.application.IdempotentCommand;
 import com.company.erp.inventory.application.RecallService;
-import com.company.erp.inventory.application.dto.CommentRequest;
 import com.company.erp.inventory.application.dto.ReasonRequest;
 import com.company.erp.inventory.application.dto.RecallRequest;
 import com.company.erp.inventory.application.dto.RecallResponse;
 import com.company.erp.inventory.domain.RecallStatus;
 import com.company.erp.system.application.CurrentUser;
+import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.util.function.Function;
@@ -27,7 +27,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
-/** Thu hồi lô / serial (BR-INV-42): duyệt xong khóa lô / serial; theo dõi khách đã nhận và số đã thu hồi. */
+/** Thu hồi lô / serial (BR-INV-42): kích hoạt thì khóa lô / serial; theo dõi khách đã nhận và số đã thu hồi. */
 @Tag(name = "Thu hồi")
 @RestController
 @RequestMapping("/api/v1/recalls")
@@ -62,27 +62,12 @@ public class RecallController {
         return ApiResponse.ok(service.create(user, idempotencyKey, request));
     }
 
-    @PostMapping("/{id}/submit")
-    @PreAuthorize("hasAuthority('recall:create')")
-    public ApiResponse<RecallResponse> submit(@AuthenticationPrincipal CurrentUser user,
+    @Operation(summary = "Kích hoạt thu hồi", description = "Từ DRAFT (D-61 không qua duyệt): khóa lô / serial.")
+    @PostMapping("/{id}/activate")
+    @PreAuthorize("hasAuthority('recall:manage')")
+    public ApiResponse<RecallResponse> activate(@AuthenticationPrincipal CurrentUser user,
             @PathVariable Long id, @RequestHeader(IdempotentCommand.HEADER) String idempotencyKey) {
-        return ApiResponse.ok(service.submit(user, id, idempotencyKey));
-    }
-
-    @PostMapping("/{id}/approve")
-    @PreAuthorize("hasAuthority('recall:approve')")
-    public ApiResponse<RecallResponse> approve(@AuthenticationPrincipal CurrentUser user,
-            @PathVariable Long id, @RequestHeader(IdempotentCommand.HEADER) String idempotencyKey,
-            @Valid @RequestBody(required = false) CommentRequest request) {
-        return ApiResponse.ok(service.approve(user, id, idempotencyKey, request));
-    }
-
-    @PostMapping("/{id}/reject")
-    @PreAuthorize("hasAuthority('recall:approve')")
-    public ApiResponse<RecallResponse> reject(@AuthenticationPrincipal CurrentUser user,
-            @PathVariable Long id, @RequestHeader(IdempotentCommand.HEADER) String idempotencyKey,
-            @Valid @RequestBody ReasonRequest request) {
-        return ApiResponse.ok(service.reject(user, id, idempotencyKey, request));
+        return ApiResponse.ok(service.activate(user, id, idempotencyKey));
     }
 
     @PostMapping("/{id}/cancel")
@@ -94,7 +79,7 @@ public class RecallController {
     }
 
     @PostMapping("/{id}/close")
-    @PreAuthorize("hasAuthority('recall:approve')")
+    @PreAuthorize("hasAuthority('recall:manage')")
     public ApiResponse<RecallResponse> close(@AuthenticationPrincipal CurrentUser user,
             @PathVariable Long id, @RequestHeader(IdempotentCommand.HEADER) String idempotencyKey,
             @Valid @RequestBody ReasonRequest request) {

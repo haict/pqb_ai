@@ -53,9 +53,6 @@ export const STATUS_TAGS: Record<string, { label: string; color: string }> = {
 
 export const DOCUMENT_STATUSES: InventoryDocumentStatus[] = [
   'DRAFT',
-  'SUBMITTED',
-  'APPROVED',
-  'REJECTED',
   'IN_TRANSIT',
   'POSTED',
   'CANCELLED',
@@ -89,13 +86,12 @@ export const SERIAL_STATUSES: Record<SerialStatus, string> = {
 };
 
 export const ACTION_LABELS: Record<string, string> = {
-  submit: 'Gửi duyệt',
-  approve: 'Duyệt',
-  reject: 'Từ chối',
+  activate: 'Kích hoạt',
   cancel: 'Hủy',
   post: 'Ghi sổ',
   receive: 'Nhận hàng',
   reverse: 'Đảo chứng từ',
+  unpost: 'Bỏ ghi sổ',
   start: 'Bắt đầu đếm',
   close: 'Đóng',
   'stock-in': 'Nhập kho',
@@ -114,7 +110,7 @@ export const SOURCE_TYPES: Record<string, string> = {
 };
 
 /** Hành động bắt buộc lý do (api.md mục 3). */
-export const REASON_ACTIONS = new Set(['reject', 'cancel', 'reverse', 'close']);
+export const REASON_ACTIONS = new Set(['cancel', 'reverse', 'unpost', 'close']);
 
 /**
  * Định dạng theo Việt Nam: không truyền số lẻ là số lượng (2 số lẻ), 0 là giá trị tiền (D-57); số khác (đơn giá,

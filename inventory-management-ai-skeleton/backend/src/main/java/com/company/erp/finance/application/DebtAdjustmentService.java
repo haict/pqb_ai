@@ -3,7 +3,6 @@ package com.company.erp.finance.application;
 import com.company.erp.accounting.application.AccountLookupService;
 import com.company.erp.accounting.application.AccountLookupService.AccountInfo;
 import com.company.erp.common.domain.BusinessException;
-import com.company.erp.finance.application.dto.CommentRequest;
 import com.company.erp.finance.application.dto.DebtAdjustmentLineRequest;
 import com.company.erp.finance.application.dto.DebtAdjustmentLineResponse;
 import com.company.erp.finance.application.dto.DebtAdjustmentRequest;
@@ -37,7 +36,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Lập, sửa, gửi duyệt, duyệt, từ chối, hủy điều chỉnh công nợ (DCCN, BR-AR-07, bắt buộc duyệt theo quyền hạn) và
+ * Lập, sửa, hủy điều chỉnh công nợ (DCCN, BR-AR-07; quyền hạn theo quyền ghi sổ, D-61 không qua duyệt) và
  * thanh toán tạm ứng (TTTU, BR-CSH-04). Ghi sổ, đảo ở {@link DebtAdjustmentPostingService}.
  */
 @Service
@@ -46,7 +45,6 @@ public class DebtAdjustmentService {
     static final String PATH = "/api/v1/debt-adjustments";
     static final String VIEW = "debt-adjustment:view";
     static final String CREATE = "debt-adjustment:create";
-    static final String APPROVE = "debt-adjustment:approve";
     static final String ENTITY = "DEBT_ADJUSTMENT";
 
     public record DebtAdjustmentFilter(Long companyId, Long branchId, String documentType, DebtType debtType,
@@ -77,7 +75,7 @@ public class DebtAdjustmentService {
         this.access = access;
         this.masterData = masterData;
         this.approvalService = approvalService;
-        this.spec = new FinanceDocumentFlow.Spec<>(PATH, VIEW, CREATE, APPROVE, ENTITY,
+        this.spec = new FinanceDocumentFlow.Spec<>(PATH, VIEW, CREATE, ENTITY,
                 repository::findByIdForUpdate, repository, document -> toResponse(document, true),
                 DebtAdjustmentResponse.class);
     }
@@ -131,21 +129,6 @@ public class DebtAdjustmentService {
         }
         fill(document, request);
         return flow.act(actor, document, "UPDATE", null, spec);
-    }
-
-    @Transactional
-    public DebtAdjustmentResponse submit(CurrentUser actor, Long id, String key) {
-        return flow.submit(actor, id, key, spec);
-    }
-
-    @Transactional
-    public DebtAdjustmentResponse approve(CurrentUser actor, Long id, String key, CommentRequest request) {
-        return flow.approve(actor, id, key, request, spec);
-    }
-
-    @Transactional
-    public DebtAdjustmentResponse reject(CurrentUser actor, Long id, String key, ReasonRequest request) {
-        return flow.reject(actor, id, key, request, spec);
     }
 
     @Transactional

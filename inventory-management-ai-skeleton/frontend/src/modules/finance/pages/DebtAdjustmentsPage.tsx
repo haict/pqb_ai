@@ -103,7 +103,7 @@ const LINE_COLUMNS: TableColumnsType<DebtAdjustmentLine> = [
 ];
 
 /**
- * Điều chỉnh công nợ (DCCN, BR-AR-07: xử lý chênh lệch đối chiếu, bắt buộc duyệt) hoặc thanh toán tạm ứng (TTTU,
+ * Điều chỉnh công nợ (DCCN, BR-AR-07: xử lý chênh lệch đối chiếu) hoặc thanh toán tạm ứng (TTTU,
  * BR-CSH-04: chi phí thực tế trừ vào tạm ứng nhân viên).
  */
 export function DebtAdjustmentsPage({ documentType }: { documentType: AdjustmentDocumentType }) {

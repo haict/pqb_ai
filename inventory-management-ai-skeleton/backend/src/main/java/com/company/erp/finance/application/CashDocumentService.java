@@ -5,10 +5,8 @@ import com.company.erp.common.application.BusinessCalendar;
 import com.company.erp.common.application.IdempotencyService;
 import com.company.erp.common.application.IdempotentCommand;
 import com.company.erp.common.domain.BusinessException;
-import com.company.erp.common.domain.ErrorCode;
 import com.company.erp.finance.application.dto.CashDocumentRequest;
 import com.company.erp.finance.application.dto.CashDocumentResponse;
-import com.company.erp.finance.application.dto.CommentRequest;
 import com.company.erp.finance.application.dto.ReasonRequest;
 import com.company.erp.finance.domain.CashDocument;
 import com.company.erp.finance.domain.CashDocumentType;
@@ -16,13 +14,9 @@ import com.company.erp.finance.domain.CashPurpose;
 import com.company.erp.finance.domain.FinanceDocumentStatus;
 import com.company.erp.finance.infrastructure.persistence.CashDocumentRepository;
 import com.company.erp.system.application.ApprovalService;
-import com.company.erp.system.application.ApprovalSubmission;
 import com.company.erp.system.application.CurrentUser;
 import com.company.erp.system.application.OrganizationQueryService.BranchRef;
-import com.company.erp.system.application.ParameterService;
 import jakarta.persistence.criteria.Predicate;
-import java.time.Clock;
-import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -35,17 +29,14 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Lập, sửa, gửi duyệt, duyệt, từ chối, hủy chứng từ thu chi (BR-CSH-02, 03). Chứng từ chi (phiếu chi, ủy nhiệm chi,
- * chuyển tiền) từ ngưỡng {@code finance.payment-approval-threshold} trở lên phải qua luồng duyệt; dưới ngưỡng và chứng
- * từ thu tự duyệt khi gửi. Ghi sổ, đảo ở {@link CashDocumentPostingService}.
+ * Lập, sửa, hủy chứng từ thu chi (BR-CSH-02; D-61 không qua duyệt). Ghi sổ, đảo và kiểm soát ngưỡng chi (BR-CSH-03) ở
+ * {@link CashDocumentPostingService}.
  */
 @Service
 public class CashDocumentService {
 
     static final String VIEW = "cash-document:view";
     static final String CREATE = "cash-document:create";
-    static final String APPROVE = "cash-document:approve";
-    static final String THRESHOLD = "finance.payment-approval-threshold";
     private static final Set<String> SORTABLE = Set.of("documentDate", "documentNo", "totalAmount", "createdAt");
 
     public record CashDocumentFilter(Long companyId, Long branchId, CashDocumentType documentType,
@@ -58,25 +49,19 @@ public class CashDocumentService {
     private final CashDocumentContent content;
     private final FinanceAccess access;
     private final ApprovalService approvalService;
-    private final ParameterService parameters;
     private final IdempotencyService idempotency;
     private final BusinessCalendar calendar;
-    private final Clock clock;
 
-    @SuppressWarnings("java:S107")
     public CashDocumentService(CashDocumentRepository repository, CashDocumentMapper mapper,
                                CashDocumentContent content, FinanceAccess access, ApprovalService approvalService,
-                               ParameterService parameters, IdempotencyService idempotency,
-                               BusinessCalendar calendar, Clock clock) {
+                               IdempotencyService idempotency, BusinessCalendar calendar) {
         this.repository = repository;
         this.mapper = mapper;
         this.content = content;
         this.access = access;
         this.approvalService = approvalService;
-        this.parameters = parameters;
         this.idempotency = idempotency;
         this.calendar = calendar;
-        this.clock = clock;
     }
 
     @Transactional(readOnly = true)
@@ -166,64 +151,6 @@ public class CashDocumentService {
         return act(actor, document, "UPDATE", null);
     }
 
-    /**
-     * Gửi duyệt (BR-CSH-03): chứng từ chi từ ngưỡng trở lên tạo yêu cầu duyệt theo luồng đã cấu hình (không có luồng:
-     * 422 APPROVAL_NOT_CONFIGURED); chứng từ thu và chứng từ chi dưới ngưỡng chuyển thẳng APPROVED.
-     */
-    @Transactional
-    public CashDocumentResponse submit(CurrentUser actor, Long id, String idempotencyKey) {
-        IdempotentCommand command = new IdempotentCommand(actor.id(), idempotencyKey,
-                "POST /api/v1/cash-documents/" + id + "/submit", id);
-        return idempotency.execute(command, CashDocumentResponse.class, () -> {
-            access.requirePermission(actor, CREATE);
-            CashDocument document = lock(actor, id);
-            Instant now = Instant.now(clock);
-            document.submit(actor.id(), now);
-            if (needsApproval(document)) {
-                boolean created = approvalService.submit(actor, new ApprovalSubmission(document.getCompanyId(),
-                        document.getBranchId(), document.getDocumentType().name(), document.getId(),
-                        document.getDocumentNo(), document.getTotalAmount(), null)).approvalRequired();
-                if (!created) {
-                    throw new BusinessException(ErrorCode.APPROVAL_NOT_CONFIGURED, "Chứng từ chi từ ngưỡng duyệt "
-                            + "trở lên nhưng chưa cấu hình luồng duyệt cho loại " + document.getDocumentType() + ".");
-                }
-            } else {
-                document.approve(actor.id(), now);
-            }
-            return act(actor, document, "SUBMIT", null);
-        });
-    }
-
-    @Transactional
-    public CashDocumentResponse approve(CurrentUser actor, Long id, String idempotencyKey, CommentRequest request) {
-        IdempotentCommand command = new IdempotentCommand(actor.id(), idempotencyKey,
-                "POST /api/v1/cash-documents/" + id + "/approve", request);
-        return idempotency.execute(command, CashDocumentResponse.class, () -> {
-            access.requirePermission(actor, APPROVE);
-            CashDocument document = lock(actor, id);
-            requireSubmitted(document);
-            String comment = request == null ? null : request.comment();
-            if (approvalService.approve(actor, document.getDocumentType().name(), id, comment).completed()) {
-                document.approve(actor.id(), Instant.now(clock));
-            }
-            return act(actor, document, "APPROVE", comment);
-        });
-    }
-
-    @Transactional
-    public CashDocumentResponse reject(CurrentUser actor, Long id, String idempotencyKey, ReasonRequest request) {
-        IdempotentCommand command = new IdempotentCommand(actor.id(), idempotencyKey,
-                "POST /api/v1/cash-documents/" + id + "/reject", request);
-        return idempotency.execute(command, CashDocumentResponse.class, () -> {
-            access.requirePermission(actor, APPROVE);
-            CashDocument document = lock(actor, id);
-            requireSubmitted(document);
-            approvalService.reject(actor, document.getDocumentType().name(), id, request.reason());
-            document.reject(request.reason().trim());
-            return act(actor, document, "REJECT", request.reason());
-        });
-    }
-
     @Transactional
     public CashDocumentResponse cancel(CurrentUser actor, Long id, String idempotencyKey, ReasonRequest request) {
         IdempotentCommand command = new IdempotentCommand(actor.id(), idempotencyKey,
@@ -231,24 +158,13 @@ public class CashDocumentService {
         return idempotency.execute(command, CashDocumentResponse.class, () -> {
             access.requirePermission(actor, CREATE);
             CashDocument document = lock(actor, id);
+            // Chứng từ gửi duyệt trước D-61: đóng yêu cầu duyệt còn treo để lịch sử duyệt nhất quán.
             if (document.getStatus() == FinanceDocumentStatus.SUBMITTED) {
                 approvalService.cancelPending(actor, document.getDocumentType().name(), id, request.reason());
             }
             document.cancel(request.reason().trim());
             return act(actor, document, "CANCEL", request.reason());
         });
-    }
-
-    private boolean needsApproval(CashDocument document) {
-        return document.getDocumentType().outflow() && document.getTotalAmount()
-                .compareTo(parameters.decimalValue(document.getCompanyId(), THRESHOLD)) >= 0;
-    }
-
-    private static void requireSubmitted(CashDocument document) {
-        if (document.getStatus() != FinanceDocumentStatus.SUBMITTED) {
-            throw new BusinessException(ErrorCode.INVALID_DOCUMENT_STATE, "Chứng từ " + document.getDocumentNo()
-                    + " không ở trạng thái chờ duyệt.");
-        }
     }
 
     CashDocument lock(CurrentUser actor, Long id) {

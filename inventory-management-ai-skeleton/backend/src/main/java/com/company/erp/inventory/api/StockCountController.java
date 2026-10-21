@@ -4,7 +4,6 @@ import com.company.erp.common.api.ApiResponse;
 import com.company.erp.common.api.PageResponse;
 import com.company.erp.common.application.IdempotentCommand;
 import com.company.erp.inventory.application.StockCountService;
-import com.company.erp.inventory.application.dto.CommentRequest;
 import com.company.erp.inventory.application.dto.CountedLinesRequest;
 import com.company.erp.inventory.application.dto.ReasonRequest;
 import com.company.erp.inventory.application.dto.StockCountRequest;
@@ -69,29 +68,6 @@ public class StockCountController {
     public ApiResponse<StockCountResponse> start(@AuthenticationPrincipal CurrentUser user,
             @PathVariable Long id, @RequestHeader(IdempotentCommand.HEADER) String idempotencyKey) {
         return ApiResponse.ok(service.start(user, id, idempotencyKey));
-    }
-
-    @PostMapping("/{id}/submit")
-    @PreAuthorize("hasAuthority('stock-count:create')")
-    public ApiResponse<StockCountResponse> submit(@AuthenticationPrincipal CurrentUser user,
-            @PathVariable Long id, @RequestHeader(IdempotentCommand.HEADER) String idempotencyKey) {
-        return ApiResponse.ok(service.submit(user, id, idempotencyKey));
-    }
-
-    @PostMapping("/{id}/approve")
-    @PreAuthorize("hasAuthority('stock-count:approve')")
-    public ApiResponse<StockCountResponse> approve(@AuthenticationPrincipal CurrentUser user,
-            @PathVariable Long id, @RequestHeader(IdempotentCommand.HEADER) String idempotencyKey,
-            @Valid @RequestBody(required = false) CommentRequest request) {
-        return ApiResponse.ok(service.approve(user, id, idempotencyKey, request));
-    }
-
-    @PostMapping("/{id}/reject")
-    @PreAuthorize("hasAuthority('stock-count:approve')")
-    public ApiResponse<StockCountResponse> reject(@AuthenticationPrincipal CurrentUser user,
-            @PathVariable Long id, @RequestHeader(IdempotentCommand.HEADER) String idempotencyKey,
-            @Valid @RequestBody ReasonRequest request) {
-        return ApiResponse.ok(service.reject(user, id, idempotencyKey, request));
     }
 
     @PostMapping("/{id}/post")

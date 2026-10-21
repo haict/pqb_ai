@@ -148,7 +148,7 @@ class InventoryDocumentBuilder {
                 .filter(policy -> policy.usableBy(documentId))
                 .isEmpty()) {
             throw BusinessException.invalidField("issuePolicyId", "Chính sách xuất vượt tồn không tồn tại, chưa "
-                    + "duyệt hoặc đã dùng cho chứng từ khác (mỗi chính sách dùng cho một chứng từ, D-53).");
+                    + "kích hoạt hoặc đã dùng cho chứng từ khác (mỗi chính sách dùng cho một chứng từ, D-53).");
         }
     }
 

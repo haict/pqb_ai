@@ -1,4 +1,4 @@
-import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
+import { CopyOutlined, DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   Alert,
@@ -14,7 +14,9 @@ import {
   InputNumber,
   Row,
   Select,
+  Space,
   Table,
+  Tooltip,
   Tag,
   Typography,
   type FormInstance,
@@ -43,7 +45,15 @@ import { toLineForm, toLineInput, type SalesLineForm } from '../components/sales
 import { PrintButton } from '../../../shared/components/PrintButton';
 import { CompanyPrintButton } from '../../../shared/components/CompanyPrintButton';
 import { SalesLinesTable } from '../components/SalesLinesTable';
-import { DELIVERY_STATUSES, DUE_BASES, ORDER_ACTION_ORDER, orderActions, POSTING_STATUSES } from '../labels';
+import {
+  DELIVERY_STATUSES,
+  DUE_BASES,
+  ORDER_ACTION_ORDER,
+  ORDER_ROW_ACTION_ORDER,
+  orderActions,
+  POSTING_STATUSES,
+} from '../labels';
+import { DocumentActions } from '../../inventory/components/DocumentActions';
 import type {
   DeliveryStatus,
   PaymentDueBasis,
@@ -125,9 +135,11 @@ const scheduleColumns: TableColumnsType<PaymentSchedule> = [
   { title: 'Còn lại', dataIndex: 'remainingAmount', width: 120, align: 'right', render: formatMoney },
 ];
 
+const LIST_KEYS = ['sales-orders', 'stock-summaries', 'inventory-documents', 'debt-items'];
+
 /**
- * Đơn bán (BR-SAL-10..14, 21..23, 30, 31, 50, D-54): chứng từ duy nhất của nghiệp vụ bán. Giá theo bảng giá, duyệt
- * giá / hạn mức tín dụng, tồn khả dụng, giữ / nhả hàng; ghi sổ = xuất kho (FEFO / lô chỉ định) + doanh thu + công nợ
+ * Đơn bán (BR-SAL-10..14, 21..23, 30, 31, 50, D-54): chứng từ duy nhất của nghiệp vụ bán, không qua duyệt (D-61). Giá
+ * theo bảng giá, thẩm quyền giá / hạn mức tín dụng khi ghi sổ, tồn khả dụng, giữ / nhả hàng; ghi sổ = xuất kho (FEFO / lô chỉ định) + doanh thu + công nợ
  * phải thu; số hóa đơn điện tử; theo dõi giao hàng, in biên bản giao nhận; đảo (kể cả giao thất bại); lịch thu tiền.
  */
 export function SalesOrdersPage() {
@@ -143,6 +155,8 @@ export function SalesOrdersPage() {
   const [searchParams] = useSearchParams();
   const [selected, setSelected] = useState<number | null>(() => Number(searchParams.get('id')) || null);
   const [editing, setEditing] = useState<SalesOrder | 'new' | null>(null);
+  // Đơn nguồn khi lập đơn mới bằng sao chép (chỉ điền sẵn form, server kiểm tra lại như lập mới).
+  const [copySource, setCopySource] = useState<SalesOrder | null>(null);
   const [confirming, setConfirming] = useState<SalesOrder | null>(null);
   const [einvoice, setEinvoice] = useState<SalesOrder | null>(null);
   const { tableProps } = useServerTable('sales-orders', salesOrderApi.list, { companyId, keyword, status });
@@ -184,35 +198,15 @@ export function SalesOrdersPage() {
 
   const initialValues: Partial<OrderForm> =
     editing && editing !== 'new'
-      ? {
-          branchId: editing.branchId,
-          customerId: editing.customerId,
-          customerLabel: `${editing.customerCode ?? ''} - ${editing.customerName ?? ''}`,
-          warehouseId: editing.warehouseId,
-          documentDate: dayjs(editing.documentDate),
-          postingDate: dayjs(editing.postingDate),
-          contactName: editing.contactName ?? undefined,
-          deliveryAddress: editing.deliveryAddress ?? undefined,
-          receiverName: editing.receiverName ?? undefined,
-          receiverPhone: editing.receiverPhone ?? undefined,
-          expectedDate: editing.expectedDate ? dayjs(editing.expectedDate) : undefined,
-          paymentTermDays: editing.paymentTermDays ?? undefined,
-          reserveStock: editing.reserveStock,
-          description: editing.description ?? undefined,
-          lines: editing.lines.map(toLineForm),
-          paymentTerms: editing.paymentSchedule.map((term) => ({
-            percent: term.percent,
-            dueBasis: term.dueBasis,
-            dueDays: term.dueDays,
-            description: term.description ?? undefined,
-          })),
-        }
-      : {
-          branchId: branches.defaultId,
-          documentDate: dayjs(),
-          lines: [{ quantity: 1 }],
-          paymentTerms: [],
-        };
+      ? orderForm(editing)
+      : copySource
+        ? copyForm(copySource)
+        : {
+            branchId: branches.defaultId,
+            documentDate: dayjs(),
+            lines: [{ quantity: 1 }],
+            paymentTerms: [],
+          };
 
   const columns: TableColumnsType<SalesOrder> = [
     {
@@ -246,7 +240,48 @@ export function SalesOrdersPage() {
       width: 130,
       render: (value: SalesDocumentStatus) => <DocumentStatusTag status={value} />,
     },
+    {
+      title: 'Thao tác',
+      key: 'actions',
+      width: 110,
+      fixed: 'right',
+      render: (_, row) => (
+        <Space size={0}>
+          {can('sales-order:create') && (
+            <Tooltip title="Sao chép">
+              <Button
+                type="text"
+                size="small"
+                icon={<CopyOutlined aria-hidden />}
+                aria-label="Sao chép"
+                onClick={() => void copyOrder(row.id)}
+              />
+            </Tooltip>
+          )}
+          <DocumentActions
+            iconOnly
+            actions={orderActions(row, can)}
+            order={ORDER_ROW_ACTION_ORDER}
+            onAction={async (action, body, key) => {
+              await salesOrderApi.act(row.id, action, body, key);
+              void queryClient.invalidateQueries({ queryKey: ['sales-order', row.id] });
+              LIST_KEYS.forEach((listKey) => void queryClient.invalidateQueries({ queryKey: [listKey] }));
+            }}
+          />
+        </Space>
+      ),
+    },
   ];
+
+  /** Sao chép: tải chi tiết đơn (đủ dòng) rồi mở form lập đơn mới điền sẵn. */
+  const copyOrder = async (id: number) => {
+    try {
+      setCopySource(await salesOrderApi.get(id));
+      setEditing('new');
+    } catch {
+      message.error('Không tải được đơn bán để sao chép.');
+    }
+  };
 
   return (
     <Card>
@@ -267,14 +302,21 @@ export function SalesOrdersPage() {
           />
         }
         createLabel="Lập đơn bán"
-        onCreate={can('sales-order:create') ? () => setEditing('new') : undefined}
+        onCreate={
+          can('sales-order:create')
+            ? () => {
+                setCopySource(null);
+                setEditing('new');
+              }
+            : undefined
+        }
       />
       <Table<SalesOrder> {...tableProps} size="small" columns={columns} scroll={{ x: 1200 }} />
       {selected !== null && (
         <SalesDocumentDrawer<SalesOrder>
           id={selected}
           queryKey="sales-order"
-          listKeys={['sales-orders', 'stock-summaries', 'inventory-documents', 'debt-items']}
+          listKeys={LIST_KEYS}
           load={salesOrderApi.get}
           act={salesOrderApi.act}
           permission="sales-order"
@@ -311,10 +353,9 @@ export function SalesOrdersPage() {
                 can('sales-order:deliver') && (
                   <Button onClick={() => setConfirming(document)}>Khách nhận hàng</Button>
                 )}
-              {(document.status === 'APPROVED' || document.status === 'POSTED') &&
-                can('sales-order:post') && (
-                  <Button onClick={() => setEinvoice(document)}>Số hóa đơn điện tử</Button>
-                )}
+              {['DRAFT', 'APPROVED', 'POSTED'].includes(document.status) && can('sales-order:post') && (
+                <Button onClick={() => setEinvoice(document)}>Số hóa đơn điện tử</Button>
+              )}
             </>
           )}
         >
@@ -325,7 +366,7 @@ export function SalesOrdersPage() {
                   type="warning"
                   showIcon
                   style={{ marginBottom: 12 }}
-                  message="Lý do phải duyệt"
+                  message="Cần người có quyền vượt khi ghi sổ"
                   description={document.approvalReasons}
                 />
               )}
@@ -365,7 +406,7 @@ export function SalesOrdersPage() {
                   {document.reservedUntil
                     ? `Đến ${dayjs(document.reservedUntil).format('DD/MM/YYYY HH:mm')}`
                     : document.reserveStock
-                      ? 'Giữ khi duyệt'
+                      ? 'Có, hiện không giữ'
                       : 'Không'}
                 </Descriptions.Item>
                 <Descriptions.Item label="Hóa đơn điện tử">
@@ -422,13 +463,22 @@ export function SalesOrdersPage() {
       )}
       <FormModal<OrderForm>
         open={editing !== null}
-        title={editing === 'new' ? 'Lập đơn bán' : 'Sửa đơn bán'}
+        title={
+          editing !== 'new'
+            ? 'Sửa đơn bán'
+            : copySource
+              ? `Lập đơn bán (sao chép ${copySource.documentNo})`
+              : 'Lập đơn bán'
+        }
         width={1200}
         okText={editing === 'new' ? 'Lưu nháp' : 'Lưu'}
         initialValues={initialValues}
         fieldNames={FIELDS}
         onSubmit={save}
-        onClose={() => setEditing(null)}
+        onClose={() => {
+          setEditing(null);
+          setCopySource(null);
+        }}
       >
         {(form) => <OrderFields form={form} isNew={editing === 'new'} branchOptions={branches.options} />}
       </FormModal>
@@ -456,6 +506,56 @@ export function SalesOrdersPage() {
       )}
     </Card>
   );
+}
+
+function orderForm(document: SalesOrder): Partial<OrderForm> {
+  return {
+    branchId: document.branchId,
+    customerId: document.customerId,
+    customerLabel: `${document.customerCode ?? ''} - ${document.customerName ?? ''}`,
+    warehouseId: document.warehouseId,
+    documentDate: dayjs(document.documentDate),
+    postingDate: dayjs(document.postingDate),
+    contactName: document.contactName ?? undefined,
+    deliveryAddress: document.deliveryAddress ?? undefined,
+    receiverName: document.receiverName ?? undefined,
+    receiverPhone: document.receiverPhone ?? undefined,
+    expectedDate: document.expectedDate ? dayjs(document.expectedDate) : undefined,
+    paymentTermDays: document.paymentTermDays ?? undefined,
+    reserveStock: document.reserveStock,
+    description: document.description ?? undefined,
+    lines: document.lines.map(toLineForm),
+    paymentTerms: document.paymentSchedule.map((term) => ({
+      percent: term.percent,
+      dueBasis: term.dueBasis,
+      dueDays: term.dueDays,
+      description: term.description ?? undefined,
+    })),
+  };
+}
+
+/**
+ * Sao chép đơn bán để nhập nhanh: giữ khách, kho, người nhận, hàng, số lượng, giá, chiết khấu, thuế, lịch thanh toán;
+ * ngày đơn là hôm nay. Bỏ ngày hạch toán / giao, giữ hàng, lô / serial chỉ định (chọn lại theo tồn hiện tại, FEFO).
+ */
+function copyForm(source: SalesOrder): Partial<OrderForm> {
+  const form = orderForm(source);
+  return {
+    ...form,
+    documentDate: dayjs(),
+    postingDate: undefined,
+    expectedDate: undefined,
+    reserveStock: false,
+    lines: (form.lines ?? []).map((line) => ({
+      ...line,
+      expectedDate: undefined,
+      lotNo: undefined,
+      lotOverrideReason: undefined,
+      serialNumbers: [],
+      receiptTransactionId: undefined,
+      receiptNo: undefined,
+    })),
+  };
 }
 
 function OrderFields({
@@ -517,7 +617,7 @@ function OrderFields({
           </Form.Item>
         </Col>
         <Col xs={12} md={3}>
-          <Form.Item name="reserveStock" valuePropName="checked" label="Giữ hàng khi duyệt">
+          <Form.Item name="reserveStock" valuePropName="checked" label="Giữ hàng khi lưu">
             <Checkbox />
           </Form.Item>
         </Col>

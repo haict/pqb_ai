@@ -39,15 +39,20 @@ class CashForecastIntegrationTest extends ReportIntegrationSupport {
     }
 
     @Test
-    @DisplayName("BR-CSH-06, BR-RPT-30, AT-12: dự thu / dự chi theo nguồn, mọi ô khớp danh sách khoản, số dư lũy kế")
+    @DisplayName("BR-CSH-06, BR-RPT-30, AT-12, D-61: dự thu / dự chi theo nguồn (đơn nháp không tính, đơn đã duyệt trước D-61 tính), mọi ô khớp danh sách khoản, số dư lũy kế")
     void forecastMatchesItems() throws Exception {
         long item = newProduct("CONSUMABLE");
         stockIn(item, "10", unique("L"));
         long customer = customer();
         long sold = postedOrder(customer, item, "3");
-        long pending = approvedOrder(customer, item, "2", ",\"expectedDate\":\"2026-12-01\"");
+        long pending = draftOrder(customer, item, "2", ",\"expectedDate\":\"2026-12-01\"");
         long supplier = id("SELECT id FROM partners WHERE company_id = 1 AND code = 'NCC_01'");
-        long purchase = approvedPurchase(supplier, item, "4", "50000", unique("L"));
+        long purchase = draftPurchase(supplier, item, "4", "50000", unique("L"));
+        DocumentContext drafts = items(director, null, null, null);
+        assertThat(drafts.<List<Object>>read(rowsOf("SALES_ORDER", pending))).isEmpty();
+        assertThat(drafts.<List<Object>>read(rowsOf("PURCHASE_ORDER", purchase))).isEmpty();
+        markApprovedBeforeD61("sales_orders", pending);
+        markApprovedBeforeD61("purchase_orders", purchase);
 
         DocumentContext all = items(director, null, null, null);
         assertThat(sumOf(all, rowsOf("RECEIVABLE", sold) + ".amount")).isEqualByComparingTo("300000");

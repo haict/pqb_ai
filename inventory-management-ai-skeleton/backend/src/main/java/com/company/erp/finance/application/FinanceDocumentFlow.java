@@ -4,17 +4,12 @@ import com.company.erp.common.api.PageRequests;
 import com.company.erp.common.application.IdempotencyService;
 import com.company.erp.common.application.IdempotentCommand;
 import com.company.erp.common.domain.BusinessException;
-import com.company.erp.common.domain.ErrorCode;
-import com.company.erp.finance.application.dto.CommentRequest;
 import com.company.erp.finance.application.dto.ReasonRequest;
 import com.company.erp.finance.domain.FinanceDocument;
 import com.company.erp.finance.domain.FinanceDocumentStatus;
 import com.company.erp.system.application.ApprovalService;
-import com.company.erp.system.application.ApprovalSubmission;
 import com.company.erp.system.application.CurrentUser;
 import jakarta.persistence.criteria.Predicate;
-import java.time.Clock;
-import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -32,8 +27,7 @@ import org.springframework.stereotype.Component;
 
 /**
  * Vòng đời dùng chung của chứng từ ghi sổ công nợ, quỹ ({@link FinanceDocument}): tìm kiếm theo phạm vi, khóa chứng từ,
- * gửi duyệt / duyệt / từ chối / hủy qua luồng duyệt (BR-SYS-11), chống xử lý trùng, audit. Chứng từ không cần duyệt
- * (chế độ NONE, hoặc CONFIGURED không có luồng khớp) chuyển thẳng APPROVED khi gửi.
+ * hủy, chống xử lý trùng, audit. Không qua duyệt (D-61): chứng từ ghi sổ thẳng từ DRAFT ở dịch vụ ghi sổ từng loại.
  */
 @Component
 class FinanceDocumentFlow {
@@ -47,7 +41,7 @@ class FinanceDocumentFlow {
      * @param entityType loại thực thể ghi audit
      */
     record Spec<D extends FinanceDocument, R>(String path, String viewPermission, String createPermission,
-                                              String approvePermission, String entityType,
+                                              String entityType,
                                               Function<Long, Optional<D>> lockById, JpaRepository<D, Long> repository,
                                               Function<D, R> mapper, Class<R> responseType) {
     }
@@ -60,14 +54,11 @@ class FinanceDocumentFlow {
     private final ApprovalService approvalService;
     private final FinanceAccess access;
     private final IdempotencyService idempotency;
-    private final Clock clock;
 
-    FinanceDocumentFlow(ApprovalService approvalService, FinanceAccess access, IdempotencyService idempotency,
-                        Clock clock) {
+    FinanceDocumentFlow(ApprovalService approvalService, FinanceAccess access, IdempotencyService idempotency) {
         this.approvalService = approvalService;
         this.access = access;
         this.idempotency = idempotency;
-        this.clock = clock;
     }
 
     <D extends FinanceDocument> Page<D> search(CurrentUser actor, String viewPermission,
@@ -126,56 +117,13 @@ class FinanceDocumentFlow {
         return idempotency.execute(new IdempotentCommand(actor.id(), key, path, body), type, action);
     }
 
-    <D extends FinanceDocument, R> R submit(CurrentUser actor, Long id, String key, Spec<D, R> spec) {
-        return idempotent(actor, key, "POST " + spec.path() + "/" + id + "/submit", id, spec.responseType(), () -> {
-            access.requirePermission(actor, spec.createPermission());
-            D document = lock(actor, id, spec);
-            Instant now = Instant.now(clock);
-            document.submit(actor.id(), now);
-            boolean required = approvalService.submit(actor, new ApprovalSubmission(document.getCompanyId(),
-                    document.getBranchId(), document.typeCode(), document.getId(), document.getDocumentNo(),
-                    document.approvalAmount(), null)).approvalRequired();
-            if (!required) {
-                document.approve(actor.id(), now);
-            }
-            return act(actor, document, "SUBMIT", null, spec);
-        });
-    }
-
-    <D extends FinanceDocument, R> R approve(CurrentUser actor, Long id, String key, CommentRequest request,
-                                             Spec<D, R> spec) {
-        return idempotent(actor, key, "POST " + spec.path() + "/" + id + "/approve", request, spec.responseType(),
-                () -> {
-                    access.requirePermission(actor, spec.approvePermission());
-                    D document = lock(actor, id, spec);
-                    requireSubmitted(document);
-                    String comment = request == null ? null : request.comment();
-                    if (approvalService.approve(actor, document.typeCode(), id, comment).completed()) {
-                        document.approve(actor.id(), Instant.now(clock));
-                    }
-                    return act(actor, document, "APPROVE", comment, spec);
-                });
-    }
-
-    <D extends FinanceDocument, R> R reject(CurrentUser actor, Long id, String key, ReasonRequest request,
-                                            Spec<D, R> spec) {
-        return idempotent(actor, key, "POST " + spec.path() + "/" + id + "/reject", request, spec.responseType(),
-                () -> {
-                    access.requirePermission(actor, spec.approvePermission());
-                    D document = lock(actor, id, spec);
-                    requireSubmitted(document);
-                    approvalService.reject(actor, document.typeCode(), id, request.reason());
-                    document.reject(request.reason().trim());
-                    return act(actor, document, "REJECT", request.reason(), spec);
-                });
-    }
-
     <D extends FinanceDocument, R> R cancel(CurrentUser actor, Long id, String key, ReasonRequest request,
                                             Spec<D, R> spec) {
         return idempotent(actor, key, "POST " + spec.path() + "/" + id + "/cancel", request, spec.responseType(),
                 () -> {
                     access.requirePermission(actor, spec.createPermission());
                     D document = lock(actor, id, spec);
+                    // Chứng từ gửi duyệt trước D-61: đóng yêu cầu duyệt còn treo để lịch sử duyệt nhất quán.
                     if (document.getStatus() == FinanceDocumentStatus.SUBMITTED) {
                         approvalService.cancelPending(actor, document.typeCode(), id, request.reason());
                     }
@@ -198,12 +146,5 @@ class FinanceDocumentFlow {
             throw BusinessException.invalidField("version", "Thiếu version khi sửa chứng từ.");
         }
         document.verifyVersion(version);
-    }
-
-    private static void requireSubmitted(FinanceDocument document) {
-        if (document.getStatus() != FinanceDocumentStatus.SUBMITTED) {
-            throw new BusinessException(ErrorCode.INVALID_DOCUMENT_STATE, "Chứng từ " + document.getDocumentNo()
-                    + " không ở trạng thái chờ duyệt.");
-        }
     }
 }

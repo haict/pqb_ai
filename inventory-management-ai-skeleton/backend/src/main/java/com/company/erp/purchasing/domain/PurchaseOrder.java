@@ -131,12 +131,8 @@ public class PurchaseOrder extends PurchaseDocument {
         return TYPE_CODE;
     }
 
-    @Override
-    public BigDecimal approvalAmount() {
-        return totalAmount;
-    }
 
-    /** Thay nội dung (chỉ DRAFT / REJECTED); tổng tiền tính lại từ dòng. */
+    /** Thay nội dung (chỉ DRAFT); tổng tiền tính lại từ dòng. */
     public void replaceContent(Header header, List<PurchaseOrderLine> newLines) {
         if (newLines.isEmpty()) {
             throw BusinessException.invalidField("lines", "Đơn mua phải có ít nhất một dòng.");
@@ -176,12 +172,6 @@ public class PurchaseOrder extends PurchaseDocument {
         totalAmount = amount.subtract(discountAmount).add(taxAmount);
     }
 
-    /** Chiết khấu dòng cao nhất (%) để xét luồng duyệt theo ngưỡng chiết khấu. */
-    public BigDecimal maxDiscountPercent() {
-        return lines.stream().map(PurchaseOrderLine::getDiscountPercent).max(BigDecimal::compareTo)
-                .orElse(BigDecimal.ZERO);
-    }
-
     /** Hủy giải phóng khóa chống trùng hóa đơn để lập lại đơn đúng. */
     @Override
     public void cancel(String reason) {
@@ -189,9 +179,9 @@ public class PurchaseOrder extends PurchaseDocument {
         this.duplicateKey = null;
     }
 
-    /** Ghi sổ (chỉ đơn đã duyệt); {@code inventoryDocumentId} trống khi đơn chỉ có dịch vụ. */
+    /** Ghi sổ (từ DRAFT, hoặc APPROVED trước D-61); {@code inventoryDocumentId} trống khi đơn chỉ có dịch vụ. */
     public void markPosted(Long inventoryDocumentId, Long actorId, Instant now) {
-        requireStatus(EnumSet.of(PurchaseDocumentStatus.APPROVED), "ghi sổ");
+        requireStatus(POSTABLE, "ghi sổ");
         setStatus(PurchaseDocumentStatus.POSTED);
         this.inventoryDocumentId = inventoryDocumentId;
         this.postedBy = actorId;
@@ -204,16 +194,34 @@ public class PurchaseOrder extends PurchaseDocument {
         if (reverseDate.isBefore(postingDate)) {
             throw BusinessException.invalidField("postingDate", "Ngày đảo không được trước ngày ghi sổ chứng từ gốc.");
         }
-        if (lines.stream().anyMatch(PurchaseOrderLine::hasDependents)) {
-            throw new BusinessException(ErrorCode.HAS_DEPENDENT_DOCUMENTS, "Đơn mua " + getDocumentNo()
-                    + " đã có trả hàng / giảm giá / phân bổ chi phí ghi sổ; đảo các chứng từ đó trước.");
-        }
+        requireNoDependents();
         setStatus(PurchaseDocumentStatus.REVERSED);
         this.reversedBy = actorId;
         this.reversedAt = now;
         this.reverseDate = reverseDate;
         this.duplicateKey = null;
         setReason(reason);
+    }
+
+    /**
+     * Bỏ ghi sổ về nháp, giữ số đơn và khóa chống trùng hóa đơn (D-62); sổ phụ đảo ở tầng application. Chặn như đảo khi
+     * còn trả hàng / giảm giá / phân bổ chi phí chưa đảo.
+     */
+    public void markUnposted(String reason) {
+        requireStatus(EnumSet.of(PurchaseDocumentStatus.POSTED), "bỏ ghi sổ");
+        requireNoDependents();
+        setStatus(PurchaseDocumentStatus.DRAFT);
+        this.inventoryDocumentId = null;
+        this.postedBy = null;
+        this.postedAt = null;
+        setReason(reason);
+    }
+
+    private void requireNoDependents() {
+        if (lines.stream().anyMatch(PurchaseOrderLine::hasDependents)) {
+            throw new BusinessException(ErrorCode.HAS_DEPENDENT_DOCUMENTS, "Đơn mua " + getDocumentNo()
+                    + " đã có trả hàng / giảm giá / phân bổ chi phí ghi sổ; đảo các chứng từ đó trước.");
+        }
     }
 
     /** Trả hàng theo dòng (đơn phải đang ghi sổ). */

@@ -22,13 +22,15 @@ import com.company.erp.masterdata.application.MasterDataQueryService.CustomerPro
 import com.company.erp.masterdata.application.MasterDataQueryService.ProductInfo;
 import com.company.erp.sales.application.dto.ConfirmDeliveryRequest;
 import com.company.erp.sales.application.dto.EinvoiceReferenceRequest;
+import com.company.erp.sales.application.dto.ReasonRequest;
 import com.company.erp.sales.application.dto.ReverseRequest;
 import com.company.erp.sales.application.dto.SalesOrderResponse;
 import com.company.erp.sales.application.dto.ShipRequest;
-import com.company.erp.sales.domain.SalesDocumentStatus;
+import com.company.erp.sales.domain.SalesDocument;
 import com.company.erp.sales.domain.SalesOrder;
 import com.company.erp.sales.domain.SalesOrderItem;
 import com.company.erp.sales.domain.SalesOrderLine;
+import com.company.erp.sales.infrastructure.persistence.SalesComplaintRepository;
 import com.company.erp.system.application.CurrentUser;
 import java.time.Clock;
 import java.time.Instant;
@@ -57,6 +59,7 @@ public class SalesOrderPostingService {
     static final String POST = "sales-order:post";
     static final String DELIVER = "sales-order:deliver";
     static final String REVERSE = "sales-order:reverse";
+    static final String UNPOST = "sales-order:unpost";
     static final String SALES = "SALES";
     static final String SALES_VAT = "SALES_VAT";
     static final String CUSTOMER_ROLE = "CUSTOMER";
@@ -69,6 +72,7 @@ public class SalesOrderPostingService {
     private final InventoryReservationService reservations;
     private final DebtPostingService debtPosting;
     private final JournalPostingService journalPosting;
+    private final SalesComplaintRepository complaints;
     private final BusinessCalendar calendar;
     private final Clock clock;
 
@@ -76,7 +80,7 @@ public class SalesOrderPostingService {
     public SalesOrderPostingService(SalesOrderService orders, SalesDocumentFlow flow, SalesAccess access,
                                     StockOutService stockOut, InventoryReservationService reservations,
                                     DebtPostingService debtPosting, JournalPostingService journalPosting,
-                                    BusinessCalendar calendar, Clock clock) {
+                                    SalesComplaintRepository complaints, BusinessCalendar calendar, Clock clock) {
         this.orders = orders;
         this.flow = flow;
         this.access = access;
@@ -84,21 +88,26 @@ public class SalesOrderPostingService {
         this.reservations = reservations;
         this.debtPosting = debtPosting;
         this.journalPosting = journalPosting;
+        this.complaints = complaints;
         this.calendar = calendar;
         this.clock = clock;
     }
 
-    /** Ghi sổ đơn đã duyệt: xuất kho, doanh thu, công nợ, bút toán. */
+    /**
+     * Ghi sổ đơn từ nháp (D-61, hoặc đơn đã duyệt trước D-61): kiểm tra thẩm quyền giá / tín dụng, xuất kho, doanh thu,
+     * công nợ, bút toán.
+     */
     @Transactional(isolation = Isolation.READ_COMMITTED)
     public SalesOrderResponse post(CurrentUser actor, Long id, String key) {
         return flow.idempotent(actor, key, "POST " + SalesOrderService.PATH + "/" + id + "/post", id,
                 SalesOrderResponse.class, () -> {
                     access.requirePermission(actor, POST);
                     SalesOrder order = flow.lock(actor, id, orders.spec());
-                    if (order.getStatus() != SalesDocumentStatus.APPROVED) {
+                    if (!SalesDocument.POSTABLE.contains(order.getStatus())) {
                         throw new BusinessException(ErrorCode.INVALID_DOCUMENT_STATE, "Đơn bán " + order.getDocumentNo()
-                                + " ở trạng thái " + order.getStatus() + ", chỉ ghi sổ đơn đã duyệt.");
+                                + " ở trạng thái " + order.getStatus() + ", chỉ ghi sổ đơn nháp.");
                     }
+                    String authorityNote = orders.requirePostingAuthority(actor, order);
                     Issue issue = issue(actor, order);
                     reservations.releaseAll(order.getCompanyId(), SalesOrder.TYPE_CODE, order.getId());
                     order.markPosted(issue.inventoryId(), issue.items(), actor.id(), Instant.now(clock));
@@ -113,7 +122,7 @@ public class SalesOrderPostingService {
                                 description(order), actor.id(), journalLines(order)));
                     }
                     log.info("Ghi sổ đơn bán {}", order.getDocumentNo());
-                    return flow.act(actor, order, "POST", null, orders.spec());
+                    return flow.act(actor, order, "POST", authorityNote, orders.spec());
                 });
     }
 
@@ -129,18 +138,49 @@ public class SalesOrderPostingService {
                     SalesOrder order = flow.lock(actor, id, orders.spec());
                     LocalDate date = request.postingDate() != null ? request.postingDate() : calendar.today();
                     String reason = request.reason().trim();
+                    Long inventoryId = order.getInventoryDocumentId();
                     order.markReversed(actor.id(), Instant.now(clock), date, reason);
-                    if (order.getInventoryDocumentId() != null) {
-                        stockOut.reverse(actor, order.getInventoryDocumentId(), date, reason);
-                    }
-                    if (order.getTotalAmount().signum() > 0) {
-                        debtPosting.reverse(new DebtReversalCommand(order.getCompanyId(), order.getBranchId(),
-                                SalesOrder.TYPE_CODE, order.getId(), date, order.getDocumentNo(), actor.id()));
-                        journalPosting.reverse(new ReversalRequest(order.getCompanyId(), SalesOrder.TYPE_CODE,
-                                order.getId(), date, "Đảo " + order.getDocumentNo() + ": " + reason, actor.id()));
-                    }
+                    undoLedgers(actor, order, inventoryId, date, "Đảo", reason);
                     return flow.act(actor, order, "REVERSE", reason, orders.spec());
                 });
+    }
+
+    /**
+     * Bỏ ghi sổ để sửa lại (D-62): dòng ngược ngày hạch toán gốc (kỳ gốc phải còn mở), đơn về nháp giữ số, không giữ
+     * hàng lại (người dùng giữ hàng trên đơn nháp nếu cần). Chặn như đảo khi có chứng từ phụ thuộc hoặc khiếu nại;
+     * đã có hóa đơn điện tử hoặc đã chuyển đi giao thì chỉ đảo được.
+     */
+    @Transactional(isolation = Isolation.READ_COMMITTED)
+    public SalesOrderResponse unpost(CurrentUser actor, Long id, String key, ReasonRequest request) {
+        return flow.idempotent(actor, key, "POST " + SalesOrderService.PATH + "/" + id + "/unpost", request,
+                SalesOrderResponse.class, () -> {
+                    access.requirePermission(actor, UNPOST);
+                    SalesOrder order = flow.lock(actor, id, orders.spec());
+                    if (complaints.existsBySalesOrderId(order.getId())) {
+                        throw new BusinessException(ErrorCode.HAS_DEPENDENT_DOCUMENTS, "Đơn bán "
+                                + order.getDocumentNo() + " đã có khiếu nại, không bỏ ghi sổ được.");
+                    }
+                    String reason = request.reason().trim();
+                    Long inventoryId = order.getInventoryDocumentId();
+                    order.markUnposted(reason);
+                    undoLedgers(actor, order, inventoryId, order.getPostingDate(), "Bỏ ghi sổ", reason);
+                    log.info("Bỏ ghi sổ đơn bán {}", order.getDocumentNo());
+                    return flow.act(actor, order, "UNPOST", reason, orders.spec());
+                });
+    }
+
+    /** Dòng ngược cho phiếu xuất kho, công nợ, bút toán của lần ghi sổ hiện hành (BR-GEN-21). */
+    private void undoLedgers(CurrentUser actor, SalesOrder order, Long inventoryId, LocalDate date, String action,
+                             String reason) {
+        if (inventoryId != null) {
+            stockOut.reverse(actor, inventoryId, date, reason);
+        }
+        if (order.getTotalAmount().signum() > 0) {
+            debtPosting.reverse(new DebtReversalCommand(order.getCompanyId(), order.getBranchId(),
+                    SalesOrder.TYPE_CODE, order.getId(), date, order.getDocumentNo(), actor.id()));
+            journalPosting.reverse(new ReversalRequest(order.getCompanyId(), SalesOrder.TYPE_CODE, order.getId(),
+                    date, action + " " + order.getDocumentNo() + ": " + reason, actor.id()));
+        }
     }
 
     /** Chuyển sang đang giao (BR-SAL-22); ghi người / đơn vị vận chuyển. */

@@ -95,28 +95,25 @@ abstract class ReportIntegrationSupport {
                 + ",\"unitCost\":50000,\"lotNo\":\"" + lot + "\",\"expiryDate\":\"" + expiryDate + "\""
                 + (qualityStatus == null ? "" : ",\"qualityStatus\":\"" + qualityStatus + "\"") + "}]}";
         long document = jsonId(send(keeper, post(DOCUMENTS), body).andExpect(status().isCreated()).andReturn());
-        act(keeper, DOCUMENTS, document, "submit");
         act(keeper, DOCUMENTS, document, "post").andExpect(jsonPath("$.data.status").value("POSTED"));
     }
 
-    /** Đơn bán đã duyệt (trưởng phòng kinh doanh lập, duyệt nếu cần), chưa ghi sổ. */
-    long approvedOrder(long customer, long product, String quantity, String extra) throws Exception {
+    /** Đơn bán nháp (trưởng phòng kinh doanh lập), chưa ghi sổ (D-61 không qua duyệt). */
+    long draftOrder(long customer, long product, String quantity, String extra) throws Exception {
         String body = "{\"branchId\":1,\"customerId\":" + customer + ",\"warehouseId\":" + warehouse()
                 + ",\"documentDate\":\"" + DATE + "\"" + extra + ",\"lines\":[{\"productId\":" + product
                 + ",\"unitId\":" + unit() + ",\"quantity\":" + quantity + ",\"unitPrice\":100000}]}";
-        long order = jsonId(send(salesManager, post(ORDERS), body).andExpect(status().isCreated()).andReturn());
-        String state = JsonPath.read(act(salesManager, ORDERS, order, "submit").andReturn().getResponse()
-                .getContentAsString(), "$.data.status");
-        if ("SUBMITTED".equals(state)) {
-            mockMvc.perform(as(salesManager, post(ORDERS + "/" + order + "/approve"))
-                    .header(IdempotentCommand.HEADER, newKey()).contentType(MediaType.APPLICATION_JSON).content("{}"));
-        }
-        return order;
+        return jsonId(send(salesManager, post(ORDERS), body).andExpect(status().isCreated()).andReturn());
+    }
+
+    /** Giả lập chứng từ đã duyệt trước D-61 chưa ghi sổ (dữ liệu cũ): chỉ còn trong cơ sở dữ liệu, không lập qua API. */
+    void markApprovedBeforeD61(String table, long id) {
+        jdbc.update("UPDATE " + table + " SET status = 'APPROVED' WHERE id = ?", id);
     }
 
     /** Đơn bán đã ghi sổ (thủ kho ghi sổ). */
     long postedOrder(long customer, long product, String quantity) throws Exception {
-        long order = approvedOrder(customer, product, quantity, "");
+        long order = draftOrder(customer, product, quantity, "");
         act(keeper, ORDERS, order, "post").andExpect(jsonPath("$.data.status").value("POSTED"));
         return order;
     }
@@ -128,30 +125,27 @@ abstract class ReportIntegrationSupport {
                 + customer + ",\"salesOrderId\":" + order + ",\"documentDate\":\"" + DATE + "\",\"lines\":[{"
                 + "\"orderLineId\":" + orderLine + ",\"lotNo\":\"" + lot + "\",\"quantity\":" + quantity + "}]}")
                 .andExpect(status().isCreated()).andReturn());
-        act(clerk, RETURNS, goodsReturn, "submit").andExpect(jsonPath("$.data.status").value("APPROVED"));
         act(clerk, RETURNS, goodsReturn, "post").andExpect(jsonPath("$.data.status").value("POSTED"));
         return goodsReturn;
     }
 
-    /** Đơn mua đã ghi sổ (nhân viên mua lập, gửi, dưới ngưỡng tự duyệt; thủ kho ghi sổ). */
+    /** Đơn mua đã ghi sổ (nhân viên mua lập, dưới ngưỡng giá trị; thủ kho ghi sổ). */
     long postedPurchase(long supplier, long product, String quantity, String price, String lot)
             throws Exception {
-        long order = approvedPurchase(supplier, product, quantity, price, lot);
+        long order = draftPurchase(supplier, product, quantity, price, lot);
         act(keeper, PURCHASES, order, "post").andExpect(jsonPath("$.data.status").value("POSTED"));
         return order;
     }
 
-    /** Đơn mua đã duyệt, chưa ghi sổ (dưới ngưỡng duyệt nên gửi là duyệt); dự kiến về 2026-10-15. */
-    long approvedPurchase(long supplier, long product, String quantity, String price, String lot)
+    /** Đơn mua nháp, chưa ghi sổ (D-61 không qua duyệt); dự kiến về 2026-10-15. */
+    long draftPurchase(long supplier, long product, String quantity, String price, String lot)
             throws Exception {
         String body = "{\"branchId\":1,\"documentDate\":\"" + DATE + "\",\"supplierId\":" + supplier
                 + ",\"warehouseId\":" + warehouse() + ",\"expectedDate\":\"2026-10-15\",\"invoiceSeries\":\""
                 + unique("C26T") + "\",\"invoiceNo\":\"1\",\"invoiceDate\":\"" + DATE + "\",\"lines\":[{\"productId\":"
                 + product + ",\"unitId\":" + unit() + ",\"quantity\":" + quantity + ",\"unitPrice\":" + price
                 + ",\"lotNo\":\"" + lot + "\",\"expiryDate\":\"2028-01-31\"}]}";
-        long order = jsonId(send(buyer, post(PURCHASES), body).andExpect(status().isCreated()).andReturn());
-        act(buyer, PURCHASES, order, "submit").andExpect(jsonPath("$.data.status").value("APPROVED"));
-        return order;
+        return jsonId(send(buyer, post(PURCHASES), body).andExpect(status().isCreated()).andReturn());
     }
 
     ResultActions act(Session session, String base, long id, String action) throws Exception {

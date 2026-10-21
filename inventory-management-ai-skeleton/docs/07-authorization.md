@@ -87,24 +87,39 @@ Mở lại kỳ chỉ Kế toán trưởng và Giám đốc (BR-SYS-32): ngườ
 
 Quyền nghiệp vụ (kho, mua, bán, ...) của từng vai trò bổ sung khi làm module tương ứng. `[Suy luận]` Doanh nghiệp cần xác nhận lại ma trận đầy đủ trước UAT.
 
+### 2.2a Bỏ bước duyệt (D-61, 2026-10-21; migration V32..V36)
+- Xóa mọi quyền `*:approve` (thu chi, bù trừ, điều chỉnh, kiểm kê quỹ, đơn mua, trả hàng / giảm giá mua bán, phân bổ chi phí, đơn bán, phiếu kho, kiểm kê) và `approval-workflow:view`, `approval-workflow:manage`. Không còn luồng duyệt, ủy quyền duyệt, việc chờ duyệt; không còn tách biệt nhiệm vụ người lập / người duyệt (`self_approval_allowed`, BR-SYS-14 thay bởi D-61).
+- Kiểm soát còn lại bằng quyền khi ghi sổ (thiếu quyền: 422; dùng quyền vượt thì ghi lý do vào audit của lệnh ghi sổ):
+
+| Quyền mới / đổi mã | Ý nghĩa | Vai trò mặc định |
+|---|---|---|
+| `cash-document:post-over-threshold` (V32) | Ghi sổ PC, UNC, CTN từ ngưỡng `finance.payment-approval-threshold` | Vai trò từng có `cash-document:approve`: `CHIEF_ACCOUNTANT`, `DIRECTOR`, `BRANCH_DIRECTOR` (giám đốc không có `cash-document:post` nên thực tế kế toán trưởng ghi sổ) |
+| `purchase-order:post-over-threshold` (V33) | Ghi sổ đơn mua từ ngưỡng `purchasing.order-approval-threshold` | `DIRECTOR`, `BRANCH_DIRECTOR`, kèm cấp thêm `purchase-order:post` để người có thẩm quyền tự ghi sổ được `[Suy luận]` |
+| `sales-order:override-price`, `sales-order:override-credit` (V34) | Ghi sổ đơn bán giá dưới sàn / chiết khấu vượt ngưỡng; vượt hạn mức tín dụng / nợ quá hạn | `SALES_MANAGER`, `DIRECTOR`, `BRANCH_DIRECTOR`, kèm cấp thêm `sales-order:post` `[Suy luận]` |
+| `recall:manage` (V35, đổi mã từ `recall:approve`) | Kích hoạt (khóa lô / serial), đóng thu hồi | `DIRECTOR`, `BRANCH_DIRECTOR` |
+| `stock-policy:activate` (V35, đổi mã từ `stock-policy:approve`) | Kích hoạt chính sách xuất vượt tồn khả dụng (thay "Giám đốc duyệt", D-40, D-53) | `DIRECTOR`, `BRANCH_DIRECTOR` |
+
+- `[Suy luận]` Cấp thêm quyền ghi sổ đơn mua / đơn bán cho giám đốc, trưởng phòng kinh doanh là thay đổi vai trò mặc định; doanh nghiệp xác nhận ở màn hình vai trò trước UAT.
+- Các bảng quyền mục 2.3..2.9 dưới đây ghi theo từng giai đoạn; dòng `:approve` và luồng duyệt mẫu là lịch sử, đã bỏ từ D-61.
+
 ### 2.3 Quyền 1D, danh mục (M02), kho (M04)
 | Nhóm | Quyền |
 |---|---|
-| Phê duyệt (1D) | `approval-workflow:view/manage`; `access:grant-any` (gán vai trò chứa quyền mà người gán không có; chỉ `SYSTEM_ADMIN`). Duyệt chứng từ không cần quyền riêng ở M01: người duyệt là người được luồng chỉ định (vai trò hoặc người dùng, kể cả người được ủy quyền) **và** có quyền `<loại>:approve` của chứng từ |
+| Phê duyệt (1D; bỏ theo D-61) | ~~`approval-workflow:view/manage`~~ (đã xóa, V36); `access:grant-any` (gán vai trò chứa quyền mà người gán không có; chỉ `SYSTEM_ADMIN`). Duyệt chứng từ không cần quyền riêng ở M01: người duyệt là người được luồng chỉ định (vai trò hoặc người dùng, kể cả người được ủy quyền) **và** có quyền `<loại>:approve` của chứng từ |
 | Danh mục | `catalog:view/manage`, `product:view/manage`, `partner:view/manage`, `warehouse:view/manage`, `price:view/manage`, `purchase-price:view` (giá mua tham khảo), `compliance:view/manage` |
-| Kho | `inventory:view` (tồn, sổ kho, lô, serial, cảnh báo; cũng là quyền xem chứng từ đảo), `lot:block`; `inventory-receipt`, `inventory-issue` (PXK, PXH), `inventory-transfer`, `inventory-adjustment` (PDC, PCL), `inventory-reversal` (PDK): mỗi nhóm có `:view` (trừ đảo), `:create`, `:approve`, `:post`; `stock-count:view/create/approve/post`; `recall:view/create/approve`; `stock-policy:view/create/approve` |
+| Kho | `inventory:view` (tồn, sổ kho, lô, serial, cảnh báo; cũng là quyền xem chứng từ đảo), `lot:block`; `inventory-receipt`, `inventory-issue` (PXK, PXH), `inventory-transfer`, `inventory-adjustment` (PDC, PCL), `inventory-reversal` (PDK): mỗi nhóm có `:view` (trừ đảo), `:create`, `:post` (`:approve` đã bỏ, D-61); `stock-count:view/create/post`; `recall:view/create/manage`; `stock-policy:view/create/activate` |
 
 Ma trận mặc định `[Suy luận]` (migration V4..V6, doanh nghiệp chỉnh ở màn hình vai trò):
 
 | Vai trò | Danh mục | Kho |
 |---|---|---|
 | `SYSTEM_ADMIN` | Toàn bộ | `inventory:view` |
-| `DIRECTOR` | Xem, gồm giá mua | Mọi quyền xem và duyệt của kho |
-| `BRANCH_DIRECTOR` | Xem (không giá mua) | Mọi quyền xem và duyệt của kho |
-| `WAREHOUSE_MANAGER` | Xem; quản lý kho, vị trí | Toàn bộ kho trừ duyệt chính sách xuất vượt tồn, duyệt thu hồi, duyệt đảo |
+| `DIRECTOR` | Xem, gồm giá mua | Mọi quyền xem của kho; kích hoạt thu hồi, chính sách xuất vượt (D-61) |
+| `BRANCH_DIRECTOR` | Xem (không giá mua) | Mọi quyền xem của kho; kích hoạt thu hồi, chính sách xuất vượt (D-61) |
+| `WAREHOUSE_MANAGER` | Xem; quản lý kho, vị trí | Toàn bộ kho trừ kích hoạt chính sách xuất vượt tồn, kích hoạt / đóng thu hồi (D-61) |
 | `WAREHOUSE_STAFF` | Xem | Xem; lập và ghi sổ nhập, xuất, chuyển kho; lập điều chỉnh; lập kiểm kê; xem thu hồi |
-| `QA` | Xem; quản lý hồ sơ | Xem; khóa lô; lập, duyệt điều chỉnh / chuyển trạng thái; lập thu hồi |
-| `CHIEF_ACCOUNTANT` | Xem, gồm giá mua; quản lý danh mục chung | Mọi quyền xem; lập, duyệt, ghi sổ chứng từ đảo; duyệt kiểm kê |
+| `QA` | Xem; quản lý hồ sơ | Xem; khóa lô; lập điều chỉnh / chuyển trạng thái; lập thu hồi |
+| `CHIEF_ACCOUNTANT` | Xem, gồm giá mua; quản lý danh mục chung | Mọi quyền xem; lập, ghi sổ chứng từ đảo |
 | `PURCHASING_STAFF` | Quản lý hàng, đối tác, hồ sơ; xem giá mua | `inventory:view` |
 | `SALES_MANAGER` | Quản lý đối tác, bảng giá | `inventory:view` |
 | Kinh doanh, thầu, kế toán khác, `VIEWER` | Xem | `inventory:view` |
@@ -133,32 +148,32 @@ Công nợ đầu kỳ không qua duyệt (D-60, V31 xóa quyền `debt-opening:
 | `cash-account:manage` | Thêm, sửa, ngừng quỹ / tài khoản ngân hàng | `CHIEF_ACCOUNTANT` |
 | `cash-document:view` | Xem phiếu thu, phiếu chi, giấy báo có, ủy nhiệm chi, chuyển tiền | như `cash-account:view` |
 | `cash-document:create` | Lập, sửa, gửi duyệt, hủy chứng từ thu chi | `CHIEF_ACCOUNTANT`, `CASHIER`, `AR_ACCOUNTANT` |
-| `cash-document:approve` | Duyệt, từ chối chứng từ chi từ ngưỡng duyệt trở lên | `CHIEF_ACCOUNTANT`, `DIRECTOR`, `BRANCH_DIRECTOR` |
+| ~~`cash-document:approve`~~ | Đã bỏ (D-61). Trước đây: Duyệt, từ chối chứng từ chi từ ngưỡng duyệt trở lên | `CHIEF_ACCOUNTANT`, `DIRECTOR`, `BRANCH_DIRECTOR` |
 | `cash-document:post` | Ghi sổ (thực thu, thực chi) | `CHIEF_ACCOUNTANT`, `CASHIER` |
 | `cash-document:reverse` | Đảo chứng từ thu chi đã ghi sổ (bắt buộc lý do) | `CHIEF_ACCOUNTANT` |
 | `cash-book:view` | Sổ quỹ, sổ tiền gửi, dòng tiền thực tế | `CHIEF_ACCOUNTANT`, `CASHIER`, `AR_ACCOUNTANT`, `TAX_ACCOUNTANT`, `DIRECTOR`, `BRANCH_DIRECTOR` |
 
 - Phạm vi: quỹ thuộc một chi nhánh; chứng từ thu chi lọc theo chi nhánh của người dùng, ngoài phạm vi trả `404`. Quỹ nhận của chuyển tiền có thể thuộc chi nhánh khác cùng công ty `[Giả định]`.
-- Duyệt chi (BR-CSH-03): PC, UNC, CTN từ tham số `finance.payment-approval-threshold` (mặc định 20.000.000 `[Giả định]`) trở lên phải qua luồng duyệt; người lập không tự duyệt (`self_approval_allowed = FALSE`). Luồng mẫu dev/test (`R__dev_phase4c_cash.sql`): `CHIEF_ACCOUNTANT` duyệt một bước.
-- Đảo tách quyền riêng (`cash-document:reverse`) thay vì gộp vào quyền duyệt như công nợ đầu kỳ: giám đốc duyệt chi nhưng không đảo sổ quỹ `[Suy luận]`.
+- Chi từ ngưỡng (BR-CSH-03, D-61): PC, UNC, CTN từ tham số `finance.payment-approval-threshold` (mặc định 20.000.000 `[Giả định]`) trở lên chỉ người có `cash-document:post-over-threshold` ghi sổ được (422 `AUTHORITY_LIMIT_EXCEEDED`). Luồng duyệt mẫu dev/test đã bỏ.
+- Đảo tách quyền riêng (`cash-document:reverse`) thay vì gộp vào quyền duyệt như công nợ đầu kỳ: giám đốc có quyền vượt ngưỡng chi nhưng không đảo sổ quỹ `[Suy luận]`.
 
 ### 2.7 Quyền bù trừ, điều chỉnh, đối chiếu, kiểm kê quỹ (M07, Giai đoạn 4D, migration V12)
 | Quyền | Ý nghĩa | Vai trò mặc định `[Suy luận]` |
 |---|---|---|
 | `debt-offset:view`, `:create`, `:post` | Xem; lập, sửa, gửi, hủy; ghi sổ bù trừ công nợ | `CHIEF_ACCOUNTANT`, `AR_ACCOUNTANT` (xem: thêm `TAX_ACCOUNTANT`, `DIRECTOR`, `BRANCH_DIRECTOR`) |
-| `debt-offset:approve` | Duyệt bù trừ (khi doanh nghiệp cấu hình luồng; mặc định DTCN không cần duyệt) | `CHIEF_ACCOUNTANT`, `DIRECTOR`, `BRANCH_DIRECTOR` |
+| ~~`debt-offset:approve`~~ | Đã bỏ (D-61). Trước đây: Duyệt bù trừ (khi doanh nghiệp cấu hình luồng; mặc định DTCN không cần duyệt) | `CHIEF_ACCOUNTANT`, `DIRECTOR`, `BRANCH_DIRECTOR` |
 | `debt-offset:reverse` | Bỏ bù trừ (đảo) | `CHIEF_ACCOUNTANT` |
 | `debt-adjustment:view`, `:create`, `:post` | Điều chỉnh công nợ (DCCN), thanh toán tạm ứng (TTTU) | `CHIEF_ACCOUNTANT`, `AR_ACCOUNTANT` (lập, xem: thêm `CASHIER`) |
-| `debt-adjustment:approve` | Duyệt điều chỉnh / thanh toán tạm ứng (DCCN bắt buộc duyệt theo luồng; ngưỡng theo `min_amount` của luồng = "theo quyền hạn", BR-AR-07) | `CHIEF_ACCOUNTANT`, `DIRECTOR`, `BRANCH_DIRECTOR` |
+| ~~`debt-adjustment:approve`~~ | Đã bỏ (D-61). Trước đây: Duyệt điều chỉnh / thanh toán tạm ứng (DCCN bắt buộc duyệt theo luồng; ngưỡng theo `min_amount` của luồng = "theo quyền hạn", BR-AR-07) | `CHIEF_ACCOUNTANT`, `DIRECTOR`, `BRANCH_DIRECTOR` |
 | `debt-adjustment:reverse` | Đảo điều chỉnh / thanh toán tạm ứng | `CHIEF_ACCOUNTANT` |
 | `debt-reconciliation:view`, `:manage` | Bảng đối chiếu; lập, ghi nhận xác nhận, hủy biên bản | xem: kế toán, giám đốc, thủ quỹ; lập: `CHIEF_ACCOUNTANT`, `AR_ACCOUNTANT` |
 | `cash-count:view`, `:create`, `:post` | Kiểm kê quỹ | `CHIEF_ACCOUNTANT`, `CASHIER` (xem: thêm kế toán, giám đốc) |
-| `cash-count:approve`, `:reverse` | Duyệt / đảo kiểm kê quỹ | duyệt: `CHIEF_ACCOUNTANT`, `DIRECTOR`, `BRANCH_DIRECTOR`; đảo: `CHIEF_ACCOUNTANT` |
+| `cash-count:reverse` (`cash-count:approve` đã bỏ, D-61) | Đảo kiểm kê quỹ | `CHIEF_ACCOUNTANT` |
 
-- Luồng duyệt mẫu dev/test (`R__dev_phase4d_debt.sql`): DCCN, KKQ do `CHIEF_ACCOUNTANT` duyệt một bước.
+- DCCN, KKQ không qua duyệt (D-61): quyền hạn theo quyền ghi sổ; luồng duyệt mẫu dev/test đã bỏ.
 - Biên bản đối chiếu toàn công ty (`branchId` trống) chỉ người có phạm vi toàn công ty lập / xem được.
 
-Luồng duyệt mẫu (chỉ dev/test, `R__dev_phase3_inventory.sql`): mọi loại chứng từ kho bắt buộc duyệt do vai trò `DIRECTOR` duyệt một bước; chứng từ đảo do `CHIEF_ACCOUNTANT` duyệt.
+Chứng từ kho không qua duyệt (D-61): ghi sổ thẳng từ nháp bằng quyền `:post` của loại; luồng duyệt mẫu dev/test đã bỏ.
 
 ### 2.8 Quyền mua hàng (M03, V13, gộp chứng từ D-54 ở V22)
 V22 xóa `purchase-requisition:*`, `purchase-receipt:*`, `purchase-invoice:*`, `purchase-order:close`; thêm `purchase-order:post`, `purchase-order:reverse`.
@@ -167,21 +182,22 @@ V22 xóa `purchase-requisition:*`, `purchase-receipt:*`, `purchase-invoice:*`, `
 |---|---|---|
 | `purchase-order:view` | Xem đơn mua | mua hàng, kinh doanh, đấu thầu, kho, kế toán, thủ quỹ, giám đốc |
 | `purchase-order:create` | Lập, sửa, gửi, hủy đơn mua (kèm hóa đơn NCC, lô / hạn / serial) | `PURCHASING_STAFF` |
-| `purchase-order:approve` | Duyệt, từ chối đơn mua (từ ngưỡng) | `DIRECTOR`, `BRANCH_DIRECTOR` |
+| ~~`purchase-order:approve`~~ | Đã bỏ (D-61). Trước đây: Duyệt, từ chối đơn mua (từ ngưỡng) | `DIRECTOR`, `BRANCH_DIRECTOR` |
 | `purchase-order:post` | Ghi sổ đơn mua (nhập kho, công nợ phải trả, bút toán) | `WAREHOUSE_MANAGER`, `WAREHOUSE_STAFF`, `CHIEF_ACCOUNTANT`, `AR_ACCOUNTANT`, `TAX_ACCOUNTANT` |
 | `purchase-order:reverse` | Đảo đơn mua đã ghi sổ | `CHIEF_ACCOUNTANT` |
+| `purchase-order:unpost` | Bỏ ghi sổ đơn mua về nháp để sửa (D-62, V37: cấp cho vai trò có `purchase-order:reverse`) | `CHIEF_ACCOUNTANT` |
 | `purchase-return:view` | Xem trả hàng / giảm giá hàng mua | kế toán, mua hàng, kho, giám đốc |
 | `purchase-return:create` | Lập, sửa, gửi, hủy | `CHIEF_ACCOUNTANT`, `AR_ACCOUNTANT`, `TAX_ACCOUNTANT`, `PURCHASING_STAFF` |
-| `purchase-return:approve` | Duyệt (khi cấu hình luồng) | `CHIEF_ACCOUNTANT`, `DIRECTOR`, `BRANCH_DIRECTOR` |
+| ~~`purchase-return:approve`~~ | Đã bỏ (D-61). Trước đây: Duyệt (khi cấu hình luồng) | `CHIEF_ACCOUNTANT`, `DIRECTOR`, `BRANCH_DIRECTOR` |
 | `purchase-return:post` | Ghi sổ (xuất trả, giảm công nợ) | `CHIEF_ACCOUNTANT`, `AR_ACCOUNTANT`, `TAX_ACCOUNTANT`, `WAREHOUSE_MANAGER`, `WAREHOUSE_STAFF` |
 | `purchase-return:reverse` | Đảo | `CHIEF_ACCOUNTANT` |
 | `purchase-cost-allocation:view` | Xem phân bổ chi phí mua | kế toán, mua hàng, giám đốc |
 | `purchase-cost-allocation:create`, `:post` | Lập, gửi, hủy; ghi sổ | `CHIEF_ACCOUNTANT`, `AR_ACCOUNTANT`, `TAX_ACCOUNTANT` (lập: không gồm mua hàng) |
-| `purchase-cost-allocation:approve` | Duyệt (khi cấu hình luồng) | `CHIEF_ACCOUNTANT`, `DIRECTOR`, `BRANCH_DIRECTOR` |
+| ~~`purchase-cost-allocation:approve`~~ | Đã bỏ (D-61). Trước đây: Duyệt (khi cấu hình luồng) | `CHIEF_ACCOUNTANT`, `DIRECTOR`, `BRANCH_DIRECTOR` |
 | `purchase-cost-allocation:reverse` | Đảo | `CHIEF_ACCOUNTANT` |
 | `purchase-ledger:view` | Sổ chi tiết mua hàng (V25, 2026-10-14) | `PURCHASING_STAFF`, `DIRECTOR`, `BRANCH_DIRECTOR`, `CHIEF_ACCOUNTANT`, `TAX_ACCOUNTANT` `[Giả định]` |
 
-- Luồng duyệt mẫu dev/test (`R__dev_phase5_purchasing.sql`): DMH do `DIRECTOR` duyệt, một bước.
+- Đơn mua từ ngưỡng: cần `purchase-order:post-over-threshold` khi ghi sổ (D-61); luồng duyệt mẫu dev/test đã bỏ.
 - Ghi sổ đơn mua cần `purchase-order:post` và phạm vi kho nhập của đơn; không cần quyền phiếu nhập kho riêng. Vai trò mặc định của `:post` `[Giả định]`, cần chủ dự án xác nhận.
 
 ### 2.9 Quyền bán hàng (M05, V17..V21, gộp chứng từ D-54 ở V23)
@@ -191,17 +207,18 @@ V23 xóa `sales-quote:*`, `sales-delivery:*`, `sales-invoice:*`, `sales-quick-sa
 |---|---|---|
 | `sales-order:view` | Xem đơn bán, tra giá | kinh doanh, đấu thầu, kho, giao hàng, kế toán, thủ quỹ, mua hàng, giám đốc |
 | `sales-order:create` | Lập, sửa, gửi, hủy, giữ / nhả hàng | `SALES_MANAGER`, `SALES_STAFF` |
-| `sales-order:approve` | Duyệt đơn (giá, hạn mức tín dụng) | `SALES_MANAGER`, `DIRECTOR`, `BRANCH_DIRECTOR` |
+| ~~`sales-order:approve`~~ | Đã bỏ (D-61). Trước đây: Duyệt đơn (giá, hạn mức tín dụng) | `SALES_MANAGER`, `DIRECTOR`, `BRANCH_DIRECTOR` |
 | `sales-order:post` | Ghi sổ đơn bán (xuất kho, doanh thu, công nợ, bút toán); ghi số hóa đơn điện tử | `WAREHOUSE_MANAGER`, `WAREHOUSE_STAFF`, `CHIEF_ACCOUNTANT`, `AR_ACCOUNTANT`, `TAX_ACCOUNTANT` |
 | `sales-order:deliver` | Đang giao, khách nhận | `DELIVERY_STAFF`, `WAREHOUSE_MANAGER`, `WAREHOUSE_STAFF`, `SALES_MANAGER`, `SALES_STAFF` |
 | `sales-order:reverse` | Đảo đơn bán (lập sai, giao thất bại) | `WAREHOUSE_MANAGER`, `CHIEF_ACCOUNTANT` |
-| `sales-return:*` | Trả hàng / giảm giá bán: lập (kinh doanh, kế toán), duyệt (`SALES_MANAGER`, giám đốc), ghi sổ (kế toán, kho), đảo (`CHIEF_ACCOUNTANT`) | |
+| `sales-order:unpost` | Bỏ ghi sổ đơn bán về nháp để sửa (D-62, V37: cấp cho vai trò có `sales-order:reverse`) | `WAREHOUSE_MANAGER`, `CHIEF_ACCOUNTANT` |
+| `sales-return:*` | Trả hàng / giảm giá bán: lập (kinh doanh, kế toán), ghi sổ (kế toán, kho), đảo (`CHIEF_ACCOUNTANT`) | |
 | `sales-complaint:view`, `:create`, `:resolve` | Hàng lỗi khách báo: tiếp nhận (kinh doanh), kiểm tra / quyết định (`SALES_MANAGER`, `QA`, `TECHNICIAN`, giám đốc) | |
 | `sales-report:view` | Báo cáo doanh số | `SALES_MANAGER`, `DIRECTOR`, `BRANCH_DIRECTOR`, `CHIEF_ACCOUNTANT`, `AR_ACCOUNTANT` |
 | `sales-ledger:view` | Sổ chi tiết bán hàng S16-DNN (V24, 2026-10-14) | `SALES_MANAGER`, `DIRECTOR`, `BRANCH_DIRECTOR`, `CHIEF_ACCOUNTANT`, `AR_ACCOUNTANT`, `TAX_ACCOUNTANT` `[Giả định]` |
 
 - "Chỉ dữ liệu của mình" (`own_data_only`, BR-SYS-04): nhân viên chỉ chọn khách mình phụ trách, chỉ xem đơn / trả hàng / phiếu hàng lỗi mình phụ trách hoặc mình lập (ngoài phạm vi: 404).
-- Luồng duyệt mẫu dev/test (`R__dev_phase6_sales.sql`): DBH do `SALES_MANAGER` duyệt một bước; chỉ áp dụng khi có lý do phải duyệt (giá, tín dụng).
+- Đơn bán có lý do cần thẩm quyền (giá, tín dụng): người ghi sổ cần `sales-order:override-price` / `sales-order:override-credit` (D-61); luồng duyệt mẫu dev/test đã bỏ.
 - Vai trò mặc định của `:post`, `:deliver`, `:reverse` `[Giả định]`, cần chủ dự án xác nhận.
 
 ### 2.10 Quyền báo cáo (M10, Giai đoạn 10A, 10B, 10C, 10D, V26, V27, V28, V29, ADR-18)
@@ -273,11 +290,11 @@ Chỉ máy dev (profile `dev`, không có ở test): `db/dev-local/R__dev_admin_
 | `PeriodLockIntegrationTest` (6) | AT-11 phần khung: kỳ khóa chặn ghi sổ đúng chi nhánh, phân hệ; thứ tự khóa/mở; quyền mở lại và lý do; chi nhánh ngoài phạm vi (404); chống trùng; khóa đồng thời |
 | `ParameterIntegrationTest` (4), `ParameterServiceTest` (3) | Tham số: mặc định, sửa đồng thời, kiểm tra giá trị, quyền, khóa sau khi phát sinh số liệu ghi sổ, phạm vi toàn công ty |
 | `DocumentNumberFormatIntegrationTest` (4) | Cấu hình số chứng từ: hiệu lực ngay / chu kỳ sau, hủy cấu hình đặt trước, validation, quyền |
-| `ApprovalIntegrationTest` (9), `AccessGrantIntegrationTest` (2), `LoginRateLimiterTest` | Luồng duyệt nhiều bước, tách biệt nhiệm vụ, ủy quyền, duyệt đồng thời; gán vai trò vượt quyền với `access:grant-any`; giới hạn đăng nhập theo IP |
+| `ApprovalIntegrationTest` (2, viết lại theo D-61), `AccessGrantIntegrationTest` (2), `LoginRateLimiterTest` | Không còn cấu hình duyệt, quyền duyệt; API duyệt đã gỡ (404); gán vai trò vượt quyền với `access:grant-any`; giới hạn đăng nhập theo IP |
 | `MasterDataIntegrationTest` (8) | Danh mục: quyền, phạm vi, ẩn giá mua, nhập Excel |
-| `DebtIntegrationTest` (4) | AT-10 phần công nợ: kế toán công nợ không tự duyệt / đảo (403), người không có quyền công nợ (403), chứng từ / khoản công nợ chi nhánh khác (404, không thấy trong danh sách) |
+| `DebtIntegrationTest` (4) | AT-10 phần công nợ: kế toán công nợ không đảo được (403), người không có quyền công nợ (403), chứng từ / khoản công nợ chi nhánh khác (404, không thấy trong danh sách) |
 | `AccountingIntegrationTest` (5) | AT-10 phần kế toán: kế toán công nợ không thêm được tài khoản (403), người không có `journal:view` xem bút toán (403) |
-| `InventoryIntegrationTest` (8) | AT-10 phần kho: thiếu quyền lập (403), chứng từ kho chi nhánh khác (404), chưa đăng nhập (401), người không thuộc luồng duyệt (403), chỉ kho đích nhận hàng chuyển (403) |
+| `InventoryIntegrationTest` (8) | AT-10 phần kho: thiếu quyền lập (403), chứng từ kho chi nhánh khác (404), chưa đăng nhập (401), người không có quyền ghi sổ (403), chỉ kho đích nhận hàng chuyển (403) |
 | `UserTest`, `PasswordPolicyTest`, `AdminBootstrapTest` | Quy tắc khóa tạm, phiên bản thông tin đăng nhập, chính sách mật khẩu, secret JWT, tạo quản trị viên đầu tiên |
 
 ## 7. Hạn chế đã biết

@@ -21,8 +21,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Yêu cầu duyệt một chứng từ, đi lần lượt từng bước của luồng duyệt đã chụp lúc gửi (BR-SYS-11).
- * Mỗi chứng từ có tối đa một yêu cầu đang chờ (unique trên cột sinh {@code pending_flag}).
+ * Yêu cầu duyệt một chứng từ lập trước D-61 (BR-SYS-11 cũ), các bước duyệt chụp lúc gửi. Từ D-61 không tạo yêu cầu
+ * mới; chỉ đọc lịch sử và hủy yêu cầu còn treo khi chứng từ bị hủy.
  */
 @Entity
 @Table(name = "approval_requests")
@@ -85,50 +85,6 @@ public class ApprovalRequest {
     private List<ApprovalStepDefinition> steps = new ArrayList<>();
 
     protected ApprovalRequest() {
-    }
-
-    public ApprovalRequest(Long companyId, Long branchId, String documentType, Long documentId, String documentNo,
-                           BigDecimal amount, BigDecimal discountPercent, ApprovalWorkflow workflow, Long requestedBy,
-                           Instant now) {
-        this.companyId = companyId;
-        this.branchId = branchId;
-        this.documentType = documentType;
-        this.documentId = documentId;
-        this.documentNo = documentNo;
-        this.amount = amount;
-        this.discountPercent = discountPercent;
-        this.workflowId = workflow.getId();
-        workflow.getSteps().forEach(step -> steps.add(step.copy()));
-        this.totalSteps = steps.size();
-        this.currentStep = steps.get(0).getStepNo();
-        this.status = ApprovalRequestStatus.PENDING;
-        this.requestedBy = requestedBy;
-        this.requestedAt = now;
-    }
-
-    public ApprovalStepDefinition currentStepDefinition() {
-        requirePending();
-        return steps.stream().filter(step -> step.getStepNo() == currentStep).findFirst()
-                .orElseThrow(() -> new IllegalStateException("Không có bước duyệt " + currentStep));
-    }
-
-    /** Duyệt bước hiện tại; trả {@code true} khi đã duyệt bước cuối (yêu cầu hoàn tất). */
-    public boolean approveCurrentStep(Instant now) {
-        requirePending();
-        int index = stepIndex(currentStep);
-        if (index == steps.size() - 1) {
-            status = ApprovalRequestStatus.APPROVED;
-            completedAt = now;
-            return true;
-        }
-        currentStep = steps.get(index + 1).getStepNo();
-        return false;
-    }
-
-    public void reject(Instant now) {
-        requirePending();
-        status = ApprovalRequestStatus.REJECTED;
-        completedAt = now;
     }
 
     public void cancel(Instant now) {

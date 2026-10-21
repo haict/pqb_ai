@@ -74,7 +74,6 @@ class InventoryIntegrationTest extends InventoryIntegrationSupport {
         assertThat(lots).containsExactly("LB" + product, "LA" + product);
 
         long override = create(manager, "PXK", warehouse, List.of(issueLine(product, 2, lateLot, null)));
-        submitAndApprove(override);
         action(manager, override, "post", null).andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errors[0].field").value("lotOverrideReason"));
 
@@ -88,7 +87,6 @@ class InventoryIntegrationTest extends InventoryIntegrationSupport {
 
         long sameLotOtherExpiry = create(manager, "PNK", warehouse,
                 List.of(receiptLine(product, 1, "LA" + product, "2028-01-01", null)));
-        submit(sameLotOtherExpiry);
         action(manager, sameLotOtherExpiry, "post", null).andExpect(status().isBadRequest());
 
         long serialProduct = product(false, false, true);
@@ -96,7 +94,6 @@ class InventoryIntegrationTest extends InventoryIntegrationSupport {
                 List.of("S1-" + serialProduct, "S2-" + serialProduct))));
         long duplicateSerial = create(manager, "PNK", warehouse, List.of(receiptLine(serialProduct, 1, null, null,
                 List.of("S1-" + serialProduct))));
-        submit(duplicateSerial);
         action(manager, duplicateSerial, "post", null).andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.code").value("SERIAL_UNAVAILABLE"));
         assertThat(onHand(serialProduct, warehouse)).isEqualByComparingTo("2");
@@ -113,7 +110,6 @@ class InventoryIntegrationTest extends InventoryIntegrationSupport {
         List<Long> issues = new ArrayList<>();
         for (int i = 0; i < 5; i++) {
             long issue = create(manager, "PXK", warehouse, List.of(issueLine(product, 3, null, null)));
-            submitAndApprove(issue);
             issues.add(issue);
         }
         ExecutorService pool = Executors.newFixedThreadPool(issues.size());
@@ -149,13 +145,11 @@ class InventoryIntegrationTest extends InventoryIntegrationSupport {
         Session accountant = login(mockMvc, "ketoantruong");
 
         long reverseReceipt = reverse(receipt);
-        approve(accountant, reverseReceipt);
         action(manager, reverseReceipt, "post", null).andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("HAS_DEPENDENT_DOCUMENTS"));
         action(manager, receipt, "reverse", "{\"reason\":\"Lần hai\"}").andExpect(status().isConflict());
 
         long reverseIssue = reverse(issue);
-        approve(accountant, reverseIssue);
         action(manager, reverseIssue, "post", null).andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value("POSTED"));
         assertThat(docStatus(issue)).isEqualTo("REVERSED");
@@ -187,10 +181,9 @@ class InventoryIntegrationTest extends InventoryIntegrationSupport {
         long product = product(false, false, false);
         long receipt = create(manager, "PNK", warehouse, List.of(receiptLine(product, 3, null, null, null)),
                 "2062-01-15");
-        submit(receipt);
         action(manager, receipt, "post", null).andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.code").value("PERIOD_LOCKED"));
-        assertThat(docStatus(receipt)).isEqualTo("APPROVED");
+        assertThat(docStatus(receipt)).isEqualTo("DRAFT");
         assertThat(count("SELECT COUNT(*) FROM inventory_transactions WHERE product_id = " + product)).isZero();
         assertThat(count("SELECT COUNT(*) FROM inventory_balances WHERE product_id = " + product)).isZero();
     }
@@ -208,7 +201,6 @@ class InventoryIntegrationTest extends InventoryIntegrationSupport {
                 "$.data.id");
         assertThat(replay).isEqualTo(first);
         long receipt = first.longValue();
-        submit(receipt);
         String postKey = newKey();
         actionWithKey(manager, receipt, "post", null, postKey).andExpect(status().isOk());
         actionWithKey(manager, receipt, "post", null, postKey).andExpect(status().isOk())
@@ -225,8 +217,8 @@ class InventoryIntegrationTest extends InventoryIntegrationSupport {
         mockMvc.perform(get(DOCS + "/" + receipt)).andExpect(status().isUnauthorized());
 
         long issue = create(manager, "PXK", warehouse, List.of(issueLine(product, 1, null, null)));
-        submit(issue);
-        action(manager, issue, "approve", null).andExpect(status().isForbidden());
+        action(sales, issue, "post", null).andExpect(status().isForbidden());
+        action(manager, issue, "cancel", "{\"reason\":\"Lập nhầm\"}").andExpect(status().isOk());
         action(manager, issue, "post", null).andExpect(status().isConflict());
     }
 
@@ -245,7 +237,6 @@ class InventoryIntegrationTest extends InventoryIntegrationSupport {
         long lineId = jsonValue(started, "$.data.lines[0].id", Integer.class);
 
         long blocked = create(manager, "PNK", warehouse, List.of(receiptLine(product, 1, null, null, null)));
-        submit(blocked);
         action(manager, blocked, "post", null).andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.code").value("STOCK_COUNT_IN_PROGRESS"));
 
@@ -253,10 +244,6 @@ class InventoryIntegrationTest extends InventoryIntegrationSupport {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"lines\":[{\"lineId\":" + lineId + ",\"countedQuantity\":3}]}"))
                 .andExpect(status().isOk());
-        send(manager, post("/api/v1/stock-counts/" + countId + "/submit"), "", newKey())
-                .andExpect(jsonPath("$.data.status").value("SUBMITTED"));
-        send(director, post("/api/v1/stock-counts/" + countId + "/approve"), "{}", newKey())
-                .andExpect(jsonPath("$.data.status").value("APPROVED"));
         send(manager, post("/api/v1/stock-counts/" + countId + "/post"), "", newKey())
                 .andExpect(status().isOk()).andExpect(jsonPath("$.data.status").value("POSTED"));
 
@@ -281,7 +268,6 @@ class InventoryIntegrationTest extends InventoryIntegrationSupport {
                 .replace("\"lines\"", "\"destinationWarehouseId\":" + destination + ",\"lines\"");
         long transfer = jsonValue(send(manager, post(DOCS), body, newKey()).andExpect(status().isCreated()).andReturn(),
                 "$.data.id", Integer.class);
-        submit(transfer);
         action(manager, transfer, "post", null).andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value("IN_TRANSIT"));
         assertThat(onHand(product, source)).isEqualByComparingTo("2");
@@ -302,7 +288,7 @@ class InventoryIntegrationTest extends InventoryIntegrationSupport {
     }
 
     @Test
-    @DisplayName("BR mục 5.4, BR-GEN-31, D-53: giữ chỗ giảm tồn khả dụng; xuất vượt chỉ với chính sách đã duyệt, một chính sách một chứng từ")
+    @DisplayName("BR mục 5.4, BR-GEN-31, D-53, D-61: giữ chỗ giảm tồn khả dụng; xuất vượt chỉ với chính sách Giám đốc kích hoạt, một chính sách một chứng từ")
     void reservationAndPolicy() throws Exception {
         long warehouse = warehouse(1);
         long product = product(false, false, false);
@@ -318,7 +304,6 @@ class InventoryIntegrationTest extends InventoryIntegrationSupport {
                 .isEqualByComparingTo("2");
 
         long issue = create(manager, "PXK", warehouse, List.of(issueLine(product, 5, null, null)));
-        submitAndApprove(issue);
         action(manager, issue, "post", null).andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.code").value("INSUFFICIENT_STOCK"));
 
@@ -326,16 +311,15 @@ class InventoryIntegrationTest extends InventoryIntegrationSupport {
                         + ",\"productId\":" + product + ",\"maxQuantity\":5,\"validFrom\":\"2026-10-01\","
                         + "\"validTo\":\"2026-10-31\",\"reason\":\"Hàng gấp cho bệnh viện\"}", newKey())
                 .andExpect(status().isCreated()).andReturn(), "$.data.id", Integer.class);
-        send(manager, post("/api/v1/stock-issue-policies/" + policy + "/submit"), "", newKey())
-                .andExpect(status().isOk());
-        send(director, post("/api/v1/stock-issue-policies/" + policy + "/approve"), "{}", newKey())
+        send(manager, post("/api/v1/stock-issue-policies/" + policy + "/activate"), "", newKey())
+                .andExpect(status().isForbidden());
+        send(director, post("/api/v1/stock-issue-policies/" + policy + "/activate"), "", newKey())
                 .andExpect(jsonPath("$.data.status").value("APPROVED"));
 
         String body = document("PXK", warehouse, List.of(issueLine(product, 5, null, null)), "2026-10-08")
                 .replace("\"lines\"", "\"issuePolicyId\":" + policy + ",\"lines\"");
         long withPolicy = jsonValue(send(manager, post(DOCS), body, newKey()).andExpect(status().isCreated()).andReturn(),
                 "$.data.id", Integer.class);
-        submitAndApprove(withPolicy);
         action(manager, withPolicy, "post", null).andExpect(status().isOk());
         assertThat(onHand(product, warehouse)).isEqualByComparingTo("5");
         assertThat(jdbc.queryForObject("SELECT used_quantity FROM stock_issue_policies WHERE id = ?",

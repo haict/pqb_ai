@@ -5,7 +5,7 @@ describe('visibleNavGroups', () => {
   it('chỉ hiện mục người dùng có quyền xem', () => {
     const groups = visibleNavGroups((permission) => ['company:view', 'department:view'].includes(permission));
 
-    expect(groups.map((group) => group.key)).toEqual(['work', 'system']);
+    expect(groups.map((group) => group.key)).toEqual(['system']);
     expect(groups.find((group) => group.key === 'system')?.items.map((item) => item.label)).toEqual([
       'Công ty',
       'Phòng ban',
@@ -96,8 +96,8 @@ describe('visibleNavGroups', () => {
     ]);
   });
 
-  it('ẩn cả nhóm khi không có quyền nào trong nhóm; việc chờ duyệt luôn hiện', () => {
-    expect(visibleNavGroups(() => false).map((group) => group.key)).toEqual(['work']);
+  it('ẩn cả nhóm khi không có quyền nào trong nhóm; không còn mục việc chờ duyệt (D-61)', () => {
+    expect(visibleNavGroups(() => false)).toEqual([]);
   });
   it('nhóm mua hàng chỉ còn đơn mua, trả hàng, phân bổ chi phí (D-54)', () => {
     const groups = visibleNavGroups((permission) =>

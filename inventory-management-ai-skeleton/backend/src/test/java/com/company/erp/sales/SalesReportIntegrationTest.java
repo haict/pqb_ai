@@ -42,12 +42,7 @@ class SalesReportIntegrationTest extends SalesIntegrationSupport {
         long clinic = partner("KH_PK01");
         long order = jsonId(send(shop, post(ORDERS), order(clinic, warehouse("KHO_HN"), false, List.of(
                 line(item, unit("CAI"), "3", "100000", null))), newKey()).andExpect(status().isCreated()).andReturn());
-        String submitted = json(act(shop, ORDERS, order, "submit", null).andExpect(status().isOk()).andReturn(),
-                "$.data.status");
-        if ("SUBMITTED".equals(submitted)) {
-            act(manager, ORDERS, order, "approve", "{}").andExpect(jsonPath("$.data.status").value("APPROVED"));
-        }
-        act(shop, ORDERS, order, "post", null).andExpect(jsonPath("$.data.status").value("POSTED"));
+        postWithAuthority(shop, order).andExpect(jsonPath("$.data.status").value("POSTED"));
 
         MvcResult summary = mockMvc.perform(as(manager, get("/api/v1/sales/reports/summary")).param("companyId", "1")
                         .param("branchId", "1").param("dateFrom", "2026-10-01").param("dateTo", "2026-10-31")
@@ -85,8 +80,7 @@ class SalesReportIntegrationTest extends SalesIntegrationSupport {
                 .andExpect(jsonPath("$.data.paymentSchedule[1].amount").value(50000))
                 .andExpect(jsonPath("$.data.paymentSchedule[0].dueDate").value(DATE))
                 .andExpect(jsonPath("$.data.paymentSchedule[1].dueDate").doesNotExist());
-        submitAndApproveOrder(order);
-        act(keeper, ORDERS, order, "post", null).andExpect(jsonPath("$.data.status").value("POSTED"));
+        postWithAuthority(keeper, order).andExpect(jsonPath("$.data.status").value("POSTED"));
         act(courier, ORDERS, order, "confirm", "{\"receivedDate\":\"2026-10-06\"}")
                 .andExpect(jsonPath("$.data.paymentSchedule[1].dueDate").value("2026-11-05"));
         send(manager, post(ORDERS), "{\"branchId\":1,\"customerId\":" + clinic + ",\"warehouseId\":"

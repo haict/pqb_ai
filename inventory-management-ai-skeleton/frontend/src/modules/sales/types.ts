@@ -69,6 +69,9 @@ export interface SalesLine {
   lotNo: string | null;
   lotOverrideReason: string | null;
   serialNumbers: string[];
+  /** Chứng từ nhập chọn xuất đích danh (D-63, F8); trống: kho chọn FEFO. */
+  receiptTransactionId: number | null;
+  receiptNo: string | null;
   items: DeliveryItem[];
   originCountryCode: string | null;
   model: string | null;
@@ -405,4 +408,20 @@ export interface ImportedSalesLine {
 export interface SalesLineImportResult {
   created: number;
   lines: ImportedSalesLine[];
+}
+
+/** Chứng từ nhập còn tồn để chọn cho dòng đơn bán (D-63, F8); số lượng theo đơn vị cơ sở. */
+export interface ReceiptSource {
+  transactionId: number;
+  documentType: string;
+  documentId: number;
+  documentNo: string;
+  postingDate: string;
+  lotNo: string | null;
+  expiryDate: string | null;
+  serialNo: string | null;
+  receivedQuantity: number;
+  unitCost: number | null;
+  /** Tồn ĐẠT hiện có của lô / serial tại kho (lô nhập nhiều lần dùng chung). */
+  availableQuantity: number;
 }

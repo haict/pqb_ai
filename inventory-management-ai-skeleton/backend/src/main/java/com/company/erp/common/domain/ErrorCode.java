@@ -18,7 +18,6 @@ public enum ErrorCode {
     SESSION_EXPIRED(HttpStatus.UNAUTHORIZED, "Phiên làm việc đã hết hạn, vui lòng đăng nhập lại."),
 
     FORBIDDEN(HttpStatus.FORBIDDEN, "Bạn không có quyền thực hiện thao tác này."),
-    SELF_APPROVAL_NOT_ALLOWED(HttpStatus.FORBIDDEN, "Người lập không được tự duyệt chứng từ."),
     PASSWORD_CHANGE_REQUIRED(HttpStatus.FORBIDDEN, "Bạn cần đổi mật khẩu trước khi tiếp tục."),
     LICENSE_INACTIVE(HttpStatus.FORBIDDEN, "Bản quyền phần mềm chưa có, không hợp lệ hoặc đã hết hạn: hệ thống chỉ cho "
             + "xem, in, xuất dữ liệu. Liên hệ nhà cung cấp để gia hạn."),
@@ -46,10 +45,10 @@ public enum ErrorCode {
     PERIOD_NOT_DEFINED(HttpStatus.UNPROCESSABLE_ENTITY, "Chưa tạo kỳ cho ngày hạch toán."),
     PERIOD_ORDER_VIOLATION(HttpStatus.UNPROCESSABLE_ENTITY, "Phải khóa/mở kỳ theo đúng thứ tự thời gian."),
     PERIOD_CLOSE_PRECONDITION(HttpStatus.UNPROCESSABLE_ENTITY, "Chưa đủ điều kiện khóa kỳ."),
-    APPROVAL_NOT_CONFIGURED(HttpStatus.UNPROCESSABLE_ENTITY, "Chưa cấu hình luồng duyệt cho chứng từ này."),
     PARAMETER_LOCKED(HttpStatus.UNPROCESSABLE_ENTITY, "Tham số đã khóa vì đã phát sinh số liệu ghi sổ."),
     CONTRACT_QUANTITY_EXCEEDED(HttpStatus.UNPROCESSABLE_ENTITY, "Vượt số lượng còn lại của hợp đồng."),
     CREDIT_LIMIT_EXCEEDED(HttpStatus.UNPROCESSABLE_ENTITY, "Vượt hạn mức tín dụng."),
+    AUTHORITY_LIMIT_EXCEEDED(HttpStatus.UNPROCESSABLE_ENTITY, "Giá trị chứng từ vượt ngưỡng thẩm quyền của bạn."),
     PRICE_BELOW_FLOOR(HttpStatus.UNPROCESSABLE_ENTITY, "Giá thấp hơn giá sàn."),
     OVER_ALLOCATION(HttpStatus.UNPROCESSABLE_ENTITY, "Số phân bổ vượt số còn lại."),
     SOURCE_QUANTITY_EXCEEDED(HttpStatus.UNPROCESSABLE_ENTITY, "Vượt số lượng còn lại của chứng từ nguồn."),

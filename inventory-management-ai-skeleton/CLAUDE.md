@@ -120,7 +120,7 @@ Chi tiết: `.claude/rules/api.md`.
   - Nhóm điều phối (đơn mua, đơn bán, hợp đồng...): thêm `IN_PROGRESS`, `COMPLETED`, `CLOSED`.
   - Chi tiết: BR mục 5.1.
 - Chỉ chứng từ **POSTED** ảnh hưởng tồn thực tế và số liệu tài chính.
-- **Không xóa cứng** chứng từ đã phát sinh giao dịch; hủy bằng chứng từ đảo, không sửa bút toán lịch sử.
+- **Không xóa cứng** chứng từ đã phát sinh giao dịch; hủy bằng chứng từ đảo, không sửa bút toán lịch sử. Riêng đơn mua / đơn bán được **bỏ ghi sổ** về nháp giữ số để sửa (D-62): sinh dòng ngược theo ngày hạch toán gốc, không sửa / xóa dòng sổ phụ cũ.
 - Phân biệt **tồn thực tế, tồn giữ chỗ, tồn khả dụng, hàng đang về**. Tồn thực tế không bao giờ âm; xuất vượt tồn khả dụng chỉ khi có chính sách được duyệt.
 - Theo D-54: ghi sổ đơn mua = nhập kho + công nợ phải trả + bút toán; ghi sổ đơn bán = xuất kho + doanh thu + công nợ phải thu + bút toán. Phiếu kho vẫn là chứng từ riêng sinh tự động, liên kết hai chiều với đơn; thanh toán / thu tiền là chứng từ riêng. Không gộp thêm bước nào khác ngoài D-54.
 - Giao hàng theo hợp đồng thầu không vượt số còn lại.

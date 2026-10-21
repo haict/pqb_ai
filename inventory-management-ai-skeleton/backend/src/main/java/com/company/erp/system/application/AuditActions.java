@@ -24,9 +24,6 @@ final class AuditActions {
     static final String FISCAL_PERIOD = "FISCAL_PERIOD";
     static final String PARAMETER = "PARAMETER";
     static final String DOCUMENT_NUMBER_FORMAT = "DOCUMENT_NUMBER_FORMAT";
-    static final String APPROVAL_WORKFLOW = "APPROVAL_WORKFLOW";
-    static final String DOCUMENT_TYPE = "DOCUMENT_TYPE";
-    static final String APPROVAL_DELEGATION = "APPROVAL_DELEGATION";
 
     private AuditActions() {
     }

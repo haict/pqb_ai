@@ -48,9 +48,6 @@ import { BRANCH_VISIBLE, whenBranchVisible } from '../../../shared/branch';
 
 const STATUSES: FinanceDocumentStatus[] = [
   'DRAFT',
-  'SUBMITTED',
-  'REJECTED',
-  'APPROVED',
   'POSTED',
   'CANCELLED',
   'REVERSED',
@@ -76,8 +73,8 @@ interface OpeningForm {
 const FIELDS = ['branchId', 'debtType', 'documentDate', 'postingDate', 'description', 'lines'];
 
 /**
- * Thao tác hiện theo trạng thái và quyền; server vẫn kiểm tra lại (frontend.md mục 3). Không qua duyệt (D-60): ghi sổ
- * thẳng từ nháp; chứng từ chờ duyệt / đã duyệt / bị từ chối theo luồng cũ chỉ còn hủy, ghi sổ.
+ * Thao tác hiện theo trạng thái và quyền; server vẫn kiểm tra lại (frontend.md mục 3). Không qua duyệt (D-60): như
+ * financeActions (labels.ts) nhưng đảo dùng quyền ghi sổ.
  */
 function openingActions(status: FinanceDocumentStatus, can: (permission: string) => boolean): string[] {
   const cancel = can('debt-opening:create') ? ['cancel'] : [];
@@ -116,7 +113,7 @@ function OpeningDrawer({
   const branches = useMyBranches();
   const query = useQuery({ queryKey: ['debt-opening', id], queryFn: () => debtOpeningApi.get(id) });
   const document = query.data;
-  const editable = document && (document.status === 'DRAFT' || document.status === 'REJECTED');
+  const editable = document?.status === 'DRAFT';
   return (
     <Drawer
       open
@@ -168,14 +165,7 @@ function OpeningDrawer({
             dataSource={document.lines}
             scroll={{ x: 900 }}
           />
-          {document.approvals.length > 0 && (
-            <>
-              <Typography.Title level={5} style={{ marginTop: 16 }}>
-                Lịch sử duyệt
-              </Typography.Title>
-              <ApprovalHistory requests={document.approvals} />
-            </>
-          )}
+          <ApprovalHistory requests={document.approvals} />
         </>
       )}
     </Drawer>
@@ -183,8 +173,8 @@ function OpeningDrawer({
 }
 
 /**
- * Công nợ đầu kỳ (BR-MIG-01): nhập số còn phải thu / phải trả theo từng hóa đơn cũ; duyệt rồi ghi sổ thành khoản công
- * nợ. Để trống hạn thanh toán thì tính theo số ngày nợ của đối tượng (BR-AR-02).
+ * Công nợ đầu kỳ (BR-MIG-01): nhập số còn phải thu / phải trả theo đối tượng và hạn thanh toán; ghi sổ thẳng từ nháp
+ * thành khoản công nợ (D-60). Để trống hạn thanh toán thì tính theo số ngày nợ của đối tượng (BR-AR-02).
  */
 export function DebtOpeningsPage() {
   const can = useCan();

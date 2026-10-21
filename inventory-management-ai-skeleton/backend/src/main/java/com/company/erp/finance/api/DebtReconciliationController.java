@@ -83,7 +83,7 @@ public class DebtReconciliationController {
     }
 
     @Operation(summary = "Ghi nhận xác nhận", description = "MATCHED khi số xác nhận bằng số hệ thống, ngược lại "
-            + "DIFFERENT (xử lý bằng điều chỉnh công nợ có duyệt).")
+            + "DIFFERENT (xử lý bằng điều chỉnh công nợ).")
     @PostMapping(BASE + "/{id}/confirm")
     @PreAuthorize("hasAuthority('debt-reconciliation:manage')")
     public ApiResponse<DebtReconciliationResponse> confirm(@AuthenticationPrincipal CurrentUser user,

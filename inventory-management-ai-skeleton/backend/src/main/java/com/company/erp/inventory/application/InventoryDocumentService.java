@@ -6,7 +6,6 @@ import com.company.erp.common.application.IdempotencyService;
 import com.company.erp.common.application.IdempotentCommand;
 import com.company.erp.common.domain.BusinessException;
 import com.company.erp.common.domain.ErrorCode;
-import com.company.erp.inventory.application.dto.CommentRequest;
 import com.company.erp.inventory.application.dto.InventoryDocumentRequest;
 import com.company.erp.inventory.application.dto.InventoryDocumentResponse;
 import com.company.erp.inventory.application.dto.InventoryDocumentSummary;
@@ -17,8 +16,6 @@ import com.company.erp.inventory.domain.InventoryDocumentStatus;
 import com.company.erp.inventory.domain.InventoryDocumentType;
 import com.company.erp.inventory.infrastructure.persistence.InventoryDocumentRepository;
 import com.company.erp.system.application.ApprovalService;
-import com.company.erp.system.application.ApprovalStepResult;
-import com.company.erp.system.application.ApprovalSubmission;
 import com.company.erp.system.application.CurrentUser;
 import jakarta.persistence.criteria.Predicate;
 import java.time.Clock;
@@ -36,7 +33,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Chứng từ kho: lập, sửa, gửi duyệt, duyệt, từ chối, hủy, lập chứng từ đảo (BR mục 5.1, BR-INV-30..33, BR-GEN-21).
+ * Chứng từ kho: lập, sửa, hủy, lập chứng từ đảo (BR mục 5.1, BR-INV-30..33, BR-GEN-21; D-61 không qua duyệt).
  * Ghi sổ ở {@link InventoryDocumentPostingService}. Quyền theo loại chứng từ kiểm tra tại đây vì một endpoint phục
  * vụ nhiều loại.
  */
@@ -180,51 +177,6 @@ public class InventoryDocumentService {
     }
 
     @Transactional
-    public InventoryDocumentResponse submit(CurrentUser actor, Long id, String idempotencyKey) {
-        IdempotentCommand command = new IdempotentCommand(actor.id(), idempotencyKey,
-                "POST /api/v1/inventory-documents/" + id + "/submit", id);
-        return idempotency.execute(command, InventoryDocumentResponse.class, () -> {
-            InventoryDocument document = lockVisible(actor, id);
-            access.requirePermission(actor, document.getDocumentType().permission("create"));
-            submitForApproval(actor, document);
-            return act(actor, document, "SUBMIT", null);
-        });
-    }
-
-    @Transactional
-    public InventoryDocumentResponse approve(CurrentUser actor, Long id, String idempotencyKey,
-                                             CommentRequest request) {
-        IdempotentCommand command = new IdempotentCommand(actor.id(), idempotencyKey,
-                "POST /api/v1/inventory-documents/" + id + "/approve", request);
-        return idempotency.execute(command, InventoryDocumentResponse.class, () -> {
-            InventoryDocument document = lockVisible(actor, id);
-            access.requirePermission(actor, document.getDocumentType().permission("approve"));
-            requireStatus(document, InventoryDocumentStatus.SUBMITTED, "duyệt");
-            ApprovalStepResult result = approvalService.approve(actor, document.getDocumentType().name(), id,
-                    request == null ? null : request.comment());
-            if (result.completed()) {
-                document.approve(actor.id(), Instant.now(clock));
-            }
-            return act(actor, document, "APPROVE", request == null ? null : request.comment());
-        });
-    }
-
-    @Transactional
-    public InventoryDocumentResponse reject(CurrentUser actor, Long id, String idempotencyKey,
-                                            ReasonRequest request) {
-        IdempotentCommand command = new IdempotentCommand(actor.id(), idempotencyKey,
-                "POST /api/v1/inventory-documents/" + id + "/reject", request);
-        return idempotency.execute(command, InventoryDocumentResponse.class, () -> {
-            InventoryDocument document = lockVisible(actor, id);
-            access.requirePermission(actor, document.getDocumentType().permission("approve"));
-            requireStatus(document, InventoryDocumentStatus.SUBMITTED, "từ chối");
-            approvalService.reject(actor, document.getDocumentType().name(), id, request.reason());
-            document.reject();
-            return act(actor, document, "REJECT", request.reason());
-        });
-    }
-
-    @Transactional
     public InventoryDocumentResponse cancel(CurrentUser actor, Long id, String idempotencyKey,
                                             ReasonRequest request) {
         IdempotentCommand command = new IdempotentCommand(actor.id(), idempotencyKey,
@@ -236,6 +188,7 @@ public class InventoryDocumentService {
                 throw new BusinessException(ErrorCode.INVALID_DOCUMENT_STATE,
                         "Chứng từ sinh từ phiếu kiểm kê; hủy phiếu kiểm kê thay vì hủy chứng từ này.");
             }
+            // Chứng từ gửi duyệt trước D-61: đóng yêu cầu duyệt còn treo để lịch sử duyệt nhất quán.
             if (document.getStatus() == InventoryDocumentStatus.SUBMITTED) {
                 approvalService.cancelPending(actor, document.getDocumentType().name(), id, request.reason());
             }
@@ -249,8 +202,8 @@ public class InventoryDocumentService {
     }
 
     /**
-     * Lập chứng từ đảo cho chứng từ đã ghi sổ và gửi duyệt ngay (BR-GEN-03, BR-GEN-21). Chứng từ gốc chỉ chuyển
-     * REVERSED khi chứng từ đảo được ghi sổ.
+     * Lập chứng từ đảo (nháp) cho chứng từ đã ghi sổ (BR-GEN-03, BR-GEN-21; D-61 không qua duyệt). Chứng từ gốc chỉ
+     * chuyển REVERSED khi chứng từ đảo được ghi sổ.
      */
     @Transactional
     public InventoryDocumentResponse reverse(CurrentUser actor, Long id, String idempotencyKey,
@@ -278,21 +231,9 @@ public class InventoryDocumentService {
                             "Đảo " + original.getDocumentNo(), null, null, null, original.getId()));
             documentRepository.saveAndFlush(reversal);
             original.linkReversal(reversal.getId());
-            submitForApproval(actor, reversal);
             audit(actor, "REVERSE_REQUEST", original, request.reason(), null, null);
             return act(actor, reversal, "CREATE", request.reason());
         });
-    }
-
-    private void submitForApproval(CurrentUser actor, InventoryDocument document) {
-        Instant now = Instant.now(clock);
-        document.submit(actor.id(), now);
-        boolean required = approvalService.submit(actor, new ApprovalSubmission(document.getCompanyId(),
-                document.getBranchId(), document.getDocumentType().name(), document.getId(),
-                document.getDocumentNo(), document.getTotalAmount(), null)).approvalRequired();
-        if (!required) {
-            document.approve(actor.id(), now);
-        }
     }
 
     private InventoryDocumentResponse act(CurrentUser actor, InventoryDocument document, String action,
@@ -316,13 +257,6 @@ public class InventoryDocumentService {
             throw BusinessException.notFound();
         }
         access.requirePermission(actor, document.getDocumentType().viewPermission());
-    }
-
-    private static void requireStatus(InventoryDocument document, InventoryDocumentStatus status, String action) {
-        if (document.getStatus() != status) {
-            throw new BusinessException(ErrorCode.INVALID_DOCUMENT_STATE, "Chứng từ " + document.getDocumentNo()
-                    + " ở trạng thái " + document.getStatus() + ", không " + action + " được.");
-        }
     }
 
     void audit(CurrentUser actor, String action, InventoryDocument document, String reason, Object before,

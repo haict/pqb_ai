@@ -23,9 +23,9 @@ import java.util.Locale;
 import java.util.Map;
 
 /**
- * Đơn bán hàng (DBH, BR-SAL-10..14, D-54): chứng từ ghi sổ duy nhất của nghiệp vụ bán. Giá dưới sàn, chiết khấu vượt
- * ngưỡng, vượt hạn mức tín dụng hoặc có nợ quá hạn thì phải duyệt (BR-SAL-03, BR-SAL-14, D-22); không vi phạm thì tự
- * duyệt. Giữ hàng khi duyệt nếu chọn (BR-SAL-13, D-37). Ghi sổ: xuất kho (lô FEFO / chỉ định), doanh thu, công nợ phải
+ * Đơn bán hàng (DBH, BR-SAL-10..14, D-54): chứng từ ghi sổ duy nhất của nghiệp vụ bán, không qua duyệt (D-61). Giá
+ * dưới sàn, chiết khấu vượt ngưỡng, vượt hạn mức tín dụng hoặc có nợ quá hạn thì chỉ người có quyền vượt mới ghi sổ
+ * được (BR-SAL-03, BR-SAL-14, D-22). Giữ hàng ngay trên đơn nháp nếu chọn (BR-SAL-13, D-37). Ghi sổ: xuất kho (lô FEFO / chỉ định), doanh thu, công nợ phải
  * thu, bút toán; số hóa đơn điện tử ghi sau khi phát hành trên MISA (BR-SAL-31). Theo dõi giao hàng sau ghi sổ (đang
  * giao, khách nhận); giao thất bại thì đảo đơn.
  */
@@ -189,11 +189,6 @@ public class SalesOrder extends SalesDocument {
         return TYPE_CODE;
     }
 
-    @Override
-    public BigDecimal approvalAmount() {
-        return totalAmount;
-    }
-
     public void replaceContent(Header header, Long warehouseId, List<SalesOrderLine> newLines,
                                List<PaymentTermValues> terms) {
         if (newLines.isEmpty()) {
@@ -256,6 +251,10 @@ public class SalesOrder extends SalesDocument {
         }
     }
 
+    /**
+     * Lý do cần thẩm quyền khi ghi sổ (giá dưới sàn, chiết khấu vượt ngưỡng, vượt hạn mức tín dụng / nợ quá hạn; D-61
+     * thay bước duyệt). Cột giữ tên {@code approval_reasons} để tương thích API.
+     */
     public void recordApprovalReasons(List<String> reasons) {
         this.approvalReasons = reasons.isEmpty() ? null : String.join(" ", reasons);
     }
@@ -264,11 +263,11 @@ public class SalesOrder extends SalesDocument {
         this.reservedUntil = until;
     }
 
-    /** Đơn đã duyệt, chưa ghi sổ (giữ / nhả hàng). */
-    public void requireApproved() {
-        if (getStatus() != SalesDocumentStatus.APPROVED) {
+    /** Đơn chưa ghi sổ, chưa hủy (giữ hàng từ nháp, D-61; đơn đã duyệt trước D-61). */
+    public void requirePostable() {
+        if (!POSTABLE.contains(getStatus())) {
             throw new BusinessException(ErrorCode.INVALID_DOCUMENT_STATE, "Đơn bán " + getDocumentNo()
-                    + " chưa duyệt hoặc đã ghi sổ / hủy.");
+                    + " đã ghi sổ, hủy hoặc đang ở trạng thái chờ duyệt cũ.");
         }
     }
 
@@ -293,12 +292,12 @@ public class SalesOrder extends SalesDocument {
     }
 
     /**
-     * Ghi sổ đơn đã duyệt: phiếu xuất kho, hàng thực xuất theo dòng ({@code issued} theo id dòng), hạn thanh toán =
-     * ngày hạch toán + số ngày nợ.
+     * Ghi sổ đơn (từ nháp, hoặc đã duyệt trước D-61): phiếu xuất kho, hàng thực xuất theo dòng ({@code issued} theo
+     * id dòng), hạn thanh toán = ngày hạch toán + số ngày nợ.
      */
     public void markPosted(Long inventoryDocumentId, Map<Long, List<SalesOrderItem>> issued, Long actorId,
                            Instant now) {
-        requireStatus(EnumSet.of(SalesDocumentStatus.APPROVED), "ghi sổ");
+        requireStatus(POSTABLE, "ghi sổ");
         setStatus(SalesDocumentStatus.POSTED);
         this.inventoryDocumentId = inventoryDocumentId;
         this.dueDate = postingDate.plusDays(paymentTermDays == null ? 0 : paymentTermDays);
@@ -350,10 +349,7 @@ public class SalesOrder extends SalesDocument {
      */
     public void markReversed(Long actorId, Instant now, LocalDate reverseDate, String reason) {
         requireStatus(EnumSet.of(SalesDocumentStatus.POSTED), "đảo");
-        if (lines.stream().anyMatch(SalesOrderLine::hasDependents)) {
-            throw new BusinessException(ErrorCode.HAS_DEPENDENT_DOCUMENTS, "Đơn bán " + getDocumentNo()
-                    + " đã có trả hàng / giảm giá ghi sổ; đảo các chứng từ đó trước.");
-        }
+        requireNoDependents();
         if (reverseDate.isBefore(postingDate)) {
             throw BusinessException.invalidField("postingDate", "Ngày đảo không được trước ngày ghi sổ chứng từ gốc.");
         }
@@ -363,6 +359,36 @@ public class SalesOrder extends SalesDocument {
         this.reverseDate = reverseDate;
         this.einvoiceKey = null;
         setReason(reason);
+    }
+
+    /**
+     * Bỏ ghi sổ về nháp, giữ số đơn (D-62); sổ phụ đảo ở tầng application. Chặn khi còn trả hàng / giảm giá chưa đảo,
+     * đã có số hóa đơn điện tử (hóa đơn đã phát hành xử lý bằng đảo đơn) hoặc đã chuyển đi giao.
+     */
+    public void markUnposted(String reason) {
+        requireStatus(EnumSet.of(SalesDocumentStatus.POSTED), "bỏ ghi sổ");
+        requireNoDependents();
+        if (einvoiceNo != null) {
+            throw new BusinessException(ErrorCode.INVALID_DOCUMENT_STATE, "Đơn bán " + getDocumentNo()
+                    + " đã có hóa đơn điện tử " + invoiceLabel() + ", không bỏ ghi sổ được; dùng đảo đơn.");
+        }
+        if (deliveryStatus != DeliveryStatus.PENDING) {
+            throw new BusinessException(ErrorCode.INVALID_DOCUMENT_STATE, "Đơn bán " + getDocumentNo()
+                    + " đã chuyển đi giao hoặc khách đã nhận, không bỏ ghi sổ được.");
+        }
+        setStatus(SalesDocumentStatus.DRAFT);
+        this.inventoryDocumentId = null;
+        this.postedBy = null;
+        this.postedAt = null;
+        lines.forEach(line -> line.replaceItems(List.of()));
+        setReason(reason);
+    }
+
+    private void requireNoDependents() {
+        if (lines.stream().anyMatch(SalesOrderLine::hasDependents)) {
+            throw new BusinessException(ErrorCode.HAS_DEPENDENT_DOCUMENTS, "Đơn bán " + getDocumentNo()
+                    + " đã có trả hàng / giảm giá ghi sổ; đảo các chứng từ đó trước.");
+        }
     }
 
     public SalesOrderLine line(Long lineId, String field) {

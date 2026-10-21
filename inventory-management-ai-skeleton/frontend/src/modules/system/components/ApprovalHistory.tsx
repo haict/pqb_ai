@@ -1,4 +1,4 @@
-import { Empty, Space, Steps, Tag, Timeline, Typography } from 'antd';
+import { Space, Steps, Tag, Timeline, Typography } from 'antd';
 import { formatDateTime } from '../../../shared/format';
 import type { ApprovalActionType, ApprovalRequest, ApprovalRequestStatus } from '../types';
 
@@ -16,7 +16,7 @@ const ACTIONS: Record<ApprovalActionType, { label: string; color: string }> = {
   CANCEL: { label: 'Hủy yêu cầu', color: 'gray' },
 };
 
-export function ApprovalStatusTag({ status }: { status: ApprovalRequestStatus }) {
+function ApprovalStatusTag({ status }: { status: ApprovalRequestStatus }) {
   return <Tag color={STATUS[status].color}>{STATUS[status].label}</Tag>;
 }
 
@@ -35,13 +35,19 @@ function stepStatus(request: ApprovalRequest, index: number) {
   return 'wait' as const;
 }
 
-/** Các bước duyệt và lịch sử xử lý của một hoặc nhiều lần gửi duyệt (mới nhất trước). */
+/**
+ * Lịch sử duyệt chỉ đọc của chứng từ lập trước D-61 (hệ thống không còn bước duyệt), mới nhất trước. Chứng từ không có
+ * lịch sử duyệt thì không hiển thị gì.
+ */
 export function ApprovalHistory({ requests }: { requests: ApprovalRequest[] }) {
   if (requests.length === 0) {
-    return <Empty description="Chưa gửi duyệt" image={Empty.PRESENTED_IMAGE_SIMPLE} />;
+    return null;
   }
   return (
-    <Space direction="vertical" size="large" style={{ width: '100%' }}>
+    <Space direction="vertical" size="large" style={{ width: '100%', marginTop: 16 }}>
+      <Typography.Title level={5} style={{ margin: 0 }}>
+        Lịch sử duyệt
+      </Typography.Title>
       {requests.map((request) => (
         <div key={request.id}>
           <Space style={{ marginBottom: 12 }}>

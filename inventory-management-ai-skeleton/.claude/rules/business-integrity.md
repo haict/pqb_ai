@@ -21,6 +21,7 @@
 - Đảo = tạo chứng từ đảo tham chiếu gốc, sinh dòng sổ phụ ngược đúng từng dòng (cùng lô, serial, giá trị); chứng từ gốc chuyển `REVERSED`.
 - Chặn đảo khi có chứng từ phụ thuộc chưa đảo; trả danh sách chứng từ phụ thuộc.
 - Đảo cập nhật lại chỉ tiêu chứng từ nguồn (đã nhận, đã giao, đã thu, còn lại).
+- Bỏ ghi sổ (D-62, chỉ đơn mua / đơn bán): đảo sổ phụ của lần ghi sổ đó bằng dòng ngược theo ngày hạch toán gốc (kỳ gốc phải mở), chứng từ về `DRAFT` giữ số; điều kiện chặn như đảo. Không áp dụng cho chứng từ khác.
 
 ## 4. Tồn kho
 - Bốn chỉ tiêu: **tồn thực tế, tồn giữ chỗ, tồn khả dụng, hàng đang về**; định nghĩa ở BR mục 5.4.

@@ -1,5 +1,6 @@
-import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
+import { DeleteOutlined, FileSearchOutlined, PlusOutlined } from '@ant-design/icons';
 import {
+  App,
   Button,
   Card,
   Checkbox,
@@ -10,9 +11,12 @@ import {
   InputNumber,
   Row,
   Select,
+  Tag,
+  Tooltip,
   Typography,
   type FormInstance,
 } from 'antd';
+import { useState } from 'react';
 import { formatMoney } from '../../accounting/labels';
 import { moneyInputProps } from '../../finance/components/debtInputs';
 import { ProductSelect } from '../../masterdata/components/EntitySelects';
@@ -20,10 +24,15 @@ import { useTaxRates } from '../../masterdata/lookups';
 import { useProductUnits } from '../../purchasing/components/productUnits';
 import { salesPriceApi } from '../api';
 import { PRICE_SOURCES } from '../labels';
-import type { SalesLineForm } from './salesLines';
+import { ReceiptSourcePicker } from './ReceiptSourcePicker';
+import { linesFromReceipts, type SalesLineForm } from './salesLines';
 import { DecimalInput } from '../../../shared/components/DecimalInput';
 
-/** Danh sách dòng đơn bán trong form (tên trường {@code lines}): giá, chiết khấu, thuế, lô / serial chỉ định. */
+/**
+ * Danh sách dòng đơn bán trong form (tên trường {@code lines}): giá, chiết khấu, thuế, lô / serial chỉ định. F8 trên
+ * một dòng (hoặc nút "Chọn CT nhập") mở danh sách chứng từ nhập còn tồn để xuất đích danh (D-63); form cần có
+ * {@code branchId}, {@code warehouseId}.
+ */
 export function SalesLinesEditor<T extends { lines?: SalesLineForm[]; customerId?: number }>({
   form,
   withExpectedDate,
@@ -64,10 +73,32 @@ function SalesLineFields({
   withExpectedDate?: boolean;
   onRemove(): void;
 }) {
+  const { message } = App.useApp();
   const taxRates = useTaxRates();
   const productId = Form.useWatch(['lines', name, 'productId'], form) as number | undefined;
   const hint = Form.useWatch(['lines', name, 'priceHint'], form) as string | undefined;
-  const { options } = useProductUnits(productId);
+  const receiptNo = Form.useWatch(['lines', name, 'receiptNo'], form) as string | undefined;
+  const { options, product, unitName } = useProductUnits(productId);
+  const [picker, setPicker] = useState<{ branchId: number; warehouseId: number } | null>(null);
+
+  const clearReceipt = () => {
+    form.setFieldValue(['lines', name, 'receiptTransactionId'], undefined);
+    form.setFieldValue(['lines', name, 'receiptNo'], undefined);
+  };
+
+  /** F8: chọn chứng từ nhập còn tồn của hàng tại kho của đơn (D-63). */
+  const openPicker = () => {
+    const header = form.getFieldsValue(true) as { branchId?: number; warehouseId?: number };
+    if (!productId || !product) {
+      message.info('Chọn hàng trước khi nhấn F8.');
+    } else if (!header.branchId || !header.warehouseId) {
+      message.info('Chọn chi nhánh và kho xuất trước khi nhấn F8.');
+    } else if (!product.lotTracked && !product.serialTracked) {
+      message.info('Hàng không quản lý lô / serial: kho xuất theo FEFO khi ghi sổ.');
+    } else {
+      setPicker({ branchId: header.branchId, warehouseId: header.warehouseId });
+    }
+  };
 
   /** Tra giá đề xuất khi đổi hàng / đơn vị / số lượng (BR-SAL-02); chỉ điền khi người dùng chưa nhập. */
   const suggest = async (overwrite: boolean) => {
@@ -109,8 +140,23 @@ function SalesLineFields({
   };
 
   return (
-    <Card size="small" style={{ marginBottom: 8 }}>
+    <Card
+      size="small"
+      style={{ marginBottom: 8 }}
+      onKeyDown={(event) => {
+        if (event.key === 'F8') {
+          event.preventDefault();
+          openPicker();
+        }
+      }}
+    >
       <Form.Item name={[name, 'priceHint']} hidden>
+        <Input />
+      </Form.Item>
+      <Form.Item name={[name, 'receiptTransactionId']} hidden>
+        <Input />
+      </Form.Item>
+      <Form.Item name={[name, 'receiptNo']} hidden>
         <Input />
       </Form.Item>
       <Row gutter={8}>
@@ -123,6 +169,7 @@ function SalesLineFields({
             <ProductSelect
               selectedLabel={form.getFieldValue(['lines', name, 'productLabel'])}
               onProduct={(product) => {
+                clearReceipt();
                 if (product) {
                   form.setFieldValue(['lines', name, 'unitId'], product.baseUnitId);
                   form.setFieldValue(['lines', name, 'unitPrice'], undefined);
@@ -178,9 +225,24 @@ function SalesLineFields({
           <Form.Item
             name={[name, 'lotNo']}
             label="Lô chỉ định"
-            tooltip="Trống: kho chọn lô hết hạn sớm nhất (FEFO)"
+            tooltip="Trống: kho chọn lô hết hạn sớm nhất (FEFO). F8: chọn theo chứng từ nhập"
+            extra={
+              receiptNo && (
+                <Tag closable onClose={clearReceipt} style={{ marginTop: 4 }}>
+                  CT nhập: {receiptNo}
+                </Tag>
+              )
+            }
           >
-            <Input maxLength={50} />
+            <Input
+              maxLength={50}
+              onChange={clearReceipt}
+              addonAfter={
+                <Tooltip title="Chọn chứng từ nhập (F8)">
+                  <FileSearchOutlined aria-label="Chọn chứng từ nhập" onClick={openPicker} />
+                </Tooltip>
+              }
+            />
           </Form.Item>
         </Col>
         <Col xs={24} md={6}>
@@ -214,6 +276,22 @@ function SalesLineFields({
         <Typography.Text type="secondary" style={{ fontSize: 12 }}>
           {hint}
         </Typography.Text>
+      )}
+      {picker && product && productId && (
+        <ReceiptSourcePicker
+          branchId={picker.branchId}
+          warehouseId={picker.warehouseId}
+          productId={productId}
+          productLabel={form.getFieldValue(['lines', name, 'productLabel']) as string | undefined}
+          baseUnitName={unitName(product.baseUnitId) || ''}
+          onCancel={() => setPicker(null)}
+          onPick={(picks, reason) => {
+            const lines = [...((form.getFieldValue('lines') as SalesLineForm[] | undefined) ?? [])];
+            lines.splice(name, 1, ...linesFromReceipts(lines[name] ?? {}, picks, product.baseUnitId, reason));
+            form.setFieldValue('lines', lines);
+            setPicker(null);
+          }}
+        />
       )}
     </Card>
   );

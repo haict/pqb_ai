@@ -12,6 +12,7 @@ import com.company.erp.purchasing.application.dto.PurchaseCostAllocationResponse
 import com.company.erp.purchasing.application.dto.ReverseRequest;
 import com.company.erp.purchasing.domain.PurchaseCostAllocation;
 import com.company.erp.purchasing.domain.PurchaseCostEntry;
+import com.company.erp.purchasing.domain.PurchaseDocument;
 import com.company.erp.purchasing.domain.PurchaseDocumentStatus;
 import com.company.erp.purchasing.domain.PurchaseOrder;
 import com.company.erp.purchasing.infrastructure.persistence.PurchaseCostEntryRepository;
@@ -76,10 +77,10 @@ public class PurchaseCostAllocationPostingService {
                 PurchaseCostAllocationResponse.class, () -> {
                     access.requirePermission(actor, POST);
                     PurchaseCostAllocation document = flow.lock(actor, id, allocations.spec());
-                    if (document.getStatus() != PurchaseDocumentStatus.APPROVED) {
+                    if (!PurchaseDocument.POSTABLE.contains(document.getStatus())) {
                         throw new BusinessException(ErrorCode.INVALID_DOCUMENT_STATE, "Chứng từ "
                                 + document.getDocumentNo() + " ở trạng thái " + document.getStatus()
-                                + ", chỉ ghi sổ chứng từ đã duyệt.");
+                                + ", chỉ ghi sổ chứng từ nháp.");
                     }
                     applySources(document, BigDecimal.ONE);
                     recordCosts(actor, document);

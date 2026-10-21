@@ -14,7 +14,7 @@ import { orderReportApi } from '../api';
 import { orderProgressReport } from '../orderReports';
 import { BranchCol } from '../../../shared/components/BranchCol';
 
-const STATUSES = ['DRAFT', 'SUBMITTED', 'REJECTED', 'APPROVED', 'POSTED', 'CANCELLED', 'REVERSED'];
+const STATUSES = ['DRAFT', 'POSTED', 'CANCELLED', 'REVERSED'];
 
 interface Filters extends PeriodValues {
   branchId?: number;

@@ -96,11 +96,6 @@ public class SalesReturn extends SalesDocument {
         return documentType.name();
     }
 
-    @Override
-    public BigDecimal approvalAmount() {
-        return totalAmount;
-    }
-
     public void replaceContent(Header header, List<SalesReturnLine> newLines) {
         if (newLines.isEmpty()) {
             throw BusinessException.invalidField("lines", "Chứng từ phải có ít nhất một dòng.");
@@ -126,7 +121,7 @@ public class SalesReturn extends SalesDocument {
     }
 
     public void markPosted(Long inventoryDocumentId, Long actorId, Instant now) {
-        requireStatus(EnumSet.of(SalesDocumentStatus.APPROVED), "ghi sổ");
+        requireStatus(POSTABLE, "ghi sổ");
         setStatus(SalesDocumentStatus.POSTED);
         this.inventoryDocumentId = inventoryDocumentId;
         this.postedBy = actorId;

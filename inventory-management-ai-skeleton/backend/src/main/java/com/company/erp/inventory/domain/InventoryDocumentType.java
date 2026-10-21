@@ -2,12 +2,12 @@ package com.company.erp.inventory.domain;
 
 /**
  * Loại chứng từ kho dùng bảng {@code inventory_documents}; mã loại đồng thời là mã trong {@code sys_document_types}
- * (chế độ duyệt) và tiền tố số chứng từ mặc định (D-03).
+ * và tiền tố số chứng từ mặc định (D-03).
  */
 public enum InventoryDocumentType {
     /** Phiếu nhập kho: tồn đầu kỳ, nhập thu hồi từ khách. */
     PNK("inventory-receipt", "inventory-receipt:view"),
-    /** Phiếu xuất kho nội bộ / demo (đề nghị nội bộ có duyệt). */
+    /** Phiếu xuất kho nội bộ / demo. */
     PXK("inventory-issue", "inventory-issue:view"),
     /** Phiếu xuất hủy (BR-INV-33). */
     PXH("inventory-issue", "inventory-issue:view"),
@@ -32,7 +32,7 @@ public enum InventoryDocumentType {
         return viewPermission;
     }
 
-    /** Quyền hành động: {@code create}, {@code approve}, {@code post}. */
+    /** Quyền hành động: {@code create}, {@code post}. */
     public String permission(String action) {
         return permissionPrefix + ":" + action;
     }

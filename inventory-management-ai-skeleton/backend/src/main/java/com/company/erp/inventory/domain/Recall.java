@@ -93,23 +93,12 @@ public class Recall extends AuditableEntity {
         this.status = RecallStatus.DRAFT;
     }
 
-    public void submit(Long actorId, Instant now) {
-        requireStatus(EnumSet.of(RecallStatus.DRAFT, RecallStatus.REJECTED), "gửi duyệt");
-        this.status = RecallStatus.SUBMITTED;
-        this.submittedBy = actorId;
-        this.submittedAt = now;
-    }
-
+    /** Bắt đầu thu hồi từ nháp (D-61 không qua duyệt; người có quyền thu hồi kích hoạt). */
     public void activate(Long actorId, Instant now) {
-        requireStatus(EnumSet.of(RecallStatus.SUBMITTED), "duyệt");
+        requireStatus(EnumSet.of(RecallStatus.DRAFT), "kích hoạt thu hồi");
         this.status = RecallStatus.ACTIVE;
         this.approvedBy = actorId;
         this.approvedAt = now;
-    }
-
-    public void reject() {
-        requireStatus(EnumSet.of(RecallStatus.SUBMITTED), "từ chối");
-        this.status = RecallStatus.REJECTED;
     }
 
     public void close(Long actorId, Instant now) {

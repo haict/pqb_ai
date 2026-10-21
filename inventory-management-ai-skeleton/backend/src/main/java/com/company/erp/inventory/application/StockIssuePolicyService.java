@@ -5,7 +5,6 @@ import com.company.erp.common.application.IdempotencyService;
 import com.company.erp.common.application.IdempotentCommand;
 import com.company.erp.common.domain.BusinessException;
 import com.company.erp.common.domain.ErrorCode;
-import com.company.erp.inventory.application.dto.CommentRequest;
 import com.company.erp.inventory.application.dto.ReasonRequest;
 import com.company.erp.inventory.application.dto.StockIssuePolicyRequest;
 import com.company.erp.inventory.application.dto.StockIssuePolicyResponse;
@@ -15,7 +14,6 @@ import com.company.erp.inventory.infrastructure.persistence.StockIssuePolicyRepo
 import com.company.erp.masterdata.application.MasterDataQueryService;
 import com.company.erp.masterdata.application.MasterDataQueryService.WarehouseInfo;
 import com.company.erp.system.application.ApprovalService;
-import com.company.erp.system.application.ApprovalSubmission;
 import com.company.erp.system.application.CurrentUser;
 import jakarta.persistence.criteria.Predicate;
 import java.time.Clock;
@@ -31,7 +29,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Chính sách xuất vượt tồn khả dụng (BR-GEN-31, D-10): chỉ có hiệu lực sau khi duyệt; chứng từ xuất tham chiếu
+ * Chính sách xuất vượt tồn khả dụng (BR-GEN-31, D-10): chỉ có hiệu lực sau khi người có quyền
+ * {@code stock-policy:activate} kích hoạt (D-61 không qua duyệt); chứng từ xuất tham chiếu
  * chính sách và dùng dần hạn mức khi ghi sổ. Tồn thực tế vẫn không bao giờ âm.
  */
 @Service
@@ -112,53 +111,14 @@ public class StockIssuePolicyService {
     }
 
     @Transactional
-    public StockIssuePolicyResponse submit(CurrentUser actor, Long id, String idempotencyKey) {
+    public StockIssuePolicyResponse activate(CurrentUser actor, Long id, String idempotencyKey) {
         IdempotentCommand command = new IdempotentCommand(actor.id(), idempotencyKey,
-                "POST /api/v1/stock-issue-policies/" + id + "/submit", id);
+                "POST /api/v1/stock-issue-policies/" + id + "/activate", id);
         return idempotency.execute(command, StockIssuePolicyResponse.class, () -> {
-            access.requirePermission(actor, "stock-policy:create");
+            access.requirePermission(actor, "stock-policy:activate");
             StockIssuePolicy policy = lock(actor, id);
-            Instant now = Instant.now(clock);
-            policy.submit(actor.id(), now);
-            boolean required = approvalService.submit(actor, new ApprovalSubmission(policy.getCompanyId(),
-                    policy.getBranchId(), DOCUMENT_TYPE, policy.getId(), policy.getDocumentNo(), null, null))
-                    .approvalRequired();
-            if (!required) {
-                policy.approve(actor.id(), now);
-            }
-            return act(actor, policy, "SUBMIT", null);
-        });
-    }
-
-    @Transactional
-    public StockIssuePolicyResponse approve(CurrentUser actor, Long id, String idempotencyKey,
-                                            CommentRequest request) {
-        IdempotentCommand command = new IdempotentCommand(actor.id(), idempotencyKey,
-                "POST /api/v1/stock-issue-policies/" + id + "/approve", request);
-        return idempotency.execute(command, StockIssuePolicyResponse.class, () -> {
-            access.requirePermission(actor, "stock-policy:approve");
-            StockIssuePolicy policy = lock(actor, id);
-            requireSubmitted(policy);
-            String comment = request == null ? null : request.comment();
-            if (approvalService.approve(actor, DOCUMENT_TYPE, id, comment).completed()) {
-                policy.approve(actor.id(), Instant.now(clock));
-            }
-            return act(actor, policy, "APPROVE", comment);
-        });
-    }
-
-    @Transactional
-    public StockIssuePolicyResponse reject(CurrentUser actor, Long id, String idempotencyKey,
-                                           ReasonRequest request) {
-        IdempotentCommand command = new IdempotentCommand(actor.id(), idempotencyKey,
-                "POST /api/v1/stock-issue-policies/" + id + "/reject", request);
-        return idempotency.execute(command, StockIssuePolicyResponse.class, () -> {
-            access.requirePermission(actor, "stock-policy:approve");
-            StockIssuePolicy policy = lock(actor, id);
-            requireSubmitted(policy);
-            approvalService.reject(actor, DOCUMENT_TYPE, id, request.reason());
-            policy.reject();
-            return act(actor, policy, "REJECT", request.reason());
+            policy.activate(actor.id(), Instant.now(clock));
+            return act(actor, policy, "ACTIVATE", null);
         });
     }
 
@@ -170,6 +130,7 @@ public class StockIssuePolicyService {
         return idempotency.execute(command, StockIssuePolicyResponse.class, () -> {
             access.requirePermission(actor, "stock-policy:create");
             StockIssuePolicy policy = lock(actor, id);
+            // Chính sách gửi duyệt trước D-61: đóng yêu cầu duyệt còn treo để lịch sử duyệt nhất quán.
             if (policy.getStatus() == PolicyStatus.SUBMITTED) {
                 approvalService.cancelPending(actor, DOCUMENT_TYPE, id, request.reason());
             }
@@ -178,12 +139,6 @@ public class StockIssuePolicyService {
         });
     }
 
-    private static void requireSubmitted(StockIssuePolicy policy) {
-        if (policy.getStatus() != PolicyStatus.SUBMITTED) {
-            throw new BusinessException(ErrorCode.INVALID_DOCUMENT_STATE, "Chính sách " + policy.getDocumentNo()
-                    + " không ở trạng thái chờ duyệt.");
-        }
-    }
 
     private StockIssuePolicy lock(CurrentUser actor, Long id) {
         return visible(actor, policyRepository.findByIdForUpdate(id).orElseThrow(BusinessException::notFound));

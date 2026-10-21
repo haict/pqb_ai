@@ -2,16 +2,13 @@ import {
   AlertOutlined,
   ApartmentOutlined,
   AppstoreOutlined,
-  AuditOutlined,
   BankOutlined,
   BarChartOutlined,
   BarcodeOutlined,
   BlockOutlined,
   BookOutlined,
-  BranchesOutlined,
   CalculatorOutlined,
   CalendarOutlined,
-  CheckSquareOutlined,
   ClusterOutlined,
   ContainerOutlined,
   ControlOutlined,
@@ -23,7 +20,6 @@ import {
   ExceptionOutlined,
   FallOutlined,
   FileDoneOutlined,
-  FileOutlined,
   FileProtectOutlined,
   FileSearchOutlined,
   FlagOutlined,
@@ -60,7 +56,6 @@ import {
   TransactionOutlined,
   UnorderedListOutlined,
   UserOutlined,
-  UserSwitchOutlined,
   WalletOutlined,
   WarningOutlined,
 } from '@ant-design/icons';
@@ -68,7 +63,6 @@ import type { ReactNode } from 'react';
 
 /** Biểu tượng nhóm menu theo key trong {@code NAV_GROUPS}. */
 export const GROUP_ICONS: Record<string, ReactNode> = {
-  work: <CheckSquareOutlined />,
   purchasing: <ShoppingCartOutlined />,
   sales: <ShopOutlined />,
   inventory: <InboxOutlined />,
@@ -81,8 +75,6 @@ export const GROUP_ICONS: Record<string, ReactNode> = {
 
 /** Biểu tượng mục menu theo đường dẫn. */
 export const ITEM_ICONS: Record<string, ReactNode> = {
-  '/approvals': <AuditOutlined />,
-  '/approval-delegations': <UserSwitchOutlined />,
   '/purchasing/orders': <ProfileOutlined />,
   '/purchasing/returns': <RollbackOutlined />,
   '/purchasing/cost-allocations': <PartitionOutlined />,
@@ -141,6 +133,4 @@ export const ITEM_ICONS: Record<string, ReactNode> = {
   '/system/parameters': <ControlOutlined />,
   '/system/license': <KeyOutlined />,
   '/system/document-number-formats': <NumberOutlined />,
-  '/system/document-types': <FileOutlined />,
-  '/system/approval-workflows': <BranchesOutlined />,
 };

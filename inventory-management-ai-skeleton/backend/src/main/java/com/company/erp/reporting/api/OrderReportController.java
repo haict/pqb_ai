@@ -88,8 +88,8 @@ public class OrderReportController {
         return ApiResponse.ok(sales.salesJournal(user, companyId, branchId, dateFrom, dateTo));
     }
 
-    @Operation(summary = "Tồn so với đặt hàng chưa giao", description = "BR-RPT-26, H-06. Đơn bán đã gửi / duyệt chưa ghi "
-            + "sổ theo hàng × kho, so với tồn, giữ chỗ, đang về; thiếu = đặt − tồn − đang về.")
+    @Operation(summary = "Tồn so với đặt hàng chưa giao", description = "BR-RPT-26, H-06. Đơn bán nháp (và đã duyệt trước "
+            + "D-61) chưa ghi sổ theo hàng × kho, so với tồn, giữ chỗ, đang về; thiếu = đặt − tồn − đang về.")
     @GetMapping("/stock-backlog")
     @PreAuthorize("hasAuthority('sales-order-report:view')")
     public ApiResponse<StockBacklog> stockBacklog(@AuthenticationPrincipal CurrentUser user,

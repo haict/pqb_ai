@@ -13,7 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * API công khai đọc tồn theo (hàng, kho) cho module khác (kiểm tra tồn khả dụng khi lập / duyệt đơn bán, BR-SAL-12):
+ * API công khai đọc tồn theo (hàng, kho) cho module khác (kiểm tra tồn khả dụng khi lập / ghi sổ đơn bán, BR-SAL-12):
  * tồn thực tế, bán được (ĐẠT, còn hạn, không khóa), giữ chỗ, khả dụng = bán được − giữ chỗ, hàng đang về. Chỉ đọc,
  * không khóa; kiểm tra chặn thực hiện lại khi ghi sổ xuất kho.
  */

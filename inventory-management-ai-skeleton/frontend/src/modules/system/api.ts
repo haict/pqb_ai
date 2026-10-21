@@ -3,12 +3,7 @@ import type { ApiResponse, PageResponse } from '../../shared/api/types';
 import type { ListParams } from '../../shared/api/useServerTable';
 import type { RecordStatus } from '../../shared/components/StatusTag';
 import type {
-  ApprovalMode,
-  ApprovalRequest,
-  ApprovalWorkflow,
-  ApproverType,
   AppNotification,
-  Delegation,
   DocumentType,
   Branch,
   Company,
@@ -241,63 +236,13 @@ export const documentNumberFormatApi = {
   },
 };
 
-export interface ApprovalWorkflowInput {
-  companyId?: number;
-  documentType?: string;
-  name: string;
-  branchId?: number | null;
-  minAmount?: number | null;
-  minDiscountPercent?: number | null;
-  priority: number;
-  steps: { approverType: ApproverType; roleId?: number | null; userId?: number | null }[];
-}
-
-export const approvalWorkflowApi = {
-  list: (params: ListQuery & { documentType?: string }) =>
-    getPage<ApprovalWorkflow>('/approval-workflows', params),
-  create: (input: ApprovalWorkflowInput, key: string) =>
-    create<ApprovalWorkflow>('/approval-workflows', input, key),
-  update: (id: number, input: ApprovalWorkflowInput & { version: number }) =>
-    put<ApprovalWorkflow>(`/approval-workflows/${id}`, input),
-  changeStatus: (item: ApprovalWorkflow, status: RecordStatus, reason: string) =>
-    changeStatus<ApprovalWorkflow>(`/approval-workflows/${item.id}`, status, item.version, reason),
-};
-
 export const documentTypeApi = {
   list: async (): Promise<DocumentType[]> => {
     const response = await httpClient.get<ApiResponse<DocumentType[]>>('/document-types');
     return response.data.data;
   },
-  update: (
-    code: string,
-    input: { approvalMode: ApprovalMode; selfApprovalAllowed: boolean; version: number },
-  ) => put<DocumentType>(`/document-types/${code}`, input),
 };
 
-export const approvalApi = {
-  pending: (params: ListParams) => getPage<ApprovalRequest>('/approvals/pending', params),
-  get: async (id: number): Promise<ApprovalRequest> => {
-    const response = await httpClient.get<ApiResponse<ApprovalRequest>>(`/approvals/${id}`);
-    return response.data.data;
-  },
-};
-
-export interface DelegationInput {
-  delegatorUserId?: number;
-  delegateUserId: number;
-  documentType?: string;
-  validFrom?: string;
-  validTo: string;
-  reason?: string;
-}
-
-export const delegationApi = {
-  list: (params: ListParams) => getPage<Delegation>('/approval-delegations', params),
-  create: (input: DelegationInput, key: string) => create<Delegation>('/approval-delegations', input, key),
-  revoke: async (id: number): Promise<void> => {
-    await httpClient.post(`/approval-delegations/${id}/revoke`);
-  },
-};
 
 export interface UserLookup {
   id: number;

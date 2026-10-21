@@ -9,7 +9,7 @@ import java.time.LocalDate;
 
 /**
  * Kiểm kê quỹ tiền mặt (KKQ, BR-CSH-05): số đếm thực tế; khi ghi sổ so với số dư sổ quỹ đến hết ngày kiểm kê, chênh
- * lệch thừa / thiếu sinh dòng sổ quỹ và bút toán (chứng từ có duyệt).
+ * lệch thừa / thiếu sinh dòng sổ quỹ và bút toán.
  */
 @Entity
 @Table(name = "cash_counts")
@@ -41,10 +41,6 @@ public class CashCount extends FinanceDocument {
         return TYPE_CODE;
     }
 
-    @Override
-    public BigDecimal approvalAmount() {
-        return countedAmount;
-    }
 
     public void replaceContent(LocalDate documentDate, LocalDate postingDate, String description, Long cashAccountId,
                                BigDecimal countedAmount) {

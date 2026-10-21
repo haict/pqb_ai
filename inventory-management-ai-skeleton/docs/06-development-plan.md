@@ -131,6 +131,16 @@ Người dùng giao làm hết Giai đoạn 6 theo khuyến cáo (2026-10-10): 6
 - [ ] Xuất Excel/PDF
 - [ ] Test: AT-12
 
+## D-61 - Bỏ bước duyệt (2026-10-21, đã làm)
+- [x] Đợt 1 công nợ, quỹ (V32): ghi sổ thẳng từ nháp; chi từ ngưỡng cần `cash-document:post-over-threshold`
+- [x] Đợt 2 mua hàng (V33): đơn mua, trả hàng / giảm giá, phân bổ chi phí; đơn mua từ ngưỡng cần `purchase-order:post-over-threshold`; đơn nháp không cộng hàng đang về
+- [x] Đợt 3 bán hàng (V34): đơn bán, trả hàng / giảm giá; quyền `sales-order:override-price`, `override-credit`; giữ hàng từ nháp
+- [x] Đợt 4 kho (V35): phiếu kho, chứng từ đảo, kiểm kê ghi sổ thẳng; thu hồi `recall:manage`, chính sách xuất vượt `stock-policy:activate`
+- [x] Đợt 5 hệ thống (V36): gỡ luồng duyệt, ủy quyền, việc chờ duyệt, chế độ duyệt loại chứng từ; giao diện tương ứng
+- [x] Đợt 6 báo cáo, dữ liệu mẫu, tài liệu
+- [ ] Kế toán trưởng / Giám đốc xác nhận D-61, vai trò mặc định của quyền mới, điều kiện khóa kỳ `[Suy luận]`
+- [ ] Quyết định giữ / ẩn chuông thông báo (không còn nguồn phát sinh) `[Suy luận]`
+
 ## Giai đoạn 11 - Chuyển đổi dữ liệu, nghiệm thu, triển khai
 - [ ] Công cụ nhập số dư đầu kỳ (tồn theo lô/serial, công nợ theo hóa đơn, quỹ, hợp đồng). Đã có nhập tay: công nợ đầu kỳ (4B), tồn kho đầu kỳ (PNK `OPENING`, 2026-10-15); còn nhập Excel, quỹ, hợp đồng
 - [ ] Kiểm thử hiệu năng theo BR-NF-11

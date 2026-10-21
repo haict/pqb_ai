@@ -140,7 +140,6 @@ class PurchaseLedgerIntegrationTest extends PurchasingIntegrationSupport {
     private long postedReturn(String body) throws Exception {
         long document = jsonId(send(clerk, post(RETURNS), body, newKey()).andExpect(status().isCreated())
                 .andReturn());
-        act(clerk, RETURNS, document, "submit", null).andExpect(jsonPath("$.data.status").value("APPROVED"));
         act(clerk, RETURNS, document, "post", null).andExpect(jsonPath("$.data.status").value("POSTED"));
         return document;
     }

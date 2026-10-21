@@ -30,11 +30,15 @@ public interface DebtItemRepository extends JpaRepository<DebtItem, Long>, JpaSp
     List<DebtItem> findBySources(@Param("companyId") Long companyId, @Param("sourceType") String sourceType,
                                  @Param("sourceIds") Collection<Long> sourceIds);
 
-    /** Khoản công nợ của một chứng từ nguồn, khóa ghi theo id tăng dần (thứ tự khóa cố định, docs/02 mục 6). */
+    /**
+     * Khoản công nợ chưa đảo của một chứng từ nguồn, khóa ghi theo id tăng dần (thứ tự khóa cố định, docs/02 mục 6).
+     * Khoản đã đảo bỏ qua (chứng từ bỏ ghi sổ rồi ghi sổ lại, D-62).
+     */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
             select i from DebtItem i
             where i.companyId = :companyId and i.sourceType = :sourceType and i.sourceId = :sourceId
+              and i.status <> com.company.erp.finance.domain.DebtItemStatus.REVERSED
             order by i.id
             """)
     List<DebtItem> findBySourceForUpdate(@Param("companyId") Long companyId, @Param("sourceType") String sourceType,

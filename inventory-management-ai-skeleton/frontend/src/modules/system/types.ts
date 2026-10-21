@@ -164,8 +164,7 @@ export interface DocumentNumberFormat {
   version: number;
 }
 
-/** Phê duyệt (1D, BR-SYS-11). */
-export type ApprovalMode = 'NONE' | 'CONFIGURED' | 'REQUIRED';
+/** Lịch sử phê duyệt của chứng từ lập trước D-61 (chỉ đọc; hệ thống không còn bước duyệt). */
 export type ApproverType = 'ROLE' | 'USER';
 export type ApprovalRequestStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
 export type ApprovalActionType = 'SUBMIT' | 'APPROVE' | 'REJECT' | 'CANCEL';
@@ -174,8 +173,6 @@ export interface DocumentType {
   code: string;
   module: string;
   name: string;
-  approvalMode: ApprovalMode;
-  selfApprovalAllowed: boolean;
   version: number;
   updatedAt: string | null;
 }
@@ -187,21 +184,6 @@ export interface ApprovalStep {
   roleName: string | null;
   userId: number | null;
   userName: string | null;
-}
-
-export interface ApprovalWorkflow {
-  id: number;
-  companyId: number;
-  documentType: string;
-  name: string;
-  branchId: number | null;
-  minAmount: number | null;
-  minDiscountPercent: number | null;
-  priority: number;
-  status: RecordStatus;
-  steps: ApprovalStep[];
-  version: number;
-  updatedAt: string;
 }
 
 export interface ApprovalAction {
@@ -230,21 +212,6 @@ export interface ApprovalRequest {
   completedAt: string | null;
   steps: ApprovalStep[];
   actions: ApprovalAction[];
-}
-
-export interface Delegation {
-  id: number;
-  companyId: number;
-  delegatorUserId: number;
-  delegatorUsername: string | null;
-  delegateUserId: number;
-  delegateUsername: string | null;
-  documentType: string | null;
-  validFrom: string;
-  validTo: string;
-  status: 'ACTIVE' | 'REVOKED';
-  effective: boolean;
-  reason: string | null;
 }
 
 export interface AppNotification {

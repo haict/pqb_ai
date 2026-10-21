@@ -71,7 +71,7 @@ public class StockCountLine {
         this.note = note;
     }
 
-    /** Chênh lệch; dòng chưa đếm coi như không chênh lệch thì sai, nên bắt buộc đếm đủ trước khi gửi duyệt. */
+    /** Chênh lệch; dòng chưa đếm coi như không chênh lệch thì sai, nên bắt buộc đếm đủ trước khi ghi sổ. */
     public BigDecimal difference() {
         return countedQuantity == null ? BigDecimal.ZERO : countedQuantity.subtract(snapshotQuantity);
     }

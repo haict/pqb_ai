@@ -59,7 +59,7 @@ function editValues(document: InventoryDocument): Partial<DocumentFormValues> {
   };
 }
 
-/** Chi tiết chứng từ kho: thông tin chung, dòng hàng, sổ kho đã ghi, lịch sử duyệt, chứng từ liên quan. */
+/** Chi tiết chứng từ kho: thông tin chung, dòng hàng, sổ kho đã ghi, lịch sử duyệt (trước D-61), chứng từ liên quan. */
 export function InventoryDocumentDetailPage() {
   const { id } = useParams();
   const documentId = Number(id);
@@ -264,11 +264,15 @@ export function InventoryDocumentDetailPage() {
               />
             ),
           },
-          {
-            key: 'approvals',
-            label: 'Lịch sử duyệt',
-            children: <ApprovalHistory requests={document.approvals} />,
-          },
+          ...(document.approvals.length > 0
+            ? [
+                {
+                  key: 'approvals',
+                  label: 'Lịch sử duyệt',
+                  children: <ApprovalHistory requests={document.approvals} />,
+                },
+              ]
+            : []),
         ]}
       />
       <FormModal<DocumentFormValues>

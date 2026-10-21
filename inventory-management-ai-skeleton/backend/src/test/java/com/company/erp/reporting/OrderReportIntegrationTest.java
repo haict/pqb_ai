@@ -47,9 +47,8 @@ class OrderReportIntegrationTest extends ReportIntegrationSupport {
                 + "\"purpose\":\"CUSTOMER_RECEIPT\",\"documentDate\":\"" + DATE + "\",\"cashAccountId\":" + cash
                 + ",\"partnerId\":" + customer + ",\"allocationMode\":\"MANUAL\",\"amount\":200000,\"lines\":[{"
                 + "\"debtItemId\":" + debtItem + ",\"amount\":200000}]}").andExpect(status().isCreated()).andReturn());
-        act(clerk, "/api/v1/cash-documents", receipt, "submit");
         act(cashier, "/api/v1/cash-documents", receipt, "post").andExpect(status().isOk());
-        long pending = approvedOrder(customer, item, "9", ",\"expectedDate\":\"2026-10-06\"");
+        long pending = draftOrder(customer, item, "9", ",\"expectedDate\":\"2026-10-06\"");
 
         String soldRow = "$.data.rows[?(@.documentId == " + sold + ")]";
         String pendingRow = "$.data.rows[?(@.documentId == " + pending + ")]";
@@ -60,7 +59,7 @@ class OrderReportIntegrationTest extends ReportIntegrationSupport {
                 .andExpect(jsonPath(soldRow + ".returnedAmount").value(contains(100000.0)))
                 .andExpect(jsonPath(soldRow + ".paidAmount").value(contains(200000.0)))
                 .andExpect(jsonPath(soldRow + ".remainingAmount").value(contains(100000.0)))
-                .andExpect(jsonPath(pendingRow + ".status").value(contains("APPROVED")))
+                .andExpect(jsonPath(pendingRow + ".status").value(contains("DRAFT")))
                 .andExpect(jsonPath("$.data.generatedAt").isNotEmpty());
         if (LocalDate.now().isAfter(LocalDate.parse("2026-10-07"))) {
             mockMvc.perform(report(salesManager, "/sales-order-progress").param("customerId", String.valueOf(customer))

@@ -6,7 +6,6 @@ import com.company.erp.common.application.IdempotentCommand;
 import com.company.erp.common.domain.BusinessException;
 import com.company.erp.common.domain.ErrorCode;
 import com.company.erp.common.domain.QualityStatus;
-import com.company.erp.inventory.application.dto.CommentRequest;
 import com.company.erp.inventory.application.dto.CountedLineRequest;
 import com.company.erp.inventory.application.dto.CountedLinesRequest;
 import com.company.erp.inventory.application.dto.ReasonRequest;
@@ -35,7 +34,6 @@ import com.company.erp.masterdata.application.MasterDataQueryService.LocationInf
 import com.company.erp.masterdata.application.MasterDataQueryService.ProductInfo;
 import com.company.erp.masterdata.application.MasterDataQueryService.WarehouseInfo;
 import com.company.erp.system.application.ApprovalService;
-import com.company.erp.system.application.ApprovalSubmission;
 import com.company.erp.system.application.CurrentUser;
 import jakarta.persistence.criteria.Predicate;
 import java.math.BigDecimal;
@@ -57,7 +55,7 @@ import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Kiểm kê kho (BR-INV-31, D-11): bắt đầu đếm chụp tồn và khóa nhập xuất của kho; nhập số đếm; gửi duyệt; ghi sổ sinh
+ * Kiểm kê kho (BR-INV-31, D-11): bắt đầu đếm chụp tồn và khóa nhập xuất của kho; nhập số đếm; ghi sổ (D-61 không qua duyệt) sinh
  * phiếu điều chỉnh (PDC, loại COUNT) cho phần chênh lệch rồi mở khóa kho; hủy cũng mở khóa.
  */
 @Service
@@ -198,56 +196,10 @@ public class StockCountService {
         return toResponse(count, true);
     }
 
-    @Transactional
-    public StockCountResponse submit(CurrentUser actor, Long id, String idempotencyKey) {
-        IdempotentCommand command = new IdempotentCommand(actor.id(), idempotencyKey,
-                "POST /api/v1/stock-counts/" + id + "/submit", id);
-        return idempotency.execute(command, StockCountResponse.class, () -> {
-            StockCount count = lockVisible(actor, id);
-            access.requirePermission(actor, PERMISSION_PREFIX + "create");
-            Instant now = Instant.now(clock);
-            count.submit(actor.id(), now);
-            boolean required = approvalService.submit(actor, new ApprovalSubmission(count.getCompanyId(),
-                    count.getBranchId(), DOCUMENT_TYPE, count.getId(), count.getDocumentNo(), null, null))
-                    .approvalRequired();
-            if (!required) {
-                count.approve(actor.id(), now);
-            }
-            return act(actor, count, "SUBMIT", null);
-        });
-    }
-
-    @Transactional
-    public StockCountResponse approve(CurrentUser actor, Long id, String idempotencyKey, CommentRequest request) {
-        IdempotentCommand command = new IdempotentCommand(actor.id(), idempotencyKey,
-                "POST /api/v1/stock-counts/" + id + "/approve", request);
-        return idempotency.execute(command, StockCountResponse.class, () -> {
-            StockCount count = lockVisible(actor, id);
-            access.requirePermission(actor, PERMISSION_PREFIX + "approve");
-            requireStatus(count, StockCountStatus.SUBMITTED, "duyệt");
-            String comment = request == null ? null : request.comment();
-            if (approvalService.approve(actor, DOCUMENT_TYPE, id, comment).completed()) {
-                count.approve(actor.id(), Instant.now(clock));
-            }
-            return act(actor, count, "APPROVE", comment);
-        });
-    }
-
-    @Transactional
-    public StockCountResponse reject(CurrentUser actor, Long id, String idempotencyKey, ReasonRequest request) {
-        IdempotentCommand command = new IdempotentCommand(actor.id(), idempotencyKey,
-                "POST /api/v1/stock-counts/" + id + "/reject", request);
-        return idempotency.execute(command, StockCountResponse.class, () -> {
-            StockCount count = lockVisible(actor, id);
-            access.requirePermission(actor, PERMISSION_PREFIX + "approve");
-            requireStatus(count, StockCountStatus.SUBMITTED, "từ chối");
-            approvalService.reject(actor, DOCUMENT_TYPE, id, request.reason());
-            count.reject();
-            return act(actor, count, "REJECT", request.reason());
-        });
-    }
-
-    /** Ghi sổ: sinh PDC (COUNT) đã duyệt theo chênh lệch, ghi sổ trong cùng transaction, mở khóa kho. */
+    /**
+     * Ghi sổ khi đã đếm đủ (D-61 không qua duyệt; phiếu đã duyệt trước D-61 vẫn ghi sổ được): sinh PDC (COUNT) theo
+     * chênh lệch, ghi sổ trong cùng transaction, mở khóa kho.
+     */
     @Transactional(isolation = Isolation.READ_COMMITTED)
     public StockCountResponse post(CurrentUser actor, Long id, String idempotencyKey) {
         IdempotentCommand command = new IdempotentCommand(actor.id(), idempotencyKey,
@@ -255,7 +207,6 @@ public class StockCountService {
         return idempotency.execute(command, StockCountResponse.class, () -> {
             StockCount count = lockVisible(actor, id);
             access.requirePermission(actor, PERMISSION_PREFIX + "post");
-            requireStatus(count, StockCountStatus.APPROVED, "ghi sổ");
             Instant now = Instant.now(clock);
             Long adjustmentId = postAdjustment(actor, count, now);
             count.markPosted(actor.id(), now, adjustmentId);
@@ -271,6 +222,7 @@ public class StockCountService {
         return idempotency.execute(command, StockCountResponse.class, () -> {
             StockCount count = lockVisible(actor, id);
             access.requirePermission(actor, PERMISSION_PREFIX + "create");
+            // Phiếu gửi duyệt trước D-61: đóng yêu cầu duyệt còn treo để lịch sử duyệt nhất quán.
             if (count.getStatus() == StockCountStatus.SUBMITTED) {
                 approvalService.cancelPending(actor, DOCUMENT_TYPE, id, request.reason());
             }
@@ -313,10 +265,8 @@ public class StockCountService {
                         null, null, count.getId(), null, null));
         adjustment.replaceLines(lines);
         documentRepository.saveAndFlush(adjustment);
-        // Phiếu kiểm kê đã được duyệt nên phiếu điều chỉnh sinh ra không qua luồng duyệt riêng (BR-INV-31).
-        adjustment.submit(actor.id(), now);
-        adjustment.approve(actor.id(), now);
-        documentPosting.postApproved(adjustment, actor.id());
+        // Phiếu điều chỉnh sinh từ kiểm kê ghi sổ cùng lúc với phiếu kiểm kê (BR-INV-31).
+        documentPosting.postDocument(adjustment, actor.id());
         documentRepository.saveAndFlush(adjustment);
         access.audit(actor, "POST", InventoryAccess.ENTITY_DOCUMENT, adjustment.getId(), adjustment.getDocumentNo(),
                 "Sinh từ " + count.getDocumentNo(), null, null, adjustment.getCompanyId(), adjustment.getBranchId());
@@ -395,13 +345,6 @@ public class StockCountService {
             throw BusinessException.notFound();
         }
         access.requirePermission(actor, PERMISSION_PREFIX + "view");
-    }
-
-    private static void requireStatus(StockCount count, StockCountStatus status, String action) {
-        if (count.getStatus() != status) {
-            throw new BusinessException(ErrorCode.INVALID_DOCUMENT_STATE, "Phiếu kiểm kê " + count.getDocumentNo()
-                    + " ở trạng thái " + count.getStatus() + ", không " + action + " được.");
-        }
     }
 
     private StockCountResponse toResponse(StockCount count, boolean detailed) {

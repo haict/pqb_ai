@@ -88,10 +88,9 @@ abstract class FinanceIntegrationSupport {
                 .andReturn());
     }
 
-    /** Chứng từ thu chi đã gửi và ghi sổ (dưới ngưỡng duyệt). */
+    /** Chứng từ thu chi đã ghi sổ (dưới ngưỡng chi). */
     long postedCash(String body) throws Exception {
         long id = jsonId(send(clerk, post(CASH_DOCS), body, newKey()).andExpect(status().isCreated()).andReturn());
-        act(clerk, CASH_DOCS, id, "submit", null).andExpect(jsonPath("$.data.status").value("APPROVED"));
         act(cashier, CASH_DOCS, id, "post", null).andExpect(status().isOk());
         return id;
     }

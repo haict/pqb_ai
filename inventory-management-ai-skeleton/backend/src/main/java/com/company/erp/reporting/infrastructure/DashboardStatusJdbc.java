@@ -93,26 +93,26 @@ public class DashboardStatusJdbc {
                 rs.getDate("expiry_date").toLocalDate(), rs.getBigDecimal("on_hand")));
     }
 
-    /** Đơn mua đã gửi / duyệt chưa ghi sổ (sau D-54 ghi sổ = nhập kho đủ). */
+    /** Đơn mua nháp (và đã duyệt trước D-61) chưa ghi sổ (sau D-54 ghi sổ = nhập kho đủ). */
     public List<OpenOrder> openPurchaseOrders(Scope scope) {
         String sql = """
                 SELECT h.id, h.document_no, h.document_date, p.code, p.name, h.status, NULL AS delivery_status,
                        h.expected_date, h.total_amount * h.exchange_rate AS total_amount
                 FROM purchase_orders h JOIN partners p ON p.id = h.supplier_id
-                WHERE h.company_id = :companyId AND h.status IN ('SUBMITTED', 'APPROVED')%s%s
+                WHERE h.company_id = :companyId AND h.status IN ('DRAFT', 'APPROVED')%s%s
                 ORDER BY h.document_date, h.document_no
                 """.formatted(branches(scope, "h"), scope.ownerId() == null ? "" : " AND h.created_by = :ownerId");
         return jdbc.query(sql, params(scope), DashboardStatusJdbc::openOrder);
     }
 
-    /** Đơn bán đã gửi / duyệt chưa ghi sổ (chưa xuất) và đơn đã ghi sổ khách chưa nhận. */
+    /** Đơn bán nháp (và đã duyệt trước D-61) chưa ghi sổ (chưa xuất) và đơn đã ghi sổ khách chưa nhận. */
     public List<OpenOrder> openSalesOrders(Scope scope) {
         String sql = """
                 SELECT h.id, h.document_no, h.document_date, p.code, p.name, h.status, h.delivery_status,
                        h.expected_date, h.total_amount
                 FROM sales_orders h JOIN partners p ON p.id = h.customer_id
                 WHERE h.company_id = :companyId
-                  AND (h.status IN ('SUBMITTED', 'APPROVED') OR (h.status = 'POSTED' AND h.delivery_status <> 'DELIVERED'))
+                  AND (h.status IN ('DRAFT', 'APPROVED') OR (h.status = 'POSTED' AND h.delivery_status <> 'DELIVERED'))
                   %s%s
                 ORDER BY h.document_date, h.document_no
                 """.formatted(branches(scope, "h"),

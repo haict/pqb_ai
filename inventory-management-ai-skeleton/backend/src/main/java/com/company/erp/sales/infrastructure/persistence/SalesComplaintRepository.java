@@ -16,4 +16,6 @@ public interface SalesComplaintRepository extends JpaRepository<SalesComplaint, 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select c from SalesComplaint c where c.id = :id")
     Optional<SalesComplaint> findByIdForUpdate(@Param("id") Long id);
+
+    boolean existsBySalesOrderId(Long salesOrderId);
 }

@@ -45,14 +45,10 @@ import { PartnersPage } from '../modules/masterdata/pages/PartnersPage';
 import { PriceListsPage } from '../modules/masterdata/pages/PriceListsPage';
 import { ProductsPage } from '../modules/masterdata/pages/ProductsPage';
 import { WarehousesPage } from '../modules/masterdata/pages/WarehousesPage';
-import { ApprovalsPage } from '../modules/system/pages/ApprovalsPage';
-import { ApprovalWorkflowsPage } from '../modules/system/pages/ApprovalWorkflowsPage';
 import { BranchesPage } from '../modules/system/pages/BranchesPage';
 import { ChangePasswordPage } from '../modules/system/pages/ChangePasswordPage';
 import { CompaniesPage } from '../modules/system/pages/CompaniesPage';
-import { DelegationsPage } from '../modules/system/pages/DelegationsPage';
 import { DepartmentsPage } from '../modules/system/pages/DepartmentsPage';
-import { DocumentTypesPage } from '../modules/system/pages/DocumentTypesPage';
 import { DocumentNumberFormatsPage } from '../modules/system/pages/DocumentNumberFormatsPage';
 import { FiscalPeriodsPage } from '../modules/system/pages/FiscalPeriodsPage';
 import { LoginLogsPage } from '../modules/system/pages/LoginLogsPage';
@@ -94,7 +90,6 @@ export const router = createBrowserRouter([
     ),
     children: [
       { index: true, element: <HomePage /> },
-      { path: 'approvals', element: <ApprovalsPage /> },
       { path: 'inventory/stock', element: guarded('inventory:view', <StockPage />) },
       { path: 'purchasing/orders', element: guarded('purchase-order:view', <PurchaseOrdersPage />) },
       { path: 'purchasing/returns', element: guarded('purchase-return:view', <PurchaseReturnsPage />) },
@@ -186,12 +181,6 @@ export const router = createBrowserRouter([
         element: guarded('compliance:view', <ComplianceDocumentsPage />),
       },
       { path: 'masterdata/catalogs', element: guarded('catalog:view', <CatalogsPage />) },
-      { path: 'approval-delegations', element: <DelegationsPage /> },
-      { path: 'system/document-types', element: guarded('approval-workflow:view', <DocumentTypesPage />) },
-      {
-        path: 'system/approval-workflows',
-        element: guarded('approval-workflow:view', <ApprovalWorkflowsPage />),
-      },
       { path: 'system/companies', element: guarded('company:view', <CompaniesPage />) },
       { path: 'system/branches', element: guarded('branch:view', <BranchesPage />) },
       { path: 'system/departments', element: guarded('department:view', <DepartmentsPage />) },

@@ -2,12 +2,10 @@ package com.company.erp.system.application;
 
 import com.company.erp.system.application.dto.ApprovalRequestResponse;
 import com.company.erp.system.application.dto.ApprovalStepResponse;
-import com.company.erp.system.application.dto.ApprovalWorkflowResponse;
 import com.company.erp.system.domain.ApprovalAction;
 import com.company.erp.system.domain.ApprovalRequest;
 import com.company.erp.system.domain.ApprovalRequestStatus;
 import com.company.erp.system.domain.ApprovalStepDefinition;
-import com.company.erp.system.domain.ApprovalWorkflow;
 import com.company.erp.system.domain.Role;
 import com.company.erp.system.domain.User;
 import com.company.erp.system.infrastructure.persistence.ApprovalActionRepository;
@@ -21,7 +19,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.springframework.stereotype.Component;
 
-/** Chuyển yêu cầu duyệt, luồng duyệt sang DTO kèm tên người, tên vai trò (nạp theo lô, tránh N+1). */
+/** Chuyển yêu cầu duyệt (lịch sử trước D-61) sang DTO kèm tên người, tên vai trò (nạp theo lô, tránh N+1). */
 @Component
 class ApprovalResponseMapper {
 
@@ -55,16 +53,6 @@ class ApprovalResponseMapper {
         return requests.stream()
                 .map(request -> toResponse(request, actions.getOrDefault(request.getId(), List.of()), users, roles))
                 .toList();
-    }
-
-    ApprovalWorkflowResponse toResponse(ApprovalWorkflow workflow) {
-        List<ApprovalStepDefinition> steps = workflow.getSteps();
-        Map<Long, String> users = userNames(steps.stream().map(ApprovalStepDefinition::getUserId)
-                .filter(Objects::nonNull).collect(Collectors.toSet()));
-        return new ApprovalWorkflowResponse(workflow.getId(), workflow.getCompanyId(), workflow.getDocumentType(),
-                workflow.getName(), workflow.getBranchId(), workflow.getMinAmount(), workflow.getMinDiscountPercent(),
-                workflow.getPriority(), workflow.getStatus(), toStepResponses(steps, users, roleNames(steps)),
-                workflow.getVersion(), workflow.getUpdatedAt());
     }
 
     private ApprovalRequestResponse toResponse(ApprovalRequest request, List<ApprovalAction> actions,

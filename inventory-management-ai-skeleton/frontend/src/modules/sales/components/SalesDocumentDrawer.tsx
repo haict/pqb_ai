@@ -1,6 +1,6 @@
 import { EditOutlined } from '@ant-design/icons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Button, Drawer, Space, Typography } from 'antd';
+import { Button, Drawer, Space } from 'antd';
 import type { ReactNode } from 'react';
 import { useCan } from '../../../shared/auth/authContext';
 import { DocumentActions } from '../../inventory/components/DocumentActions';
@@ -30,7 +30,7 @@ interface Props<T extends SalesDocumentBase> {
 
 /**
  * Drawer chi tiết chứng từ bán hàng: trạng thái, nút thao tác theo trạng thái và quyền (server vẫn kiểm tra), nội dung
- * riêng, lịch sử duyệt.
+ * riêng, lịch sử duyệt (chứng từ trước D-61).
  */
 export function SalesDocumentDrawer<T extends SalesDocumentBase>(props: Props<T>) {
   const {
@@ -52,7 +52,7 @@ export function SalesDocumentDrawer<T extends SalesDocumentBase>(props: Props<T>
   const queryClient = useQueryClient();
   const query = useQuery({ queryKey: [queryKey, id], queryFn: () => load(id) });
   const document = query.data;
-  const editable = document && (document.status === 'DRAFT' || document.status === 'REJECTED');
+  const editable = document?.status === 'DRAFT';
   return (
     <Drawer open width={1100} title={document ? title(document) : ''} onClose={onClose}>
       {document && (
@@ -78,9 +78,6 @@ export function SalesDocumentDrawer<T extends SalesDocumentBase>(props: Props<T>
             </Space>
           </Space>
           {children(document)}
-          <Typography.Title level={5} style={{ marginTop: 16 }}>
-            Lịch sử duyệt
-          </Typography.Title>
           <ApprovalHistory requests={document.approvals} />
         </>
       )}

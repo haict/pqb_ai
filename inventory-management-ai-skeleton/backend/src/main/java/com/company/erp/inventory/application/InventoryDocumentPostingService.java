@@ -72,11 +72,7 @@ public class InventoryDocumentPostingService {
         return idempotency.execute(command, InventoryDocumentResponse.class, () -> {
             InventoryDocument document = documentService.lockVisible(actor, id);
             access.requirePermission(actor, document.getDocumentType().permission("post"));
-            if (document.getStatus() != InventoryDocumentStatus.APPROVED) {
-                throw new BusinessException(ErrorCode.INVALID_DOCUMENT_STATE, "Chứng từ " + document.getDocumentNo()
-                        + " ở trạng thái " + document.getStatus() + ", chỉ ghi sổ chứng từ đã duyệt.");
-            }
-            postApproved(document, actor.id());
+            postDocument(document, actor.id());
             documentRepository.saveAndFlush(document);
             InventoryDocumentResponse response = mapper.toResponse(document, actor);
             documentService.audit(actor, "POST", document, null, null, response.transactions());
@@ -118,10 +114,11 @@ public class InventoryDocumentPostingService {
     }
 
     /**
-     * Ghi sổ chứng từ đã duyệt; dùng cả cho chứng từ do hệ thống sinh (điều chỉnh từ kiểm kê). Phải gọi trong
-     * transaction READ COMMITTED đã khóa chứng từ.
+     * Ghi sổ chứng từ nháp (D-61, hoặc đã duyệt trước D-61); dùng cả cho chứng từ do hệ thống sinh (nhập / xuất theo
+     * đơn, điều chỉnh từ kiểm kê). Phải gọi trong transaction READ COMMITTED đã khóa chứng từ.
      */
-    void postApproved(InventoryDocument document, Long actorId) {
+    void postDocument(InventoryDocument document, Long actorId) {
+        document.requirePostable();
         Instant now = Instant.now(clock);
         switch (document.getDocumentType()) {
             case PCK -> postTransfer(document, actorId, now);

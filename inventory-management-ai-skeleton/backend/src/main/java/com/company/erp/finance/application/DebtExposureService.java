@@ -15,7 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * API công khai đọc mức công nợ của một đối tượng cho module khác: kiểm tra hạn mức tín dụng khi gửi duyệt đơn bán
+ * API công khai đọc mức công nợ của một đối tượng cho module khác: kiểm tra hạn mức tín dụng khi lưu / ghi sổ đơn bán
  * (BR-SAL-14, D-22). Tính từ sổ công nợ (khoản chưa đảo), toàn công ty.
  */
 @Service

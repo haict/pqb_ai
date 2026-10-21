@@ -106,7 +106,7 @@ public class DebtOpeningController {
         return ApiResponse.ok(service.create(user, idempotencyKey, request));
     }
 
-    @Operation(summary = "Sửa (DRAFT, REJECTED)", description = "Gửi version; đã đổi: 409 CONCURRENT_MODIFICATION.")
+    @Operation(summary = "Sửa (DRAFT)", description = "Gửi version; đã đổi: 409 CONCURRENT_MODIFICATION.")
     @PutMapping("/{id}")
     @PreAuthorize("hasAuthority('debt-opening:create')")
     public ApiResponse<DebtOpeningResponse> update(@AuthenticationPrincipal CurrentUser user, @PathVariable Long id,

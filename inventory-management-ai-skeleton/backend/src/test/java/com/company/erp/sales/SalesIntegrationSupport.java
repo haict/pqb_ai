@@ -15,6 +15,7 @@ import java.math.BigDecimal;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
@@ -96,7 +97,6 @@ abstract class SalesIntegrationSupport {
                 + "\",\"expiryDate\":\"" + expiry + "\"}]}";
         long document = jsonId(send(keeper, post("/api/v1/inventory-documents"), body, newKey())
                 .andExpect(status().isCreated()).andReturn());
-        act(keeper, "/api/v1/inventory-documents", document, "submit", null);
         act(keeper, "/api/v1/inventory-documents", document, "post", null)
                 .andExpect(jsonPath("$.data.status").value("POSTED"));
     }
@@ -121,25 +121,26 @@ abstract class SalesIntegrationSupport {
                 + (serials == null ? "" : ",\"serialNumbers\":[\"" + String.join("\",\"", serials) + "\"]") + "}]}";
         long document = jsonId(send(keeper, post("/api/v1/inventory-documents"), body, newKey())
                 .andExpect(status().isCreated()).andReturn());
-        act(keeper, "/api/v1/inventory-documents", document, "submit", null);
         act(keeper, "/api/v1/inventory-documents", document, "post", null)
                 .andExpect(jsonPath("$.data.status").value("POSTED"));
     }
 
-    /** Gửi duyệt đơn bán; khách mẫu dùng chung có thể có nợ quá hạn từ test khác nên duyệt khi đơn phải duyệt. */
-    void submitAndApproveOrder(long order) throws Exception {
-        String status = json(act(manager, ORDERS, order, "submit", null).andExpect(status().isOk()).andReturn(),
-                "$.data.status");
-        if ("SUBMITTED".equals(status)) {
-            act(manager, ORDERS, order, "approve", "{}").andExpect(jsonPath("$.data.status").value("APPROVED"));
+    /**
+     * Ghi sổ đơn bán bởi {@code poster}. Khách mẫu dùng chung có thể có nợ quá hạn từ test khác: khi cần thẩm quyền
+     * (D-61, 422 giá / tín dụng) thì Trưởng phòng kinh doanh (có quyền vượt) ghi sổ.
+     */
+    ResultActions postWithAuthority(Session poster, long order) throws Exception {
+        ResultActions result = act(poster, ORDERS, order, "post", null);
+        if (result.andReturn().getResponse().getStatus() == HttpStatus.UNPROCESSABLE_ENTITY.value()) {
+            return act(manager, ORDERS, order, "post", null);
         }
+        return result;
     }
 
-    /** Lập (người lập {@code creator}), gửi duyệt / duyệt và ghi sổ đơn bán (thủ kho); trả id. */
+    /** Lập (người lập {@code creator}) và ghi sổ đơn bán (thủ kho, hoặc người có thẩm quyền khi cần); trả id. */
     long postedOrder(Session creator, String body) throws Exception {
         long order = jsonId(send(creator, post(ORDERS), body, newKey()).andExpect(status().isCreated()).andReturn());
-        submitAndApproveOrder(order);
-        act(keeper, ORDERS, order, "post", null).andExpect(jsonPath("$.data.status").value("POSTED"));
+        postWithAuthority(keeper, order).andExpect(jsonPath("$.data.status").value("POSTED"));
         return order;
     }
 

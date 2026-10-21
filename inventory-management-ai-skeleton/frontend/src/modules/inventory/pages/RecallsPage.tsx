@@ -32,7 +32,7 @@ import { DocumentStatusTag } from '../components/StatusTags';
 import type { Lot, Recall, RecallCustomer, RecallStatus, Serial } from '../types';
 import { BRANCH_VISIBLE } from '../../../shared/branch';
 
-const STATUSES: RecallStatus[] = ['DRAFT', 'SUBMITTED', 'REJECTED', 'ACTIVE', 'CLOSED', 'CANCELLED'];
+const STATUSES: RecallStatus[] = ['DRAFT', 'ACTIVE', 'CLOSED', 'CANCELLED'];
 
 interface RecallForm {
   branchId: number;
@@ -43,14 +43,15 @@ interface RecallForm {
   reason: string;
 }
 
+/** Không qua duyệt (D-61): người có quyền recall:manage kích hoạt từ nháp; phiếu chờ duyệt / bị từ chối cũ chỉ còn hủy. */
 function recallActions(status: RecallStatus, can: (permission: string) => boolean): string[] {
-  const create = can('recall:create');
-  const approve = can('recall:approve');
+  const cancel = can('recall:create') ? ['cancel'] : [];
+  const manage = can('recall:manage');
   const actions: Record<RecallStatus, string[]> = {
-    DRAFT: create ? ['submit', 'cancel'] : [],
-    REJECTED: create ? ['submit', 'cancel'] : [],
-    SUBMITTED: [...(approve ? ['approve', 'reject'] : []), ...(create ? ['cancel'] : [])],
-    ACTIVE: approve ? ['close'] : [],
+    DRAFT: [...(manage ? ['activate'] : []), ...cancel],
+    REJECTED: cancel,
+    SUBMITTED: cancel,
+    ACTIVE: manage ? ['close'] : [],
     CLOSED: [],
     CANCELLED: [],
   };
@@ -114,9 +115,6 @@ function RecallDrawer({ id, onClose }: { id: number; onClose(): void }) {
             dataSource={recall.customers}
             columns={columns}
           />
-          <Typography.Title level={5} style={{ marginTop: 24 }}>
-            Lịch sử duyệt
-          </Typography.Title>
           <ApprovalHistory requests={recall.approvals} />
         </>
       )}

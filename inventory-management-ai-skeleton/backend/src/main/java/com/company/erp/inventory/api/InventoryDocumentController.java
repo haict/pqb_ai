@@ -6,7 +6,6 @@ import com.company.erp.common.application.IdempotentCommand;
 import com.company.erp.inventory.application.InventoryDocumentPostingService;
 import com.company.erp.inventory.application.InventoryDocumentService;
 import com.company.erp.inventory.application.OpeningStockImportService;
-import com.company.erp.inventory.application.dto.CommentRequest;
 import com.company.erp.inventory.application.dto.InventoryDocumentRequest;
 import com.company.erp.inventory.application.dto.InventoryDocumentResponse;
 import com.company.erp.inventory.application.dto.InventoryDocumentSummary;
@@ -108,7 +107,8 @@ public class InventoryDocumentController {
         return ApiResponse.ok(PageResponse.from(documentService.search(user, filter, pageable), Function.identity()));
     }
 
-    @Operation(summary = "Chi tiết", description = "Gồm dòng, sổ nhật ký kho đã ghi, lịch sử duyệt, hành động được phép.")
+    @Operation(summary = "Chi tiết", description = "Gồm dòng, sổ nhật ký kho đã ghi, lịch sử duyệt (chứng từ trước D-61), "
+            + "hành động được phép.")
     @GetMapping("/{id}")
     public ApiResponse<InventoryDocumentResponse> get(@AuthenticationPrincipal CurrentUser user,
                                                       @PathVariable Long id) {
@@ -124,32 +124,11 @@ public class InventoryDocumentController {
         return ApiResponse.ok(documentService.create(user, idempotencyKey, request));
     }
 
-    @Operation(summary = "Sửa", description = "Chỉ ở DRAFT/REJECTED; gửi version đã đọc (409 khi đã đổi).")
+    @Operation(summary = "Sửa", description = "Chỉ ở DRAFT; gửi version đã đọc (409 khi đã đổi).")
     @PutMapping("/{id}")
     public ApiResponse<InventoryDocumentResponse> update(@AuthenticationPrincipal CurrentUser user,
             @PathVariable Long id, @Valid @RequestBody InventoryDocumentRequest request) {
         return ApiResponse.ok(documentService.update(user, id, request));
-    }
-
-    @Operation(summary = "Gửi duyệt", description = "Loại không cần duyệt hoặc không có luồng khớp: chuyển APPROVED.")
-    @PostMapping("/{id}/submit")
-    public ApiResponse<InventoryDocumentResponse> submit(@AuthenticationPrincipal CurrentUser user,
-            @PathVariable Long id, @RequestHeader(IdempotentCommand.HEADER) String idempotencyKey) {
-        return ApiResponse.ok(documentService.submit(user, id, idempotencyKey));
-    }
-
-    @PostMapping("/{id}/approve")
-    public ApiResponse<InventoryDocumentResponse> approve(@AuthenticationPrincipal CurrentUser user,
-            @PathVariable Long id, @RequestHeader(IdempotentCommand.HEADER) String idempotencyKey,
-            @Valid @RequestBody(required = false) CommentRequest request) {
-        return ApiResponse.ok(documentService.approve(user, id, idempotencyKey, request));
-    }
-
-    @PostMapping("/{id}/reject")
-    public ApiResponse<InventoryDocumentResponse> reject(@AuthenticationPrincipal CurrentUser user,
-            @PathVariable Long id, @RequestHeader(IdempotentCommand.HEADER) String idempotencyKey,
-            @Valid @RequestBody ReasonRequest request) {
-        return ApiResponse.ok(documentService.reject(user, id, idempotencyKey, request));
     }
 
     @PostMapping("/{id}/cancel")
@@ -159,7 +138,8 @@ public class InventoryDocumentController {
         return ApiResponse.ok(documentService.cancel(user, id, idempotencyKey, request));
     }
 
-    @Operation(summary = "Ghi sổ", description = "Kiểm tra kỳ, kiểm kê, tồn khả dụng tại thời điểm ghi sổ (422 "
+    @Operation(summary = "Ghi sổ", description = "Từ DRAFT (hoặc APPROVED trước D-61). Kiểm tra kỳ, kiểm kê, tồn "
+            + "khả dụng tại thời điểm ghi sổ (422 "
             + "INSUFFICIENT_STOCK, PERIOD_LOCKED, LOT_EXPIRED, STOCK_COUNT_IN_PROGRESS...).")
     @PostMapping("/{id}/post")
     public ApiResponse<InventoryDocumentResponse> post(@AuthenticationPrincipal CurrentUser user,
@@ -175,8 +155,8 @@ public class InventoryDocumentController {
         return ApiResponse.ok(postingService.receive(user, id, idempotencyKey, request));
     }
 
-    @Operation(summary = "Lập chứng từ đảo", description = "Trả chứng từ đảo (PDK) đã gửi duyệt; chứng từ gốc chuyển "
-            + "REVERSED khi PDK được ghi sổ.")
+    @Operation(summary = "Lập chứng từ đảo", description = "Trả chứng từ đảo (PDK) ở trạng thái nháp (D-61 không qua "
+            + "duyệt); chứng từ gốc chuyển REVERSED khi PDK được ghi sổ.")
     @PostMapping("/{id}/reverse")
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<InventoryDocumentResponse> reverse(@AuthenticationPrincipal CurrentUser user,

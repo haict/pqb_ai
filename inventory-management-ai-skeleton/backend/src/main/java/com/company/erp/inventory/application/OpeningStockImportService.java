@@ -36,7 +36,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 /**
  * Nhập tồn kho đầu kỳ từ Excel (BR-INV-03, BR-UX-05): mỗi kho trong file thành một phiếu nhập kho nghiệp vụ
- * {@code OPENING} ở trạng thái nháp, sau đó gửi duyệt / ghi sổ như phiếu lập tay. Có lỗi ở bất kỳ dòng nào thì
+ * {@code OPENING} ở trạng thái nháp, sau đó ghi sổ như phiếu lập tay. Có lỗi ở bất kỳ dòng nào thì
  * không lập phiếu nào; lỗi báo theo dòng Excel.
  */
 @Service

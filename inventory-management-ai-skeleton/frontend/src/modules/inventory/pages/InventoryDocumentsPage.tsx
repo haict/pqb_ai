@@ -182,7 +182,7 @@ export function InventoryDocumentsPage({ opening = false }: { opening?: boolean 
             documentApi.importOpening(file, companyId, importDate.format('YYYY-MM-DD'), key)
           }
           successMessage={(result) =>
-            `Đã nhập ${result.created} dòng, lập phiếu nháp ${result.documentNos.join(', ')}. Kiểm tra rồi gửi duyệt, ghi sổ.`
+            `Đã nhập ${result.created} dòng, lập phiếu nháp ${result.documentNos.join(', ')}. Kiểm tra rồi ghi sổ.`
           }
           onDone={() => void queryClient.invalidateQueries({ queryKey: ['inventory-documents'] })}
           onClose={() => setImporting(false)}

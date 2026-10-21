@@ -17,7 +17,7 @@ import java.time.LocalDate;
 
 /**
  * Biên bản đối chiếu công nợ (BBDC, BR-AR-06): chốt số dư hệ thống tại ngày đối chiếu, ghi nhận số đối tượng xác nhận.
- * Lệch thì xử lý bằng chứng từ điều chỉnh công nợ có duyệt (BR-AR-07), không sửa số dư.
+ * Lệch thì xử lý bằng chứng từ điều chỉnh công nợ (BR-AR-07), không sửa số dư.
  */
 @Entity
 @Table(name = "debt_reconciliations")

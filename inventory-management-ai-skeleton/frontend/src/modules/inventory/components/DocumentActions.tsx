@@ -2,19 +2,18 @@ import {
   BookOutlined,
   CarOutlined,
   CheckOutlined,
-  CloseOutlined,
   ImportOutlined,
   InboxOutlined,
   LockOutlined,
   PlayCircleOutlined,
   PushpinOutlined,
   RollbackOutlined,
-  SendOutlined,
   StopOutlined,
   SwapOutlined,
+  UndoOutlined,
   UnlockOutlined,
 } from '@ant-design/icons';
-import { Alert, App, Button, DatePicker, Form, Input, Modal, Space } from 'antd';
+import { Alert, App, Button, DatePicker, Form, Input, Modal, Space, Tooltip } from 'antd';
 import type { Dayjs } from 'dayjs';
 import { useState, type ReactNode } from 'react';
 import { newIdempotencyKey } from '../../../shared/api/httpClient';
@@ -27,6 +26,8 @@ interface Props {
   /** Hành động hiển thị theo thứ tự này; hành động không có trong {@code actions} bị ẩn. */
   order?: string[];
   onAction(action: string, body: object | undefined, idempotencyKey: string): Promise<void>;
+  /** Chỉ hiện biểu tượng, tên thao tác ở tooltip (dùng trong cột thao tác của danh sách). */
+  iconOnly?: boolean;
 }
 
 interface Pending {
@@ -34,28 +35,17 @@ interface Pending {
   key: string;
 }
 
-const DEFAULT_ORDER = [
-  'start',
-  'submit',
-  'approve',
-  'reject',
-  'post',
-  'receive',
-  'reverse',
-  'close',
-  'cancel',
-];
+const DEFAULT_ORDER = ['start', 'activate', 'post', 'receive', 'reverse', 'close', 'cancel'];
 const DATE_ACTIONS = new Set(['reverse', 'receive', 'fail']);
 
 /** Biểu tượng theo ý nghĩa hành động; aria-hidden để tên nút (đọc màn hình, test) chỉ là nhãn tiếng Việt. */
 const ACTION_ICONS: Record<string, ReactNode> = {
   start: <PlayCircleOutlined aria-hidden />,
-  submit: <SendOutlined aria-hidden />,
-  approve: <CheckOutlined aria-hidden />,
-  reject: <CloseOutlined aria-hidden />,
+  activate: <CheckOutlined aria-hidden />,
   post: <BookOutlined aria-hidden />,
   receive: <InboxOutlined aria-hidden />,
   reverse: <RollbackOutlined aria-hidden />,
+  unpost: <UndoOutlined aria-hidden />,
   close: <LockOutlined aria-hidden />,
   cancel: <StopOutlined aria-hidden />,
   'stock-in': <ImportOutlined aria-hidden />,
@@ -70,7 +60,7 @@ const ACTION_ICONS: Record<string, ReactNode> = {
  * Mọi hành động cần xác nhận; từ chối / hủy / đảo / đóng bắt buộc lý do. Một Idempotency-Key cho mỗi lần mở hộp
  * thoại, giữ nguyên khi gửi lại sau lỗi (frontend.md mục 5).
  */
-export function DocumentActions({ actions, order = DEFAULT_ORDER, onAction }: Props) {
+export function DocumentActions({ actions, order = DEFAULT_ORDER, onAction, iconOnly }: Props) {
   const { message } = App.useApp();
   const [pending, setPending] = useState<Pending | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -117,18 +107,31 @@ export function DocumentActions({ actions, order = DEFAULT_ORDER, onAction }: Pr
   }
   return (
     <>
-      <Space wrap>
-        {visible.map((action) => (
-          <Button
-            key={action}
-            type={action === 'post' || action === 'approve' ? 'primary' : 'default'}
-            danger={action === 'cancel' || action === 'reject' || action === 'reverse'}
-            icon={ACTION_ICONS[action]}
-            onClick={() => open(action)}
-          >
-            {ACTION_LABELS[action] ?? action}
-          </Button>
-        ))}
+      <Space wrap={!iconOnly} size={iconOnly ? 0 : undefined}>
+        {visible.map((action) =>
+          iconOnly ? (
+            <Tooltip key={action} title={ACTION_LABELS[action] ?? action}>
+              <Button
+                type="text"
+                size="small"
+                danger={action === 'cancel' || action === 'reverse' || action === 'unpost'}
+                icon={ACTION_ICONS[action]}
+                aria-label={ACTION_LABELS[action] ?? action}
+                onClick={() => open(action)}
+              />
+            </Tooltip>
+          ) : (
+            <Button
+              key={action}
+              type={action === 'post' || action === 'activate' ? 'primary' : 'default'}
+              danger={action === 'cancel' || action === 'reverse' || action === 'unpost'}
+              icon={ACTION_ICONS[action]}
+              onClick={() => open(action)}
+            >
+              {ACTION_LABELS[action] ?? action}
+            </Button>
+          ),
+        )}
       </Space>
       <Modal
         open={pending !== null}

@@ -20,6 +20,7 @@ import com.company.erp.masterdata.application.MasterDataQueryService.ProductInfo
 import com.company.erp.purchasing.application.dto.PurchaseReturnResponse;
 import com.company.erp.purchasing.application.dto.ReverseRequest;
 import com.company.erp.purchasing.domain.PurchaseCostEntry;
+import com.company.erp.purchasing.domain.PurchaseDocument;
 import com.company.erp.purchasing.domain.PurchaseDocumentStatus;
 import com.company.erp.purchasing.domain.PurchaseOrder;
 import com.company.erp.purchasing.domain.PurchaseOrderLine;
@@ -89,10 +90,10 @@ public class PurchaseReturnPostingService {
                 PurchaseReturnResponse.class, () -> {
                     access.requirePermission(actor, POST);
                     PurchaseReturn document = flow.lock(actor, id, returns.spec());
-                    if (document.getStatus() != PurchaseDocumentStatus.APPROVED) {
+                    if (!PurchaseDocument.POSTABLE.contains(document.getStatus())) {
                         throw new BusinessException(ErrorCode.INVALID_DOCUMENT_STATE, "Chứng từ "
                                 + document.getDocumentNo() + " ở trạng thái " + document.getStatus()
-                                + ", chỉ ghi sổ chứng từ đã duyệt.");
+                                + ", chỉ ghi sổ chứng từ nháp.");
                     }
                     PurchaseOrder order = lockOrder(document);
                     applySources(document, order, BigDecimal.ONE);

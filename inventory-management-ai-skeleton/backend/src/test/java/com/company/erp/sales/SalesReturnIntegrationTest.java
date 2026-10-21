@@ -62,7 +62,6 @@ class SalesReturnIntegrationTest extends SalesIntegrationSupport {
                 + orderLine + ",\"lotNo\":\"" + lot + "\",\"quantity\":2}"), newKey())
                 .andExpect(status().isCreated()).andExpect(jsonPath("$.data.totalAmount").value(220000))
                 .andExpect(jsonPath("$.data.lines[0].qualityStatus").value("QUARANTINE")).andReturn());
-        act(clerk, RETURNS, goodsReturn, "submit", null).andExpect(jsonPath("$.data.status").value("APPROVED"));
         act(clerk, RETURNS, goodsReturn, "post", null).andExpect(jsonPath("$.data.status").value("POSTED"))
                 .andExpect(jsonPath("$.data.inventoryDocumentNo").isNotEmpty());
         assertThat(quarantined(lot)).isEqualByComparingTo("2");
@@ -84,7 +83,6 @@ class SalesReturnIntegrationTest extends SalesIntegrationSupport {
         long discount = jsonId(send(clerk, post(RETURNS), returnBody("GGB", clinic, order, "{\"orderLineId\":"
                 + orderLine + ",\"amount\":50000}"), newKey()).andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data.totalAmount").value(55000)).andReturn());
-        act(clerk, RETURNS, discount, "submit", null);
         act(clerk, RETURNS, discount, "post", null).andExpect(jsonPath("$.data.status").value("POSTED"));
         assertThat(receivable(order)).isEqualByComparingTo("275000");
         assertThat(journal("GGB", discount)).containsExactly("N:5111:50000", "C:131:50000", "N:3331:5000",

@@ -23,8 +23,9 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * Phiếu kiểm kê một kho (BR-INV-31): DRAFT → COUNTING (chụp tồn, chặn nhập xuất trong kho, D-11) → SUBMITTED →
- * APPROVED → POSTED (sinh phiếu điều chỉnh chênh lệch). Bị từ chối thì quay lại COUNTING để đếm lại.
+ * Phiếu kiểm kê một kho (BR-INV-31): DRAFT → COUNTING (chụp tồn, chặn nhập xuất trong kho, D-11) → POSTED (sinh phiếu
+ * điều chỉnh chênh lệch). Không qua duyệt (D-61): ghi sổ thẳng khi đã đếm đủ; phiếu chờ duyệt trước D-61 chỉ còn hủy,
+ * đã duyệt vẫn ghi sổ được.
  */
 @Entity
 @Table(name = "stock_counts")
@@ -129,32 +130,11 @@ public class StockCount extends AuditableEntity {
         requireStatus(EnumSet.of(StockCountStatus.COUNTING), "nhập số đếm");
     }
 
-    public void submit(Long actorId, Instant now) {
-        requireStatus(EnumSet.of(StockCountStatus.COUNTING), "gửi duyệt");
-        boolean uncounted = lines.stream().anyMatch(line -> line.getCountedQuantity() == null);
-        if (uncounted) {
+    public void markPosted(Long actorId, Instant now, Long adjustmentDocumentId) {
+        requireStatus(EnumSet.of(StockCountStatus.COUNTING, StockCountStatus.APPROVED), "ghi sổ");
+        if (lines.stream().anyMatch(line -> line.getCountedQuantity() == null)) {
             throw BusinessException.invalidField("lines", "Còn dòng chưa nhập số đếm.");
         }
-        this.status = StockCountStatus.SUBMITTED;
-        this.submittedBy = actorId;
-        this.submittedAt = now;
-    }
-
-    public void approve(Long actorId, Instant now) {
-        requireStatus(EnumSet.of(StockCountStatus.SUBMITTED), "duyệt");
-        this.status = StockCountStatus.APPROVED;
-        this.approvedBy = actorId;
-        this.approvedAt = now;
-    }
-
-    /** Từ chối: quay lại đếm, vẫn giữ khóa nhập xuất kho. */
-    public void reject() {
-        requireStatus(EnumSet.of(StockCountStatus.SUBMITTED), "từ chối");
-        this.status = StockCountStatus.COUNTING;
-    }
-
-    public void markPosted(Long actorId, Instant now, Long adjustmentDocumentId) {
-        requireStatus(EnumSet.of(StockCountStatus.APPROVED), "ghi sổ");
         this.status = StockCountStatus.POSTED;
         this.postedBy = actorId;
         this.postedAt = now;

@@ -6,7 +6,6 @@ import com.company.erp.common.domain.QualityStatus;
 import com.company.erp.inventory.application.StockInService;
 import com.company.erp.masterdata.application.MasterDataQueryService.PartnerInfo;
 import com.company.erp.masterdata.application.MasterDataQueryService.ProductInfo;
-import com.company.erp.purchasing.application.dto.CommentRequest;
 import com.company.erp.purchasing.application.dto.PurchaseReturnLineRequest;
 import com.company.erp.purchasing.application.dto.PurchaseReturnLineResponse;
 import com.company.erp.purchasing.application.dto.PurchaseReturnRequest;
@@ -39,7 +38,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Trả hàng nhà cung cấp (THN) / giảm giá hàng mua (GGM), BR-PUR-14: lập theo dòng của một đơn mua đã ghi sổ (đúng lô,
- * serial, đơn giá sau chiết khấu), gửi duyệt (duyệt khi có luồng), duyệt, từ chối, hủy. Ghi sổ, đảo ở
+ * serial, đơn giá sau chiết khấu), sửa, hủy (D-61 không qua duyệt). Ghi sổ, đảo ở
  * {@link PurchaseReturnPostingService}.
  */
 @Service
@@ -48,7 +47,6 @@ public class PurchaseReturnService {
     static final String PATH = "/api/v1/purchase-returns";
     static final String VIEW = "purchase-return:view";
     static final String CREATE = "purchase-return:create";
-    static final String APPROVE = "purchase-return:approve";
     static final String ENTITY = "PURCHASE_RETURN";
 
     public record ReturnFilter(Long companyId, Long branchId, PurchaseReturnType documentType,
@@ -74,9 +72,8 @@ public class PurchaseReturnService {
         this.access = access;
         this.approvalService = approvalService;
         this.stockIn = stockIn;
-        this.spec = new PurchaseDocumentFlow.Spec<>(PATH, VIEW, CREATE, APPROVE, ENTITY,
-                repository::findByIdForUpdate, repository, document -> toResponse(document, true),
-                PurchaseReturnResponse.class, null, null, document -> { }, document -> { });
+        this.spec = new PurchaseDocumentFlow.Spec<>(PATH, VIEW, CREATE, ENTITY, repository::findByIdForUpdate,
+                repository, document -> toResponse(document, true), PurchaseReturnResponse.class, document -> { });
     }
 
     @Transactional(readOnly = true)
@@ -150,21 +147,6 @@ public class PurchaseReturnService {
         BranchRef branch = access.usableBranch(actor, document.getBranchId());
         fill(document, postedOrder(branch, document.getSupplierId(), document.getPurchaseOrderId()), request);
         return flow.act(actor, document, "UPDATE", null, spec);
-    }
-
-    @Transactional
-    public PurchaseReturnResponse submit(CurrentUser actor, Long id, String key) {
-        return flow.submit(actor, id, key, spec);
-    }
-
-    @Transactional
-    public PurchaseReturnResponse approve(CurrentUser actor, Long id, String key, CommentRequest request) {
-        return flow.approve(actor, id, key, request, spec);
-    }
-
-    @Transactional
-    public PurchaseReturnResponse reject(CurrentUser actor, Long id, String key, ReasonRequest request) {
-        return flow.reject(actor, id, key, request, spec);
     }
 
     @Transactional

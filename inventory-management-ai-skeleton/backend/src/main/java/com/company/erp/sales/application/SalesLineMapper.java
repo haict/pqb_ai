@@ -27,7 +27,7 @@ final class SalesLineMapper {
                 line.getUnitPrice(), line.getDiscountPercent(), line.getDiscountAmount(), line.getAmount(),
                 line.getTaxRateId(), line.getTaxRate(), line.getTaxAmount(), line.isPromotional(),
                 line.isServiceLine(), line.getExpectedDate(), line.getLotNo(), line.getLotOverrideReason(),
-                List.copyOf(line.getSerialNumbers()), items, document == null ? null : document.originCountryCode(),
+                List.copyOf(line.getSerialNumbers()), line.getReceiptTransactionId(), line.getReceiptNo(), items, document == null ? null : document.originCountryCode(),
                 document == null ? null : document.model(), document == null ? null : document.registrationNo(),
                 line.getReturnedQuantity(), line.returnableQuantity(), line.getAdjustedAmount(),
                 line.remainingAmount(), available, reserved, line.getDescription());

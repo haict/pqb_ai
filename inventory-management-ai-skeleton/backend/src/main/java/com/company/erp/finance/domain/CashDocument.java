@@ -19,8 +19,8 @@ import java.util.Objects;
 
 /**
  * Chứng từ thu chi (BR-CSH-02, ADR-13): phiếu thu, phiếu chi, giấy báo có, ủy nhiệm chi, chuyển tiền nội bộ. Nhóm A:
- * DRAFT → SUBMITTED → APPROVED → POSTED; SUBMITTED → REJECTED → sửa → gửi lại; hủy khi chưa ghi sổ; đảo khi đã ghi
- * sổ (vòng đời ở {@link FinanceDocument}). Loại chứng từ, nội dung không đổi sau khi lập.
+ * DRAFT → POSTED (D-61, không qua duyệt); hủy khi chưa ghi sổ; đảo khi đã ghi sổ (vòng đời ở {@link FinanceDocument}).
+ * Loại chứng từ, nội dung không đổi sau khi lập.
  */
 @Entity
 @Table(name = "cash_documents")
@@ -85,10 +85,6 @@ public class CashDocument extends FinanceDocument {
         return documentType.name();
     }
 
-    @Override
-    public BigDecimal approvalAmount() {
-        return totalAmount;
-    }
 
     /**
      * Nội dung chứng từ; {@code amount} là số tiền thu / chi của thu tiền khách, trả nhà cung cấp, chuyển tiền (thu
@@ -99,7 +95,7 @@ public class CashDocument extends FinanceDocument {
                           String description) {
     }
 
-    /** Thay nội dung (chỉ khi DRAFT / REJECTED) và kiểm tra cấu trúc theo nội dung chứng từ. */
+    /** Thay nội dung (chỉ khi DRAFT) và kiểm tra cấu trúc theo nội dung chứng từ. */
     public void replaceContent(Content content, List<CashDocumentLine> newLines) {
         requireStatus(EDITABLE, "sửa");
         BigDecimal total = switch (purpose) {

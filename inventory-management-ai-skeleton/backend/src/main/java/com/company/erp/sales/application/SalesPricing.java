@@ -23,9 +23,10 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Định giá dòng bán và chính sách duyệt dùng chung cho báo giá / đơn bán: lấy giá theo thứ tự ưu tiên (BR-SAL-02),
- * giá sàn, chiết khấu đại lý mặc định (BR-SAL-35), thuế suất; lý do phải duyệt: giá sau chiết khấu dưới giá sàn,
- * chiết khấu dòng vượt ngưỡng (BR-SAL-03, D-04), vượt hạn mức tín dụng hoặc có nợ quá hạn (BR-SAL-14, D-22).
+ * Định giá dòng bán và chính sách thẩm quyền dùng chung cho đơn bán: lấy giá theo thứ tự ưu tiên (BR-SAL-02), giá
+ * sàn, chiết khấu đại lý mặc định (BR-SAL-35), thuế suất; lý do cần thẩm quyền khi ghi sổ (D-61): giá sau chiết khấu
+ * dưới giá sàn, chiết khấu dòng vượt ngưỡng (BR-SAL-03, D-04), vượt hạn mức tín dụng hoặc có nợ quá hạn (BR-SAL-14,
+ * D-22).
  */
 @Component
 class SalesPricing {
@@ -81,7 +82,7 @@ class SalesPricing {
                 tax == null ? null : tax.rate(), promotional, SalesAccess.trim(line.description()));
     }
 
-    /** Lý do phải duyệt giá (BR-SAL-03): dưới giá sàn, chiết khấu dòng vượt ngưỡng tham số. */
+    /** Lý do cần thẩm quyền giá (BR-SAL-03): dưới giá sàn, chiết khấu dòng vượt ngưỡng tham số. */
     List<String> priceReasons(Long companyId, List<? extends SalesPricedLine> lines) {
         BigDecimal threshold = parameters.decimalValue(companyId, DISCOUNT_THRESHOLD);
         List<String> reasons = new ArrayList<>();
@@ -98,7 +99,7 @@ class SalesPricing {
         return reasons;
     }
 
-    /** Lý do phải duyệt tín dụng (BR-SAL-14, D-22): công nợ hiện tại + giá trị đơn vượt hạn mức, hoặc có nợ quá hạn. */
+    /** Lý do cần thẩm quyền tín dụng (BR-SAL-14, D-22): công nợ hiện tại + giá trị đơn vượt hạn mức, hoặc có nợ quá hạn. */
     List<String> creditReasons(Long companyId, CustomerProfile customer, BigDecimal orderTotal, LocalDate today) {
         Exposure exposure = debtExposure.exposure(companyId, InvoiceSide.RECEIVABLE, customer.id(), today);
         List<String> reasons = new ArrayList<>();

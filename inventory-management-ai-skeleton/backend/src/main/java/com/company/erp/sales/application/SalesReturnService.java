@@ -7,7 +7,6 @@ import com.company.erp.inventory.application.StockInService;
 import com.company.erp.masterdata.application.MasterDataQueryService.CustomerProfile;
 import com.company.erp.masterdata.application.MasterDataQueryService.PartnerInfo;
 import com.company.erp.masterdata.application.MasterDataQueryService.ProductInfo;
-import com.company.erp.sales.application.dto.CommentRequest;
 import com.company.erp.sales.application.dto.ReasonRequest;
 import com.company.erp.sales.application.dto.ReturnableSalesLineResponse;
 import com.company.erp.sales.application.dto.SalesLineRequest;
@@ -46,8 +45,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Hàng bán bị trả lại (TLB) / giảm giá hàng bán (GGB), BR-SAL-32, 36, D-54: lập theo dòng của một đơn bán đã ghi sổ
- * (trả hàng đúng lô / serial đã xuất, đơn giá sau chiết khấu của dòng), gửi duyệt (duyệt khi có luồng), duyệt, từ
- * chối, hủy; đổi hàng (BR-SAL-33) lập đơn bán mới từ phiếu trả. Ghi sổ, đảo ở {@link SalesReturnPostingService}.
+ * (trả hàng đúng lô / serial đã xuất, đơn giá sau chiết khấu của dòng), sửa, hủy (D-61 không qua duyệt); đổi hàng
+ * (BR-SAL-33) lập đơn bán mới từ phiếu trả. Ghi sổ, đảo ở {@link SalesReturnPostingService}.
  */
 @Service
 public class SalesReturnService {
@@ -55,7 +54,6 @@ public class SalesReturnService {
     static final String PATH = "/api/v1/sales-returns";
     static final String VIEW = "sales-return:view";
     static final String CREATE = "sales-return:create";
-    static final String APPROVE = "sales-return:approve";
     static final String ENTITY = "SALES_RETURN";
 
     public record ReturnFilter(Long companyId, Long branchId, SalesReturnType documentType, SalesDocumentStatus status,
@@ -82,9 +80,8 @@ public class SalesReturnService {
         this.access = access;
         this.approvalService = approvalService;
         this.stockIn = stockIn;
-        this.spec = new SalesDocumentFlow.Spec<>(PATH, VIEW, CREATE, APPROVE, ENTITY, repository::findByIdForUpdate,
-                repository, document -> toResponse(document, true), SalesReturnResponse.class, null, null,
-                document -> { }, document -> { });
+        this.spec = new SalesDocumentFlow.Spec<>(PATH, VIEW, CREATE, ENTITY, repository::findByIdForUpdate,
+                repository, document -> toResponse(document, true), SalesReturnResponse.class, document -> { });
     }
 
     @Transactional(readOnly = true)
@@ -169,28 +166,13 @@ public class SalesReturnService {
     }
 
     @Transactional
-    public SalesReturnResponse submit(CurrentUser actor, Long id, String key) {
-        return flow.submit(actor, id, key, spec);
-    }
-
-    @Transactional
-    public SalesReturnResponse approve(CurrentUser actor, Long id, String key, CommentRequest request) {
-        return flow.approve(actor, id, key, request, spec);
-    }
-
-    @Transactional
-    public SalesReturnResponse reject(CurrentUser actor, Long id, String key, ReasonRequest request) {
-        return flow.reject(actor, id, key, request, spec);
-    }
-
-    @Transactional
     public SalesReturnResponse cancel(CurrentUser actor, Long id, String key, ReasonRequest request) {
         return flow.cancel(actor, id, key, request, spec);
     }
 
     /**
      * Đổi hàng (BR-SAL-33): từ phiếu trả hàng đã ghi sổ, lập đơn bán nháp cho cùng khách, cùng kho, cùng hàng, số lượng
-     * và giá, chiết khấu, thuế như đơn gốc (lô chọn lại theo FEFO); đơn mới đi qua duyệt / ghi sổ như đơn thường.
+     * và giá, chiết khấu, thuế như đơn gốc (lô chọn lại theo FEFO); đơn mới ghi sổ như đơn thường.
      */
     @Transactional
     public SalesOrderResponse createExchangeOrder(CurrentUser actor, Long id, String key) {
@@ -213,7 +195,7 @@ public class SalesReturnService {
                         lines.add(new SalesLineRequest(line.getProductId(), line.getUnitId(), quantity,
                                 line.getUnitPrice(), line.getDiscountPercent(), line.getTaxRateId(),
                                 line.isPromotional(), null, null, null, List.of(),
-                                "Đổi hàng theo " + document.getDocumentNo()));
+                                "Đổi hàng theo " + document.getDocumentNo(), null));
                     });
                     SalesOrder order = orders.createDocument(actor, new SalesOrderRequest(document.getBranchId(),
                             document.getCustomerId(), document.getWarehouseId(), document.getPostingDate(), null,

@@ -105,7 +105,7 @@ Ngoài ba chuỗi trên, hệ thống quản lý dịch vụ kỹ thuật (bảo
 | P-03 | Quy cách, hãng, xuất xứ nằm trong tên hàng | Không báo cáo được theo hãng hay xuất xứ; dễ tạo mã trùng |
 | P-04 | Đơn vị tính hỗn hợp, không có quy đổi chính thức | Tồn kho theo hộp và theo ml dễ lệch nhau |
 | P-05 | Không có hồ sơ chất lượng, số lưu hành gắn với hàng và lô | Khó đáp ứng hồ sơ thầu và yêu cầu giao hàng của bệnh viện |
-| P-06 | Không có phê duyệt trong hệ thống | Khó truy cứu trách nhiệm; giá bán và chiết khấu không được kiểm soát |
+| P-06 | Không có phê duyệt trong hệ thống | Khó truy cứu trách nhiệm; giá bán và chiết khấu không được kiểm soát **[D-61]** Doanh nghiệp chọn bỏ bước duyệt; rủi ro này quay lại một phần, giảm bằng quyền vượt ngưỡng và nhật ký audit. |
 | P-07 | Danh mục đối tác lẫn lộn | Báo cáo mua hàng và công nợ sai lệch |
 | P-08 | Không theo dõi serial, lắp đặt, bảo hành, bảo trì máy trong hệ thống | Không biết máy nào đang ở đâu, còn bảo hành không, đến hạn bảo trì chưa |
 | P-09 | Không theo dõi hợp đồng hoặc kết quả trúng thầu với bệnh viện | Không kiểm soát được giá và số lượng còn được giao theo hợp đồng |
@@ -204,10 +204,11 @@ Tiền lương, CRM đầy đủ, mobile app riêng (giao diện web responsive 
 ### 5.1 Trạng thái chứng từ [ĐT]
 **Nhóm A - chứng từ ghi sổ** (phiếu nhập, phiếu xuất, chuyển kho, điều chỉnh, kiểm kê, đơn mua, đơn bán, trả hàng / giảm giá mua bán, phân bổ chi phí mua, phiếu thu, phiếu chi, bút toán tổng hợp; D-54):
 ```
-DRAFT (Nháp) -> SUBMITTED (Chờ duyệt) -> APPROVED (Đã duyệt) -> POSTED (Đã ghi sổ)
-SUBMITTED -> REJECTED (Bị từ chối) -> DRAFT
-DRAFT / REJECTED / APPROVED (chưa ghi sổ) -> CANCELLED (Đã hủy)
+DRAFT (Nháp) -> POSTED (Đã ghi sổ)                       (D-61: không qua duyệt)
+DRAFT (chưa ghi sổ) -> CANCELLED (Đã hủy)
 POSTED -> REVERSED (Đã đảo) - chỉ qua chứng từ đảo
+POSTED -> DRAFT (Bỏ ghi sổ) - chỉ đơn mua, đơn bán (D-62): sổ phụ ghi ngược, đơn về nháp giữ số để sửa
+Chứng từ lập trước D-61: APPROVED -> POSTED / CANCELLED; SUBMITTED, REJECTED -> CANCELLED (chỉ hủy)
 ```
 
 **Nhóm B - chứng từ điều phối** (gói thầu, hợp đồng; sau D-54 đơn mua, đơn bán là chứng từ ghi sổ nhóm A):
@@ -216,15 +217,16 @@ DRAFT -> SUBMITTED -> APPROVED -> IN_PROGRESS (Đang thực hiện) -> COMPLETED
 SUBMITTED -> REJECTED -> DRAFT
 DRAFT / REJECTED / APPROVED (chưa phát sinh chứng từ sau) -> CANCELLED
 ```
+`[Suy luận]` Theo D-61 nhóm B (gói thầu, hợp đồng, chưa triển khai) cũng không qua duyệt khi làm; cần xác nhận khi triển khai Giai đoạn 7.
 Trạng thái riêng của từng loại (ví dụ trạng thái giao hàng của đơn bán, gói thầu "Trúng / Trượt") mô tả trong phân hệ.
 
 | Mã | Yêu cầu | GĐ |
 |---|---|---|
-| BR-GEN-01 | DRAFT và REJECTED được sửa; SUBMITTED, APPROVED không được sửa (muốn sửa phải trả về DRAFT, có lý do). | P1 |
+| BR-GEN-01 | DRAFT và REJECTED được sửa; SUBMITTED, APPROVED không được sửa (muốn sửa phải trả về DRAFT, có lý do). **[Sửa bởi D-61]** Chỉ DRAFT được sửa; REJECTED, SUBMITTED cũ chỉ còn hủy. | P1 |
 | BR-GEN-02 | **Chỉ chứng từ nhóm A ở trạng thái POSTED** mới ảnh hưởng tồn thực tế và số liệu tài chính. Chứng từ nhóm B chỉ ảnh hưởng chỉ tiêu điều phối (giữ chỗ, hàng đang về, số còn được giao) [ĐT]. | P1 |
-| BR-GEN-03 | **Không xóa cứng** chứng từ đã phát sinh giao dịch. Chứng từ POSTED muốn hủy thì tạo **chứng từ đảo** tham chiếu chứng từ gốc; bút toán gốc giữ nguyên [ĐT]. Chỉ chứng từ DRAFT chưa từng gửi duyệt mới được xóa. | P1 |
+| BR-GEN-03 | **Không xóa cứng** chứng từ đã phát sinh giao dịch. Chứng từ POSTED muốn hủy thì tạo **chứng từ đảo** tham chiếu chứng từ gốc; bút toán gốc giữ nguyên [ĐT]. Chỉ chứng từ DRAFT chưa từng gửi duyệt mới được xóa. **[Sửa bởi D-62]** Đơn mua, đơn bán đã ghi sổ được **bỏ ghi sổ** về nháp (giữ số) để sửa: sổ phụ / bút toán của lần ghi sổ đó được đảo bằng dòng ngược ngày hạch toán gốc, không sửa / xóa dòng cũ (BR-PUR-20, BR-SAL-25). | P1 |
 | BR-GEN-04 | Không đảo chứng từ khi đã có chứng từ sau phụ thuộc (phiếu nhập có lô đã xuất, hóa đơn đã thu tiền). Hệ thống liệt kê chứng từ phụ thuộc; phải đảo chúng trước. | P1 |
-| BR-GEN-05 | Ma trận phê duyệt cấu hình theo loại chứng từ, chi nhánh, giá trị, chiết khấu (D-04). Loại chứng từ không cần duyệt chuyển thẳng DRAFT → POSTED nhưng vẫn ghi người, thời điểm. | P1 |
+| BR-GEN-05 | Ma trận phê duyệt cấu hình theo loại chứng từ, chi nhánh, giá trị, chiết khấu (D-04). Loại chứng từ không cần duyệt chuyển thẳng DRAFT → POSTED nhưng vẫn ghi người, thời điểm. **[Thay bởi D-61]** Không còn ma trận phê duyệt: mọi loại chứng từ chuyển thẳng DRAFT → POSTED, vẫn ghi người, thời điểm. | P1 |
 | BR-GEN-06 | Duyệt, ghi sổ, hủy, đảo, điều chỉnh đều **kiểm tra quyền phía server** và ghi nhật ký [ĐT]. | P1 |
 | BR-GEN-07 | Mọi thay đổi quan trọng lưu người thực hiện, thời điểm, **lý do**, dữ liệu trước/sau [ĐT]. | P1 |
 | BR-GEN-08 | Đính kèm file cho chứng từ và danh mục (giới hạn loại, kích thước: BR-SYS-22). | P1 |
@@ -275,7 +277,7 @@ Theo D-54 (2026-10-12), giống cách làm trên MISA (H-31): ghi sổ đơn bá
 | Mã | Yêu cầu | GĐ |
 |---|---|---|
 | BR-GEN-30 | Màn hình lập đơn bán, đơn mua, phiếu xuất hiển thị đồng thời bốn chỉ tiêu tồn theo kho và lô. | P1 |
-| BR-GEN-31 | **Tồn thực tế không bao giờ âm** ở mọi cấp. **Xuất vượt tồn khả dụng** (lấy phần đang giữ chỗ cho đơn khác) chỉ được phép khi có chính sách đặc biệt được phê duyệt và ghi nhật ký (D-10) [ĐT]. | P1 |
+| BR-GEN-31 | **Tồn thực tế không bao giờ âm** ở mọi cấp. **Xuất vượt tồn khả dụng** (lấy phần đang giữ chỗ cho đơn khác) chỉ được phép khi có chính sách đặc biệt được phê duyệt và ghi nhật ký (D-10) [ĐT]. **[Sửa bởi D-61]** Chính sách xuất vượt có hiệu lực khi người có quyền `stock-policy:activate` (mặc định Giám đốc) kích hoạt, thay bước Giám đốc duyệt. | P1 |
 
 ### 5.5 Tiền, thuế, số liệu
 | Mã | Yêu cầu | GĐ |
@@ -331,10 +333,10 @@ Theo D-54 (2026-10-12), giống cách làm trên MISA (H-31): ghi sổ đơn bá
 | Mã | Yêu cầu | GĐ |
 |---|---|---|
 | BR-SYS-10 | **Cấu hình số chứng từ**: tiền tố, năm, chi nhánh, độ dài số thứ tự, chu kỳ đặt lại; số duy nhất theo loại chứng từ, công ty và chu kỳ; không nhảy số trùng khi nhiều người tạo cùng lúc (D-03); sửa cấu hình theo D-48 [ĐT]. | P1 |
-| BR-SYS-11 | **Cấu hình luồng phê duyệt**: theo loại chứng từ, chi nhánh, ngưỡng giá trị, chiết khấu; một hoặc nhiều cấp; người duyệt theo vai trò hoặc người cụ thể; ủy quyền duyệt có thời hạn [ĐT]. | P1 |
+| BR-SYS-11 | **Cấu hình luồng phê duyệt**: theo loại chứng từ, chi nhánh, ngưỡng giá trị, chiết khấu; một hoặc nhiều cấp; người duyệt theo vai trò hoặc người cụ thể; ủy quyền duyệt có thời hạn [ĐT]. **[Thay bởi D-61]** Đã bỏ cấu hình luồng duyệt, ủy quyền duyệt; dữ liệu cũ giữ để tra cứu. | P1 |
 | BR-SYS-12 | Cấu hình trạng thái nghiệp vụ hiển thị và các bước bắt buộc/tùy chọn theo loại chứng từ, trong khuôn khổ vòng đời mục 5.1 [ĐT]. | P1 |
 | BR-SYS-13 | Tham số hệ thống: số chữ số thập phân, phương pháp giá vốn, ngưỡng cảnh báo, ngưỡng duyệt, mẫu in. Thay đổi tham số ghi nhật ký; tham số ảnh hưởng số liệu đã ghi sổ bị khóa sau khi phát sinh. | P1 |
-| BR-SYS-14 | Tách biệt nhiệm vụ: người lập không tự duyệt chứng từ của mình (bật/tắt theo loại chứng từ). | P1 |
+| BR-SYS-14 | Tách biệt nhiệm vụ: người lập không tự duyệt chứng từ của mình (bật/tắt theo loại chứng từ). **[Thay bởi D-61]** Không còn bước duyệt nên không còn tự duyệt; kiểm soát bằng quyền ghi sổ / quyền vượt ngưỡng. | P1 |
 
 ### 6.3 Kỳ kế toán và kỳ kho
 | Mã | Yêu cầu | GĐ |
@@ -427,7 +429,7 @@ D-54 (2026-10-12): đơn mua là chứng từ ghi sổ duy nhất của nghiệp
 | BR-PUR-01 | ~~Đề nghị mua~~: **bỏ theo D-54**. Nhu cầu mua từ đơn bán thiếu hàng / hợp đồng trúng thầu / cảnh báo dưới định mức chuyển thành đơn mua nháp (Giai đoạn 7). | Bỏ |
 | BR-PUR-02 | ~~Yêu cầu báo giá NCC~~: **bỏ theo D-54** (xuất phát từ đề nghị mua). | Bỏ |
 | BR-PUR-03 | ~~So sánh báo giá~~: **bỏ theo D-54**. | Bỏ |
-| BR-PUR-04 | **Đơn mua hàng** (D-54): NCC, kho nhập, ngày hạch toán, hàng, số lượng, đơn giá, chiết khấu, thuế, lô / hạn dùng / serial / vị trí theo dòng (hàng nhiều lô: mỗi lô một dòng), dòng dịch vụ, ngày giao dự kiến, hạn thanh toán, tiền tệ, hóa đơn NCC (không bắt buộc); có duyệt theo ngưỡng. | P1 |
+| BR-PUR-04 | **Đơn mua hàng** (D-54): NCC, kho nhập, ngày hạch toán, hàng, số lượng, đơn giá, chiết khấu, thuế, lô / hạn dùng / serial / vị trí theo dòng (hàng nhiều lô: mỗi lô một dòng), dòng dịch vụ, ngày giao dự kiến, hạn thanh toán, tiền tệ, hóa đơn NCC (không bắt buộc); có duyệt theo ngưỡng. **[Sửa bởi D-61]** Không duyệt theo ngưỡng; đơn từ ngưỡng `purchasing.order-approval-threshold` chỉ người có quyền `purchase-order:post-over-threshold` ghi sổ được (422 `AUTHORITY_LIMIT_EXCEEDED`). Đơn nháp không cộng hàng đang về. | P1 |
 | BR-PUR-05 | Theo dõi theo dòng đơn mua đã ghi sổ: đã trả NCC, giá trị đã giảm, chi phí đã phân bổ, còn trả được. Không còn nhận nhiều đợt / đóng phần còn lại (D-54). | P1 |
 | BR-PUR-06 | **Đơn mua theo đơn bán / hợp đồng**: khi hàng về thì giữ chỗ cho đơn bán hoặc hợp đồng đó (H-35). | P1 |
 | BR-PUR-07 | ~~Phiếu nhận hàng~~: **bỏ theo D-54**. Hàng lỗi khi nhận: không ghi vào đơn mua, hoặc nhập rồi trả NCC (BR-PUR-14). | Bỏ |
@@ -443,6 +445,7 @@ D-54 (2026-10-12): đơn mua là chứng từ ghi sổ duy nhất của nghiệp
 | BR-PUR-17 | Hàng khuyến mại từ NCC. `[Chưa kiểm chứng]` Cách ghi nhận giá trị và thuế (D-26). | P1 |
 | BR-PUR-18 | **Lịch sử giao dịch NCC**: giá mua theo hàng (H-17), đơn mua, nhận hàng, hàng lỗi, trả hàng, hóa đơn, thanh toán; đánh giá NCC (giao đúng hạn, tỷ lệ lỗi). | P1 |
 | BR-PUR-19 | Hợp đồng mua / phân phối với NCC: giá, thời hạn, sản lượng cam kết. | P2 |
+| BR-PUR-20 | **Bỏ ghi sổ đơn mua** (D-62): người có quyền `purchase-order:unpost` đưa đơn đã ghi sổ về nháp, giữ số và hóa đơn NCC, để sửa rồi ghi sổ lại; bắt buộc lý do, ghi audit `UNPOST`. Trong một transaction: đảo phiếu nhập kho (chứng từ đảo PDK), công nợ phải trả, bút toán, tất cả theo **ngày hạch toán gốc** (kỳ gốc đã khóa: 422 `PERIOD_LOCKED`). Chặn như đảo (409 `HAS_DEPENDENT_DOCUMENTS`): còn trả hàng / giảm giá / phân bổ chi phí chưa đảo, hàng đã xuất, đã thanh toán / bù trừ. Ghi sổ lại sinh phiếu nhập, khoản công nợ, bút toán mới. | P1 |
 
 ---
 
@@ -504,7 +507,7 @@ D-54 (2026-10-12): đơn mua là chứng từ ghi sổ duy nhất của nghiệp
 | Mã | Yêu cầu | GĐ |
 |---|---|---|
 | BR-INV-30 | Chuyển kho: nguồn ≠ đích; giữ nguyên lô/serial/trạng thái/giá trị; trừ nguồn và cộng đích trong một giao dịch. Chuyển khác chi nhánh qua trạng thái ĐANG VẬN CHUYỂN. | P1 |
-| BR-INV-31 | Kiểm kê: `DRAFT → COUNTING → REVIEW → APPROVED → POSTED`. Snapshot theo lô/serial khi bắt đầu; chặn ghi sổ nhập/xuất trong phạm vi kiểm kê (D-11); giữ số đếm gốc; POSTED sinh chứng từ điều chỉnh chênh lệch [ĐT]. | P1 |
+| BR-INV-31 | Kiểm kê: `DRAFT → COUNTING → REVIEW → APPROVED → POSTED`. Snapshot theo lô/serial khi bắt đầu; chặn ghi sổ nhập/xuất trong phạm vi kiểm kê (D-11); giữ số đếm gốc; POSTED sinh chứng từ điều chỉnh chênh lệch [ĐT]. **[Sửa bởi D-61]** Không duyệt: đếm đủ thì ghi sổ thẳng từ COUNTING; phiếu đã duyệt trước D-61 vẫn ghi sổ được. | P1 |
 | BR-INV-32 | Điều chỉnh tồn **chỉ theo quyền được cấp**: lý do từ danh mục, hướng tăng/giảm, luôn phải duyệt; vượt ngưỡng giá trị thì Giám đốc duyệt [ĐT]. | P1 |
 | BR-INV-33 | Hủy hàng: chỉ lô HẾT HẠN, KHÔNG ĐẠT, THU HỒI hoặc hỏng; biên bản hủy; Giám đốc duyệt. `[Chưa kiểm chứng]` Hóa chất nguy hại có thể phải hủy qua đơn vị được cấp phép. | P1 |
 
@@ -513,7 +516,7 @@ D-54 (2026-10-12): đơn mua là chứng từ ghi sổ duy nhất của nghiệp
 |---|---|---|
 | BR-INV-40 | Cảnh báo **tồn dưới định mức, tồn lâu, hàng sắp hết hạn** (30/60/90 ngày, cấu hình) [ĐT]. | P1 |
 | BR-INV-41 | Khóa một lô hoặc serial trên toàn bộ kho bằng một thao tác. | P1 |
-| BR-INV-42 | Phiếu thu hồi: liệt kê mọi khách đã nhận lô/serial; theo dõi tiến độ thu hồi theo khách. | P1 |
+| BR-INV-42 | Phiếu thu hồi: liệt kê mọi khách đã nhận lô/serial; theo dõi tiến độ thu hồi theo khách. **[Sửa bởi D-61]** Thu hồi kích hoạt / đóng bằng quyền `recall:manage` (kích hoạt thì khóa lô / serial), không qua duyệt. | P1 |
 
 ---
 
@@ -541,7 +544,7 @@ D-54 (2026-10-12): đơn bán là chứng từ ghi sổ duy nhất của nghiệ
 |---|---|---|
 | BR-SAL-01 | ~~Báo giá~~: **bỏ theo D-54**; giá, chiết khấu, điều kiện ghi trực tiếp trên đơn bán. | Bỏ |
 | BR-SAL-02 | Lấy giá theo thứ tự: giá hợp đồng/trúng thầu → chính sách giá theo khách → theo nhóm khách/đại lý → giá niêm yết. | P1 |
-| BR-SAL-03 | **Phê duyệt giá bán**: giá dưới giá sàn hoặc chiết khấu vượt ngưỡng thì đơn bán phải duyệt trước khi ghi sổ [ĐT]. | P1 |
+| BR-SAL-03 | **Phê duyệt giá bán**: giá dưới giá sàn hoặc chiết khấu vượt ngưỡng thì đơn bán phải duyệt trước khi ghi sổ [ĐT]. **[Sửa bởi D-61]** Không duyệt; chỉ người có quyền `sales-order:override-price` ghi sổ được đơn giá dưới sàn / chiết khấu vượt ngưỡng (thiếu quyền: 422 `PRICE_BELOW_FLOOR`). | P1 |
 | BR-SAL-04 | ~~In báo giá~~: **bỏ theo D-54**; in biên bản giao nhận từ đơn bán (BR-SAL-22). | Bỏ |
 | BR-SAL-05 | ~~Trạng thái báo giá~~: **bỏ theo D-54**. | Bỏ |
 
@@ -552,7 +555,7 @@ D-54 (2026-10-12): đơn bán là chứng từ ghi sổ duy nhất của nghiệ
 | BR-SAL-11 | Đơn phát sinh từ đấu thầu **bắt buộc liên kết hợp đồng/gói thầu**; giá lấy theo hợp đồng; không vượt số lượng còn được giao (BR-TND-22) [ĐT]. | P1 |
 | BR-SAL-12 | **Kiểm tra tồn khả dụng** khi lập và khi duyệt đơn (BR-GEN-30) [ĐT]. | P1 |
 | BR-SAL-13 | **Giữ hàng theo đơn** nếu cấu hình (theo loại khách, hợp đồng): theo hàng hoặc chỉ định lô/serial; hết hạn giữ hoặc hủy đơn thì nhả [ĐT]. | P1 |
-| BR-SAL-14 | Kiểm tra hạn mức tín dụng: công nợ hiện tại + giá trị đơn > hạn mức, hoặc có nợ quá hạn, thì phải duyệt (D-22). | P1 |
+| BR-SAL-14 | Kiểm tra hạn mức tín dụng: công nợ hiện tại + giá trị đơn > hạn mức, hoặc có nợ quá hạn, thì phải duyệt (D-22). **[Sửa bởi D-61]** Không duyệt; chỉ người có quyền `sales-order:override-credit` ghi sổ được (thiếu quyền: 422 `CREDIT_LIMIT_EXCEEDED`), kiểm tra lại tại thời điểm ghi sổ. | P1 |
 | BR-SAL-15 | ~~Đề nghị mua từ đơn bán thiếu hàng~~: **bỏ theo D-54** (đề nghị mua bỏ); cảnh báo thiếu tồn vẫn hiện trên đơn. | Bỏ |
 
 ### 10.4 Xuất kho và giao hàng
@@ -563,6 +566,8 @@ D-54 (2026-10-12): đơn bán là chứng từ ghi sổ duy nhất của nghiệ
 | BR-SAL-22 | **Chứng từ giao nhận** (biên bản giao nhận) có lô, hạn dùng, serial, số lưu hành, danh mục CO/CQ; ghi nhận ngày khách nhận, người nhận, file biên bản ký [ĐT]. | P1 |
 | BR-SAL-23 | Trạng thái giao của đơn đã ghi sổ: Chờ giao / Đang giao / Đã giao. Giao thất bại: đảo đơn bán (hàng về kho bằng chứng từ đảo phiếu xuất, đảo doanh thu và công nợ). | P1 |
 | BR-SAL-24 | Đơn có yêu cầu lắp đặt sinh phiếu bàn giao/lắp đặt cho kỹ thuật (BR-SVC-01). | P1 |
+| BR-SAL-25 | **Bỏ ghi sổ đơn bán** (D-62): người có quyền `sales-order:unpost` đưa đơn đã ghi sổ về nháp, giữ số, để sửa rồi ghi sổ lại; bắt buộc lý do, ghi audit `UNPOST`. Trong một transaction: đảo phiếu xuất kho (hàng về đúng lô / serial), doanh thu, công nợ phải thu, bút toán theo **ngày hạch toán gốc** (kỳ gốc đã khóa: 422 `PERIOD_LOCKED`); đơn về nháp không tự giữ hàng lại. Chỉ khi đơn **chưa chuyển đi giao** và **chưa có số hóa đơn điện tử** (ngược lại 409 `INVALID_DOCUMENT_STATE`, dùng đảo đơn). Chặn như đảo (409 `HAS_DEPENDENT_DOCUMENTS`): còn trả hàng / giảm giá chưa đảo, có khiếu nại, đã thu tiền / bù trừ. | P1 |
+| BR-SAL-26 | **Chọn chứng từ nhập (F8, xuất đích danh như MISA SME)** (D-63): trên dòng đơn bán, F8 (hoặc nút cạnh ô lô) mở danh sách dòng nhập kho theo lô / serial còn tồn ĐẠT của hàng tại kho của đơn (số chứng từ, ngày nhập, lô, hạn dùng, serial, SL nhập, đơn giá nhập, tồn hiện có; xếp FEFO; bỏ lô / serial bị khóa, lô hết hạn, chứng từ đã đảo). Chọn nhiều dòng: mỗi (chứng từ, lô) thành một dòng đơn bán theo đơn vị cơ sở, serial cùng chứng từ gộp một dòng; chọn lô khác lô hết hạn sớm nhất phải ghi lý do (BR-INV-21). Dòng lưu dòng nhập đã chọn và số chứng từ nhập; khi lưu kiểm tra cùng hàng / kho, chưa đảo, lô / serial khớp. Áp dụng mọi hàng quản lý lô / serial; phương pháp giá vốn vẫn theo D-02 (giá vốn đích danh theo chứng từ nhập dùng ở Giai đoạn 8). | P1 |
 
 ### 10.5 Hóa đơn, trả hàng, đổi hàng, chiết khấu
 | Mã | Yêu cầu | GĐ |
@@ -644,14 +649,14 @@ Gói thầu -> Hồ sơ dự thầu -> Kết quả (Trúng / Trượt) -> Hợp 
 | BR-AR-04 | Đối trừ trả trước với hóa đơn; phải thu với phải trả cùng đối tượng; bỏ đối trừ bằng bút toán đảo (H-06, H-07). | P1 |
 | BR-AR-05 | **Tuổi nợ** theo mốc cấu hình; nợ quá hạn theo khách, nhân viên, chi nhánh, hợp đồng [ĐT]. | P1 |
 | BR-AR-06 | **Đối chiếu công nợ**: biên bản đối chiếu xác nhận, thông báo công nợ, giấy đề nghị thanh toán; in và gửi email [ĐT]. | P1 |
-| BR-AR-07 | **Xử lý chênh lệch đối chiếu** bằng chứng từ điều chỉnh công nợ có lý do, **theo quyền hạn** và phê duyệt [ĐT]. | P1 |
+| BR-AR-07 | **Xử lý chênh lệch đối chiếu** bằng chứng từ điều chỉnh công nợ có lý do, **theo quyền hạn** và phê duyệt [ĐT]. **[Sửa bởi D-61]** Không qua duyệt; quyền hạn theo quyền ghi sổ điều chỉnh công nợ. | P1 |
 | BR-AR-08 | Thu tiền hàng loạt nhiều khách, nhiều hóa đơn (H-06). | P1 |
 | BR-AP-01 | Phải trả tăng từ hóa đơn mua; giảm bởi phiếu chi/UNC, trả hàng, giảm giá, đối trừ. | P1 |
 | BR-AP-02 | Theo dõi phải trả theo hóa đơn, hạn, tuổi nợ; danh sách đến hạn trả; trả một phần hoặc nhiều hóa đơn [ĐT]. | P1 |
 | BR-AP-03 | Công nợ ngoại tệ theo nguyên tệ và VND. `[Chưa kiểm chứng]` Đánh giá lại tỷ giá cuối kỳ. | P2 |
 | BR-CSH-01 | Quỹ tiền mặt và nhiều tài khoản ngân hàng; số dư tính từ sổ quỹ và sổ tiền gửi. | P1 |
 | BR-CSH-02 | **Phiếu thu, phiếu chi, giao dịch ngân hàng** (giấy báo có, UNC, chuyển nội bộ) [ĐT]. | P1 |
-| BR-CSH-03 | Chi phải duyệt theo ngưỡng; quỹ tiền mặt không âm. | P1 |
+| BR-CSH-03 | Chi phải duyệt theo ngưỡng; quỹ tiền mặt không âm. **[Sửa bởi D-61]** Không duyệt chi; chứng từ chi từ ngưỡng `finance.payment-approval-threshold` chỉ người có quyền `cash-document:post-over-threshold` ghi sổ được (422 `AUTHORITY_LIMIT_EXCEEDED`). | P1 |
 | BR-CSH-04 | Tạm ứng và hoàn ứng nhân viên; giấy đề nghị thanh toán nội bộ. | P1 |
 | BR-CSH-05 | Kiểm kê quỹ; chênh lệch xử lý bằng chứng từ có duyệt. | P1 |
 | BR-CSH-06 | **Báo cáo dòng tiền** thực tế và **dự kiến dòng tiền**: dự thu theo hạn hóa đơn bán và lịch thu hợp đồng, dự chi theo hạn hóa đơn mua và đơn mua đã duyệt [ĐT]. | P1 |
@@ -826,7 +831,7 @@ Mỗi kịch bản phải có test tự động (unit và/hoặc integration) v�
 | AT-06 | Trả hàng và điều chỉnh tồn có truy vết về chứng từ gốc; doanh thu, giá vốn, công nợ giảm tương ứng | BR-SAL-32, BR-INV-32 |
 | AT-07 | Tạo hợp đồng trúng thầu; giao vượt số còn lại bị chặn (kể cả khi đồng thời) | BR-TND-10..22 |
 | AT-08 | Thu tiền một phần, phân bổ nhiều hóa đơn; biên bản đối chiếu công nợ khớp | BR-AR-03, 06 |
-| AT-09 | Hủy (đảo) chứng từ đã ghi sổ: tồn, công nợ, giá vốn, bút toán, chỉ tiêu nguồn được đảo đúng; chặn đảo khi có chứng từ phụ thuộc | BR-GEN-03, 04, 21, 22 |
+| AT-09 | Hủy (đảo) chứng từ đã ghi sổ: tồn, công nợ, giá vốn, bút toán, chỉ tiêu nguồn được đảo đúng; chặn đảo khi có chứng từ phụ thuộc | BR-GEN-03, 04, 21, 22, BR-PUR-20, BR-SAL-25 |
 | AT-10 | Người không có quyền không duyệt được; không đọc được dữ liệu chi nhánh/kho khác qua API | BR-SYS-03..06, BR-SEC-02 |
 | AT-11 | Khóa kỳ; ghi sổ, đảo, sửa chứng từ thuộc kỳ khóa bị chặn; giá vốn kỳ khóa không đổi | BR-SYS-30..32, BR-CST-03 |
 | AT-12 | Số liệu dashboard và báo cáo bằng tổng chứng từ nguồn | BR-RPT-11, BR-GEN-P3 |
@@ -868,13 +873,13 @@ Ngày 2026-10-09 (lần 2) chủ dự án chốt toàn bộ quyết định còn
 | D-01 | Thay MISA hoàn toàn hay giữ MISA cho kế toán? | Giữ MISA cho hóa đơn điện tử, thuế, BCTC đến hết P2; quyết định thay hẳn tại điểm rà soát cuối P2 | Đã chốt (điểm quyết định cuối P2) |
 | D-02 | Phương pháp tính giá vốn; phạm vi tiền lương, TSCĐ, CRM | Bình quân gia quyền cuối kỳ cho vật tư/thuốc thử, đích danh cho máy có serial; tiền lương, CRM ngoài phạm vi; TSCĐ/CCDC/khế ước vay ở P3 nếu thay MISA hoàn toàn | Đã chốt (KTT rà soát trước UAT) |
 | D-03 | Định dạng số chứng từ | `<LOẠI>-<CHI NHÁNH>-<YYYY>-<6 số>` | Đã chốt |
-| D-04 | Ma trận phê duyệt | Duyệt bắt buộc: giá dưới giá sàn, vượt hạn mức, hợp đồng, giá dự thầu dưới biên, phiếu chi trên ngưỡng, điều chỉnh, hủy, thu hồi, đảo. Ngưỡng cụ thể là tham số | Đã chốt |
+| D-04 | Ma trận phê duyệt | Duyệt bắt buộc: giá dưới giá sàn, vượt hạn mức, hợp đồng, giá dự thầu dưới biên, phiếu chi trên ngưỡng, điều chỉnh, hủy, thu hồi, đảo. Ngưỡng cụ thể là tham số **[Thay bởi D-61]** Không còn duyệt; các trường hợp vượt ngưỡng kiểm soát bằng quyền ghi sổ vượt ngưỡng. | Đã chốt |
 | D-05 | Chữ số thập phân, làm tròn | Số lượng 3, đơn giá 4, tiền làm tròn đến đồng | Đã chốt |
 | D-06 | Hạn dùng theo tháng | Ngày cuối tháng | Đã chốt |
 | D-07 | Hạn dùng còn lại tối thiểu | Cấu hình theo nhóm hàng và khách | Đã chốt |
 | D-08 | Danh sách người dùng, vai trò kiêm nhiệm | Bộ vai trò mặc định theo mục 4; cho phép kiêm nhiệm, vẫn áp dụng tách biệt nhiệm vụ; danh sách người dùng thật nhập khi triển khai (GĐ 11) | Đã chốt |
 | D-09 | Nhóm hàng phải qua "chờ kiểm tra" | ~~Thuốc thử và TTBYT loại C/D~~ Thay bằng D-56 (2026-10-15): nhập kho mặc định ĐẠT | Thay thế |
-| D-10 | Tồn âm, xuất vượt tồn khả dụng | Cấm tồn thực tế âm tuyệt đối; xuất vượt khả dụng chỉ với chính sách Giám đốc duyệt | Đã chốt |
+| D-10 | Tồn âm, xuất vượt tồn khả dụng | Cấm tồn thực tế âm tuyệt đối; xuất vượt khả dụng chỉ với chính sách Giám đốc duyệt **[Sửa bởi D-61]** "Giám đốc duyệt" thay bằng quyền kích hoạt chính sách `stock-policy:activate`. | Đã chốt |
 | D-11 | Chặn nhập/xuất khi kiểm kê | Chặn trong phạm vi kiểm kê | Đã chốt |
 | D-12 | Nhà cung cấp hóa đơn điện tử, API | P2; thiết kế lớp tích hợp qua interface để thay nhà cung cấp; ưu tiên tiếp tục nhà cung cấp hiện tại (MISA meInvoice) để giữ ký hiệu, dữ liệu | Đã chốt (P2) |
 | D-13 | Tồn đầu kỳ không xác định lô | Kiểm kê; phần còn lại lô tạm CÁCH LY | Đã chốt |
@@ -886,7 +891,7 @@ Ngày 2026-10-09 (lần 2) chủ dự án chốt toàn bộ quyết định còn
 | D-19 | Đặt máy, cho mượn, ký gửi | P1: kho ảo, phiếu xuất/thu hồi, theo dõi máy tại khách; P2: theo dõi sản lượng thuốc thử theo cam kết (BR-SVC-05) | Đã chốt |
 | D-20 | Bán theo bộ | P1 bán từng thành phần (có thể dùng chứng từ mẫu); P2 hàng bộ (kit) có thành phần (BR-MD-10) | Đã chốt |
 | D-21 | Kinh doanh qua đấu thầu | Có; M06 thuộc P1 | Đã chốt |
-| D-22 | Hạn mức tín dụng | Cảnh báo và yêu cầu duyệt | Đã chốt |
+| D-22 | Hạn mức tín dụng | Cảnh báo và yêu cầu duyệt **[Sửa bởi D-61]** "Yêu cầu duyệt" thay bằng quyền `sales-order:override-credit` khi ghi sổ. | Đã chốt |
 | D-23 | Số công ty, chi nhánh | 1 công ty, nhiều chi nhánh ở P1; mô hình sẵn sàng nhiều công ty | Đã chốt (danh sách chi nhánh: doanh nghiệp cung cấp) |
 | D-24 | Nhập khẩu trực tiếp | P2 (BR-PUR-13); P1 nhập qua nhà phân phối trong nước, chi phí nhập khẩu (nếu có) nhập như chi phí mua hàng | Đã chốt |
 | D-25 | Nguồn tra cứu MST | Xác định ở P2 | Đã chốt (P2) |
@@ -904,7 +909,7 @@ Ngày 2026-10-09 (lần 2) chủ dự án chốt toàn bộ quyết định còn
 | D-37 | Giữ hàng theo đơn | Bắt buộc với hợp đồng thầu; tùy chọn với đơn thường; thời hạn mặc định 7 ngày (tham số) | Đã chốt |
 | D-38 | Cơ chế xác thực | JWT access token ngắn hạn + refresh token xoay vòng lưu phía server | Đã chốt |
 | D-39 | Đóng gói | WAR triển khai trên Tomcat 10.1; chạy `java -jar` khi phát triển | Đã chốt |
-| D-40 | Chính sách xuất vượt tồn khả dụng | Giám đốc duyệt theo từng chứng từ | Đã chốt |
+| D-40 | Chính sách xuất vượt tồn khả dụng | Giám đốc duyệt theo từng chứng từ **[Sửa bởi D-61]** "Giám đốc duyệt" thay bằng quyền kích hoạt `stock-policy:activate` (mặc định Giám đốc). | Đã chốt |
 | D-41 | File tải lên | PDF, ảnh (JPG, PNG), Office (DOCX, XLSX); tối đa 20 MB/file (tham số) | Đã chốt |
 | D-42 | Thư viện bổ sung | ArchUnit (kiểm tra ranh giới module), TanStack Query (cache dữ liệu server ở frontend), springdoc-openapi | Đã chốt |
 | D-43 | Gói gốc Java | `com.company.erp`; đổi khi có tên chính thức | Đã chốt |
@@ -915,8 +920,8 @@ Ngày 2026-10-09 (lần 2) chủ dự án chốt toàn bộ quyết định còn
 | D-49 | Kênh thông báo P1 (BR-SYS-25) | Chỉ thông báo trong ứng dụng (chuông trên header, danh sách thông báo); email làm sau. Chốt 2026-10-10 theo lựa chọn của chủ dự án | Đã chốt |
 | D-50 | Nhập danh mục từ Excel (BR-UX-05, BR-MIG-01) | Làm ngay ở Giai đoạn 2 bằng Apache POI (`poi-ooxml`); nhập "tất cả hoặc không", lỗi trả theo dòng. Chốt 2026-10-10 | Đã chốt |
 | D-51 | Giá trị nhập / xuất kho trước khi có giá vốn | Phiếu nhập kho bắt buộc đơn giá (lưu vào sổ kho); giá xuất để trống, do tính giá vốn (Giai đoạn 4/8) điền. Chốt 2026-10-10 | Đã chốt |
-| D-52 | Chế độ duyệt theo loại chứng từ (BR-SYS-11, D-04) | Mỗi loại chứng từ có chế độ `NONE` (không duyệt), `CONFIGURED` (duyệt khi có luồng khớp), `REQUIRED` (bắt buộc có luồng, thiếu thì báo lỗi `APPROVAL_NOT_CONFIGURED`). Mặc định kho: PNK, PCK `CONFIGURED`; PXK, PXH, PDC, PCL, PDK, PKK, PTH, CSX `REQUIRED`; doanh nghiệp đổi ở màn hình Loại chứng từ. Cảnh báo hạn dùng mặc định 90 ngày (tham số `inventory.expiry-warning-days`). Chốt 2026-10-10 làm giá trị mặc định | Đã chốt |
-| D-53 | Chính sách xuất vượt tồn khả dụng: cách áp dụng (BR-GEN-31) | Chính sách là chứng từ riêng (CSX) theo kho (và hàng, nếu chọn), có hạn mức số lượng và thời hạn, Giám đốc duyệt. Theo D-40, **mỗi chính sách chỉ dùng cho một chứng từ xuất**: chứng từ thứ hai không tham chiếu được; chính sách đã dùng không hủy được; lưu chứng từ đã dùng để truy vết. Chốt 2026-10-10 | Đã chốt |
+| D-52 | Chế độ duyệt theo loại chứng từ (BR-SYS-11, D-04) | Mỗi loại chứng từ có chế độ `NONE` (không duyệt), `CONFIGURED` (duyệt khi có luồng khớp), `REQUIRED` (bắt buộc có luồng, thiếu thì báo lỗi `APPROVAL_NOT_CONFIGURED`). Mặc định kho: PNK, PCK `CONFIGURED`; PXK, PXH, PDC, PCL, PDK, PKK, PTH, CSX `REQUIRED`; doanh nghiệp đổi ở màn hình Loại chứng từ. Cảnh báo hạn dùng mặc định 90 ngày (tham số `inventory.expiry-warning-days`). Chốt 2026-10-10 làm giá trị mặc định **[Thay bởi D-61]** Mọi loại chứng từ `NONE`; màn hình Loại chứng từ không còn sửa chế độ duyệt. | Đã chốt |
+| D-53 | Chính sách xuất vượt tồn khả dụng: cách áp dụng (BR-GEN-31) | Chính sách là chứng từ riêng (CSX) theo kho (và hàng, nếu chọn), có hạn mức số lượng và thời hạn, Giám đốc duyệt. Theo D-40, **mỗi chính sách chỉ dùng cho một chứng từ xuất**: chứng từ thứ hai không tham chiếu được; chính sách đã dùng không hủy được; lưu chứng từ đã dùng để truy vết. Chốt 2026-10-10 **[Sửa bởi D-61]** Chính sách kích hoạt bằng quyền `stock-policy:activate` thay vì Giám đốc duyệt. | Đã chốt |
 | D-54 | Gộp chứng từ mua / bán (thay D-36; sửa BR-PUR-01..11, BR-SAL-01..05, 15, 20..23, 30..33, 42, AT-01, AT-05) | **Đơn mua** là chứng từ ghi sổ duy nhất của nghiệp vụ mua: mang hóa đơn NCC (không bắt buộc), lô / hạn dùng / serial; ghi sổ = phiếu nhập kho liên kết + công nợ phải trả + bút toán. **Đơn bán** là chứng từ ghi sổ duy nhất của nghiệp vụ bán: ghi sổ = phiếu xuất kho liên kết (FEFO) + doanh thu + công nợ phải thu + bút toán; số hóa đơn điện tử nhập trước / sau ghi sổ; theo dõi giao hàng trên đơn; giao thất bại = đảo đơn. Bỏ đề nghị mua, yêu cầu / so sánh báo giá NCC (5E), phiếu nhận hàng, hóa đơn mua riêng, dung sai nhận vượt, báo giá bán, phiếu giao hàng, hóa đơn bán riêng, bán nhanh. Mất: nhận / giao nhiều đợt cho một đơn, một hóa đơn cho nhiều lần giao, hàng về trước hóa đơn về sau, kiểm nhận hàng lỗi khi nhận. Chủ dự án chốt 2026-10-12 | Đã chốt |
 | D-55 | Mã cũ MISA của hàng hóa, đối tác (sửa BR-MD-01, H-14) | Bỏ ô "Mã cũ (MISA)" khỏi mọi màn hình và cột tương ứng khỏi mẫu nhập Excel hàng hóa, đối tác. Giữ cột `legacy_code` và trường `legacyCode` trong API (tương thích ngược, giữ dữ liệu đã nhập); sửa hàng hóa / đối tác giữ nguyên giá trị đang lưu; tìm kiếm ở server vẫn khớp mã cũ. Chủ dự án chốt 2026-10-15 | Đã chốt |
 | D-56 | Trạng thái chất lượng khi nhập kho (thay D-09, sửa BR-INV-03) | Mọi nhập kho (ghi sổ đơn mua, phiếu nhập kho, tồn đầu kỳ) mặc định **ĐẠT**, bán được ngay; bỏ quy tắc thuốc thử và TTBYT loại C/D phải qua "chờ kiểm tra". Vẫn chọn tay được trạng thái khác trên dòng phiếu nhập (ví dụ CÁCH LY cho lô tạm D-13); nhập thu hồi vẫn là THU HỒI; phiếu chuyển trạng thái chất lượng giữ nguyên. API hàng hóa bỏ trường `initialQualityStatus`. Chủ dự án chốt 2026-10-15 | Đã chốt |
@@ -924,6 +929,9 @@ Ngày 2026-10-09 (lần 2) chủ dự án chốt toàn bộ quyết định còn
 | D-58 | Công ty in trên phiếu nhập kho, phiếu xuất kho (BR-PUR-08, BR-SAL-21) | Trước nút "In phiếu nhập kho" của đơn mua và "In phiếu xuất kho" của đơn bán có ô chọn công ty, mặc định công ty của người dùng; chỉ liệt kê công ty đang hoạt động trong phạm vi người dùng. Đầu phiếu in tên, địa chỉ công ty đã chọn; tiêu đề hộp xem trước là tên thao tác (không lặp lại tên công ty). Dữ liệu chứng từ không đổi (đơn vẫn thuộc công ty của đơn); in theo công ty khác công ty của đơn ghi nhật ký audit. Chủ dự án chốt 2026-10-16 | Đã chốt |
 | D-59 | Bản quyền phần mềm cài tại máy khách (2026-10-17) | License ký số Ed25519: nhà cung cấp giữ private key (công cụ `tools/license-signer`), ứng dụng chỉ chứa public key (`license/public-keys.properties` trong WAR). License ghi mã license, khách hàng, danh sách mã số thuế công ty được dùng, ngày hết hạn, số ngày ân hạn, ngày cấp. Kiểm tra khi khởi động, mỗi giờ và khi nạp. Không ghi được (**chỉ đọc**: vẫn đăng nhập, xem, in, xuất, nạp license, ngừng hoạt động công ty) khi: chưa có license, chữ ký sai / khóa không tin cậy, quá ngày hết hạn + ân hạn, có công ty đang hoạt động ngoài danh sách MST, đồng hồ máy chủ lùi quá 1 ngày so với ngày cấp / ngày nạp / mốc lớn nhất đã thấy. Không giới hạn số người dùng. Không có cấu hình tắt kiểm tra. [Suy luận] Người có quyền quản trị máy chủ và kỹ năng dịch ngược vẫn có thể vượt qua; hợp đồng là căn cứ chính | Đã chốt |
 | D-60 | Công nợ đầu kỳ không qua duyệt, không theo hóa đơn (2026-10-18) | Chứng từ công nợ đầu kỳ (CNDK) ghi sổ thẳng từ nháp (Nháp → Ghi sổ), bỏ gửi duyệt / duyệt / từ chối; đảo dùng quyền `debt-opening:post`, bỏ quyền `debt-opening:approve`. Dòng chỉ gồm đối tượng, hạn thanh toán, số tiền, ghi chú (bỏ số / ngày hóa đơn); một đối tượng được nhiều dòng; hạn trống = ngày chứng từ + số ngày nợ của đối tượng. Ngày phát sinh khoản công nợ = ngày chứng từ, hoặc hạn thanh toán nếu sớm hơn `[Giả định]`. Chứng từ cũ đang chờ duyệt chỉ còn hủy; đã duyệt vẫn ghi sổ được (V31) | Đã chốt |
+| D-61 | Bỏ bước duyệt trên mọi luồng nghiệp vụ (2026-10-21; thay D-04, D-52; sửa D-10, D-22, D-40, D-53, BR-GEN-01, 05, 31, BR-SYS-11, 14, BR-SAL-03, 14, BR-PUR-04, BR-CSH-03, BR-AR-07, BR-INV-31, 42; D-45 không đổi) | Theo mẫu D-60: mọi chứng từ ghi sổ đi Nháp → Ghi sổ; bỏ gửi duyệt / duyệt / từ chối, luồng duyệt, ủy quyền duyệt, việc chờ duyệt, chế độ duyệt theo loại chứng từ, tự duyệt (BR-SYS-14). Chứng từ lập trước D-61: chờ duyệt / bị từ chối chỉ còn hủy (hủy đóng yêu cầu duyệt còn treo), đã duyệt vẫn ghi sổ được; lịch sử duyệt giữ chỉ đọc. Kiểm soát vượt ngưỡng thay bằng quyền khi ghi sổ, thiếu quyền trả 422 và có ghi audit khi dùng quyền: chi từ ngưỡng `finance.payment-approval-threshold` cần `cash-document:post-over-threshold` (`AUTHORITY_LIMIT_EXCEEDED`); đơn mua từ ngưỡng `purchasing.order-approval-threshold` cần `purchase-order:post-over-threshold` (`AUTHORITY_LIMIT_EXCEEDED`); đơn bán giá dưới sàn / chiết khấu vượt ngưỡng cần `sales-order:override-price` (`PRICE_BELOW_FLOOR`), vượt hạn mức / nợ quá hạn cần `sales-order:override-credit` (`CREDIT_LIMIT_EXCEEDED`). Chính sách xuất vượt tồn khả dụng (CSX) kích hoạt bằng `stock-policy:activate` (mặc định Giám đốc); thu hồi kích hoạt / đóng bằng `recall:manage`; kiểm kê ghi sổ thẳng từ Đang đếm. Đơn mua nháp không cộng hàng đang về (chỉ đơn đã duyệt trước D-61 còn phần đã cộng). Đơn bán giữ hàng ngay trên đơn nháp (khi lưu nếu chọn giữ hàng, hoặc lệnh giữ hàng), sửa đơn thì nhả rồi giữ lại, nhả khi ghi sổ / hủy. Báo cáo đơn đang mở, tồn so với đặt hàng = đơn nháp + đơn đã duyệt trước D-61; dòng tiền dự kiến chỉ tính đơn đã duyệt trước D-61 (đơn nháp không tính). `[Suy luận]` Điều kiện khóa kỳ giữ nguyên: chỉ chứng từ đã duyệt / chờ duyệt cũ và đang vận chuyển chặn khóa kỳ, chứng từ nháp không chặn - cần xác nhận. Kế toán trưởng, Giám đốc xác nhận trước UAT (rủi ro P-06) | Đã chốt |
+| D-62 | Bỏ ghi sổ đơn mua / đơn bán để sửa (2026-10-21; sửa BR-GEN-03, thêm BR-PUR-20, BR-SAL-25) | Đơn mua, đơn bán đã ghi sổ được bỏ ghi sổ (`POST /{resource}/{id}/unpost`, quyền `purchase-order:unpost`, `sales-order:unpost`, mặc định gán cho vai trò có quyền đảo đơn tương ứng): sổ phụ vẫn chỉ INSERT - hệ thống sinh dòng ngược (phiếu kho đảo PDK, công nợ, bút toán) theo ngày hạch toán gốc, đơn về nháp giữ nguyên số để sửa và ghi sổ lại. Điều kiện chặn như đảo; đơn bán thêm: chưa chuyển đi giao, chưa có số hóa đơn điện tử, không có khiếu nại. Chứng từ khác vẫn chỉ đảo. Ràng buộc duy nhất của khoản công nợ / bút toán gốc theo chứng từ nguồn chỉ áp dụng cho bản còn hiệu lực (V37). `[Suy luận]` Hóa đơn điện tử đã phát hành xử lý bằng đảo đơn và hóa đơn điều chỉnh / thay thế theo quy định hóa đơn - chưa kiểm chứng, kế toán trưởng / pháp chế xác nhận trước UAT | Đã chốt |
+| D-63 | Chọn chứng từ nhập trên dòng đơn bán (F8) (2026-10-21; thêm BR-SAL-26) | Như F8 của MISA SME: chọn dòng nhập kho còn tồn (lô / serial) cho dòng đơn bán, lưu liên kết `sales_order_lines.receipt_transaction_id` (dòng `inventory_transactions` chiều nhập) và số chứng từ nhập (V38); áp dụng mọi hàng quản lý lô / serial, quyền `sales-order:create`. Không đổi D-02: vật tư / thuốc thử vẫn bình quân gia quyền cuối kỳ; liên kết dùng cho giá vốn đích danh ở Giai đoạn 8 khi được áp dụng. `[Giả định]` Tồn hiện có tính theo lô / serial tại kho (lô nhập nhiều lần dùng chung tồn), chưa theo dõi tồn còn lại riêng từng phiếu nhập | Đã chốt |
 | D-48 | Sửa cấu hình số chứng từ đã cấp số (BR-SYS-10) | Thay đổi chỉ có hiệu lực từ chu kỳ sau (đầu tháng sau nếu đặt lại theo tháng; đầu năm sau nếu theo năm hoặc đổi chu kỳ); chưa cấp số thì hiệu lực ngay. Chi nhánh và kỳ luôn in trong số. Chốt 2026-10-10 | Đã chốt |
 
 ---
@@ -938,7 +946,7 @@ Ngày 2026-10-09 (lần 2) chủ dự án chốt toàn bộ quyết định còn
 | P-03 Thuộc tính ghép trong tên hàng | BR-MD-03, BR-MIG-01 |
 | P-04 Đơn vị tính hỗn hợp | BR-MD-20..21, BR-INV-24 |
 | P-05 Không có hồ sơ chất lượng, số lưu hành | BR-MD-05, BR-MD-44, BR-INV-05, BR-EQP-06, BR-SAL-22 |
-| P-06 Không có phê duyệt | BR-GEN-05, BR-SYS-11, BR-SAL-03, BR-SAL-14, BR-SYS-14 |
+| P-06 Không có phê duyệt | BR-GEN-05, BR-SYS-11, BR-SAL-03, BR-SAL-14, BR-SYS-14 (bỏ duyệt theo D-61; kiểm soát còn lại bằng quyền vượt ngưỡng, audit) |
 | P-07 Danh mục đối tác lẫn lộn | BR-MD-30, BR-MIG-01 |
 | P-08 Không theo dõi serial, bảo hành | BR-INV-02, BR-EQP-01..07, BR-SVC-01..06 |
 | P-09 Không theo dõi hợp đồng, thầu | BR-TND-01..27 |

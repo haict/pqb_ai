@@ -46,7 +46,7 @@ interface CountForm {
 const FIELDS = ['branchId', 'cashAccountId', 'documentDate', 'postingDate', 'countedAmount', 'description'];
 
 /**
- * Kiểm kê quỹ tiền mặt (KKQ, BR-CSH-05): nhập số tiền đếm thực tế; sau khi duyệt, ghi sổ so với số dư sổ quỹ đến hết
+ * Kiểm kê quỹ tiền mặt (KKQ, BR-CSH-05): nhập số tiền đếm thực tế; ghi sổ (D-61 không qua duyệt) so với số dư sổ quỹ đến hết
  * ngày kiểm kê và ghi chênh lệch thừa / thiếu.
  */
 export function CashCountsPage() {

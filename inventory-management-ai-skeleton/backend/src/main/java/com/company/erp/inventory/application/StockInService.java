@@ -9,8 +9,6 @@ import com.company.erp.inventory.domain.InventoryDocumentType;
 import com.company.erp.inventory.infrastructure.persistence.InventoryDocumentRepository;
 import com.company.erp.system.application.CurrentUser;
 import java.math.BigDecimal;
-import java.time.Clock;
-import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
@@ -24,7 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Nhập kho theo chứng từ nguồn của module khác (phiếu nhận hàng, BR-PUR-08, D-36): lập phiếu nhập kho PNK riêng, gắn
- * chứng từ / dòng nguồn, ghi sổ ngay (chứng từ nguồn đã được duyệt) trong transaction của chứng từ nguồn. Đảo cũng
+ * chứng từ / dòng nguồn, ghi sổ ngay (cùng lúc ghi sổ chứng từ nguồn) trong transaction của chứng từ nguồn. Đảo cũng
  * chỉ qua chứng từ nguồn. Chứng từ nguồn phải được khóa trước khi gọi để thứ tự khóa là: nguồn → kỳ → kho → tồn.
  * Transaction gọi phải ở mức READ COMMITTED như ghi sổ kho (ADR-08).
  */
@@ -63,19 +61,16 @@ public class StockInService {
     private final InventoryDocumentPostingService postingService;
     private final InventoryDocumentService documentService;
     private final InventoryAccess access;
-    private final Clock clock;
 
-    @SuppressWarnings("java:S107")
     public StockInService(InventoryDocumentRepository documentRepository, InventoryDocumentBuilder builder,
                           InventoryNumbering numbering, InventoryDocumentPostingService postingService,
-                          InventoryDocumentService documentService, InventoryAccess access, Clock clock) {
+                          InventoryDocumentService documentService, InventoryAccess access) {
         this.documentRepository = documentRepository;
         this.builder = builder;
         this.numbering = numbering;
         this.postingService = postingService;
         this.documentService = documentService;
         this.access = access;
-        this.clock = clock;
     }
 
     /**
@@ -98,11 +93,8 @@ public class StockInService {
             built.lines().get(i).linkSourceLine(command.lines().get(i).sourceLineId());
         }
         document.linkSource(command.sourceType(), command.sourceId(), command.sourceNo());
-        Instant now = Instant.now(clock);
-        document.submit(actor.id(), now);
-        document.approve(actor.id(), now);
         documentRepository.saveAndFlush(document);
-        postingService.postApproved(document, actor.id());
+        postingService.postDocument(document, actor.id());
         documentRepository.saveAndFlush(document);
         documentService.audit(actor, "POST", document, null, null, command.sourceNo());
         log.info("Nhập kho {} theo {} {}", document.getDocumentNo(), command.sourceType(), command.sourceNo());
@@ -130,10 +122,7 @@ public class StockInService {
         reversal.linkSource(original.getSourceType(), original.getSourceId(), original.getSourceNo());
         documentRepository.saveAndFlush(reversal);
         original.linkReversal(reversal.getId());
-        Instant now = Instant.now(clock);
-        reversal.submit(actor.id(), now);
-        reversal.approve(actor.id(), now);
-        postingService.postApproved(reversal, actor.id());
+        postingService.postDocument(reversal, actor.id());
         documentRepository.saveAndFlush(reversal);
         documentService.audit(actor, "REVERSE", original, reason, null, reversal.getDocumentNo());
         return new StockInResult(reversal.getId(), reversal.getDocumentNo());

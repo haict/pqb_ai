@@ -19,6 +19,7 @@ import com.company.erp.inventory.application.StockInService.StockInResult;
 import com.company.erp.masterdata.application.MasterDataQueryService.ProductInfo;
 import com.company.erp.sales.application.dto.ReverseRequest;
 import com.company.erp.sales.application.dto.SalesReturnResponse;
+import com.company.erp.sales.domain.SalesDocument;
 import com.company.erp.sales.domain.SalesDocumentStatus;
 import com.company.erp.sales.domain.SalesOrder;
 import com.company.erp.sales.domain.SalesReturn;
@@ -84,10 +85,10 @@ public class SalesReturnPostingService {
                 SalesReturnResponse.class, () -> {
                     access.requirePermission(actor, POST);
                     SalesReturn document = flow.lock(actor, id, returns.spec());
-                    if (document.getStatus() != SalesDocumentStatus.APPROVED) {
+                    if (!SalesDocument.POSTABLE.contains(document.getStatus())) {
                         throw new BusinessException(ErrorCode.INVALID_DOCUMENT_STATE, "Chứng từ "
                                 + document.getDocumentNo() + " ở trạng thái " + document.getStatus()
-                                + ", chỉ ghi sổ chứng từ đã duyệt.");
+                                + ", chỉ ghi sổ chứng từ nháp.");
                     }
                     SalesOrder order = lockOrder(document);
                     applySources(document, order, BigDecimal.ONE);

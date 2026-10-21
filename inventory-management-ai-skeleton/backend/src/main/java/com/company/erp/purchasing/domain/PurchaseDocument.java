@@ -10,21 +10,22 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.MappedSuperclass;
-import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.EnumSet;
 import java.util.Set;
 
 /**
- * Cột và vòng đời chung của chứng từ mua hàng (BR mục 5.1, D-54): DRAFT → SUBMITTED → APPROVED; SUBMITTED → REJECTED →
- * sửa → gửi lại; hủy khi chưa ghi sổ. Ghi sổ / đảo ở lớp con. Chỉ sửa ở DRAFT / REJECTED.
+ * Cột và vòng đời chung của chứng từ mua hàng (BR mục 5.1, D-54; D-61 không qua duyệt): DRAFT → ghi sổ; hủy khi chưa
+ * ghi sổ. Ghi sổ / đảo ở lớp con. Chỉ sửa ở DRAFT. Chứng từ lập trước D-61: APPROVED vẫn ghi sổ được, SUBMITTED /
+ * REJECTED chỉ còn hủy. Cột người / thời điểm gửi, duyệt giữ lại để tra cứu chứng từ cũ.
  */
 @MappedSuperclass
 public abstract class PurchaseDocument extends AuditableEntity {
 
-    protected static final Set<PurchaseDocumentStatus> EDITABLE =
-            EnumSet.of(PurchaseDocumentStatus.DRAFT, PurchaseDocumentStatus.REJECTED);
+    protected static final Set<PurchaseDocumentStatus> EDITABLE = EnumSet.of(PurchaseDocumentStatus.DRAFT);
+    public static final Set<PurchaseDocumentStatus> POSTABLE =
+            EnumSet.of(PurchaseDocumentStatus.DRAFT, PurchaseDocumentStatus.APPROVED);
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -74,37 +75,13 @@ public abstract class PurchaseDocument extends AuditableEntity {
         this.status = PurchaseDocumentStatus.DRAFT;
     }
 
-    /** Mã loại chứng từ trong {@code sys_document_types} (luồng duyệt, số chứng từ). */
+    /** Mã loại chứng từ trong {@code sys_document_types} (số chứng từ, lịch sử duyệt cũ). */
     public abstract String typeCode();
-
-    /** Giá trị chứng từ để xét ngưỡng duyệt; {@code null} khi không áp dụng. */
-    public abstract BigDecimal approvalAmount();
 
     protected void replaceHeader(LocalDate documentDate, String description) {
         requireStatus(EDITABLE, "sửa");
         this.documentDate = documentDate;
         this.description = description;
-    }
-
-    public void submit(Long actorId, Instant now) {
-        requireStatus(EDITABLE, "gửi duyệt");
-        this.status = PurchaseDocumentStatus.SUBMITTED;
-        this.submittedBy = actorId;
-        this.submittedAt = now;
-        this.reason = null;
-    }
-
-    public void approve(Long actorId, Instant now) {
-        requireStatus(EnumSet.of(PurchaseDocumentStatus.SUBMITTED), "duyệt");
-        this.status = PurchaseDocumentStatus.APPROVED;
-        this.approvedBy = actorId;
-        this.approvedAt = now;
-    }
-
-    public void reject(String reason) {
-        requireStatus(EnumSet.of(PurchaseDocumentStatus.SUBMITTED), "từ chối");
-        this.status = PurchaseDocumentStatus.REJECTED;
-        this.reason = reason;
     }
 
     /** Hủy khi chưa ghi sổ. */

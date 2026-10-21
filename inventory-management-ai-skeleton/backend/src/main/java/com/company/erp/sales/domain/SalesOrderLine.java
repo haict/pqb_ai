@@ -39,6 +39,13 @@ public class SalesOrderLine extends SalesPricedLine {
     @Column(name = "lot_override_reason")
     private String lotOverrideReason;
 
+    /** Dòng sổ nhật ký kho chiều nhập được chọn xuất đích danh (D-63); trống: kho chọn theo FEFO. */
+    @Column(name = "receipt_transaction_id")
+    private Long receiptTransactionId;
+
+    @Column(name = "receipt_no")
+    private String receiptNo;
+
     @Column(name = "returned_quantity", nullable = false, precision = 19, scale = 3)
     private BigDecimal returnedQuantity = BigDecimal.ZERO;
 
@@ -59,9 +66,16 @@ public class SalesOrderLine extends SalesPricedLine {
     protected SalesOrderLine() {
     }
 
-    /** Lô / serial chỉ định khi lập đơn; trống thì kho chọn theo FEFO khi ghi sổ. */
+    /**
+     * Lô / serial chỉ định khi lập đơn; trống thì kho chọn theo FEFO khi ghi sổ. {@code receipt}: chứng từ nhập chọn
+     * xuất đích danh (D-63), có thể trống.
+     */
     public record Values(PricedValues price, boolean serviceLine, LocalDate expectedDate, String lotNo,
-                         String lotOverrideReason, List<String> serialNumbers) {
+                         String lotOverrideReason, List<String> serialNumbers, ReceiptSource receipt) {
+    }
+
+    /** Dòng nhập kho được chọn (id dòng sổ nhật ký kho, số chứng từ nhập). */
+    public record ReceiptSource(Long transactionId, String documentNo) {
     }
 
     public SalesOrderLine(int lineNo, Values values) {
@@ -75,13 +89,17 @@ public class SalesOrderLine extends SalesPricedLine {
         this.expectedDate = values.expectedDate();
         this.lotNo = values.lotNo();
         this.lotOverrideReason = values.lotOverrideReason();
+        this.receiptTransactionId = values.receipt() == null ? null : values.receipt().transactionId();
+        this.receiptNo = values.receipt() == null ? null : values.receipt().documentNo();
         this.serialNumbers.clear();
         this.serialNumbers.addAll(values.serialNumbers());
     }
 
     void copyFrom(SalesOrderLine other) {
         apply(new Values(other.priceValues(), other.serviceLine, other.expectedDate, other.lotNo,
-                other.lotOverrideReason, new ArrayList<>(other.serialNumbers)));
+                other.lotOverrideReason, new ArrayList<>(other.serialNumbers),
+                other.receiptTransactionId == null ? null
+                        : new ReceiptSource(other.receiptTransactionId, other.receiptNo)));
     }
 
     /** Ghi hàng thực xuất khi ghi sổ (giữ lại sau đảo để truy vết). */
@@ -138,6 +156,14 @@ public class SalesOrderLine extends SalesPricedLine {
 
     public String getLotNo() {
         return lotNo;
+    }
+
+    public Long getReceiptTransactionId() {
+        return receiptTransactionId;
+    }
+
+    public String getReceiptNo() {
+        return receiptNo;
     }
 
     public String getLotOverrideReason() {

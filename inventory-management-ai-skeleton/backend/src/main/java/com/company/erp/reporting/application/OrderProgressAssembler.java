@@ -21,7 +21,8 @@ class OrderProgressAssembler {
 
     private static final Set<String> STATUSES = Set.of("DRAFT", "SUBMITTED", "REJECTED", "APPROVED", "POSTED",
             "CANCELLED", "REVERSED");
-    private static final Set<String> OPEN = Set.of("SUBMITTED", "APPROVED");
+    /** Đơn chưa ghi sổ còn hiệu lực: nháp, và đơn đã duyệt trước D-61 (D-61 không qua duyệt). */
+    private static final Set<String> OPEN = Set.of("DRAFT", "APPROVED");
 
     /** Trạng thái lọc hợp lệ hoặc {@code null}; sai: lỗi trường {@code status}. */
     static String status(String status) {
@@ -47,7 +48,7 @@ class OrderProgressAssembler {
     }
 
     /**
-     * Trễ hẹn: đơn đã gửi / duyệt chưa ghi sổ (chưa nhập / xuất kho) hoặc đơn bán đã ghi sổ mà khách chưa nhận, quá
+     * Trễ hẹn: đơn nháp / đã duyệt trước D-61 chưa ghi sổ (chưa nhập / xuất kho) hoặc đơn bán đã ghi sổ mà khách chưa nhận, quá
      * ngày dự kiến.
      */
     private static Long overdueDays(Row row, LocalDate today) {

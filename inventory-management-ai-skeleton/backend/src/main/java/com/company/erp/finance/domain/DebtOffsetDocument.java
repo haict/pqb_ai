@@ -66,13 +66,9 @@ public class DebtOffsetDocument extends FinanceDocument {
         return TYPE_CODE;
     }
 
-    @Override
-    public BigDecimal approvalAmount() {
-        return totalAmount;
-    }
 
     /**
-     * Thay nội dung (chỉ DRAFT / REJECTED). {@code total} là số tiền bù trừ: bằng tổng dòng với bù trừ trả trước,
+     * Thay nội dung (chỉ DRAFT). {@code total} là số tiền bù trừ: bằng tổng dòng với bù trừ trả trước,
      * bằng tổng dòng phải thu và bằng tổng dòng phải trả với bù trừ phải thu - phải trả (kiểm tra ở tầng ứng dụng).
      */
     public void replaceContent(LocalDate documentDate, LocalDate postingDate, String description, Long partnerId,

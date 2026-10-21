@@ -34,7 +34,7 @@ import org.springframework.test.web.servlet.ResultActions;
 
 /**
  * Đơn mua gộp (D-54) trên MySQL thật: ghi sổ = nhập kho theo lô / serial + công nợ phải trả + bút toán (BR-PUR-04, 08,
- * 09), hàng đang về (BR mục 5.4), hóa đơn trùng (BR-PUR-09), duyệt theo ngưỡng (D-04), phân quyền (AT-10), chống xử lý
+ * 09), hàng đang về (BR mục 5.4), hóa đơn trùng (BR-PUR-09), ghi sổ theo ngưỡng thẩm quyền (D-61), phân quyền (AT-10), chống xử lý
  * trùng (AT-13), đảo (AT-09).
  */
 @MySqlIntegrationTest
@@ -73,9 +73,9 @@ class PurchaseOrderIntegrationTest extends PurchasingIntegrationSupport {
                 .andExpect(jsonPath("$.data.supplierTaxCode").value("0300000001"))
                 .andExpect(jsonPath("$.data.supplierAddress").isNotEmpty())
                 .andExpect(jsonPath("$.data.dueDate").value("2026-11-04")).andReturn());
-        act(buyer, ORDERS, order, "submit", null).andExpect(jsonPath("$.data.status").value("APPROVED"));
-        assertThat(incoming(tube, warehouse)).isEqualByComparingTo(tubeIncoming.add(new BigDecimal("200")));
-        assertThat(incoming(machine, warehouse)).isEqualByComparingTo(machineIncoming.add(BigDecimal.ONE));
+        // D-61: đơn nháp không cộng hàng đang về (ghi sổ là nhập kho ngay).
+        assertThat(incoming(tube, warehouse)).isEqualByComparingTo(tubeIncoming);
+        assertThat(incoming(machine, warehouse)).isEqualByComparingTo(machineIncoming);
 
         act(buyer, ORDERS, order, "post", null).andExpect(status().isForbidden());
         mockMvc.perform(as(buyer, get(ORDERS + "/" + order + "/stock-in-slip"))).andExpect(status().isConflict())
@@ -173,8 +173,8 @@ class PurchaseOrderIntegrationTest extends PurchasingIntegrationSupport {
     }
 
     @Test
-    @DisplayName("D-04, AT-10, AT-13: đơn mua từ ngưỡng phải duyệt; từ chối rồi sửa gửi lại; gửi lại cùng key không xử lý hai lần; hủy đơn đã duyệt trừ hàng đang về")
-    void thresholdApproval() throws Exception {
+    @DisplayName("D-61, AT-10, AT-13: đơn mua từ ngưỡng chỉ người có quyền ghi sổ vượt ngưỡng ghi sổ được; không có bước duyệt; hủy đơn nháp")
+    void thresholdAuthority() throws Exception {
         long machine = product("MAY_XN_01");
         long piece = unit("CAI");
         long warehouse = warehouse("KHO_HN");
@@ -182,29 +182,71 @@ class PurchaseOrderIntegrationTest extends PurchasingIntegrationSupport {
                 null).replaceFirst("}$", ",\"serialNumbers\":[\"" + unique("SN") + "\"]}")));
         long order = jsonId(send(buyer, post(ORDERS), body, newKey()).andExpect(status().isCreated()).andReturn());
         BigDecimal incomingBefore = incoming(machine, warehouse);
+        BigDecimal onHandBefore = onHand(machine, warehouse);
+
+        mockMvc.perform(as(hcmKeeper, get(ORDERS + "/" + order))).andExpect(status().isNotFound());
+        act(keeper, ORDERS, order, "post", null).andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.code").value("AUTHORITY_LIMIT_EXCEEDED"));
+        assertThat(id("SELECT COUNT(*) FROM purchase_orders WHERE status = 'DRAFT' AND id = " + order)).isEqualTo(1);
+        assertThat(onHand(machine, warehouse)).isEqualByComparingTo(onHandBefore);
+        assertThat(id("SELECT COUNT(*) FROM approval_requests WHERE document_type = 'DMH' AND document_id = "
+                + order)).isZero();
 
         String key = newKey();
-        submit(order, key).andExpect(jsonPath("$.data.status").value("SUBMITTED"));
-        submit(order, key).andExpect(status().isOk()).andExpect(jsonPath("$.data.status").value("SUBMITTED"));
-        assertThat(id("SELECT COUNT(*) FROM approval_requests WHERE document_type = 'DMH' AND document_id = "
-                + order)).isEqualTo(1);
+        postOrder(order, key, director).andExpect(status().isOk()).andExpect(jsonPath("$.data.status").value("POSTED"));
+        postOrder(order, key, director).andExpect(status().isOk()).andExpect(jsonPath("$.data.status").value("POSTED"));
+        assertThat(onHand(machine, warehouse)).isEqualByComparingTo(onHandBefore.add(BigDecimal.ONE));
         assertThat(incoming(machine, warehouse)).isEqualByComparingTo(incomingBefore);
+        assertThat(id("SELECT COUNT(*) FROM sys_audit_logs WHERE entity_type = 'PURCHASE_ORDER' AND entity_id = "
+                + order + " AND action = 'POST' AND reason LIKE 'Ghi sổ đơn mua vượt ngưỡng%'")).isEqualTo(1);
 
-        act(buyer, ORDERS, order, "approve", "{}").andExpect(status().isForbidden());
-        mockMvc.perform(as(hcmKeeper, get(ORDERS + "/" + order))).andExpect(status().isNotFound());
-        act(director, ORDERS, order, "reject", "{\"reason\":\"Giá cao\"}")
-                .andExpect(jsonPath("$.data.status").value("REJECTED"));
-        long version = id("SELECT version FROM purchase_orders WHERE id = " + order);
-        String revised = body.replace("60000000", "55000000").replace("}]}", "}],\"version\":" + version + "}");
-        mockMvc.perform(as(buyer, put(ORDERS + "/" + order)).contentType("application/json").content(revised))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.data.totalAmount").value(55000000));
-        act(buyer, ORDERS, order, "submit", null).andExpect(jsonPath("$.data.status").value("SUBMITTED"));
-        act(director, ORDERS, order, "approve", "{}").andExpect(jsonPath("$.data.status").value("APPROVED"));
-        assertThat(incoming(machine, warehouse)).isEqualByComparingTo(incomingBefore.add(BigDecimal.ONE));
-
-        act(buyer, ORDERS, order, "cancel", "{\"reason\":\"Đổi nhà cung cấp\"}")
+        long draft = jsonId(send(buyer, post(ORDERS), body.replaceFirst("\"SN[^\"]*\"", "\"" + unique("SN") + "\""),
+                newKey()).andExpect(status().isCreated()).andReturn());
+        act(buyer, ORDERS, draft, "cancel", "{\"reason\":\"Đổi nhà cung cấp\"}")
                 .andExpect(jsonPath("$.data.status").value("CANCELLED"));
         assertThat(incoming(machine, warehouse)).isEqualByComparingTo(incomingBefore);
+    }
+
+    @Test
+    @DisplayName("D-61: đơn chờ duyệt lập trước D-61 không ghi sổ được, chỉ hủy; hủy đóng yêu cầu duyệt còn treo; lịch sử duyệt chỉ đọc")
+    void legacyPendingApproval() throws Exception {
+        String body = order(partner("NCC_01"), warehouse("KHO_HN"), List.of(orderLine(product("DV_VC"), unit("CAI"),
+                "1", "100000", null, null)));
+        long order = jsonId(send(buyer, post(ORDERS), body, newKey()).andExpect(status().isCreated()).andReturn());
+        long request = legacyPendingRequest(order);
+
+        act(keeper, ORDERS, order, "post", null).andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("INVALID_DOCUMENT_STATE"));
+        mockMvc.perform(as(buyer, get(ORDERS + "/" + order))).andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.approvals.length()").value(1))
+                .andExpect(jsonPath("$.data.approvals[0].status").value("PENDING"));
+        act(buyer, ORDERS, order, "cancel", "{\"reason\":\"Bỏ đơn cũ\"}")
+                .andExpect(jsonPath("$.data.status").value("CANCELLED"));
+        assertThat(jdbc.queryForObject("SELECT status FROM approval_requests WHERE id = ?", String.class, request))
+                .isEqualTo("CANCELLED");
+        assertThat(id("SELECT COUNT(*) FROM approval_actions WHERE request_id = " + request
+                + " AND action = 'CANCEL'")).isEqualTo(1);
+    }
+
+    /** Giả lập đơn đã gửi duyệt trước D-61: yêu cầu duyệt đang chờ theo luồng cũ (đã ngừng hoạt động). */
+    private long legacyPendingRequest(long order) {
+        long requester = id("SELECT id FROM sys_users WHERE username = 'muahang.hn'");
+        jdbc.update("INSERT INTO approval_workflows (company_id, document_type, name, branch_id, priority, status, "
+                + "created_at, updated_at) VALUES (1, 'DMH', ?, NULL, 0, 'INACTIVE', UTC_TIMESTAMP(3), "
+                + "UTC_TIMESTAMP(3))", unique("Cũ - DMH "));
+        long workflow = id("SELECT MAX(id) FROM approval_workflows");
+        jdbc.update("UPDATE purchase_orders SET status = 'SUBMITTED', submitted_by = ?, submitted_at = UTC_TIMESTAMP(3) "
+                + "WHERE id = ?", requester, order);
+        jdbc.update("INSERT INTO approval_requests (company_id, branch_id, document_type, document_id, document_no, "
+                + "amount, workflow_id, current_step, total_steps, status, requested_by, requested_at) SELECT "
+                + "company_id, branch_id, 'DMH', id, document_no, total_amount, ?, 1, 1, 'PENDING', ?, UTC_TIMESTAMP(3) "
+                + "FROM purchase_orders WHERE id = ?", workflow, requester, order);
+        long request = id("SELECT id FROM approval_requests WHERE document_type = 'DMH' AND document_id = " + order);
+        jdbc.update("INSERT INTO approval_request_steps (request_id, step_no, approver_type, role_id, user_id) "
+                + "SELECT ?, 1, 'ROLE', id, NULL FROM sys_roles WHERE code = 'DIRECTOR'", request);
+        jdbc.update("INSERT INTO approval_actions (request_id, step_no, action, actor_user_id, acted_at) "
+                + "VALUES (?, 1, 'SUBMIT', ?, UTC_TIMESTAMP(3))", request, requester);
+        return request;
     }
 
     @Test
@@ -296,12 +338,11 @@ class PurchaseOrderIntegrationTest extends PurchasingIntegrationSupport {
         }
     }
 
-    private ResultActions submit(long order, String key) throws Exception {
-        return mockMvc.perform(as(buyer, post(ORDERS + "/" + order + "/submit"))
-                .header(IdempotentCommand.HEADER, key));
+    private ResultActions postOrder(long order, String key) throws Exception {
+        return postOrder(order, key, keeper);
     }
 
-    private ResultActions postOrder(long order, String key) throws Exception {
-        return mockMvc.perform(as(keeper, post(ORDERS + "/" + order + "/post")).header(IdempotentCommand.HEADER, key));
+    private ResultActions postOrder(long order, String key, Session user) throws Exception {
+        return mockMvc.perform(as(user, post(ORDERS + "/" + order + "/post")).header(IdempotentCommand.HEADER, key));
     }
 }

@@ -134,11 +134,8 @@ public class StockOutService {
             built.lines().get(i).linkSourceLine(command.lines().get(i).sourceLineId());
         }
         document.linkSource(command.sourceType(), command.sourceId(), command.sourceNo());
-        Instant now = Instant.now(clock);
-        document.submit(actor.id(), now);
-        document.approve(actor.id(), now);
         documentRepository.saveAndFlush(document);
-        postingService.postApproved(document, actor.id());
+        postingService.postDocument(document, actor.id());
         documentRepository.saveAndFlush(document);
         documentService.audit(actor, "POST", document, null, null, command.sourceNo());
         log.info("Xuất kho {} theo {} {}", document.getDocumentNo(), command.sourceType(), command.sourceNo());

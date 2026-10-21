@@ -66,7 +66,6 @@ class DebtSettlementIntegrationTest extends FinanceIntegrationSupport {
         send(clerk, post(OFFSETS), offset("PREPAYMENT", "RECEIVABLE", customer, List.of(line(itemB, "600000"))),
                 newKey()).andExpect(status().isBadRequest()).andExpect(jsonPath("$.errors[0].field").value("lines"));
         long offset = create(OFFSETS, offset("PREPAYMENT", "RECEIVABLE", customer, List.of(line(itemB, "500000"))));
-        act(clerk, OFFSETS, offset, "submit", null).andExpect(jsonPath("$.data.status").value("APPROVED"));
         act(clerk, OFFSETS, offset, "post", null).andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value("POSTED"));
         assertThat(remaining(customer, invoiceB)).isEqualByComparingTo("300000");
@@ -104,7 +103,6 @@ class DebtSettlementIntegrationTest extends FinanceIntegrationSupport {
                 line(payable, "600000"))), newKey()).andExpect(status().isBadRequest());
         long offset = create(OFFSETS, offset("AR_AP", null, both, List.of(line(receivable, "600000"),
                 line(payable, "600000"))));
-        act(clerk, OFFSETS, offset, "submit", null).andExpect(status().isOk());
         act(clerk, OFFSETS, offset, "post", null).andExpect(status().isOk());
         assertThat(remaining(both, sale)).isEqualByComparingTo("400000");
         assertThat(item(both, purchase)).containsEntry("status", "SETTLED");
@@ -117,7 +115,7 @@ class DebtSettlementIntegrationTest extends FinanceIntegrationSupport {
     }
 
     @Test
-    @DisplayName("AT-08, BR-AR-06, BR-AR-07: biên bản đối chiếu khớp sổ; lệch thì điều chỉnh công nợ có duyệt; đảo điều chỉnh")
+    @DisplayName("AT-08, BR-AR-06, BR-AR-07: biên bản đối chiếu khớp sổ; lệch thì điều chỉnh công nợ; đảo điều chỉnh")
     void reconciliationAndAdjustment() throws Exception {
         long customer = partner("CUSTOMER");
         String invoice = unique("HD");
@@ -151,9 +149,6 @@ class DebtSettlementIntegrationTest extends FinanceIntegrationSupport {
                 + target + ",\"accountId\":" + glAccount("811") + ",\"amount\":50000},{\"direction\":\"INCREASE\","
                 + "\"accountId\":" + glAccount("711") + ",\"amount\":20000,\"invoiceNo\":\"" + unique("PS") + "\"}]}";
         long document = create(ADJUSTMENTS, adjustment);
-        act(clerk, ADJUSTMENTS, document, "submit", null).andExpect(jsonPath("$.data.status").value("SUBMITTED"));
-        act(clerk, ADJUSTMENTS, document, "approve", "{}").andExpect(status().isForbidden());
-        act(chief, ADJUSTMENTS, document, "approve", "{}").andExpect(jsonPath("$.data.status").value("APPROVED"));
         act(clerk, ADJUSTMENTS, document, "post", null).andExpect(status().isOk());
         assertThat(remaining(customer, invoice)).isEqualByComparingTo("650000");
         assertThat(journal("DCCN", document)).containsExactly("N:811:50000", "C:131:50000", "N:131:20000",
@@ -185,7 +180,6 @@ class DebtSettlementIntegrationTest extends FinanceIntegrationSupport {
                 + "\"partnerId\":" + employee + ",\"documentDate\":\"" + DATE + "\",\"lines\":[{\"direction\":"
                 + "\"DECREASE\",\"debtItemId\":" + advanceItem + ",\"accountId\":" + glAccount("6422")
                 + ",\"amount\":2000000,\"description\":\"Công tác phí\"}]}");
-        act(clerk, ADJUSTMENTS, settlement, "submit", null).andExpect(jsonPath("$.data.status").value("APPROVED"));
         act(clerk, ADJUSTMENTS, settlement, "post", null).andExpect(status().isOk());
         assertThat(journal("TTTU", settlement)).containsExactly("N:6422:2000000", "C:141:2000000");
 
@@ -205,14 +199,11 @@ class DebtSettlementIntegrationTest extends FinanceIntegrationSupport {
     }
 
     @Test
-    @DisplayName("BR-CSH-05: kiểm kê quỹ có duyệt; thiếu ghi sổ quỹ và bút toán chênh lệch; khớp thì không sinh sổ; đảo")
+    @DisplayName("BR-CSH-05: kiểm kê quỹ ghi sổ thẳng từ nháp; thiếu ghi sổ quỹ và bút toán chênh lệch; khớp thì không sinh sổ; đảo")
     void cashCount() throws Exception {
         long cash = cashAccount("CASH", "1111");
         fund(cash, "1000000");
         long shortage = create(COUNTS, countBody(cash, "950000"));
-        act(cashier, COUNTS, shortage, "submit", null).andExpect(jsonPath("$.data.status").value("SUBMITTED"));
-        act(cashier, COUNTS, shortage, "approve", "{}").andExpect(status().isForbidden());
-        act(chief, COUNTS, shortage, "approve", "{}").andExpect(status().isOk());
         act(cashier, COUNTS, shortage, "post", null).andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.bookBalance").value(1000000))
                 .andExpect(jsonPath("$.data.differenceAmount").value(-50000));
@@ -220,8 +211,6 @@ class DebtSettlementIntegrationTest extends FinanceIntegrationSupport {
         assertThat(journal("KKQ", shortage)).containsExactly("N:811:50000", "C:1111:50000");
 
         long matched = create(COUNTS, countBody(cash, "950000"));
-        act(cashier, COUNTS, matched, "submit", null).andExpect(status().isOk());
-        act(chief, COUNTS, matched, "approve", "{}").andExpect(status().isOk());
         act(cashier, COUNTS, matched, "post", null).andExpect(jsonPath("$.data.differenceAmount").value(0));
         assertThat(count("SELECT COUNT(*) FROM cash_ledger_entries WHERE reference_type = 'KKQ' AND reference_id = "
                 + matched)).isZero();
@@ -249,7 +238,6 @@ class DebtSettlementIntegrationTest extends FinanceIntegrationSupport {
         for (String invoice : List.of(first, second)) {
             long offset = create(OFFSETS, offset("PREPAYMENT", "RECEIVABLE", customer,
                     List.of(line(itemId(customer, invoice), "400000"))));
-            act(clerk, OFFSETS, offset, "submit", null).andExpect(status().isOk());
             offsets.add(offset);
         }
         ExecutorService pool = Executors.newFixedThreadPool(2);

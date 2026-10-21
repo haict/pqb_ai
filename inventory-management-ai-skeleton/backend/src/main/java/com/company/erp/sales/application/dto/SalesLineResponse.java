@@ -36,6 +36,8 @@ public record SalesLineResponse(
         String lotNo,
         String lotOverrideReason,
         List<String> serialNumbers,
+        Long receiptTransactionId,
+        String receiptNo,
         List<DeliveryItemResponse> items,
         String originCountryCode,
         String model,

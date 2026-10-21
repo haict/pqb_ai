@@ -17,11 +17,15 @@ import com.company.erp.inventory.application.StockInService.StockInLine;
 import com.company.erp.inventory.application.StockInService.StockInResult;
 import com.company.erp.masterdata.application.MasterDataQueryService.ProductInfo;
 import com.company.erp.purchasing.application.dto.PurchaseOrderResponse;
+import com.company.erp.purchasing.application.dto.ReasonRequest;
 import com.company.erp.purchasing.application.dto.ReverseRequest;
+import com.company.erp.purchasing.domain.PurchaseDocument;
 import com.company.erp.purchasing.domain.PurchaseDocumentStatus;
 import com.company.erp.purchasing.domain.PurchaseOrder;
 import com.company.erp.purchasing.domain.PurchaseOrderLine;
 import com.company.erp.system.application.CurrentUser;
+import com.company.erp.system.application.ParameterService;
+import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -36,16 +40,19 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Ghi sổ / đảo đơn mua hàng (D-54, BR-PUR-08, 09, BR mục 5.3) trong một transaction: phiếu nhập kho PNK liên kết đơn
- * mua (dòng hàng hóa, đúng lô / hạn dùng / serial, đơn giá sau chiết khấu), trừ hàng đang về, công nợ phải trả theo hóa
- * đơn (hoặc theo đơn khi không có hóa đơn), bút toán theo quy tắc hạch toán DMH. Thứ tự khóa: đơn mua → (kho: kỳ, trạng
- * thái kho, tổng tồn, tồn chi tiết, serial) → tổng tồn cho hàng đang về → khoản công nợ → bút toán. READ COMMITTED
- * như ghi sổ kho (ADR-08).
+ * mua (dòng hàng hóa, đúng lô / hạn dùng / serial, đơn giá sau chiết khấu), trừ hàng đang về (đơn đã duyệt trước D-61),
+ * công nợ phải trả theo hóa đơn (hoặc theo đơn khi không có hóa đơn), bút toán theo quy tắc hạch toán DMH. Thứ tự khóa:
+ * đơn mua → (kho: kỳ, trạng thái kho, tổng tồn, tồn chi tiết, serial) → tổng tồn cho hàng đang về → khoản công nợ → bút
+ * toán. READ COMMITTED như ghi sổ kho (ADR-08).
  */
 @Service
 public class PurchaseOrderPostingService {
 
     static final String POST = "purchase-order:post";
     static final String REVERSE = "purchase-order:reverse";
+    static final String UNPOST = "purchase-order:unpost";
+    static final String POST_OVER_THRESHOLD = "purchase-order:post-over-threshold";
+    static final String THRESHOLD = "purchasing.order-approval-threshold";
     static final String PURCHASE = "PURCHASE";
     static final String PURCHASE_VAT = "PURCHASE_VAT";
     static final String SUPPLIER_ROLE = "SUPPLIER";
@@ -58,6 +65,7 @@ public class PurchaseOrderPostingService {
     private final StockInService stockIn;
     private final DebtPostingService debtPosting;
     private final JournalPostingService journalPosting;
+    private final ParameterService parameters;
     private final BusinessCalendar calendar;
     private final Clock clock;
 
@@ -65,7 +73,7 @@ public class PurchaseOrderPostingService {
     public PurchaseOrderPostingService(PurchaseOrderService orders, PurchaseOrderEffects effects,
                                        PurchaseDocumentFlow flow, PurchasingAccess access, StockInService stockIn,
                                        DebtPostingService debtPosting, JournalPostingService journalPosting,
-                                       BusinessCalendar calendar, Clock clock) {
+                                       ParameterService parameters, BusinessCalendar calendar, Clock clock) {
         this.orders = orders;
         this.effects = effects;
         this.flow = flow;
@@ -73,6 +81,7 @@ public class PurchaseOrderPostingService {
         this.stockIn = stockIn;
         this.debtPosting = debtPosting;
         this.journalPosting = journalPosting;
+        this.parameters = parameters;
         this.calendar = calendar;
         this.clock = clock;
     }
@@ -83,13 +92,18 @@ public class PurchaseOrderPostingService {
                 PurchaseOrderResponse.class, () -> {
                     access.requirePermission(actor, POST);
                     PurchaseOrder order = flow.lock(actor, id, orders.spec());
-                    if (order.getStatus() != PurchaseDocumentStatus.APPROVED) {
+                    if (!PurchaseDocument.POSTABLE.contains(order.getStatus())) {
                         throw new BusinessException(ErrorCode.INVALID_DOCUMENT_STATE, "Đơn mua "
                                 + order.getDocumentNo() + " ở trạng thái " + order.getStatus()
-                                + ", chỉ ghi sổ đơn đã duyệt.");
+                                + ", chỉ ghi sổ đơn nháp.");
                     }
+                    String authorityNote = requireThresholdAuthority(actor, order);
+                    boolean hadIncoming = order.getStatus() == PurchaseDocumentStatus.APPROVED;
                     Long inventoryId = receive(actor, order);
-                    effects.released(order);
+                    // Chỉ đơn đã duyệt trước D-61 còn hàng đang về; đơn nháp chưa từng cộng.
+                    if (hadIncoming) {
+                        effects.released(order);
+                    }
                     if (order.getTotalAmount().signum() > 0) {
                         debtPosting.recordInvoice(new InvoiceDebtCommand(order.getCompanyId(), order.getBranchId(),
                                 InvoiceSide.PAYABLE, order.getSupplierId(), PurchaseOrder.TYPE_CODE, order.getId(),
@@ -103,8 +117,26 @@ public class PurchaseOrderPostingService {
                     }
                     order.markPosted(inventoryId, actor.id(), Instant.now(clock));
                     log.info("Ghi sổ đơn mua {} ({})", order.getDocumentNo(), order.invoiceLabel());
-                    return flow.act(actor, order, "POST", null, orders.spec());
+                    return flow.act(actor, order, "POST", authorityNote, orders.spec());
                 });
+    }
+
+    /**
+     * D-61: đơn mua có tổng tiền từ ngưỡng {@code purchasing.order-approval-threshold} trở lên chỉ người có quyền ghi
+     * sổ vượt ngưỡng được ghi sổ (thay cho bước duyệt). Trả ghi chú audit khi dùng quyền này.
+     */
+    private String requireThresholdAuthority(CurrentUser actor, PurchaseOrder order) {
+        BigDecimal threshold = parameters.decimalValue(order.getCompanyId(), THRESHOLD);
+        if (order.getTotalAmount().compareTo(threshold) < 0) {
+            return null;
+        }
+        String amount = threshold.stripTrailingZeros().toPlainString();
+        if (!actor.hasPermission(POST_OVER_THRESHOLD)) {
+            throw new BusinessException(ErrorCode.AUTHORITY_LIMIT_EXCEEDED, "Đơn mua " + order.getDocumentNo()
+                    + " có tổng tiền từ ngưỡng " + amount + " đồng trở lên; cần người có quyền ghi sổ đơn mua vượt "
+                    + "ngưỡng.");
+        }
+        return "Ghi sổ đơn mua vượt ngưỡng " + amount + " đồng";
     }
 
     /**
@@ -119,18 +151,44 @@ public class PurchaseOrderPostingService {
                     PurchaseOrder order = flow.lock(actor, id, orders.spec());
                     LocalDate date = request.postingDate() != null ? request.postingDate() : calendar.today();
                     String reason = request.reason().trim();
+                    Long inventoryId = order.getInventoryDocumentId();
                     order.markReversed(actor.id(), Instant.now(clock), date, reason);
-                    if (order.getInventoryDocumentId() != null) {
-                        stockIn.reverse(actor, order.getInventoryDocumentId(), date, reason);
-                    }
-                    if (order.getTotalAmount().signum() > 0) {
-                        debtPosting.reverse(new DebtReversalCommand(order.getCompanyId(), order.getBranchId(),
-                                PurchaseOrder.TYPE_CODE, order.getId(), date, order.getDocumentNo(), actor.id()));
-                        journalPosting.reverse(new ReversalRequest(order.getCompanyId(), PurchaseOrder.TYPE_CODE,
-                                order.getId(), date, "Đảo " + order.getDocumentNo() + ": " + reason, actor.id()));
-                    }
+                    undoLedgers(actor, order, inventoryId, date, "Đảo", reason);
                     return flow.act(actor, order, "REVERSE", reason, orders.spec());
                 });
+    }
+
+    /**
+     * Bỏ ghi sổ để sửa lại (D-62): dòng ngược ngày hạch toán gốc (kỳ gốc phải còn mở), đơn về nháp giữ số; chặn như
+     * đảo khi có chứng từ phụ thuộc (409 {@code HAS_DEPENDENT_DOCUMENTS}).
+     */
+    @Transactional(isolation = Isolation.READ_COMMITTED)
+    public PurchaseOrderResponse unpost(CurrentUser actor, Long id, String key, ReasonRequest request) {
+        return flow.idempotent(actor, key, "POST " + PurchaseOrderService.PATH + "/" + id + "/unpost", request,
+                PurchaseOrderResponse.class, () -> {
+                    access.requirePermission(actor, UNPOST);
+                    PurchaseOrder order = flow.lock(actor, id, orders.spec());
+                    String reason = request.reason().trim();
+                    Long inventoryId = order.getInventoryDocumentId();
+                    order.markUnposted(reason);
+                    undoLedgers(actor, order, inventoryId, order.getPostingDate(), "Bỏ ghi sổ", reason);
+                    log.info("Bỏ ghi sổ đơn mua {}", order.getDocumentNo());
+                    return flow.act(actor, order, "UNPOST", reason, orders.spec());
+                });
+    }
+
+    /** Dòng ngược cho phiếu nhập kho, công nợ, bút toán của lần ghi sổ hiện hành (BR-GEN-21). */
+    private void undoLedgers(CurrentUser actor, PurchaseOrder order, Long inventoryId, LocalDate date, String action,
+                             String reason) {
+        if (inventoryId != null) {
+            stockIn.reverse(actor, inventoryId, date, reason);
+        }
+        if (order.getTotalAmount().signum() > 0) {
+            debtPosting.reverse(new DebtReversalCommand(order.getCompanyId(), order.getBranchId(),
+                    PurchaseOrder.TYPE_CODE, order.getId(), date, order.getDocumentNo(), actor.id()));
+            journalPosting.reverse(new ReversalRequest(order.getCompanyId(), PurchaseOrder.TYPE_CODE,
+                    order.getId(), date, action + " " + order.getDocumentNo() + ": " + reason, actor.id()));
+        }
     }
 
     /** Phiếu nhập kho cho dòng hàng hóa; {@code null} khi đơn chỉ có dịch vụ. */

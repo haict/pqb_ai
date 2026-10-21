@@ -9,6 +9,7 @@ import static org.hamcrest.Matchers.hasItems;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -48,8 +49,8 @@ class SalesOrderIntegrationTest extends SalesIntegrationSupport {
     }
 
     @Test
-    @DisplayName("BR-SAL-02, 03, 14, D-22, AT-10: giá ưu tiên; giá dưới sàn / vượt hạn mức phải duyệt; phạm vi khách của nhân viên")
-    void pricingAndApproval() throws Exception {
+    @DisplayName("BR-SAL-02, 03, 14, D-22, D-61, AT-10: giá ưu tiên; giá dưới sàn / vượt hạn mức chỉ người có quyền vượt ghi sổ; phạm vi khách của nhân viên")
+    void pricingAndAuthority() throws Exception {
         long clinic = partner("KH_PK01");
         long agent = partner("KH_DL01");
         long tube = product("VT_ONG_01");
@@ -68,18 +69,24 @@ class SalesOrderIntegrationTest extends SalesIntegrationSupport {
         long cheap = jsonId(send(seller, post(ORDERS), order(clinic, store, false, List.of(line(tube, box, "1", null,
                 "30"))), newKey()).andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data.lines[0].unitPrice").value(800000))
-                .andExpect(jsonPath("$.data.lines[0].priceSource").value("LIST")).andReturn());
-        act(seller, ORDERS, cheap, "submit", null).andExpect(jsonPath("$.data.status").value("SUBMITTED"))
-                .andExpect(jsonPath("$.data.approvalReasons").value(containsString("giá sàn")));
-        act(seller, ORDERS, cheap, "approve", "{}").andExpect(status().isForbidden());
-        act(manager, ORDERS, cheap, "approve", "{}").andExpect(jsonPath("$.data.status").value("APPROVED"));
+                .andExpect(jsonPath("$.data.lines[0].priceSource").value("LIST"))
+                .andExpect(jsonPath("$.data.status").value("DRAFT"))
+                .andExpect(jsonPath("$.data.approvalReasons").value(containsString("giá sàn"))).andReturn());
         act(seller, ORDERS, cheap, "post", null).andExpect(status().isForbidden());
+        act(keeper, ORDERS, cheap, "post", null).andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.code").value("PRICE_BELOW_FLOOR"));
+        assertThat(jdbc.queryForObject("SELECT status FROM sales_orders WHERE id = ?", String.class, cheap))
+                .isEqualTo("DRAFT");
+        act(manager, ORDERS, cheap, "post", null).andExpect(jsonPath("$.data.status").value("POSTED"));
+        assertThat(id("SELECT COUNT(*) FROM sys_audit_logs WHERE entity_type = 'SALES_ORDER' AND entity_id = " + cheap
+                + " AND action = 'POST' AND reason LIKE 'Ghi sổ vượt thẩm quyền%'")).isEqualTo(1);
 
         long overLimit = jsonId(send(seller, post(ORDERS), order(clinic, store, false, List.of(
                 line(tube, box, "70", null, null))), newKey()).andExpect(status().isCreated())
-                .andExpect(jsonPath("$.data.totalAmount").value(56000000)).andReturn());
-        act(seller, ORDERS, overLimit, "submit", null).andExpect(jsonPath("$.data.status").value("SUBMITTED"))
-                .andExpect(jsonPath("$.data.approvalReasons").value(containsString("hạn mức")));
+                .andExpect(jsonPath("$.data.totalAmount").value(56000000))
+                .andExpect(jsonPath("$.data.approvalReasons").value(containsString("hạn mức"))).andReturn());
+        act(keeper, ORDERS, overLimit, "post", null).andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.code").value("CREDIT_LIMIT_EXCEEDED"));
 
         send(seller, post(ORDERS), order(partner("KH_BV01"), store, false, List.of(line(tube, box, "1", null, null))),
                 newKey()).andExpect(status().isBadRequest()).andExpect(jsonPath("$.errors[0].field").value("customerId"));
@@ -89,7 +96,7 @@ class SalesOrderIntegrationTest extends SalesIntegrationSupport {
     }
 
     @Test
-    @DisplayName("BR-SAL-13, D-37: giữ hàng khi duyệt, nhả, giữ lại không cộng dồn, hủy đơn nhả hàng; cảnh báo thiếu tồn")
+    @DisplayName("BR-SAL-13, D-37, D-61: giữ hàng ngay trên đơn nháp, nhả, giữ lại không cộng dồn, sửa giữ lại theo dòng mới, hủy đơn nhả hàng; cảnh báo thiếu tồn")
     void reservation() throws Exception {
         long tube = product("VT_ONG_01");
         long box = unit("HOP");
@@ -97,18 +104,24 @@ class SalesOrderIntegrationTest extends SalesIntegrationSupport {
         stockIn("10", unique("L"), "2028-06-30");
         BigDecimal before = reserved(tube, store);
         long reserving = jsonId(send(manager, post(ORDERS), order(partner("KH_BV01"), store, true, List.of(
-                line(tube, box, "5", null, null))), newKey()).andExpect(status().isCreated()).andReturn());
-        submitAndApproveOrder(reserving);
+                line(tube, box, "5", null, null))), newKey()).andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.status").value("DRAFT")).andReturn());
         mockMvc.perform(as(manager, get(ORDERS + "/" + reserving)))
                 .andExpect(jsonPath("$.data.reservedUntil").isNotEmpty())
                 .andExpect(jsonPath("$.data.lines[0].reservedQuantity").value(500));
         assertThat(reserved(tube, store).subtract(before)).isEqualByComparingTo("500");
+        long version = id("SELECT version FROM sales_orders WHERE id = " + reserving);
+        String revised = order(partner("KH_BV01"), store, true, List.of(line(tube, box, "3", null, null)))
+                .replaceFirst("}$", ",\"version\":" + version + "}");
+        mockMvc.perform(as(manager, put(ORDERS + "/" + reserving)).contentType("application/json").content(revised))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.lines[0].reservedQuantity").value(300));
+        assertThat(reserved(tube, store).subtract(before)).isEqualByComparingTo("300");
         act(manager, ORDERS, reserving, "release", null).andExpect(status().isOk());
         assertThat(reserved(tube, store)).isEqualByComparingTo(before);
         act(manager, ORDERS, reserving, "reserve", null).andExpect(jsonPath("$.data.lines[0].reservedQuantity")
-                .value(500));
+                .value(300));
         act(manager, ORDERS, reserving, "reserve", null).andExpect(status().isOk());
-        assertThat(reserved(tube, store).subtract(before)).isEqualByComparingTo("500");
+        assertThat(reserved(tube, store).subtract(before)).isEqualByComparingTo("300");
         act(manager, ORDERS, reserving, "cancel", "{\"reason\":\"Khách đổi kế hoạch\"}")
                 .andExpect(jsonPath("$.data.status").value("CANCELLED"));
         assertThat(reserved(tube, store)).isEqualByComparingTo(before);
@@ -137,7 +150,6 @@ class SalesOrderIntegrationTest extends SalesIntegrationSupport {
         long order = jsonId(send(manager, post(ORDERS), body, newKey()).andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data.lines[1].serviceLine").value(true))
                 .andExpect(jsonPath("$.data.totalAmount").value(770000)).andReturn());
-        submitAndApproveOrder(order);
         assertThat(reserved(item, store)).isEqualByComparingTo("5");
 
         act(courier, ORDERS, order, "post", null).andExpect(status().isForbidden());
@@ -245,12 +257,11 @@ class SalesOrderIntegrationTest extends SalesIntegrationSupport {
         stockIn(shortLife, "2", expiring, "2026-11-30", null);
         long blocked = jsonId(send(manager, post(ORDERS), order(clinic, store, false, List.of(
                 line(shortLife, piece, "1", "100000", null))), newKey()).andExpect(status().isCreated()).andReturn());
-        submitAndApproveOrder(blocked);
-        act(keeper, ORDERS, blocked, "post", null).andExpect(status().isUnprocessableEntity())
+        act(manager, ORDERS, blocked, "post", null).andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.code").value("LOT_NOT_SELLABLE"));
         assertThat(lotOnHand(expiring)).isEqualByComparingTo("2");
         assertThat(jdbc.queryForObject("SELECT status FROM sales_orders WHERE id = ?", String.class, blocked))
-                .isEqualTo("APPROVED");
+                .isEqualTo("DRAFT");
     }
 
     @Test
@@ -308,7 +319,9 @@ class SalesOrderIntegrationTest extends SalesIntegrationSupport {
         }
     }
 
+    /** Ghi sổ bởi Trưởng phòng kinh doanh (có quyền vượt): khách mẫu dùng chung có thể có nợ quá hạn từ test khác. */
     private ResultActions postOrder(long order, String key) throws Exception {
-        return mockMvc.perform(as(keeper, post(ORDERS + "/" + order + "/post")).header(IdempotentCommand.HEADER, key));
+        return mockMvc.perform(as(manager, post(ORDERS + "/" + order + "/post"))
+                .header(IdempotentCommand.HEADER, key));
     }
 }

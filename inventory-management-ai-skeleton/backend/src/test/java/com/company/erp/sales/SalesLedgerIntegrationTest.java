@@ -51,7 +51,6 @@ class SalesLedgerIntegrationTest extends SalesIntegrationSupport {
                 + "\"customerId\":" + clinic + ",\"salesOrderId\":" + order + ",\"documentDate\":\"" + DATE
                 + "\",\"lines\":[{\"orderLineId\":" + orderLine + ",\"lotNo\":\"" + lot + "\",\"quantity\":2}]}",
                 newKey()).andExpect(status().isCreated()).andReturn());
-        act(clerk, RETURNS, goodsReturn, "submit", null).andExpect(jsonPath("$.data.status").value("APPROVED"));
         act(clerk, RETURNS, goodsReturn, "post", null).andExpect(jsonPath("$.data.status").value("POSTED"));
 
         String block = "$.data.groups[0].products[0]";

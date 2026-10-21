@@ -33,7 +33,7 @@ public enum CashDocumentType {
         return accountType;
     }
 
-    /** Tiền rời quỹ: phải duyệt khi từ ngưỡng duyệt chi trở lên (BR-CSH-03). */
+    /** Tiền rời quỹ: từ ngưỡng chi trở lên chỉ người có quyền ghi sổ vượt ngưỡng được ghi sổ (BR-CSH-03, D-61). */
     public boolean outflow() {
         return direction != CashDirection.IN;
     }

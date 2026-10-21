@@ -31,16 +31,21 @@ import { formatDate, formatNumber, statusLabel } from '../labels';
 import { DocumentStatusTag, QualityTag } from '../components/StatusTags';
 import type { StockCount, StockCountLine, StockCountStatus } from '../types';
 
-const STATUSES: StockCountStatus[] = ['DRAFT', 'COUNTING', 'SUBMITTED', 'APPROVED', 'POSTED', 'CANCELLED'];
+const STATUSES: StockCountStatus[] = ['DRAFT', 'COUNTING', 'POSTED', 'CANCELLED'];
 
-/** Hành động theo trạng thái và quyền (chỉ ẩn/hiện; server kiểm tra lại). */
+/**
+ * Hành động theo trạng thái và quyền (chỉ ẩn/hiện; server kiểm tra lại). Không qua duyệt (D-61): đếm xong ghi sổ thẳng;
+ * phiếu chờ duyệt cũ chỉ còn hủy, đã duyệt cũ vẫn ghi sổ được.
+ */
 function countActions(status: StockCountStatus, can: (permission: string) => boolean): string[] {
   const create = can('stock-count:create');
+  const post = can('stock-count:post') ? ['post'] : [];
+  const cancel = create ? ['cancel'] : [];
   const actions: Record<StockCountStatus, string[]> = {
     DRAFT: create ? ['start', 'cancel'] : [],
-    COUNTING: create ? ['submit', 'cancel'] : [],
-    SUBMITTED: [...(can('stock-count:approve') ? ['approve', 'reject'] : []), ...(create ? ['cancel'] : [])],
-    APPROVED: [...(can('stock-count:post') ? ['post'] : []), ...(create ? ['cancel'] : [])],
+    COUNTING: [...post, ...cancel],
+    SUBMITTED: cancel,
+    APPROVED: [...post, ...cancel],
     POSTED: [],
     CANCELLED: [],
   };
@@ -168,9 +173,6 @@ function CountDrawer({ id, onClose }: { id: number; onClose(): void }) {
               Lưu số đếm
             </Button>
           )}
-          <Typography.Title level={5} style={{ marginTop: 24 }}>
-            Lịch sử duyệt
-          </Typography.Title>
           <ApprovalHistory requests={count.approvals} />
         </>
       )}

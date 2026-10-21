@@ -19,7 +19,7 @@ interface Props<T extends FinanceDocumentBase> {
   listKeys: string[];
   load(id: number): Promise<T>;
   act(id: number, action: string, body: object | undefined, key: string): Promise<T>;
-  /** Tiền tố quyền: {@code <prefix>:create|approve|post|reverse}. */
+  /** Tiền tố quyền: {@code <prefix>:create|post|reverse}. */
   permission: string;
   title(document: T): string;
   /** Loại chứng từ nguồn của bút toán; {@code null} = không có bút toán. */
@@ -31,7 +31,7 @@ interface Props<T extends FinanceDocumentBase> {
 
 /**
  * Drawer chi tiết chứng từ ghi sổ công nợ, quỹ: trạng thái, nút thao tác theo trạng thái và quyền (server vẫn kiểm
- * tra), nội dung riêng, bút toán đã sinh, lịch sử duyệt.
+ * tra), nội dung riêng, bút toán đã sinh, lịch sử duyệt (chứng từ trước D-61).
  */
 export function FinanceDocumentDrawer<T extends FinanceDocumentBase>(props: Props<T>) {
   const { id, queryKey, listKeys, load, act, permission, title, journalSource, onEdit, onClose, children } =
@@ -48,7 +48,7 @@ export function FinanceDocumentDrawer<T extends FinanceDocumentBase>(props: Prop
     queryFn: () => journalApi.bySource(companyId, source ?? '', id),
     enabled: !!posted && !!source && can('journal:view'),
   });
-  const editable = document && (document.status === 'DRAFT' || document.status === 'REJECTED');
+  const editable = document?.status === 'DRAFT';
   return (
     <Drawer open width={1000} title={document ? title(document) : ''} onClose={onClose}>
       {document && (
@@ -78,9 +78,6 @@ export function FinanceDocumentDrawer<T extends FinanceDocumentBase>(props: Prop
               <JournalEntryView journal={journal} />
             </div>
           ))}
-          <Typography.Title level={5} style={{ marginTop: 16 }}>
-            Lịch sử duyệt
-          </Typography.Title>
           <ApprovalHistory requests={document.approvals} />
         </>
       )}

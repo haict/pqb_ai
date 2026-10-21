@@ -1,6 +1,5 @@
 -- DỮ LIỆU MẪU CHỈ CHO dev/test (database.md mục 2). Giai đoạn 5 - mua hàng (sau D-54: đơn mua là chứng từ ghi sổ duy
--- nhất). Luồng duyệt mẫu: đơn mua từ ngưỡng purchasing.order-approval-threshold do Giám đốc duyệt. [Giả định] Doanh
--- nghiệp cấu hình lại ở màn hình luồng duyệt.
+-- nhất). Không qua duyệt (D-61): đơn mua từ ngưỡng purchasing.order-approval-threshold cần quyền ghi sổ vượt ngưỡng.
 
 -- Nhân viên mua hàng chi nhánh Hà Nội; mật khẩu dev như các người dùng mẫu khác.
 INSERT IGNORE INTO sys_users
@@ -14,17 +13,6 @@ SELECT u.id, r.id FROM sys_users u JOIN sys_roles r ON r.code = 'PURCHASING_STAF
 
 INSERT IGNORE INTO sys_user_data_scopes (user_id, scope_type, scope_id)
 SELECT id, 'BRANCH', 1 FROM sys_users WHERE username = 'muahang.hn';
-
-INSERT INTO approval_workflows (company_id, document_type, name, branch_id, priority, status, created_at, updated_at)
-SELECT 1, t.code, CONCAT('Mẫu - Duyệt ', t.code), NULL, 0, 'ACTIVE', UTC_TIMESTAMP(3), UTC_TIMESTAMP(3)
-FROM (SELECT 'DMH' AS code) t
-WHERE NOT EXISTS (SELECT 1 FROM approval_workflows w
-                  WHERE w.company_id = 1 AND w.document_type = t.code AND w.name = CONCAT('Mẫu - Duyệt ', t.code));
-
-INSERT IGNORE INTO approval_workflow_steps (workflow_id, step_no, approver_type, role_id, user_id)
-SELECT w.id, 1, 'ROLE', r.id, NULL
-FROM approval_workflows w JOIN sys_roles r ON r.code = 'DIRECTOR'
-WHERE w.company_id = 1 AND w.document_type = 'DMH' AND w.name LIKE 'Mẫu - Duyệt %';
 
 -- Quy tắc hạch toán mẫu ghi sổ đơn mua (D-34, D-54) [Chưa kiểm chứng]: hàng hóa Nợ 1561, dịch vụ Nợ 6422, thuế GTGT
 -- Nợ 1331, đối ứng Có 331. Phiếu nhập kho sinh từ đơn mua không có bút toán riêng (bút toán đi theo đơn mua); kế toán

@@ -8,8 +8,8 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 
 /**
- * Tồn so với đặt hàng chưa giao (BR-RPT-26, H-06): theo hàng × kho, số lượng trên đơn bán đã gửi / đã duyệt chưa ghi
- * sổ (chưa xuất kho, D-54) so với tồn thực tế, giữ chỗ, hàng đang về (ADR-18: SQL chỉ đọc). Đơn vị cơ sở.
+ * Tồn so với đặt hàng chưa giao (BR-RPT-26, H-06): theo hàng × kho, số lượng trên đơn bán nháp (và đã duyệt trước
+ * D-61) chưa ghi sổ (chưa xuất kho, D-54) so với tồn thực tế, giữ chỗ, hàng đang về (ADR-18: SQL chỉ đọc). Đơn vị cơ sở.
  */
 @Repository
 public class BacklogReportJdbc {
@@ -30,7 +30,7 @@ public class BacklogReportJdbc {
         MapSqlParameterSource params = new MapSqlParameterSource("companyId", companyId)
                 .addValue("ownerId", ownerId);
         StringBuilder where = new StringBuilder("""
-                h.company_id = :companyId AND h.status IN ('SUBMITTED', 'APPROVED') AND l.service_line = FALSE""");
+                h.company_id = :companyId AND h.status IN ('DRAFT', 'APPROVED') AND l.service_line = FALSE""");
         if (warehouseIds != null) {
             where.append(" AND h.warehouse_id IN (:warehouseIds)");
             params.addValue("warehouseIds", warehouseIds);

@@ -3,7 +3,6 @@ package com.company.erp.finance.application;
 import com.company.erp.common.domain.BusinessException;
 import com.company.erp.finance.application.dto.CashCountRequest;
 import com.company.erp.finance.application.dto.CashCountResponse;
-import com.company.erp.finance.application.dto.CommentRequest;
 import com.company.erp.finance.application.dto.ReasonRequest;
 import com.company.erp.finance.domain.CashAccount;
 import com.company.erp.finance.domain.CashAccountType;
@@ -27,7 +26,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Lập, sửa, gửi duyệt, duyệt, từ chối, hủy phiếu kiểm kê quỹ tiền mặt (KKQ, BR-CSH-05). Ghi sổ chênh lệch ở
+ * Lập, sửa, hủy phiếu kiểm kê quỹ tiền mặt (KKQ, BR-CSH-05; D-61 không qua duyệt). Ghi sổ chênh lệch ở
  * {@link CashCountPostingService}.
  */
 @Service
@@ -36,7 +35,6 @@ public class CashCountService {
     static final String PATH = "/api/v1/cash-counts";
     static final String VIEW = "cash-count:view";
     static final String CREATE = "cash-count:create";
-    static final String APPROVE = "cash-count:approve";
     static final String ENTITY = "CASH_COUNT";
 
     public record CashCountFilter(Long companyId, Long branchId, Long cashAccountId, FinanceDocumentStatus status,
@@ -60,7 +58,7 @@ public class CashCountService {
         this.flow = flow;
         this.access = access;
         this.approvalService = approvalService;
-        this.spec = new FinanceDocumentFlow.Spec<>(PATH, VIEW, CREATE, APPROVE, ENTITY,
+        this.spec = new FinanceDocumentFlow.Spec<>(PATH, VIEW, CREATE, ENTITY,
                 repository::findByIdForUpdate, repository, count -> toResponse(count, true), CashCountResponse.class);
     }
 
@@ -105,21 +103,6 @@ public class CashCountService {
         }
         fill(count, request);
         return flow.act(actor, count, "UPDATE", null, spec);
-    }
-
-    @Transactional
-    public CashCountResponse submit(CurrentUser actor, Long id, String key) {
-        return flow.submit(actor, id, key, spec);
-    }
-
-    @Transactional
-    public CashCountResponse approve(CurrentUser actor, Long id, String key, CommentRequest request) {
-        return flow.approve(actor, id, key, request, spec);
-    }
-
-    @Transactional
-    public CashCountResponse reject(CurrentUser actor, Long id, String key, ReasonRequest request) {
-        return flow.reject(actor, id, key, request, spec);
     }
 
     @Transactional

@@ -88,7 +88,7 @@ class DashboardIntegrationTest extends ReportIntegrationSupport {
         stockIn(nearItem, "7", nearLot, LocalDate.now(ZoneId.of("Asia/Ho_Chi_Minh")).plusDays(20).toString());
         long customer = customer();
         long sold = postedOrder(customer, item, "3");
-        long pending = approvedOrder(customer, item, "2", "");
+        long pending = draftOrder(customer, item, "2", "");
         DocumentContext summary = summary(director);
 
         DocumentContext receivables = details(director, "/receivables/details", false, null);

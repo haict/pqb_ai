@@ -120,19 +120,22 @@ export const RECONCILIATION_STATUSES: Record<ReconciliationStatus, { label: stri
   CANCELLED: { label: 'Đã hủy', color: 'default' },
 };
 
-/** Thao tác chứng từ ghi sổ theo trạng thái và quyền {@code <prefix>:create|approve|post|reverse}. */
+/**
+ * Thao tác chứng từ ghi sổ theo trạng thái và quyền {@code <prefix>:create|post|reverse}. Không qua duyệt (D-61): ghi
+ * sổ thẳng từ nháp; chứng từ chờ duyệt / bị từ chối trước D-61 chỉ còn hủy, đã duyệt vẫn ghi sổ được.
+ */
 export function financeActions(
   status: FinanceDocumentStatus,
   prefix: string,
   can: (permission: string) => boolean,
 ): string[] {
-  const create = can(`${prefix}:create`);
-  const approve = can(`${prefix}:approve`);
+  const cancel = can(`${prefix}:create`) ? ['cancel'] : [];
+  const post = can(`${prefix}:post`) ? ['post'] : [];
   const actions: Record<FinanceDocumentStatus, string[]> = {
-    DRAFT: create ? ['submit', 'cancel'] : [],
-    REJECTED: create ? ['submit', 'cancel'] : [],
-    SUBMITTED: [...(approve ? ['approve', 'reject'] : []), ...(create ? ['cancel'] : [])],
-    APPROVED: [...(can(`${prefix}:post`) ? ['post'] : []), ...(create ? ['cancel'] : [])],
+    DRAFT: [...post, ...cancel],
+    REJECTED: cancel,
+    SUBMITTED: cancel,
+    APPROVED: [...post, ...cancel],
     POSTED: can(`${prefix}:reverse`) ? ['reverse'] : [],
     CANCELLED: [],
     REVERSED: [],
@@ -142,9 +145,6 @@ export function financeActions(
 
 export const FINANCE_STATUSES: FinanceDocumentStatus[] = [
   'DRAFT',
-  'SUBMITTED',
-  'REJECTED',
-  'APPROVED',
   'POSTED',
   'CANCELLED',
   'REVERSED',

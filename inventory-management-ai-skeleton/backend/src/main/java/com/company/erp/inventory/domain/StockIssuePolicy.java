@@ -19,7 +19,8 @@ import java.util.Set;
 
 /**
  * Chính sách cho phép xuất vượt tồn khả dụng (lấy phần đang giữ chỗ cho chứng từ khác) trong giới hạn số lượng và
- * thời hạn, Giám đốc duyệt (BR-GEN-31, D-10). Mỗi chính sách chỉ dùng cho một chứng từ xuất (D-40, D-53). Tồn thực tế
+ * thời hạn (BR-GEN-31, D-10). Không qua duyệt (D-61): người có quyền {@code stock-policy:activate} (mặc định Giám đốc)
+ * kích hoạt từ nháp; trạng thái {@code APPROVED} nghĩa là có hiệu lực. Mỗi chính sách chỉ dùng cho một chứng từ xuất (D-40, D-53). Tồn thực tế
  * vẫn không bao giờ âm.
  */
 @Entity
@@ -104,23 +105,12 @@ public class StockIssuePolicy extends AuditableEntity {
         this.status = PolicyStatus.DRAFT;
     }
 
-    public void submit(Long actorId, Instant now) {
-        requireStatus(EnumSet.of(PolicyStatus.DRAFT, PolicyStatus.REJECTED), "gửi duyệt");
-        this.status = PolicyStatus.SUBMITTED;
-        this.submittedBy = actorId;
-        this.submittedAt = now;
-    }
-
-    public void approve(Long actorId, Instant now) {
-        requireStatus(EnumSet.of(PolicyStatus.SUBMITTED), "duyệt");
+    /** Kích hoạt chính sách từ nháp (D-61 thay bước Giám đốc duyệt bằng quyền kích hoạt). */
+    public void activate(Long actorId, Instant now) {
+        requireStatus(EnumSet.of(PolicyStatus.DRAFT), "kích hoạt");
         this.status = PolicyStatus.APPROVED;
         this.approvedBy = actorId;
         this.approvedAt = now;
-    }
-
-    public void reject() {
-        requireStatus(EnumSet.of(PolicyStatus.SUBMITTED), "từ chối");
-        this.status = PolicyStatus.REJECTED;
     }
 
     public void cancel(String reason) {
@@ -134,7 +124,7 @@ public class StockIssuePolicy extends AuditableEntity {
         this.cancelReason = reason;
     }
 
-    /** Chính sách đã duyệt, chưa dùng (hoặc đã dùng cho đúng chứng từ này) thì chứng từ được tham chiếu. */
+    /** Chính sách có hiệu lực, chưa dùng (hoặc đã dùng cho đúng chứng từ này) thì chứng từ được tham chiếu. */
     public boolean usableBy(Long documentId) {
         return status == PolicyStatus.APPROVED
                 && (usedByDocumentId == null || usedByDocumentId.equals(documentId));

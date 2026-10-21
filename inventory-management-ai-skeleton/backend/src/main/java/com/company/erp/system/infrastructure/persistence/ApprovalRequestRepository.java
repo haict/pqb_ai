@@ -2,7 +2,6 @@ package com.company.erp.system.infrastructure.persistence;
 
 import com.company.erp.system.domain.ApprovalRequest;
 import jakarta.persistence.LockModeType;
-import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -31,24 +30,4 @@ public interface ApprovalRequestRepository extends JpaRepository<ApprovalRequest
     List<ApprovalRequest> findByDocumentTypeAndDocumentIdOrderByRequestedAtDescIdDesc(String documentType,
                                                                                     Long documentId);
 
-    /** Yêu cầu đang chờ ở bước duyệt theo một trong các vai trò, thuộc chi nhánh trong phạm vi. */
-    @Query("""
-            select r.id from ApprovalRequest r join r.steps s
-            where r.status = com.company.erp.system.domain.ApprovalRequestStatus.PENDING
-              and s.stepNo = r.currentStep
-              and s.approverType = com.company.erp.system.domain.ApproverType.ROLE
-              and s.roleId in :roleIds and r.branchId in :branchIds
-            """)
-    List<Long> findPendingIdsForRoles(@Param("roleIds") Collection<Long> roleIds,
-                                      @Param("branchIds") Collection<Long> branchIds);
-
-    /** Yêu cầu đang chờ ở bước chỉ định đích danh người duyệt. */
-    @Query("""
-            select r.id from ApprovalRequest r join r.steps s
-            where r.status = com.company.erp.system.domain.ApprovalRequestStatus.PENDING
-              and s.stepNo = r.currentStep
-              and s.approverType = com.company.erp.system.domain.ApproverType.USER
-              and s.userId = :userId
-            """)
-    List<Long> findPendingIdsForUser(@Param("userId") Long userId);
 }

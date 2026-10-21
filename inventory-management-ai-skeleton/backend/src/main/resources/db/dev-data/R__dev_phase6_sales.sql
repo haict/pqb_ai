@@ -1,7 +1,7 @@
 -- DỮ LIỆU MẪU CHỈ CHO dev/test (database.md mục 2). Giai đoạn 6 - bán hàng.
--- [Giả định] Doanh nghiệp cấu hình lại bảng giá, luồng duyệt, quy tắc hạch toán ở màn hình tương ứng.
+-- [Giả định] Doanh nghiệp cấu hình lại bảng giá, quy tắc hạch toán ở màn hình tương ứng.
 
--- Trưởng phòng kinh doanh HN (duyệt giá, duyệt đơn vượt hạn mức), nhân viên giao hàng HN; mật khẩu dev như người dùng mẫu khác.
+-- Trưởng phòng kinh doanh HN (ghi sổ đơn giá dưới sàn / vượt hạn mức, D-61), nhân viên giao hàng HN; mật khẩu dev như người dùng mẫu khác.
 INSERT IGNORE INTO sys_users
     (company_id, default_branch_id, username, full_name, password_hash, status, own_data_only,
      credentials_changed_at, created_at, updated_at)
@@ -56,19 +56,6 @@ FROM (SELECT 'GIA_NY' AS code, 800000 AS price UNION ALL SELECT 'GIA_SAN', 60000
 JOIN price_lists l ON l.company_id = 1 AND l.code = t.code
 JOIN products p ON p.company_id = 1 AND p.code = 'VT_ONG_01'
 JOIN units u ON u.company_id = 1 AND u.code = 'HOP';
-
--- Luồng duyệt mẫu: đơn bán phải duyệt (giá dưới sàn, chiết khấu vượt ngưỡng, vượt hạn mức) do Trưởng phòng kinh doanh
--- duyệt một bước.
-INSERT INTO approval_workflows (company_id, document_type, name, branch_id, priority, status, created_at, updated_at)
-SELECT 1, t.code, CONCAT('Mẫu - Duyệt ', t.code), NULL, 0, 'ACTIVE', UTC_TIMESTAMP(3), UTC_TIMESTAMP(3)
-FROM (SELECT 'DBH' AS code) t
-WHERE NOT EXISTS (SELECT 1 FROM approval_workflows w
-                  WHERE w.company_id = 1 AND w.document_type = t.code AND w.name = CONCAT('Mẫu - Duyệt ', t.code));
-
-INSERT IGNORE INTO approval_workflow_steps (workflow_id, step_no, approver_type, role_id, user_id)
-SELECT w.id, 1, 'ROLE', r.id, NULL
-FROM approval_workflows w JOIN sys_roles r ON r.code = 'SALES_MANAGER'
-WHERE w.company_id = 1 AND w.document_type = 'DBH' AND w.name LIKE 'Mẫu - Duyệt %';
 
 -- Quy tắc hạch toán mẫu ghi sổ đơn bán (D-35, D-54) [Chưa kiểm chứng]: doanh thu hàng hóa Nợ 131 / Có 5111, dịch vụ Có
 -- 5113, thuế GTGT đầu ra Có 3331. Giá vốn ghi ở Giai đoạn 8. Kế toán trưởng cấu hình lại trước UAT.

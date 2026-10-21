@@ -5,7 +5,6 @@ import com.company.erp.common.api.PageResponse;
 import com.company.erp.common.application.IdempotentCommand;
 import com.company.erp.purchasing.application.PurchaseCostAllocationPostingService;
 import com.company.erp.purchasing.application.PurchaseCostAllocationService;
-import com.company.erp.purchasing.application.dto.CommentRequest;
 import com.company.erp.purchasing.application.dto.CostAllocationSourceResponse;
 import com.company.erp.purchasing.application.dto.PurchaseCostAllocationRequest;
 import com.company.erp.purchasing.application.dto.PurchaseCostAllocationResponse;
@@ -88,36 +87,12 @@ public class PurchaseCostAllocationController {
         return ApiResponse.ok(service.create(user, idempotencyKey, request));
     }
 
-    @Operation(summary = "Sửa (DRAFT, REJECTED)", description = "Gửi version; đã đổi: 409 CONCURRENT_MODIFICATION.")
+    @Operation(summary = "Sửa (DRAFT)", description = "Gửi version; đã đổi: 409 CONCURRENT_MODIFICATION.")
     @PutMapping("/{id}")
     @PreAuthorize("hasAuthority('purchase-cost-allocation:create')")
     public ApiResponse<PurchaseCostAllocationResponse> update(@AuthenticationPrincipal CurrentUser user,
             @PathVariable Long id, @Valid @RequestBody PurchaseCostAllocationRequest request) {
         return ApiResponse.ok(service.update(user, id, request));
-    }
-
-    @Operation(summary = "Gửi duyệt", description = "Duyệt theo luồng đã cấu hình; không có luồng thì tự duyệt.")
-    @PostMapping("/{id}/submit")
-    @PreAuthorize("hasAuthority('purchase-cost-allocation:create')")
-    public ApiResponse<PurchaseCostAllocationResponse> submit(@AuthenticationPrincipal CurrentUser user,
-            @PathVariable Long id, @RequestHeader(IdempotentCommand.HEADER) String idempotencyKey) {
-        return ApiResponse.ok(service.submit(user, id, idempotencyKey));
-    }
-
-    @PostMapping("/{id}/approve")
-    @PreAuthorize("hasAuthority('purchase-cost-allocation:approve')")
-    public ApiResponse<PurchaseCostAllocationResponse> approve(@AuthenticationPrincipal CurrentUser user,
-            @PathVariable Long id, @RequestHeader(IdempotentCommand.HEADER) String idempotencyKey,
-            @Valid @RequestBody(required = false) CommentRequest request) {
-        return ApiResponse.ok(service.approve(user, id, idempotencyKey, request));
-    }
-
-    @PostMapping("/{id}/reject")
-    @PreAuthorize("hasAuthority('purchase-cost-allocation:approve')")
-    public ApiResponse<PurchaseCostAllocationResponse> reject(@AuthenticationPrincipal CurrentUser user,
-            @PathVariable Long id, @RequestHeader(IdempotentCommand.HEADER) String idempotencyKey,
-            @Valid @RequestBody ReasonRequest request) {
-        return ApiResponse.ok(service.reject(user, id, idempotencyKey, request));
     }
 
     @PostMapping("/{id}/cancel")

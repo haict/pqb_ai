@@ -11,6 +11,7 @@ import {
   Select,
   Space,
   Table,
+  Tag,
   Typography,
   type TableColumnsType,
 } from 'antd';
@@ -30,7 +31,16 @@ import { DocumentStatusTag } from '../components/StatusTags';
 import type { PolicyStatus, StockIssuePolicy } from '../types';
 import { DecimalInput } from '../../../shared/components/DecimalInput';
 
-const STATUSES: PolicyStatus[] = ['DRAFT', 'SUBMITTED', 'REJECTED', 'APPROVED', 'CANCELLED'];
+const STATUSES: PolicyStatus[] = ['DRAFT', 'APPROVED', 'CANCELLED'];
+
+/** APPROVED của chính sách nghĩa là có hiệu lực (D-61: kích hoạt thay bước duyệt). */
+function policyStatusLabel(status: PolicyStatus): string {
+  return status === 'APPROVED' ? 'Có hiệu lực' : statusLabel(status);
+}
+
+function PolicyStatusTag({ status }: { status: PolicyStatus }) {
+  return status === 'APPROVED' ? <Tag color="blue">Có hiệu lực</Tag> : <DocumentStatusTag status={status} />;
+}
 
 interface PolicyForm {
   warehouseId: number;
@@ -40,14 +50,17 @@ interface PolicyForm {
   reason: string;
 }
 
+/**
+ * Không qua duyệt (D-61): người có quyền stock-policy:activate (mặc định Giám đốc) kích hoạt từ nháp; trạng thái
+ * APPROVED nghĩa là có hiệu lực. Chính sách chờ duyệt / bị từ chối cũ chỉ còn hủy.
+ */
 function policyActions(status: PolicyStatus, can: (permission: string) => boolean): string[] {
-  const create = can('stock-policy:create');
-  const approve = can('stock-policy:approve');
+  const cancel = can('stock-policy:create') ? ['cancel'] : [];
   const actions: Record<PolicyStatus, string[]> = {
-    DRAFT: create ? ['submit', 'cancel'] : [],
-    REJECTED: create ? ['submit', 'cancel'] : [],
-    SUBMITTED: [...(approve ? ['approve', 'reject'] : []), ...(create ? ['cancel'] : [])],
-    APPROVED: create ? ['cancel'] : [],
+    DRAFT: [...(can('stock-policy:activate') ? ['activate'] : []), ...cancel],
+    REJECTED: cancel,
+    SUBMITTED: cancel,
+    APPROVED: cancel,
     CANCELLED: [],
   };
   return actions[status];
@@ -64,7 +77,7 @@ function PolicyDrawer({ id, onClose }: { id: number; onClose(): void }) {
       {policy && (
         <>
           <Space style={{ width: '100%', justifyContent: 'space-between', marginBottom: 12 }} wrap>
-            <DocumentStatusTag status={policy.status} />
+            <PolicyStatusTag status={policy.status} />
             <DocumentActions
               actions={policyActions(policy.status, can)}
               onAction={async (action, body, key) => {
@@ -93,9 +106,6 @@ function PolicyDrawer({ id, onClose }: { id: number; onClose(): void }) {
             </Descriptions.Item>
             <Descriptions.Item label="Lý do">{policy.reason}</Descriptions.Item>
           </Descriptions>
-          <Typography.Title level={5} style={{ marginTop: 24 }}>
-            Lịch sử duyệt
-          </Typography.Title>
           <ApprovalHistory requests={policy.approvals} />
         </>
       )}
@@ -103,7 +113,7 @@ function PolicyDrawer({ id, onClose }: { id: number; onClose(): void }) {
   );
 }
 
-/** Chính sách xuất vượt tồn khả dụng (BR-GEN-31, D-10): chỉ có hiệu lực sau khi duyệt; tồn thực tế vẫn không âm. */
+/** Chính sách xuất vượt tồn khả dụng (BR-GEN-31, D-10): chỉ có hiệu lực sau khi kích hoạt; tồn thực tế vẫn không âm. */
 export function StockIssuePoliciesPage() {
   const can = useCan();
   const { message } = App.useApp();
@@ -144,7 +154,7 @@ export function StockIssuePoliciesPage() {
     {
       title: 'Trạng thái',
       dataIndex: 'status',
-      render: (v: PolicyStatus) => <DocumentStatusTag status={v} />,
+      render: (v: PolicyStatus) => <PolicyStatusTag status={v} />,
     },
   ];
 
@@ -158,7 +168,7 @@ export function StockIssuePoliciesPage() {
           style={{ width: 180 }}
           value={status}
           onChange={setStatus}
-          options={STATUSES.map((value) => ({ value, label: statusLabel(value) }))}
+          options={STATUSES.map((value) => ({ value, label: policyStatusLabel(value) }))}
         />
         {can('stock-policy:create') && (
           <Button type="primary" onClick={() => setCreating(true)}>

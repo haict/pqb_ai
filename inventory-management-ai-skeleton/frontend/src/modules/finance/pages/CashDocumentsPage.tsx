@@ -30,7 +30,13 @@ import { ApprovalHistory } from '../../system/components/ApprovalHistory';
 import { useMyBranches } from '../../system/lookups';
 import { cashDocumentApi } from '../api';
 import { CashDocumentFields, type CashDocumentForm } from '../components/CashDocumentFields';
-import { ALLOCATION_MODES, CASH_DOCUMENT_TYPES, CASH_PURPOSES, DEBT_ITEM_STATUSES } from '../labels';
+import {
+  ALLOCATION_MODES,
+  CASH_DOCUMENT_TYPES,
+  CASH_PURPOSES,
+  DEBT_ITEM_STATUSES,
+  financeActions,
+} from '../labels';
 import { useCashAccounts } from '../lookups';
 import type {
   CashDocument,
@@ -43,9 +49,6 @@ import { BRANCH_VISIBLE } from '../../../shared/branch';
 
 const STATUSES: FinanceDocumentStatus[] = [
   'DRAFT',
-  'SUBMITTED',
-  'REJECTED',
-  'APPROVED',
   'POSTED',
   'CANCELLED',
   'REVERSED',
@@ -66,22 +69,6 @@ const FIELDS = [
   'description',
   'lines',
 ];
-
-/** Thao tác hiện theo trạng thái và quyền; server vẫn kiểm tra lại (frontend.md mục 3). */
-function cashActions(status: FinanceDocumentStatus, can: (permission: string) => boolean): string[] {
-  const create = can('cash-document:create');
-  const approve = can('cash-document:approve');
-  const actions: Record<FinanceDocumentStatus, string[]> = {
-    DRAFT: create ? ['submit', 'cancel'] : [],
-    REJECTED: create ? ['submit', 'cancel'] : [],
-    SUBMITTED: [...(approve ? ['approve', 'reject'] : []), ...(create ? ['cancel'] : [])],
-    APPROVED: [...(can('cash-document:post') ? ['post'] : []), ...(create ? ['cancel'] : [])],
-    POSTED: can('cash-document:reverse') ? ['reverse'] : [],
-    CANCELLED: [],
-    REVERSED: [],
-  };
-  return actions[status];
-}
 
 const LINE_COLUMNS: TableColumnsType<CashDocumentLine> = [
   { title: '#', dataIndex: 'lineNo', width: 50 },
@@ -131,7 +118,7 @@ function CashDocumentDrawer({
     queryFn: () => journalApi.bySource(companyId, document?.documentType ?? '', id),
     enabled: !!posted && can('journal:view'),
   });
-  const editable = document && (document.status === 'DRAFT' || document.status === 'REJECTED');
+  const editable = document?.status === 'DRAFT';
   return (
     <Drawer
       open
@@ -150,7 +137,7 @@ function CashDocumentDrawer({
                 </Button>
               )}
               <DocumentActions
-                actions={cashActions(document.status, can)}
+                actions={financeActions(document.status, 'cash-document', can)}
                 onAction={async (action, body, key) => {
                   await cashDocumentApi.act(id, action, body, key);
                   void queryClient.invalidateQueries({ queryKey: ['cash-document', id] });
@@ -230,9 +217,6 @@ function CashDocumentDrawer({
               <JournalEntryView journal={journal} />
             </div>
           ))}
-          <Typography.Title level={5} style={{ marginTop: 16 }}>
-            Lịch sử duyệt
-          </Typography.Title>
           <ApprovalHistory requests={document.approvals} />
         </>
       )}
@@ -242,7 +226,8 @@ function CashDocumentDrawer({
 
 /**
  * Thu chi, ngân hàng (BR-CSH-02, 03, BR-AR-03): phiếu thu, phiếu chi, giấy báo có, ủy nhiệm chi, chuyển tiền nội bộ.
- * Chứng từ chi từ ngưỡng duyệt trở lên phải duyệt; ghi sổ cập nhật sổ quỹ, công nợ, bút toán cùng lúc.
+ * Chứng từ chi từ ngưỡng chi trở lên chỉ người có quyền vượt ngưỡng ghi sổ (D-61); ghi sổ cập nhật sổ quỹ, công nợ, bút
+ * toán cùng lúc.
  */
 export function CashDocumentsPage() {
   const can = useCan();

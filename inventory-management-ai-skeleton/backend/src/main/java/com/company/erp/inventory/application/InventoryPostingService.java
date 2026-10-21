@@ -47,7 +47,7 @@ import org.springframework.transaction.annotation.Transactional;
  *   <li>Kỳ kho của mọi chi nhánh liên quan chưa khóa (BR-GEN-10); kho không đang kiểm kê (D-11).</li>
  *   <li>Khóa tổng (hàng, kho) theo thứ tự tăng dần, rồi khóa các dòng tồn chi tiết được chọn (FEFO).</li>
  *   <li>Kiểm tra tồn thực tế không âm, lô / serial bán được, tồn khả dụng tại thời điểm ghi sổ (BR-INV-20); xuất vượt
- *       khả dụng chỉ khi có chính sách đã duyệt (BR-GEN-31).</li>
+ *       khả dụng chỉ khi có chính sách đang hiệu lực (BR-GEN-31).</li>
  *   <li>Ghi sổ nhật ký (chỉ INSERT), cập nhật tồn chi tiết, tổng (hàng, kho), vòng đời serial.</li>
  * </ol>
  * Phải gọi trong transaction READ COMMITTED của chứng từ: lỗi ở bất kỳ bước nào làm rollback toàn bộ.
@@ -262,7 +262,7 @@ public class InventoryPostingService {
 
     /**
      * Tồn khả dụng = tồn bán được − giữ chỗ (BR mục 5.4), kiểm tra sau khi đã khóa (BR-INV-20). Phần vượt chỉ được
-     * xuất khi chứng từ dùng chính sách đã duyệt còn hạn mức (BR-GEN-31, D-10).
+     * xuất khi chứng từ dùng chính sách đang hiệu lực còn hạn mức (BR-GEN-31, D-10).
      */
     private void checkAvailability(List<Allocation> outs, Map<ProductWarehouse, LockedSummary> summaries,
                                    PostingCommand command) {

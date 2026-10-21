@@ -1,6 +1,6 @@
 import { EditOutlined } from '@ant-design/icons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Button, Drawer, Space, Typography } from 'antd';
+import { Button, Drawer, Space } from 'antd';
 import type { ReactNode } from 'react';
 import { useCan } from '../../../shared/auth/authContext';
 import { DocumentActions } from '../../inventory/components/DocumentActions';
@@ -16,7 +16,7 @@ interface Props<T extends PurchaseDocumentBase> {
   listKeys: string[];
   load(id: number): Promise<T>;
   act(id: number, action: string, body: object | undefined, key: string): Promise<T>;
-  /** Tiền tố quyền: {@code <prefix>:create|approve|post|reverse}. */
+  /** Tiền tố quyền: {@code <prefix>:create|post|reverse}. */
   permission: string;
   title(document: T): string;
   /** Thao tác riêng của loại chứng từ; mặc định theo {@link postingActions}. */
@@ -31,7 +31,7 @@ interface Props<T extends PurchaseDocumentBase> {
 
 /**
  * Drawer chi tiết chứng từ mua hàng: trạng thái, nút thao tác theo trạng thái và quyền (server vẫn kiểm tra), nội dung
- * riêng, lịch sử duyệt.
+ * riêng, lịch sử duyệt (chứng từ trước D-61).
  */
 export function PurchaseDocumentDrawer<T extends PurchaseDocumentBase>(props: Props<T>) {
   const {
@@ -53,7 +53,7 @@ export function PurchaseDocumentDrawer<T extends PurchaseDocumentBase>(props: Pr
   const queryClient = useQueryClient();
   const query = useQuery({ queryKey: [queryKey, id], queryFn: () => load(id) });
   const document = query.data;
-  const editable = document && (document.status === 'DRAFT' || document.status === 'REJECTED');
+  const editable = document?.status === 'DRAFT';
   return (
     <Drawer open width={1100} title={document ? title(document) : ''} onClose={onClose}>
       {document && (
@@ -79,9 +79,6 @@ export function PurchaseDocumentDrawer<T extends PurchaseDocumentBase>(props: Pr
             </Space>
           </Space>
           {children(document)}
-          <Typography.Title level={5} style={{ marginTop: 16 }}>
-            Lịch sử duyệt
-          </Typography.Title>
           <ApprovalHistory requests={document.approvals} />
         </>
       )}

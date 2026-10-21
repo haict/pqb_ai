@@ -1,4 +1,4 @@
-import { DeleteOutlined, PlusOutlined, UploadOutlined } from '@ant-design/icons';
+import { CopyOutlined, DeleteOutlined, PlusOutlined, UploadOutlined } from '@ant-design/icons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   App,
@@ -12,7 +12,9 @@ import {
   InputNumber,
   Row,
   Select,
+  Space,
   Table,
+  Tooltip,
   Typography,
   type FormInstance,
   type TableColumnsType,
@@ -27,6 +29,7 @@ import { FormModal } from '../../../shared/components/FormModal';
 import { ListToolbar } from '../../../shared/components/ListToolbar';
 import { formatMoney } from '../../accounting/labels';
 import { moneyInputProps } from '../../finance/components/debtInputs';
+import { DocumentActions } from '../../inventory/components/DocumentActions';
 import { DocumentStatusTag } from '../../inventory/components/StatusTags';
 import { formatDate, formatNumber, statusLabel } from '../../inventory/labels';
 import { partnerApi } from '../../masterdata/api';
@@ -39,7 +42,7 @@ import { StockInSlipDownload, StockInSlipPrint } from '../components/StockInSlip
 import { CompanyPrintButton } from '../../../shared/components/CompanyPrintButton';
 import { SourceJournal } from '../components/SourceJournal';
 import { useProductUnits } from '../components/productUnits';
-import { PURCHASE_STATUSES } from '../labels';
+import { orderActions, PURCHASE_STATUSES } from '../labels';
 import type {
   ImportedOrderLine,
   OrderLineImportResult,
@@ -100,7 +103,10 @@ const FIELDS = [
   'lines',
 ];
 
-const ACTION_ORDER = ['submit', 'approve', 'reject', 'post', 'reverse', 'cancel'];
+/** Thao tác trên chi tiết đơn; bỏ ghi sổ, đảo đặt ở cột thao tác của danh sách. */
+const ACTION_ORDER = ['post', 'cancel'];
+const ROW_ACTION_ORDER = ['unpost', 'reverse'];
+const LIST_KEYS = ['purchase-orders', 'stock-summaries', 'inventory-documents', 'debt-items'];
 const date = (value?: Dayjs) => (value ? value.format('YYYY-MM-DD') : null);
 const quantity = (value: number) => formatNumber(value);
 
@@ -156,6 +162,8 @@ export function PurchaseOrdersPage() {
   const [searchParams] = useSearchParams();
   const [selected, setSelected] = useState<number | null>(() => Number(searchParams.get('id')) || null);
   const [editing, setEditing] = useState<PurchaseOrder | 'new' | null>(null);
+  // Đơn nguồn khi lập đơn mới bằng sao chép (chỉ điền sẵn form, server kiểm tra lại như lập mới).
+  const [copySource, setCopySource] = useState<PurchaseOrder | null>(null);
   const { tableProps } = useServerTable('purchase-orders', purchaseOrderApi.list, {
     companyId,
     keyword,
@@ -204,37 +212,10 @@ export function PurchaseOrdersPage() {
 
   const initialValues: Partial<OrderForm> =
     editing && editing !== 'new'
-      ? {
-          branchId: editing.branchId,
-          documentDate: dayjs(editing.documentDate),
-          postingDate: dayjs(editing.postingDate),
-          supplierId: editing.supplierId,
-          supplierLabel: `${editing.supplierCode ?? ''} - ${editing.supplierName ?? ''}`,
-          warehouseId: editing.warehouseId,
-          expectedDate: editing.expectedDate ? dayjs(editing.expectedDate) : undefined,
-          paymentTermDays: editing.paymentTermDays ?? undefined,
-          invoiceSeries: editing.invoiceSeries ?? undefined,
-          invoiceNo: editing.invoiceNo ?? undefined,
-          invoiceDate: editing.invoiceDate ? dayjs(editing.invoiceDate) : undefined,
-          dueDate: editing.dueDate ? dayjs(editing.dueDate) : undefined,
-          description: editing.description ?? undefined,
-          lines: editing.lines.map((line) => ({
-            productId: line.productId,
-            productLabel: `${line.productCode ?? ''} - ${line.productName ?? ''}`,
-            serviceLine: line.serviceLine,
-            unitId: line.unitId,
-            quantity: line.quantity,
-            unitPrice: line.unitPrice,
-            discountPercent: line.discountPercent,
-            taxRateId: line.taxRateId ?? undefined,
-            lotNo: line.lotNo ?? undefined,
-            manufactureDate: line.manufactureDate ? dayjs(line.manufactureDate) : undefined,
-            expiryDate: line.expiryDate ? dayjs(line.expiryDate) : undefined,
-            serialNumbers: line.serialNumbers,
-            note: line.note ?? undefined,
-          })),
-        }
-      : { branchId: branches.defaultId, documentDate: dayjs(), lines: [{}] };
+      ? orderForm(editing)
+      : copySource
+        ? copyForm(copySource)
+        : { branchId: branches.defaultId, documentDate: dayjs(), lines: [{}] };
 
   const columns: TableColumnsType<PurchaseOrder> = [
     {
@@ -260,7 +241,48 @@ export function PurchaseOrdersPage() {
       width: 140,
       render: (value: PurchaseDocumentStatus) => <DocumentStatusTag status={value} />,
     },
+    {
+      title: 'Thao tác',
+      key: 'actions',
+      width: 110,
+      fixed: 'right',
+      render: (_, row) => (
+        <Space size={0}>
+          {can('purchase-order:create') && (
+            <Tooltip title="Sao chép">
+              <Button
+                type="text"
+                size="small"
+                icon={<CopyOutlined aria-hidden />}
+                aria-label="Sao chép"
+                onClick={() => void copyOrder(row.id)}
+              />
+            </Tooltip>
+          )}
+          <DocumentActions
+            iconOnly
+            actions={orderActions(row.status, can)}
+            order={ROW_ACTION_ORDER}
+            onAction={async (action, body, key) => {
+              await purchaseOrderApi.act(row.id, action, body, key);
+              void queryClient.invalidateQueries({ queryKey: ['purchase-order', row.id] });
+              LIST_KEYS.forEach((listKey) => void queryClient.invalidateQueries({ queryKey: [listKey] }));
+            }}
+          />
+        </Space>
+      ),
+    },
   ];
+
+  /** Sao chép: tải chi tiết đơn (đủ dòng) rồi mở form lập đơn mới điền sẵn. */
+  const copyOrder = async (id: number) => {
+    try {
+      setCopySource(await purchaseOrderApi.get(id));
+      setEditing('new');
+    } catch {
+      message.error('Không tải được đơn mua để sao chép.');
+    }
+  };
 
   return (
     <Card>
@@ -281,36 +303,46 @@ export function PurchaseOrdersPage() {
           />
         }
         createLabel="Lập đơn mua"
-        onCreate={can('purchase-order:create') ? () => setEditing('new') : undefined}
+        onCreate={
+          can('purchase-order:create')
+            ? () => {
+                setCopySource(null);
+                setEditing('new');
+              }
+            : undefined
+        }
       />
       <Table<PurchaseOrder> {...tableProps} size="small" columns={columns} scroll={{ x: 1300 }} />
       {selected !== null && (
         <PurchaseDocumentDrawer<PurchaseOrder>
           id={selected}
           queryKey="purchase-order"
-          listKeys={['purchase-orders', 'stock-summaries', 'inventory-documents', 'debt-items']}
+          listKeys={LIST_KEYS}
           load={purchaseOrderApi.get}
           act={purchaseOrderApi.act}
           permission="purchase-order"
+          actions={(document) => orderActions(document.status, can)}
           actionOrder={ACTION_ORDER}
           title={(document) => `Đơn mua ${document.documentNo}`}
           onEdit={(document) => setEditing(document)}
           onClose={() => setSelected(null)}
-          extra={(document) =>
-            document.status === 'POSTED' && (
-              <CompanyPrintButton
-                label="In phiếu nhập kho"
-                queryKey="purchase-orders"
-                fetchCompanies={purchaseOrderApi.printCompanies}
-                defaultCompanyId={companyId}
-                extra={(printCompanyId) => (
-                  <StockInSlipDownload orderId={document.id} companyId={printCompanyId} />
-                )}
-              >
-                {(printCompanyId) => <StockInSlipPrint orderId={document.id} companyId={printCompanyId} />}
-              </CompanyPrintButton>
-            )
-          }
+          extra={(document) => (
+            <>
+              {document.status === 'POSTED' && (
+                <CompanyPrintButton
+                  label="In phiếu nhập kho"
+                  queryKey="purchase-orders"
+                  fetchCompanies={purchaseOrderApi.printCompanies}
+                  defaultCompanyId={companyId}
+                  extra={(printCompanyId) => (
+                    <StockInSlipDownload orderId={document.id} companyId={printCompanyId} />
+                  )}
+                >
+                  {(printCompanyId) => <StockInSlipPrint orderId={document.id} companyId={printCompanyId} />}
+                </CompanyPrintButton>
+              )}
+            </>
+          )}
         >
           {(document) => (
             <>
@@ -373,18 +405,85 @@ export function PurchaseOrdersPage() {
       )}
       <FormModal<OrderForm>
         open={editing !== null}
-        title={editing === 'new' ? 'Lập đơn mua hàng' : 'Sửa đơn mua hàng'}
+        title={
+          editing !== 'new'
+            ? 'Sửa đơn mua hàng'
+            : copySource
+              ? `Lập đơn mua hàng (sao chép ${copySource.documentNo})`
+              : 'Lập đơn mua hàng'
+        }
         width={1200}
         okText={editing === 'new' ? 'Lưu nháp' : 'Lưu'}
         initialValues={initialValues}
         fieldNames={FIELDS}
         onSubmit={save}
-        onClose={() => setEditing(null)}
+        onClose={() => {
+          setEditing(null);
+          setCopySource(null);
+        }}
       >
         {(form) => <OrderFields form={form} isNew={editing === 'new'} branchOptions={branches.options} />}
       </FormModal>
     </Card>
   );
+}
+
+function orderForm(document: PurchaseOrder): Partial<OrderForm> {
+  return {
+    branchId: document.branchId,
+    documentDate: dayjs(document.documentDate),
+    postingDate: dayjs(document.postingDate),
+    supplierId: document.supplierId,
+    supplierLabel: `${document.supplierCode ?? ''} - ${document.supplierName ?? ''}`,
+    warehouseId: document.warehouseId,
+    expectedDate: document.expectedDate ? dayjs(document.expectedDate) : undefined,
+    paymentTermDays: document.paymentTermDays ?? undefined,
+    invoiceSeries: document.invoiceSeries ?? undefined,
+    invoiceNo: document.invoiceNo ?? undefined,
+    invoiceDate: document.invoiceDate ? dayjs(document.invoiceDate) : undefined,
+    dueDate: document.dueDate ? dayjs(document.dueDate) : undefined,
+    description: document.description ?? undefined,
+    lines: document.lines.map((line) => ({
+      productId: line.productId,
+      productLabel: `${line.productCode ?? ''} - ${line.productName ?? ''}`,
+      serviceLine: line.serviceLine,
+      unitId: line.unitId,
+      quantity: line.quantity,
+      unitPrice: line.unitPrice,
+      discountPercent: line.discountPercent,
+      taxRateId: line.taxRateId ?? undefined,
+      lotNo: line.lotNo ?? undefined,
+      manufactureDate: line.manufactureDate ? dayjs(line.manufactureDate) : undefined,
+      expiryDate: line.expiryDate ? dayjs(line.expiryDate) : undefined,
+      serialNumbers: line.serialNumbers,
+      note: line.note ?? undefined,
+    })),
+  };
+}
+
+/**
+ * Sao chép đơn mua để nhập nhanh: giữ nhà cung cấp, kho, hàng, số lượng, giá, chiết khấu, thuế; ngày đơn là hôm nay. Bỏ
+ * hóa đơn NCC (chống trùng), ngày hạch toán / giao / hạn thanh toán, lô / hạn dùng / serial (mỗi lần nhập khác nhau).
+ */
+function copyForm(source: PurchaseOrder): Partial<OrderForm> {
+  const form = orderForm(source);
+  return {
+    ...form,
+    documentDate: dayjs(),
+    postingDate: undefined,
+    expectedDate: undefined,
+    invoiceSeries: undefined,
+    invoiceNo: undefined,
+    invoiceDate: undefined,
+    dueDate: undefined,
+    lines: (form.lines ?? []).map((line) => ({
+      ...line,
+      lotNo: undefined,
+      manufactureDate: undefined,
+      expiryDate: undefined,
+      serialNumbers: [],
+    })),
+  };
 }
 
 function OrderFields({
@@ -573,6 +672,12 @@ function OrderLineFields({
             <ProductSelect
               selectedLabel={form.getFieldValue(['lines', name, 'productLabel'])}
               onProduct={(product) => {
+                // Không dùng preserve={false} cho lô / hạn / serial: trường hiện sau khi tải hàng, mở lại form sửa
+                // (hàng đã có trong cache) bị xóa giá trị; đổi hàng thì xóa tường minh ở đây.
+                form.setFieldValue(['lines', name, 'lotNo'], undefined);
+                form.setFieldValue(['lines', name, 'manufactureDate'], undefined);
+                form.setFieldValue(['lines', name, 'expiryDate'], undefined);
+                form.setFieldValue(['lines', name, 'serialNumbers'], []);
                 if (product) {
                   form.setFieldValue(['lines', name, 'unitId'], product.baseUnitId);
                   form.setFieldValue(['lines', name, 'taxRateId'], product.defaultTaxRateId ?? undefined);
@@ -632,14 +737,13 @@ function OrderLineFields({
               <Form.Item
                 name={[name, 'lotNo']}
                 label="Số lô"
-                preserve={false}
                 rules={[{ required: true, message: 'Nhập số lô' }]}
               >
                 <Input maxLength={50} />
               </Form.Item>
             </Col>
             <Col xs={12} md={3}>
-              <Form.Item name={[name, 'manufactureDate']} label="Ngày sản xuất" preserve={false}>
+              <Form.Item name={[name, 'manufactureDate']} label="Ngày sản xuất">
                 <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} />
               </Form.Item>
             </Col>
@@ -647,7 +751,6 @@ function OrderLineFields({
               <Form.Item
                 name={[name, 'expiryDate']}
                 label="Hạn dùng"
-                preserve={false}
                 rules={[{ required: product.expiryTracked, message: 'Nhập hạn dùng' }]}
               >
                 <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} />
@@ -660,7 +763,6 @@ function OrderLineFields({
             <Form.Item
               name={[name, 'serialNumbers']}
               label="Serial"
-              preserve={false}
               tooltip="Gõ serial rồi Enter; số serial = số lượng theo đơn vị cơ sở"
               rules={[{ required: true, message: 'Nhập serial' }]}
             >

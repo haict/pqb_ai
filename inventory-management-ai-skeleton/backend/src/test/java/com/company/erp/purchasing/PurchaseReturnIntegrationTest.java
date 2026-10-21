@@ -55,7 +55,6 @@ class PurchaseReturnIntegrationTest extends PurchasingIntegrationSupport {
         long goodsReturn = jsonId(send(clerk, post(RETURNS), returnBody("THN", supplier, order,
                 "{\"orderLineId\":" + orderLine + ",\"quantity\":1}"), newKey())
                 .andExpect(status().isCreated()).andExpect(jsonPath("$.data.totalAmount").value(550000)).andReturn());
-        act(clerk, RETURNS, goodsReturn, "submit", null).andExpect(jsonPath("$.data.status").value("APPROVED"));
         act(clerk, RETURNS, goodsReturn, "post", null).andExpect(jsonPath("$.data.status").value("POSTED"))
                 .andExpect(jsonPath("$.data.inventoryDocumentNo").isNotEmpty());
         assertThat(lotOnHand(lot)).isEqualByComparingTo("200");
@@ -71,7 +70,6 @@ class PurchaseReturnIntegrationTest extends PurchasingIntegrationSupport {
         long discount = jsonId(send(clerk, post(RETURNS), returnBody("GGM", supplier, order,
                 "{\"orderLineId\":" + orderLine + ",\"amount\":200000}"), newKey())
                 .andExpect(status().isCreated()).andExpect(jsonPath("$.data.totalAmount").value(220000)).andReturn());
-        act(clerk, RETURNS, discount, "submit", null);
         act(clerk, RETURNS, discount, "post", null).andExpect(jsonPath("$.data.status").value("POSTED"));
         assertThat(lotOnHand(lot)).isEqualByComparingTo("200");
         assertThat(debtRemaining(order)).isEqualByComparingTo("880000");
@@ -114,7 +112,6 @@ class PurchaseReturnIntegrationTest extends PurchasingIntegrationSupport {
                 newKey()).andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data.targets[0].allocatedAmount").value(66667))
                 .andExpect(jsonPath("$.data.targets[1].allocatedAmount").value(33333)).andReturn());
-        act(clerk, ALLOCATIONS, allocation, "submit", null).andExpect(jsonPath("$.data.status").value("APPROVED"));
         act(clerk, ALLOCATIONS, allocation, "post", null).andExpect(jsonPath("$.data.status").value("POSTED"));
         assertThat(costTotal(firstLine, "LANDED_COST")).isEqualByComparingTo("66667");
         assertThat(costTotal(secondLine, "LANDED_COST")).isEqualByComparingTo("33333");

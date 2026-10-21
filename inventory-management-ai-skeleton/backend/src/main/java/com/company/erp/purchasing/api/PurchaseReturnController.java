@@ -5,7 +5,6 @@ import com.company.erp.common.api.PageResponse;
 import com.company.erp.common.application.IdempotentCommand;
 import com.company.erp.purchasing.application.PurchaseReturnPostingService;
 import com.company.erp.purchasing.application.PurchaseReturnService;
-import com.company.erp.purchasing.application.dto.CommentRequest;
 import com.company.erp.purchasing.application.dto.ReturnableLineResponse;
 import com.company.erp.purchasing.application.dto.PurchaseReturnRequest;
 import com.company.erp.purchasing.application.dto.PurchaseReturnResponse;
@@ -92,36 +91,12 @@ public class PurchaseReturnController {
         return ApiResponse.ok(service.create(user, idempotencyKey, request));
     }
 
-    @Operation(summary = "Sửa (DRAFT, REJECTED)", description = "Gửi version; đã đổi: 409 CONCURRENT_MODIFICATION.")
+    @Operation(summary = "Sửa (DRAFT)", description = "Gửi version; đã đổi: 409 CONCURRENT_MODIFICATION.")
     @PutMapping("/{id}")
     @PreAuthorize("hasAuthority('purchase-return:create')")
     public ApiResponse<PurchaseReturnResponse> update(@AuthenticationPrincipal CurrentUser user,
             @PathVariable Long id, @Valid @RequestBody PurchaseReturnRequest request) {
         return ApiResponse.ok(service.update(user, id, request));
-    }
-
-    @Operation(summary = "Gửi duyệt", description = "Duyệt theo luồng đã cấu hình; không có luồng thì tự duyệt.")
-    @PostMapping("/{id}/submit")
-    @PreAuthorize("hasAuthority('purchase-return:create')")
-    public ApiResponse<PurchaseReturnResponse> submit(@AuthenticationPrincipal CurrentUser user,
-            @PathVariable Long id, @RequestHeader(IdempotentCommand.HEADER) String idempotencyKey) {
-        return ApiResponse.ok(service.submit(user, id, idempotencyKey));
-    }
-
-    @PostMapping("/{id}/approve")
-    @PreAuthorize("hasAuthority('purchase-return:approve')")
-    public ApiResponse<PurchaseReturnResponse> approve(@AuthenticationPrincipal CurrentUser user,
-            @PathVariable Long id, @RequestHeader(IdempotentCommand.HEADER) String idempotencyKey,
-            @Valid @RequestBody(required = false) CommentRequest request) {
-        return ApiResponse.ok(service.approve(user, id, idempotencyKey, request));
-    }
-
-    @PostMapping("/{id}/reject")
-    @PreAuthorize("hasAuthority('purchase-return:approve')")
-    public ApiResponse<PurchaseReturnResponse> reject(@AuthenticationPrincipal CurrentUser user,
-            @PathVariable Long id, @RequestHeader(IdempotentCommand.HEADER) String idempotencyKey,
-            @Valid @RequestBody ReasonRequest request) {
-        return ApiResponse.ok(service.reject(user, id, idempotencyKey, request));
     }
 
     @PostMapping("/{id}/cancel")

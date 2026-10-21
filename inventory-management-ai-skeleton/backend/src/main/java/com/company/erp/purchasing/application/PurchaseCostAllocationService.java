@@ -4,7 +4,6 @@ import com.company.erp.common.domain.BusinessException;
 import com.company.erp.common.domain.ErrorCode;
 import com.company.erp.masterdata.application.MasterDataQueryService.PartnerInfo;
 import com.company.erp.masterdata.application.MasterDataQueryService.ProductInfo;
-import com.company.erp.purchasing.application.dto.CommentRequest;
 import com.company.erp.purchasing.application.dto.CostAllocationSourceRequest;
 import com.company.erp.purchasing.application.dto.CostAllocationSourceResponse;
 import com.company.erp.purchasing.application.dto.CostAllocationTargetResponse;
@@ -37,8 +36,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Phân bổ chi phí mua hàng (PBC, BR-PUR-12, 16): chọn dòng dịch vụ của đơn mua đã ghi sổ (cùng chi nhánh) và các đơn
- * mua đã ghi sổ có hàng hóa nhận phân bổ; server tính phân bổ theo giá trị nhập hoặc số lượng. Gửi duyệt (duyệt khi có
- * luồng), duyệt, từ chối, hủy. Ghi sổ, đảo ở {@link PurchaseCostAllocationPostingService}.
+ * mua đã ghi sổ có hàng hóa nhận phân bổ; server tính phân bổ theo giá trị nhập hoặc số lượng. Sửa, hủy (D-61 không
+ * qua duyệt). Ghi sổ, đảo ở {@link PurchaseCostAllocationPostingService}.
  */
 @Service
 public class PurchaseCostAllocationService {
@@ -46,7 +45,6 @@ public class PurchaseCostAllocationService {
     static final String PATH = "/api/v1/purchase-cost-allocations";
     static final String VIEW = "purchase-cost-allocation:view";
     static final String CREATE = "purchase-cost-allocation:create";
-    static final String APPROVE = "purchase-cost-allocation:approve";
     static final String ENTITY = "PURCHASE_COST_ALLOCATION";
 
     public record AllocationFilter(Long companyId, Long branchId, PurchaseDocumentStatus status, LocalDate dateFrom,
@@ -69,9 +67,8 @@ public class PurchaseCostAllocationService {
         this.flow = flow;
         this.access = access;
         this.approvalService = approvalService;
-        this.spec = new PurchaseDocumentFlow.Spec<>(PATH, VIEW, CREATE, APPROVE, ENTITY,
-                repository::findByIdForUpdate, repository, document -> toResponse(document, true),
-                PurchaseCostAllocationResponse.class, null, null, document -> { }, document -> { });
+        this.spec = new PurchaseDocumentFlow.Spec<>(PATH, VIEW, CREATE, ENTITY, repository::findByIdForUpdate,
+                repository, document -> toResponse(document, true), PurchaseCostAllocationResponse.class, document -> { });
     }
 
     @Transactional(readOnly = true)
@@ -139,21 +136,6 @@ public class PurchaseCostAllocationService {
         }
         fill(document, request);
         return flow.act(actor, document, "UPDATE", null, spec);
-    }
-
-    @Transactional
-    public PurchaseCostAllocationResponse submit(CurrentUser actor, Long id, String key) {
-        return flow.submit(actor, id, key, spec);
-    }
-
-    @Transactional
-    public PurchaseCostAllocationResponse approve(CurrentUser actor, Long id, String key, CommentRequest request) {
-        return flow.approve(actor, id, key, request, spec);
-    }
-
-    @Transactional
-    public PurchaseCostAllocationResponse reject(CurrentUser actor, Long id, String key, ReasonRequest request) {
-        return flow.reject(actor, id, key, request, spec);
     }
 
     @Transactional

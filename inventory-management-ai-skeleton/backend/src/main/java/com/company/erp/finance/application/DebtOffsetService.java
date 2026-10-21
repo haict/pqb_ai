@@ -1,7 +1,6 @@
 package com.company.erp.finance.application;
 
 import com.company.erp.common.domain.BusinessException;
-import com.company.erp.finance.application.dto.CommentRequest;
 import com.company.erp.finance.application.dto.DebtOffsetLineRequest;
 import com.company.erp.finance.application.dto.DebtOffsetLineResponse;
 import com.company.erp.finance.application.dto.DebtOffsetRequest;
@@ -31,7 +30,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Lập, sửa, gửi duyệt, duyệt, từ chối, hủy chứng từ bù trừ công nợ (DTCN, BR-AR-04). Ghi sổ, đảo ở
+ * Lập, sửa, hủy chứng từ bù trừ công nợ (DTCN, BR-AR-04; D-61 không qua duyệt). Ghi sổ, đảo ở
  * {@link DebtOffsetPostingService}.
  */
 @Service
@@ -40,7 +39,6 @@ public class DebtOffsetService {
     static final String PATH = "/api/v1/debt-offsets";
     static final String VIEW = "debt-offset:view";
     static final String CREATE = "debt-offset:create";
-    static final String APPROVE = "debt-offset:approve";
     static final String ENTITY = "DEBT_OFFSET";
 
     public record DebtOffsetFilter(Long companyId, Long branchId, OffsetType offsetType, FinanceDocumentStatus status,
@@ -67,7 +65,7 @@ public class DebtOffsetService {
         this.access = access;
         this.masterData = masterData;
         this.approvalService = approvalService;
-        this.spec = new FinanceDocumentFlow.Spec<>(PATH, VIEW, CREATE, APPROVE, ENTITY,
+        this.spec = new FinanceDocumentFlow.Spec<>(PATH, VIEW, CREATE, ENTITY,
                 repository::findByIdForUpdate, repository, document -> toResponse(document, true),
                 DebtOffsetResponse.class);
     }
@@ -116,21 +114,6 @@ public class DebtOffsetService {
         }
         fill(document, request);
         return flow.act(actor, document, "UPDATE", null, spec);
-    }
-
-    @Transactional
-    public DebtOffsetResponse submit(CurrentUser actor, Long id, String key) {
-        return flow.submit(actor, id, key, spec);
-    }
-
-    @Transactional
-    public DebtOffsetResponse approve(CurrentUser actor, Long id, String key, CommentRequest request) {
-        return flow.approve(actor, id, key, request, spec);
-    }
-
-    @Transactional
-    public DebtOffsetResponse reject(CurrentUser actor, Long id, String key, ReasonRequest request) {
-        return flow.reject(actor, id, key, request, spec);
     }
 
     @Transactional

@@ -4,9 +4,8 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Embeddable;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
-import java.util.Objects;
 
-/** Một bước duyệt: thứ tự và người duyệt (vai trò hoặc người cụ thể). */
+/** Một bước duyệt đã chụp vào yêu cầu duyệt trước D-61: thứ tự và người duyệt (vai trò hoặc người cụ thể); chỉ đọc. */
 @Embeddable
 public class ApprovalStepDefinition {
 
@@ -24,23 +23,6 @@ public class ApprovalStepDefinition {
     private Long userId;
 
     protected ApprovalStepDefinition() {
-    }
-
-    public ApprovalStepDefinition(int stepNo, ApproverType approverType, Long roleId, Long userId) {
-        Objects.requireNonNull(approverType, "approverType");
-        boolean validRole = approverType == ApproverType.ROLE && roleId != null && userId == null;
-        boolean validUser = approverType == ApproverType.USER && userId != null && roleId == null;
-        if (!validRole && !validUser) {
-            throw new IllegalArgumentException("Bước duyệt phải có đúng vai trò hoặc người duyệt theo loại");
-        }
-        this.stepNo = stepNo;
-        this.approverType = approverType;
-        this.roleId = roleId;
-        this.userId = userId;
-    }
-
-    public ApprovalStepDefinition copy() {
-        return new ApprovalStepDefinition(stepNo, approverType, roleId, userId);
     }
 
     public int getStepNo() {

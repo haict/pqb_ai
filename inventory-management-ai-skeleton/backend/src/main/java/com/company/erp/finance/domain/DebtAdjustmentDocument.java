@@ -17,7 +17,7 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * Điều chỉnh công nợ (DCCN, BR-AR-07: xử lý chênh lệch đối chiếu, có duyệt) hoặc thanh toán tạm ứng (TTTU, BR-CSH-04:
+ * Điều chỉnh công nợ (DCCN, BR-AR-07: xử lý chênh lệch đối chiếu) hoặc thanh toán tạm ứng (TTTU, BR-CSH-04:
  * chi phí thực tế trừ vào tạm ứng, chỉ dòng giảm). Một đối tượng, một loại công nợ mỗi chứng từ.
  */
 @Entity
@@ -70,12 +70,8 @@ public class DebtAdjustmentDocument extends FinanceDocument {
         return documentType;
     }
 
-    @Override
-    public BigDecimal approvalAmount() {
-        return totalAmount;
-    }
 
-    /** Thay nội dung (chỉ DRAFT / REJECTED); thanh toán tạm ứng chỉ có dòng giảm. */
+    /** Thay nội dung (chỉ DRAFT); thanh toán tạm ứng chỉ có dòng giảm. */
     public void replaceContent(LocalDate documentDate, LocalDate postingDate, String description, Long partnerId,
                                Long reconciliationId, List<DebtAdjustmentLine> newLines) {
         if (newLines.isEmpty()) {

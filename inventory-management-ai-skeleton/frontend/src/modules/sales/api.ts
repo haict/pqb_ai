@@ -11,6 +11,7 @@ import type { ListParams } from '../../shared/api/useServerTable';
 import type { PrintCompany } from '../../shared/components/CompanyPrintButton';
 import type {
   PriceSuggestion,
+  ReceiptSource,
   ReturnableSalesLine,
   SalesComplaint,
   SalesLedger,
@@ -52,6 +53,9 @@ export const salesOrderApi = {
   stockOutSlip: (id: number, companyId?: number) =>
     getOne<StockOutSlip>(`/sales-orders/${id}/stock-out-slip`, { companyId }),
   printCompanies: () => getOne<PrintCompany[]>('/sales-orders/print-companies'),
+  /** Chứng từ nhập còn tồn của hàng tại kho của đơn (D-63, F8). */
+  receiptSources: (params: { branchId: number; warehouseId: number; productId: number }) =>
+    getOne<ReceiptSource[]>('/sales-orders/receipt-sources', params),
   downloadLineTemplate: () => downloadFile('/sales-orders/line-import-template', 'mau-dong-don-ban.xlsx'),
   /** Chỉ đọc file, trả dòng để điền form; không lưu đơn (server không cần Idempotency-Key, gửi kèm vô hại). */
   importLines: (file: File, companyId: number, documentDate: string | undefined, key: string) =>

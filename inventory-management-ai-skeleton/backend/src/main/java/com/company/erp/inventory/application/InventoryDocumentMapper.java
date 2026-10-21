@@ -148,22 +148,20 @@ class InventoryDocumentMapper {
     static Set<String> allowedActions(InventoryDocument document, CurrentUser viewer) {
         InventoryDocumentType type = document.getDocumentType();
         boolean canCreate = viewer.hasPermission(type.permission("create"));
-        boolean canApprove = viewer.hasPermission(type.permission("approve"));
         boolean canPost = viewer.hasPermission(type.permission("post"));
         boolean systemGenerated = type == InventoryDocumentType.PDK || document.getStockCountId() != null;
         Set<String> actions = new LinkedHashSet<>();
         InventoryDocumentStatus status = document.getStatus();
+        // Không qua duyệt (D-61): ghi sổ thẳng từ nháp; chờ duyệt / bị từ chối trước D-61 chỉ còn hủy.
         switch (status) {
-            case DRAFT, REJECTED -> {
+            case DRAFT -> {
                 if (canCreate && !systemGenerated) {
                     actions.add("update");
                 }
-                addIf(actions, canCreate, "submit", "cancel");
-            }
-            case SUBMITTED -> {
-                addIf(actions, canApprove, "approve", "reject");
+                addIf(actions, canPost, "post");
                 addIf(actions, canCreate, "cancel");
             }
+            case SUBMITTED, REJECTED -> addIf(actions, canCreate, "cancel");
             case APPROVED -> {
                 addIf(actions, canPost, "post");
                 addIf(actions, canCreate, "cancel");

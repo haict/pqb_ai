@@ -34,7 +34,9 @@ export function NotificationBell() {
     }
     const link = documentLink(notification.linkType, notification.linkId);
     setOpen(false);
-    navigate(link ?? '/approvals');
+    if (link) {
+      navigate(link);
+    }
   };
 
   const content = (

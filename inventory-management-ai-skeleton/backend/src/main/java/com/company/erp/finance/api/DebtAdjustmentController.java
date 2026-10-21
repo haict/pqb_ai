@@ -8,7 +8,6 @@ import com.company.erp.finance.domain.DebtType;
 import com.company.erp.common.api.ApiResponse;
 import com.company.erp.common.api.PageResponse;
 import com.company.erp.common.application.IdempotentCommand;
-import com.company.erp.finance.application.dto.CommentRequest;
 import com.company.erp.finance.application.dto.ReasonRequest;
 import com.company.erp.finance.application.dto.ReverseRequest;
 import com.company.erp.finance.domain.FinanceDocumentStatus;
@@ -33,7 +32,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
-/** Điều chỉnh công nợ (DCCN, BR-AR-07, bắt buộc duyệt) và thanh toán tạm ứng (TTTU, BR-CSH-04). */
+/** Điều chỉnh công nợ (DCCN, BR-AR-07; D-61 không qua duyệt) và thanh toán tạm ứng (TTTU, BR-CSH-04). */
 @Tag(name = "Điều chỉnh công nợ, thanh toán tạm ứng")
 @RestController
 @RequestMapping("/api/v1/debt-adjustments")
@@ -75,34 +74,12 @@ public class DebtAdjustmentController {
         return ApiResponse.ok(service.create(user, idempotencyKey, request));
     }
 
-    @Operation(summary = "Sửa (DRAFT, REJECTED)", description = "Gửi version; đã đổi: 409 CONCURRENT_MODIFICATION.")
+    @Operation(summary = "Sửa (DRAFT)", description = "Gửi version; đã đổi: 409 CONCURRENT_MODIFICATION.")
     @PutMapping("/{id}")
     @PreAuthorize("hasAuthority('debt-adjustment:create')")
     public ApiResponse<DebtAdjustmentResponse> update(@AuthenticationPrincipal CurrentUser user, @PathVariable Long id,
                                       @Valid @RequestBody DebtAdjustmentRequest request) {
         return ApiResponse.ok(service.update(user, id, request));
-    }
-
-    @PostMapping("/{id}/submit")
-    @PreAuthorize("hasAuthority('debt-adjustment:create')")
-    public ApiResponse<DebtAdjustmentResponse> submit(@AuthenticationPrincipal CurrentUser user, @PathVariable Long id,
-            @RequestHeader(IdempotentCommand.HEADER) String idempotencyKey) {
-        return ApiResponse.ok(service.submit(user, id, idempotencyKey));
-    }
-
-    @PostMapping("/{id}/approve")
-    @PreAuthorize("hasAuthority('debt-adjustment:approve')")
-    public ApiResponse<DebtAdjustmentResponse> approve(@AuthenticationPrincipal CurrentUser user, @PathVariable Long id,
-            @RequestHeader(IdempotentCommand.HEADER) String idempotencyKey,
-            @Valid @RequestBody(required = false) CommentRequest request) {
-        return ApiResponse.ok(service.approve(user, id, idempotencyKey, request));
-    }
-
-    @PostMapping("/{id}/reject")
-    @PreAuthorize("hasAuthority('debt-adjustment:approve')")
-    public ApiResponse<DebtAdjustmentResponse> reject(@AuthenticationPrincipal CurrentUser user, @PathVariable Long id,
-            @RequestHeader(IdempotentCommand.HEADER) String idempotencyKey, @Valid @RequestBody ReasonRequest request) {
-        return ApiResponse.ok(service.reject(user, id, idempotencyKey, request));
     }
 
     @PostMapping("/{id}/cancel")

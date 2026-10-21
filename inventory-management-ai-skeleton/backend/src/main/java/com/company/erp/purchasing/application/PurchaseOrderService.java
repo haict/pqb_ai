@@ -7,7 +7,6 @@ import com.company.erp.masterdata.application.MasterDataQueryService.PartnerInfo
 import com.company.erp.masterdata.application.MasterDataQueryService.ProductInfo;
 import com.company.erp.masterdata.application.MasterDataQueryService.TaxRateInfo;
 import com.company.erp.masterdata.application.MasterDataQueryService.WarehouseInfo;
-import com.company.erp.purchasing.application.dto.CommentRequest;
 import com.company.erp.purchasing.application.dto.PurchaseOrderLineRequest;
 import com.company.erp.purchasing.application.dto.PurchaseOrderLineResponse;
 import com.company.erp.purchasing.application.dto.PurchaseOrderRequest;
@@ -20,7 +19,6 @@ import com.company.erp.purchasing.infrastructure.persistence.PurchaseOrderReposi
 import com.company.erp.system.application.ApprovalService;
 import com.company.erp.system.application.CurrentUser;
 import com.company.erp.system.application.OrganizationQueryService.BranchRef;
-import com.company.erp.system.application.ParameterService;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -34,9 +32,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Đơn mua hàng (DMH, BR-PUR-04, D-54): lập, sửa, gửi duyệt (từ ngưỡng {@code purchasing.order-approval-threshold} trở
- * lên phải duyệt), duyệt, từ chối, hủy. Duyệt cộng hàng đang về, hủy đơn đã duyệt trừ lại trong cùng transaction. Ghi
- * sổ, đảo ở {@link PurchaseOrderPostingService}.
+ * Đơn mua hàng (DMH, BR-PUR-04, D-54): lập, sửa, hủy (D-61 không qua duyệt). Hủy đơn đã duyệt trước D-61 trừ hàng đang
+ * về trong cùng transaction. Ghi sổ, đảo và kiểm soát ngưỡng giá trị ở {@link PurchaseOrderPostingService}.
  */
 @Service
 public class PurchaseOrderService {
@@ -44,9 +41,7 @@ public class PurchaseOrderService {
     static final String PATH = "/api/v1/purchase-orders";
     static final String VIEW = "purchase-order:view";
     static final String CREATE = "purchase-order:create";
-    static final String APPROVE = "purchase-order:approve";
     static final String ENTITY = "PURCHASE_ORDER";
-    static final String THRESHOLD = "purchasing.order-approval-threshold";
     static final String DOMESTIC_CURRENCY = "VND";
 
     public record OrderFilter(Long companyId, Long branchId, PurchaseDocumentStatus status, Long supplierId,
@@ -57,24 +52,19 @@ public class PurchaseOrderService {
     private final PurchaseDocumentFlow flow;
     private final PurchasingAccess access;
     private final ApprovalService approvalService;
-    private final ParameterService parameters;
     private final StockInService stockIn;
     private final PurchaseDocumentFlow.Spec<PurchaseOrder, PurchaseOrderResponse> spec;
 
-    @SuppressWarnings("java:S107")
     public PurchaseOrderService(PurchaseOrderRepository repository, PurchaseDocumentFlow flow,
                                 PurchasingAccess access, PurchaseOrderEffects effects,
-                                ApprovalService approvalService, ParameterService parameters, StockInService stockIn) {
+                                ApprovalService approvalService, StockInService stockIn) {
         this.repository = repository;
         this.flow = flow;
         this.access = access;
         this.approvalService = approvalService;
-        this.parameters = parameters;
         this.stockIn = stockIn;
-        this.spec = new PurchaseDocumentFlow.Spec<>(PATH, VIEW, CREATE, APPROVE, ENTITY,
-                repository::findByIdForUpdate, repository, document -> toResponse(document, true),
-                PurchaseOrderResponse.class, this::thresholdReached, PurchaseOrder::maxDiscountPercent,
-                effects::approved, effects::released);
+        this.spec = new PurchaseDocumentFlow.Spec<>(PATH, VIEW, CREATE, ENTITY, repository::findByIdForUpdate,
+                repository, document -> toResponse(document, true), PurchaseOrderResponse.class, effects::released);
     }
 
     @Transactional(readOnly = true)
@@ -130,21 +120,6 @@ public class PurchaseOrderService {
     }
 
     @Transactional
-    public PurchaseOrderResponse submit(CurrentUser actor, Long id, String key) {
-        return flow.submit(actor, id, key, spec);
-    }
-
-    @Transactional
-    public PurchaseOrderResponse approve(CurrentUser actor, Long id, String key, CommentRequest request) {
-        return flow.approve(actor, id, key, request, spec);
-    }
-
-    @Transactional
-    public PurchaseOrderResponse reject(CurrentUser actor, Long id, String key, ReasonRequest request) {
-        return flow.reject(actor, id, key, request, spec);
-    }
-
-    @Transactional
     public PurchaseOrderResponse cancel(CurrentUser actor, Long id, String key, ReasonRequest request) {
         return flow.cancel(actor, id, key, request, spec);
     }
@@ -162,11 +137,6 @@ public class PurchaseOrderService {
             throw new BusinessException(ErrorCode.DUPLICATE_DOCUMENT, "Hóa đơn " + label
                     + " đã được nhập ở đơn mua " + other + ".");
         });
-    }
-
-    private boolean thresholdReached(PurchaseOrder document) {
-        return document.getTotalAmount()
-                .compareTo(parameters.decimalValue(document.getCompanyId(), THRESHOLD)) >= 0;
     }
 
     private void fill(PurchaseOrder document, PurchaseOrderRequest request) {
@@ -241,7 +211,7 @@ public class PurchaseOrderService {
 
     /**
      * Kiểm tra lô / hạn dùng theo cấu hình hàng ngay khi lưu đơn (BR-INV-01), cùng quy tắc với phiếu nhập kho
-     * sinh lúc ghi sổ, để đơn đã duyệt không bị chặn khi ghi sổ.
+     * sinh lúc ghi sổ, để đơn đã lưu không bị chặn khi ghi sổ.
      */
     private static void requireTracking(ProductInfo product, PurchaseOrderLineRequest line, String field) {
         if (!product.lotTracked()) {

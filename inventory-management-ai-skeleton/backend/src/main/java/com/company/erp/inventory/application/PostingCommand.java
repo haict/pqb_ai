@@ -9,7 +9,7 @@ import java.util.Set;
  * Lệnh ghi sổ kho của một chứng từ.
  *
  * @param referenceType      loại chứng từ nguồn (ví dụ {@code PXK}), ghi vào sổ nhật ký để truy vết
- * @param issuePolicyId      chính sách xuất vượt tồn khả dụng đã duyệt (BR-GEN-31), nếu có
+ * @param issuePolicyId      chính sách xuất vượt tồn khả dụng đang hiệu lực (BR-GEN-31), nếu có
  * @param exemptStockCountId phiếu kiểm kê được phép ghi sổ khi kho đang kiểm kê (điều chỉnh sinh từ chính phiếu đó)
  * @param extraLockKeys      (hàng, kho) cần khóa cùng lúc dù chưa có biến động (chuyển kho hai bước trong một
  *                           transaction), để mọi khóa lấy theo một thứ tự

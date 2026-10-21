@@ -4,7 +4,6 @@ import com.company.erp.accounting.domain.JournalEntry;
 import jakarta.persistence.LockModeType;
 import java.util.Collection;
 import java.util.List;
-import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Lock;
@@ -14,14 +13,18 @@ import org.springframework.data.repository.query.Param;
 public interface JournalEntryRepository extends JpaRepository<JournalEntry, Long>,
         JpaSpecificationExecutor<JournalEntry> {
 
-    /** Bút toán gốc (không phải bút toán đảo) của chứng từ nguồn, khóa ghi trước khi đảo. */
+    /**
+     * Bút toán gốc (không phải bút toán đảo) của chứng từ nguồn, mới nhất trước, khóa ghi trước khi đảo. Chứng từ bỏ
+     * ghi sổ rồi ghi sổ lại (D-62) có nhiều bút toán gốc; bút toán mới nhất là lần ghi sổ hiện hành.
+     */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
             select e from JournalEntry e
             where e.companyId = :companyId and e.sourceType = :sourceType and e.sourceId = :sourceId
               and e.reversalOfId is null
+            order by e.id desc
             """)
-    Optional<JournalEntry> findOriginalForUpdate(@Param("companyId") Long companyId,
+    List<JournalEntry> findOriginalsForUpdate(@Param("companyId") Long companyId,
                                                  @Param("sourceType") String sourceType,
                                                  @Param("sourceId") Long sourceId);
 
@@ -29,6 +32,7 @@ public interface JournalEntryRepository extends JpaRepository<JournalEntry, Long
             select count(e) > 0 from JournalEntry e
             where e.companyId = :companyId and e.sourceType = :sourceType and e.sourceId = :sourceId
               and e.reversalOfId is null
+              and e.status <> com.company.erp.accounting.domain.JournalEntryStatus.REVERSED
             """)
     boolean existsOriginal(@Param("companyId") Long companyId, @Param("sourceType") String sourceType,
                            @Param("sourceId") Long sourceId);

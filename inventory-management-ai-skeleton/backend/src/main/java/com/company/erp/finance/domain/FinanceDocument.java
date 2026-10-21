@@ -10,21 +10,22 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.MappedSuperclass;
-import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.EnumSet;
 import java.util.Set;
 
 /**
- * Cột và vòng đời chung của chứng từ ghi sổ module công nợ, quỹ (BR mục 5.1, nhóm A): DRAFT → SUBMITTED → APPROVED →
- * POSTED; SUBMITTED → REJECTED → sửa → gửi lại; hủy khi chưa ghi sổ; đảo khi đã ghi sổ. Chỉ sửa ở DRAFT / REJECTED.
+ * Cột và vòng đời chung của chứng từ ghi sổ module công nợ, quỹ (BR mục 5.1, nhóm A; D-61 không qua duyệt): DRAFT →
+ * POSTED; hủy khi chưa ghi sổ; đảo khi đã ghi sổ. Chỉ sửa ở DRAFT. Chứng từ lập trước D-61: APPROVED vẫn ghi sổ được,
+ * SUBMITTED / REJECTED chỉ còn hủy. Cột người / thời điểm gửi, duyệt giữ lại để tra cứu chứng từ cũ.
  */
 @MappedSuperclass
 public abstract class FinanceDocument extends AuditableEntity {
 
-    protected static final Set<FinanceDocumentStatus> EDITABLE =
-            EnumSet.of(FinanceDocumentStatus.DRAFT, FinanceDocumentStatus.REJECTED);
+    protected static final Set<FinanceDocumentStatus> EDITABLE = EnumSet.of(FinanceDocumentStatus.DRAFT);
+    private static final Set<FinanceDocumentStatus> POSTABLE =
+            EnumSet.of(FinanceDocumentStatus.DRAFT, FinanceDocumentStatus.APPROVED);
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -92,39 +93,15 @@ public abstract class FinanceDocument extends AuditableEntity {
         this.status = FinanceDocumentStatus.DRAFT;
     }
 
-    /** Mã loại chứng từ trong {@code sys_document_types} (luồng duyệt, số chứng từ, nguồn sổ phụ, bút toán). */
+    /** Mã loại chứng từ trong {@code sys_document_types} (số chứng từ, nguồn sổ phụ, bút toán, lịch sử duyệt cũ). */
     public abstract String typeCode();
 
-    /** Giá trị chứng từ để xét ngưỡng duyệt. */
-    public abstract BigDecimal approvalAmount();
-
-    /** Ngày, diễn giải chung khi lập / sửa (chỉ DRAFT / REJECTED). */
+    /** Ngày, diễn giải chung khi lập / sửa (chỉ DRAFT). */
     protected void replaceHeader(LocalDate documentDate, LocalDate postingDate, String description) {
         requireStatus(EDITABLE, "sửa");
         this.documentDate = documentDate;
         this.postingDate = postingDate;
         this.description = description;
-    }
-
-    public void submit(Long actorId, Instant now) {
-        requireStatus(EDITABLE, "gửi duyệt");
-        this.status = FinanceDocumentStatus.SUBMITTED;
-        this.submittedBy = actorId;
-        this.submittedAt = now;
-        this.reason = null;
-    }
-
-    public void approve(Long actorId, Instant now) {
-        requireStatus(EnumSet.of(FinanceDocumentStatus.SUBMITTED), "duyệt");
-        this.status = FinanceDocumentStatus.APPROVED;
-        this.approvedBy = actorId;
-        this.approvedAt = now;
-    }
-
-    public void reject(String reason) {
-        requireStatus(EnumSet.of(FinanceDocumentStatus.SUBMITTED), "từ chối");
-        this.status = FinanceDocumentStatus.REJECTED;
-        this.reason = reason;
     }
 
     public void cancel(String reason) {
@@ -135,12 +112,7 @@ public abstract class FinanceDocument extends AuditableEntity {
     }
 
     public void markPosted(Long actorId, Instant now) {
-        markPosted(EnumSet.of(FinanceDocumentStatus.APPROVED), actorId, now);
-    }
-
-    /** Ghi sổ từ các trạng thái cho phép (chứng từ không qua duyệt được ghi sổ thẳng từ DRAFT). */
-    protected void markPosted(Set<FinanceDocumentStatus> allowed, Long actorId, Instant now) {
-        requireStatus(allowed, "ghi sổ");
+        requireStatus(POSTABLE, "ghi sổ");
         this.status = FinanceDocumentStatus.POSTED;
         this.postedBy = actorId;
         this.postedAt = now;

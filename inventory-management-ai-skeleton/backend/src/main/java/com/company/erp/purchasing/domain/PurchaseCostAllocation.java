@@ -88,10 +88,6 @@ public class PurchaseCostAllocation extends PurchaseDocument {
         return TYPE_CODE;
     }
 
-    @Override
-    public BigDecimal approvalAmount() {
-        return amount;
-    }
 
     /**
      * Thay nội dung và tính lại phân bổ: tỷ lệ theo cơ sở, làm tròn đến đồng, dòng đích cuối nhận phần dư để tổng phân
@@ -149,7 +145,7 @@ public class PurchaseCostAllocation extends PurchaseDocument {
     }
 
     public void markPosted(Long actorId, Instant now) {
-        requireStatus(EnumSet.of(PurchaseDocumentStatus.APPROVED), "ghi sổ");
+        requireStatus(POSTABLE, "ghi sổ");
         setStatus(PurchaseDocumentStatus.POSTED);
         this.postedBy = actorId;
         this.postedAt = now;

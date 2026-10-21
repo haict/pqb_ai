@@ -116,8 +116,8 @@ public class JournalPostingService {
     /** Đảo bút toán gốc: dòng ngược đúng từng dòng (BR-GEN-21); bút toán gốc chuyển REVERSED. */
     @Transactional(propagation = Propagation.MANDATORY)
     public JournalEntryRef reverse(ReversalRequest request) {
-        JournalEntry original = journalRepository.findOriginalForUpdate(request.companyId(), request.sourceType(),
-                        request.sourceId())
+        JournalEntry original = journalRepository.findOriginalsForUpdate(request.companyId(), request.sourceType(),
+                        request.sourceId()).stream().findFirst()
                 .orElseThrow(() -> new IllegalStateException("Chứng từ " + request.sourceType() + "#"
                         + request.sourceId() + " chưa có bút toán để đảo"));
         periodGuard.assertOpen(original.getCompanyId(), original.getBranchId(), PeriodModule.ACCOUNTING,

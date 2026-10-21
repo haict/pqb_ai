@@ -70,8 +70,8 @@ public class DashboardController {
         return ApiResponse.ok(dashboard.expiryDetails(user, companyId, branchId));
     }
 
-    @Operation(summary = "Chi tiết đơn chưa giao đủ", description = "BR-RPT-11. Đơn mua đã gửi / duyệt chưa ghi sổ; đơn "
-            + "bán chưa ghi sổ hoặc đã ghi sổ khách chưa nhận.")
+    @Operation(summary = "Chi tiết đơn chưa giao đủ", description = "BR-RPT-11. Đơn mua nháp (và đã duyệt trước D-61) "
+            + "chưa ghi sổ; đơn bán chưa ghi sổ hoặc đã ghi sổ khách chưa nhận.")
     @GetMapping("/{kind:purchase-backlog|sales-backlog}/details")
     public ApiResponse<BacklogDetails> backlogDetails(@AuthenticationPrincipal CurrentUser user,
             @PathVariable String kind, @RequestParam Long companyId, @RequestParam(required = false) Long branchId) {

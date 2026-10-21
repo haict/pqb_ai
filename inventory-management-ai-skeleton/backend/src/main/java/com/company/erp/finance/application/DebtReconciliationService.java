@@ -46,7 +46,7 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * Đối chiếu công nợ (BR-AR-06): bảng đối chiếu một đối tượng theo kỳ (số dư đầu, phát sinh, số dư cuối, hóa đơn còn nợ,
  * trả trước) tính từ sổ chi tiết công nợ; biên bản đối chiếu chốt số dư hệ thống và ghi nhận số đối tượng xác nhận.
- * Chênh lệch xử lý bằng điều chỉnh công nợ có duyệt (BR-AR-07).
+ * Chênh lệch xử lý bằng điều chỉnh công nợ (BR-AR-07).
  */
 @Service
 public class DebtReconciliationService {

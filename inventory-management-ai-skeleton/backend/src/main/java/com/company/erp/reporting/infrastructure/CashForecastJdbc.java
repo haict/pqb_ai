@@ -12,7 +12,8 @@ import org.springframework.stereotype.Repository;
 /**
  * Dòng tiền dự kiến (BR-CSH-06, BR-RPT-09, 30; ADR-18: SQL chỉ đọc). Dự thu: khoản phải thu còn lại theo hạn thanh toán,
  * đơn bán đã duyệt chưa ghi sổ (chủ dự án chọn 2026-10-14). Dự chi: khoản phải trả còn lại theo hạn, đơn mua đã duyệt
- * chưa ghi sổ. Tổng hợp và chi tiết dùng chung một tập khoản nên tổng chi tiết bằng số trên báo cáo (BR-RPT-11).
+ * chưa ghi sổ. Từ D-61 không còn bước duyệt: chỉ đơn đã duyệt trước D-61 còn được tính, đơn nháp không tính (chủ dự án
+ * chọn 2026-10-21). Tổng hợp và chi tiết dùng chung một tập khoản nên tổng chi tiết bằng số trên báo cáo (BR-RPT-11).
  */
 @Repository
 public class CashForecastJdbc {

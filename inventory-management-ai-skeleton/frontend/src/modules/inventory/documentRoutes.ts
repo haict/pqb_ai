@@ -1,6 +1,6 @@
 import { registerDocumentRoute } from '../../app/documentLinks';
 
-/** Mở chứng từ kho từ thông báo và việc chờ duyệt (mã loại chứng từ = sys_document_types.code). */
+/** Mở chứng từ kho từ thông báo (mã loại chứng từ = sys_document_types.code). */
 export function registerInventoryDocumentRoutes() {
   for (const type of ['PNK', 'PXK', 'PXH', 'PCK', 'PDC', 'PCL', 'PDK']) {
     registerDocumentRoute(type, (id) => `/inventory/documents/${id}`);

@@ -76,8 +76,8 @@ Bảng số dư là bản đọc nhanh, tái tạo được từ sổ phụ:
 | `sys_parameter_definitions`, `sys_parameters` | Định nghĩa tham số; giá trị tham số theo công ty |
 | `document_number_formats` | Cấu hình số chứng từ theo công ty × loại, có ngày hiệu lực |
 | `document_sequences` | Bộ đếm số chứng từ theo (công ty, chi nhánh, loại, kỳ `YYYY`/`YYYYMM`) |
-| `approval_workflows`, `approval_workflow_steps` | Cấu hình ma trận duyệt |
-| `approval_requests`, `approval_history` | Yêu cầu duyệt và lịch sử |
+| `approval_workflows`, `approval_workflow_steps` | Cấu hình ma trận duyệt (ngừng dùng từ D-61, giữ tra cứu) |
+| `approval_requests`, `approval_history` | Yêu cầu duyệt và lịch sử (D-61: chỉ đọc lịch sử chứng từ cũ) |
 | `fiscal_periods`, `period_locks` | Kỳ tháng; khóa theo chi nhánh × phân hệ (INVENTORY, DEBT, CASH, ACCOUNTING) |
 | `sys_audit_logs`, `sys_login_logs` | Nhật ký thao tác, đăng nhập |
 | `sys_idempotency_keys` | Chống xử lý trùng |
@@ -124,7 +124,7 @@ Bảng số dư là bản đọc nhanh, tái tạo được từ sổ phụ:
 | `inventory_balances` | Tồn thực tế chi tiết theo vị trí/lô/serial/trạng thái |
 | `inventory_stock_summaries` | Tổng theo (hàng, kho): tồn thực tế, khả dụng, giữ chỗ, đang về |
 | `inventory_reservations` | Giữ chỗ theo đơn bán / hợp đồng / phiếu xuất chưa ghi sổ |
-| `stock_issue_policies` | Chính sách xuất vượt tồn khả dụng được duyệt (D-40) |
+| `stock_issue_policies` | Chính sách xuất vượt tồn khả dụng được duyệt (D-40; từ D-61 kích hoạt bằng quyền `stock-policy:activate`) |
 
 ### M05 - `sales`
 | Bảng | Mục đích |
@@ -161,7 +161,7 @@ Bảng số dư là bản đọc nhanh, tái tạo được từ sổ phụ:
 | `cash_ledger_entries` | **Sổ quỹ / sổ tiền gửi** (bất biến) |
 | `debt_prepayments` | Số dư tiền trả trước chưa bù trừ theo (chi nhánh, loại công nợ, đối tượng), khóa được (V12) |
 | `debt_offset_documents`, `debt_offset_lines` | Bù trừ công nợ: trả trước với hóa đơn, phải thu với phải trả (V12) |
-| `debt_adjustment_documents`, `debt_adjustment_lines` | Điều chỉnh công nợ có duyệt (DCCN) và thanh toán tạm ứng (TTTU) (V12; thay `debt_adjustments` dự kiến) |
+| `debt_adjustment_documents`, `debt_adjustment_lines` | Điều chỉnh công nợ (DCCN; có duyệt trước D-61) và thanh toán tạm ứng (TTTU) (V12; thay `debt_adjustments` dự kiến) |
 | `debt_reconciliations` | Biên bản đối chiếu công nợ: số dư hệ thống chốt và số đối tượng xác nhận (V12) |
 | `cash_counts` | Kiểm kê quỹ tiền mặt (V12) |
 | (không có `employee_advances`) | Tạm ứng là khoản công nợ `debt_type = ADVANCE` sinh từ phiếu chi tạm ứng (ADR-14) |
@@ -394,7 +394,7 @@ CHECK `delivered_quantity ≤ max_quantity`. Khóa `FOR UPDATE` khi xuất/giao 
 
 ### 4.8 `debt_items` (V10, thay `receivables` / `payables`)
 - `id, company_id, branch_id, debt_type (RECEIVABLE/PAYABLE), partner_id, source_type, source_id, source_line_id, source_line_key` (cột sinh), `source_no, invoice_no, document_date, due_date, original_amount, settled_amount, remaining_amount` (cột sinh = gốc − đã thanh toán), `sales_user_id, description, status (OPEN/PARTIAL/SETTLED/REVERSED)`, cột audit, `version`.
-- Unique `(company_id, debt_type, source_type, source_id, source_line_key)`: gửi lại không tạo khoản trùng. `CHECK 0 <= settled_amount <= original_amount`, `original_amount > 0`, `due_date >= document_date`.
+- Unique `(company_id, debt_type, source_type, source_id, source_line_key, active_key)`: gửi lại không tạo khoản trùng. `active_key` (cột sinh, V37) = `NULL` khi `status = REVERSED`, ngược lại 1: chứng từ bỏ ghi sổ rồi ghi sổ lại (D-62) có khoản mới, khoản cũ đã đảo không tính trùng. `CHECK 0 <= settled_amount <= original_amount`, `original_amount > 0`, `due_date >= document_date`.
 - Index `(partner_id, due_date)`, `(company_id, debt_type, status, due_date)`.
 - `contract_id` thêm khi làm Giai đoạn 7.
 
@@ -420,6 +420,13 @@ Index `(partner_id, due_date)`, `(status, due_date)`.
 - Đầu: `company_id, branch_id, document_no` (loại `CNDK`), `debt_type, document_date, posting_date, description, total_amount, status` (nhóm A + `REVERSED`), người / thời điểm gửi, duyệt, ghi sổ, đảo, `reverse_date, reason`, audit, `version`.
 - Dòng: `document_id, line_no` (unique), `partner_id, invoice_no, invoice_date, due_date, amount (> 0), sales_user_id, note`.
 - V31 (D-60): `invoice_no`, `invoice_date` cho phép NULL, bỏ ràng buộc `ck_debt_opening_lines_dates`; ứng dụng không ghi hai cột này nữa (dữ liệu cũ giữ nguyên). Loại `CNDK` chuyển `approval_mode = NONE`, luồng duyệt `CNDK` ngừng hoạt động, xóa quyền `debt-opening:approve`.
+- V38 (D-63, 2026-10-21, F8 chọn chứng từ nhập): `sales_order_lines.receipt_transaction_id` (BIGINT NULL, FK `inventory_transactions`, dòng nhập kho đã chọn), `receipt_no` (VARCHAR(50), số chứng từ nhập chụp khi chọn). Trống: kho chọn lô FEFO khi ghi sổ.
+- V37 (D-62, 2026-10-21, bỏ ghi sổ đơn mua / đơn bán): quyền `purchase-order:unpost`, `sales-order:unpost` (cấp cho vai trò đang có quyền đảo đơn tương ứng); cột sinh `active_key` và ràng buộc duy nhất mới của `debt_items` (mục 4.8), `journal_entries` (mục 4.11).
+- V32..V36 (D-61, 2026-10-21, bỏ bước duyệt theo đợt): V32 công nợ / quỹ (PT, PC, BC, UNC, CTN, DTCN, DCCN, TTTU, BBDC, KKQ), V33 mua hàng (DMH, THN, GGM, PBC), V34 bán hàng (DBH, TLB, GGB), V35 kho (PNK, PXK, PXH, PCK, PDC, PCL, PDK, PKK, PTH, CSX), V36 hệ thống (mọi loại còn lại). Mỗi đợt: `sys_document_types.approval_mode = NONE`, luồng duyệt của các loại đó `INACTIVE`, xóa quyền `*:approve` (V36 xóa thêm `approval-workflow:view`, `approval-workflow:manage` và mọi `%:approve` còn sót), bỏ cụm "gửi duyệt" trong tên quyền lập.
+  - Quyền mới (cấp cho vai trò đang có quyền duyệt tương ứng): `cash-document:post-over-threshold` (V32); `purchase-order:post-over-threshold` kèm `purchase-order:post` (V33); `sales-order:override-price`, `sales-order:override-credit` kèm `sales-order:post` (V34). V35 đổi mã `recall:approve` → `recall:manage`, `stock-policy:approve` → `stock-policy:activate` (giữ vai trò đã gán).
+  - Mô tả tham số đổi nghĩa (giữ khóa): `finance.payment-approval-threshold`, `purchasing.order-approval-threshold`, `sales.discount-approval-percent` là ngưỡng cần quyền ghi sổ vượt ngưỡng.
+  - Không đổi cấu trúc bảng: cột `submitted_by/at`, `approved_by/at` của chứng từ giữ cho chứng từ cũ; `sales_orders.approval_reasons` nay là lý do cần thẩm quyền khi ghi sổ (giá, tín dụng). `stock_issue_policies.status = APPROVED` nghĩa là có hiệu lực (đã kích hoạt).
+  - Dữ liệu mẫu `db/dev-data` bỏ luồng duyệt mẫu.
 - V10 cũng thêm loại chứng từ `CNDK` (bắt buộc duyệt), tham số `finance.aging-bucket-{1,2,3}-days` (30 / 60 / 90 `[Giả định]`), quyền `debt:view`, `debt-opening:*`.
 
 ### 4.10 `payment_allocations` (V11)
@@ -515,7 +522,7 @@ Chứng từ nhóm B (ADR-15): cột chung `company_id, branch_id, document_no` 
 
 ### 4.11 `journal_entries`, `journal_entry_lines` (V9)
 - `journal_entries`: `id, company_id, branch_id, entry_no` (loại số chứng từ `BT`, unique theo công ty), `posting_date, entry_kind (AUTO/MANUAL/COST/CLOSING), source_type, source_id, source_no, description, total_amount (> 0), status (POSTED/REVERSED), reversal_of_id, reversal_key` (cột sinh `COALESCE(reversal_of_id, 0)`), `created_by, created_at, updated_at, version`.
-  - Unique `(company_id, source_type, source_id, reversal_key)`: mỗi chứng từ nguồn tối đa một bút toán gốc và một bút toán đảo cho mỗi bút toán gốc (AT-13).
+  - Unique `(company_id, source_type, source_id, reversal_key, active_key)`: mỗi chứng từ nguồn tối đa một bút toán gốc **còn hiệu lực** và một bút toán đảo cho mỗi bút toán gốc (AT-13). `active_key` (cột sinh, V37) = `NULL` khi `status = REVERSED`: chứng từ bỏ ghi sổ rồi ghi sổ lại (D-62) có nhiều bút toán gốc, chỉ một bút toán chưa đảo.
   - Index `(company_id, posting_date)`, `(company_id, source_no)`.
 - `journal_entry_lines` (chỉ INSERT): `id, journal_entry_id, line_no, account_id, debit_amount, credit_amount, transaction_code, posting_rule_id` (quy tắc đã dùng, truy vết ADR-11), `partner_id, product_id, warehouse_id, department_id, employee_id, source_line_id, description`.
   - `CHECK`: đúng một vế > 0, vế kia = 0.
@@ -584,6 +591,7 @@ Tham số đã có: `decimal.quantity-scale` (3), `decimal.unit-price-scale` (4)
 - `inventory_document_line_serials (line_id, serial_no)`: serial của dòng.
 
 ### 4.21 Phê duyệt và thông báo (V4, BR-SYS-11, BR-SYS-25)
+Từ D-61 (V32..V36) hệ thống không còn bước duyệt: mọi `approval_mode = NONE`, mọi `approval_workflows` ở `INACTIVE`. Các bảng dưới và cột `approval_mode`, `self_approval_allowed` giữ nguyên để tra cứu lịch sử; ứng dụng không ghi bảng cấu hình duyệt, ủy quyền nữa và không tạo yêu cầu duyệt mới (chỉ đóng yêu cầu còn treo khi hủy chứng từ cũ).
 - `sys_document_types (code PK, module, name, approval_mode NONE|CONFIGURED|REQUIRED, self_approval_allowed)` (D-52).
 - `approval_workflows (company_id, document_type, branch_id, min_amount, min_discount_percent, priority, status)` + `approval_workflow_steps (workflow_id, step_no, approver_type ROLE|USER, role_id, user_id)`.
 - `approval_requests`: chụp các bước của luồng lúc gửi; `pending_flag` (cột sinh) + unique `(document_type, document_id, pending_flag)` chặn hai yêu cầu đang chờ. `approval_request_steps`, `approval_actions` (bất biến: người, thời điểm, hành động, ý kiến, người được ủy quyền thay).

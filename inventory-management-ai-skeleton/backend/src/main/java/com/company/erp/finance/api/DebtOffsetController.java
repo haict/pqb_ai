@@ -8,7 +8,6 @@ import com.company.erp.finance.domain.OffsetType;
 import com.company.erp.common.api.ApiResponse;
 import com.company.erp.common.api.PageResponse;
 import com.company.erp.common.application.IdempotentCommand;
-import com.company.erp.finance.application.dto.CommentRequest;
 import com.company.erp.finance.application.dto.ReasonRequest;
 import com.company.erp.finance.application.dto.ReverseRequest;
 import com.company.erp.finance.domain.FinanceDocumentStatus;
@@ -74,34 +73,12 @@ public class DebtOffsetController {
         return ApiResponse.ok(service.create(user, idempotencyKey, request));
     }
 
-    @Operation(summary = "Sửa (DRAFT, REJECTED)", description = "Gửi version; đã đổi: 409 CONCURRENT_MODIFICATION.")
+    @Operation(summary = "Sửa (DRAFT)", description = "Gửi version; đã đổi: 409 CONCURRENT_MODIFICATION.")
     @PutMapping("/{id}")
     @PreAuthorize("hasAuthority('debt-offset:create')")
     public ApiResponse<DebtOffsetResponse> update(@AuthenticationPrincipal CurrentUser user, @PathVariable Long id,
                                       @Valid @RequestBody DebtOffsetRequest request) {
         return ApiResponse.ok(service.update(user, id, request));
-    }
-
-    @PostMapping("/{id}/submit")
-    @PreAuthorize("hasAuthority('debt-offset:create')")
-    public ApiResponse<DebtOffsetResponse> submit(@AuthenticationPrincipal CurrentUser user, @PathVariable Long id,
-            @RequestHeader(IdempotentCommand.HEADER) String idempotencyKey) {
-        return ApiResponse.ok(service.submit(user, id, idempotencyKey));
-    }
-
-    @PostMapping("/{id}/approve")
-    @PreAuthorize("hasAuthority('debt-offset:approve')")
-    public ApiResponse<DebtOffsetResponse> approve(@AuthenticationPrincipal CurrentUser user, @PathVariable Long id,
-            @RequestHeader(IdempotentCommand.HEADER) String idempotencyKey,
-            @Valid @RequestBody(required = false) CommentRequest request) {
-        return ApiResponse.ok(service.approve(user, id, idempotencyKey, request));
-    }
-
-    @PostMapping("/{id}/reject")
-    @PreAuthorize("hasAuthority('debt-offset:approve')")
-    public ApiResponse<DebtOffsetResponse> reject(@AuthenticationPrincipal CurrentUser user, @PathVariable Long id,
-            @RequestHeader(IdempotentCommand.HEADER) String idempotencyKey, @Valid @RequestBody ReasonRequest request) {
-        return ApiResponse.ok(service.reject(user, id, idempotencyKey, request));
     }
 
     @PostMapping("/{id}/cancel")

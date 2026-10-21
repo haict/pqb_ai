@@ -15,14 +15,6 @@ export interface NavGroup {
 
 export const NAV_GROUPS: NavGroup[] = [
   {
-    key: 'work',
-    label: 'Công việc',
-    items: [
-      { path: '/approvals', label: 'Việc chờ duyệt' },
-      { path: '/approval-delegations', label: 'Ủy quyền duyệt' },
-    ],
-  },
-  {
     key: 'purchasing',
     label: 'Mua hàng',
     items: [
@@ -170,8 +162,6 @@ export const NAV_GROUPS: NavGroup[] = [
       { path: '/system/parameters', label: 'Tham số hệ thống', permission: 'parameter:view' },
       { path: '/system/license', label: 'Bản quyền phần mềm', permission: 'license:manage' },
       { path: '/system/document-number-formats', label: 'Số chứng từ', permission: 'document-number:view' },
-      { path: '/system/document-types', label: 'Loại chứng từ', permission: 'approval-workflow:view' },
-      { path: '/system/approval-workflows', label: 'Luồng duyệt', permission: 'approval-workflow:view' },
     ],
   },
 ];

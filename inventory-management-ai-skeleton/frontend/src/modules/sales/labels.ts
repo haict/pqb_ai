@@ -13,15 +13,7 @@ import type {
 
 type Can = (permission: string) => boolean;
 
-export const POSTING_STATUSES: SalesDocumentStatus[] = [
-  'DRAFT',
-  'SUBMITTED',
-  'REJECTED',
-  'APPROVED',
-  'POSTED',
-  'CANCELLED',
-  'REVERSED',
-];
+export const POSTING_STATUSES: SalesDocumentStatus[] = ['DRAFT', 'POSTED', 'CANCELLED', 'REVERSED'];
 
 export const DELIVERY_STATUSES: Record<DeliveryStatus, { label: string; color: string }> = {
   PENDING: { label: 'Chờ giao', color: 'gold' },
@@ -78,46 +70,48 @@ export const PRICE_SOURCES: Record<string, string> = {
 
 /**
  * Thao tác đơn bán theo trạng thái, trạng thái giao hàng và quyền (server kiểm tra lại). Khách nhận hàng và số hóa đơn
- * điện tử cần nhập thông tin nên có nút riêng trên màn hình.
+ * điện tử cần nhập thông tin nên có nút riêng trên màn hình. Không qua duyệt (D-61): ghi sổ, giữ / nhả hàng ngay trên
+ * đơn nháp; đơn chờ duyệt / bị từ chối trước D-61 chỉ còn hủy.
  */
 export function orderActions(order: SalesOrder, can: Can): string[] {
   const create = can('sales-order:create');
+  const open = [
+    ...(can('sales-order:post') ? ['post'] : []),
+    ...(create ? ['reserve', 'release', 'cancel'] : []),
+  ];
   const actions: Partial<Record<SalesDocumentStatus, string[]>> = {
-    DRAFT: create ? ['submit', 'cancel'] : [],
-    REJECTED: create ? ['submit', 'cancel'] : [],
-    SUBMITTED: [...(can('sales-order:approve') ? ['approve', 'reject'] : []), ...(create ? ['cancel'] : [])],
-    APPROVED: [
-      ...(can('sales-order:post') ? ['post'] : []),
-      ...(create ? ['reserve', 'release', 'cancel'] : []),
-    ],
+    DRAFT: open,
+    REJECTED: create ? ['cancel'] : [],
+    SUBMITTED: create ? ['cancel'] : [],
+    APPROVED: open,
     POSTED: [
       ...(can('sales-order:deliver') && order.deliveryStatus === 'PENDING' ? ['ship'] : []),
+      // D-62: bỏ ghi sổ chỉ khi chưa chuyển đi giao, chưa có hóa đơn điện tử.
+      ...(can('sales-order:unpost') && order.deliveryStatus === 'PENDING' && !order.einvoiceNo
+        ? ['unpost']
+        : []),
       ...(can('sales-order:reverse') ? ['reverse'] : []),
     ],
   };
   return actions[order.status] ?? [];
 }
 
-export const ORDER_ACTION_ORDER = [
-  'submit',
-  'approve',
-  'reject',
-  'post',
-  'reserve',
-  'release',
-  'ship',
-  'reverse',
-  'cancel',
-];
+/** Thao tác trên chi tiết đơn bán; bỏ ghi sổ, đảo đặt ở cột thao tác của danh sách ({@link ORDER_ROW_ACTION_ORDER}). */
+export const ORDER_ACTION_ORDER = ['post', 'reserve', 'release', 'ship', 'cancel'];
+export const ORDER_ROW_ACTION_ORDER = ['unpost', 'reverse'];
 
-/** Thao tác chứng từ ghi sổ (trả hàng / giảm giá) theo trạng thái và quyền {@code <prefix>:*}. */
+/**
+ * Thao tác chứng từ ghi sổ (trả hàng / giảm giá) theo trạng thái và quyền {@code <prefix>:*}. Không qua duyệt (D-61):
+ * ghi sổ thẳng từ nháp; chứng từ chờ duyệt / bị từ chối trước D-61 chỉ còn hủy.
+ */
 export function postingActions(status: SalesDocumentStatus, prefix: string, can: Can): string[] {
-  const create = can(`${prefix}:create`);
+  const cancel = can(`${prefix}:create`) ? ['cancel'] : [];
+  const post = can(`${prefix}:post`) ? ['post'] : [];
   const actions: Partial<Record<SalesDocumentStatus, string[]>> = {
-    DRAFT: create ? ['submit', 'cancel'] : [],
-    REJECTED: create ? ['submit', 'cancel'] : [],
-    SUBMITTED: [...(can(`${prefix}:approve`) ? ['approve', 'reject'] : []), ...(create ? ['cancel'] : [])],
-    APPROVED: [...(can(`${prefix}:post`) ? ['post'] : []), ...(create ? ['cancel'] : [])],
+    DRAFT: [...post, ...cancel],
+    REJECTED: cancel,
+    SUBMITTED: cancel,
+    APPROVED: [...post, ...cancel],
     POSTED: can(`${prefix}:reverse`) ? ['reverse'] : [],
   };
   return actions[status] ?? [];
@@ -137,12 +131,4 @@ export function returnActions(document: SalesReturn, can: Can): string[] {
   return actions;
 }
 
-export const RETURN_ACTION_ORDER = [
-  'submit',
-  'approve',
-  'reject',
-  'post',
-  'create-exchange-order',
-  'reverse',
-  'cancel',
-];
+export const RETURN_ACTION_ORDER = ['post', 'create-exchange-order', 'reverse', 'cancel'];

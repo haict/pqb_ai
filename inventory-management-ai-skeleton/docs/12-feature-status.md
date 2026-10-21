@@ -57,13 +57,13 @@ Trạng thái: **Hoàn thành** (test đạt) / **Đã code, chưa kiểm chứn
 ## Giai đoạn 1D - Phê duyệt, thông báo, giới hạn đăng nhập
 | Hạng mục | Mã yêu cầu | Trạng thái | Test chứng minh | Ghi chú / hạn chế |
 |---|---|---|---|---|
-| Chế độ duyệt theo loại chứng từ; luồng duyệt nhiều bước theo chi nhánh, ngưỡng; chụp bước khi gửi | BR-SYS-11, D-04, D-52 | Hoàn thành | `ApprovalIntegrationTest` (9) | Ngưỡng chiết khấu dùng khi có đơn bán |
-| Tách biệt nhiệm vụ: người lập không tự duyệt, một người không duyệt hai bước | BR-SYS-14 | Hoàn thành (tự duyệt có test); đã code (hai bước cùng người) | `ApprovalIntegrationTest` | Chưa có test riêng cho trường hợp một người duyệt hai bước |
-| Ủy quyền duyệt có thời hạn, thu hồi | BR-SYS-11 | Hoàn thành | `ApprovalIntegrationTest` | |
-| Thông báo trong ứng dụng (chờ duyệt, kết quả duyệt), chống trùng theo `event_key` | BR-SYS-25, D-49 | Hoàn thành | `ApprovalIntegrationTest` | Chưa gửi email |
+| Chế độ duyệt theo loại chứng từ; luồng duyệt nhiều bước theo chi nhánh, ngưỡng; chụp bước khi gửi | BR-SYS-11, D-04, D-52 | Bỏ (D-61) | `ApprovalIntegrationTest.noApprovalConfiguration` | Gỡ code 2026-10-21; bảng `approval_*` giữ tra cứu |
+| Tách biệt nhiệm vụ: người lập không tự duyệt, một người không duyệt hai bước | BR-SYS-14 | Bỏ (D-61) | | Không còn bước duyệt |
+| Ủy quyền duyệt có thời hạn, thu hồi | BR-SYS-11 | Bỏ (D-61) | `ApprovalIntegrationTest.approvalEndpointsRemoved` | API đã gỡ (404) |
+| Thông báo trong ứng dụng (chờ duyệt, kết quả duyệt), chống trùng theo `event_key` | BR-SYS-25, D-49 | Hoàn thành phần hạ tầng | | Chưa gửi email. Sau D-61 không còn nguồn phát sinh thông báo (trước đây chỉ luồng duyệt); chuông chỉ hiện thông báo cũ `[Suy luận]` cần quyết định giữ / ẩn |
 | Gán vai trò vượt quyền có kiểm soát (`access:grant-any`); cấm sửa quyền vai trò mình đang giữ | BR-SYS-03 | Hoàn thành | `AccessGrantIntegrationTest` (2) | |
 | Giới hạn đăng nhập sai theo IP | security.md mục 7 | Hoàn thành | `LoginRateLimiterTest` | Bộ đếm trong bộ nhớ một tiến trình |
-| Màn hình Việc chờ duyệt, Ủy quyền, Loại chứng từ, Luồng duyệt; chuông thông báo | BR-UI | Hoàn thành | Lint, TypeScript, build | Kiểm thử thủ công trên trình duyệt: chưa thực hiện |
+| Màn hình Việc chờ duyệt, Ủy quyền, Loại chứng từ, Luồng duyệt (đã gỡ theo D-61); chuông thông báo | BR-UI | Bỏ (D-61), chuông giữ lại | Lint, TypeScript, build | Kiểm thử thủ công trên trình duyệt: chưa thực hiện |
 
 ## Giai đoạn 2 - Danh mục
 | Hạng mục | Mã yêu cầu | Trạng thái | Test chứng minh | Ghi chú / hạn chế |
@@ -151,10 +151,10 @@ Trạng thái: **Hoàn thành** (test đạt) / **Đã code, chưa kiểm chứn
 |---|---|---|---|---|
 | Đề nghị mua lập tay, duyệt theo luồng (khi cấu hình), đóng phần chưa đặt; danh sách dòng còn chưa đặt | BR-PUR-01 | Hoàn thành phần lập tay | `requisitionToOrder` | Đề nghị từ đơn bán thiếu hàng (GĐ6), hợp đồng thầu (GĐ7), cảnh báo dưới định mức (GĐ10): chưa làm |
 | Đơn mua: NCC, kho nhận, hàng, số lượng, đơn giá, chiết khấu %, thuế suất (mặc định theo hàng), ngày giao, hạn thanh toán (mặc định theo NCC); tiền do server tính, làm tròn đến đồng | BR-PUR-04, D-05 | Hoàn thành | `requisitionToOrder`, `validation` | Chỉ VND (nhập khẩu P2, D-24) |
-| Duyệt đơn mua theo ngưỡng tham số; từ chối, sửa, gửi lại; tự duyệt dưới ngưỡng | BR-PUR-04, D-04 | Hoàn thành | `thresholdApproval` | |
+| Duyệt đơn mua theo ngưỡng tham số; từ chối, sửa, gửi lại; tự duyệt dưới ngưỡng | BR-PUR-04, D-04 | Thay bởi D-61 (quyền ghi sổ vượt ngưỡng) | `thresholdAuthority (trước D-61: thresholdApproval)` | |
 | Đơn mua theo đề nghị: không vượt số còn lại, cập nhật số đã đặt khi duyệt / hủy | BR-PUR-01, BR mục 5.5 | Hoàn thành | `requisitionToOrder` | Đóng đơn mua không trả lại số đã đặt cho đề nghị `[Giả định]` |
 | Tiến độ từng dòng (đặt / đã nhận / đã nhập / lỗi / đã nhận HĐ / đã đóng / còn thiếu), đóng phần còn lại có lý do | BR-PUR-05 | Hoàn thành khung; số nhận / nhập / HĐ cập nhật ở 5B, 5C | `requisitionToOrder` | Đóng theo cả đơn, chưa đóng từng dòng |
-| Hàng đang về theo (hàng, kho): + khi duyệt, − khi hủy / đóng | BR mục 5.4, BR-GEN-30 | Hoàn thành phần đơn mua | `requisitionToOrder`, `thresholdApproval` | Trừ khi nhập kho ở 5B |
+| Hàng đang về theo (hàng, kho): + khi duyệt, − khi hủy / đóng | BR mục 5.4, BR-GEN-30 | Hoàn thành phần đơn mua | `requisitionToOrder`, `thresholdAuthority (trước D-61: thresholdApproval)` | Trừ khi nhập kho ở 5B |
 | Màn hình Đề nghị mua hàng, Đơn mua hàng (lập theo đề nghị, tiến độ dòng, thao tác theo trạng thái / quyền) | BR-UI | Hoàn thành, test giao diện một phần | `navigation.test.ts`; lint, TypeScript, build | Kiểm thử thủ công trên trình duyệt: chưa thực hiện |
 | Admin toàn quyền trên máy dev | (tiện ích dev) | Đã tạo file `db/dev-local`, chờ người dùng thêm location vào `application-dev.yml` | | Sửa cấu hình bị công cụ chặn (giảm bảo mật) |
 
@@ -282,6 +282,40 @@ Trạng thái: **Hoàn thành** (test đạt) / **Đã code, chưa kiểm chứn
 | Thẻ "Số dư dự kiến sau 4 tuần" trên dashboard | BR-RPT-09 | Hoàn thành | `cashForecast.test.ts`; lint, TypeScript, build | Hiện khi có `dashboard:view` và `cash-forecast:view`; bấm mở báo cáo |
 | Phân quyền, phạm vi chi nhánh, điều kiện sai | AT-10, BR-RPT-12 | Hoàn thành | `CashForecastIntegrationTest.accessAndValidation` | "Chỉ dữ liệu của mình": không gồm số dư quỹ |
 | Màn hình Báo cáo → Dòng tiền dự kiến; In, Excel, PDF | BR-UI, BR-RPT-13 | Hoàn thành, test giao diện một phần | `cashForecast.test.ts`, `navigation.test.ts` | Kiểm thử thủ công trên trình duyệt: chưa thực hiện |
+
+## D-61 - Bỏ bước duyệt trên mọi luồng (2026-10-21, V32..V36)
+| Chức năng | Mã | Trạng thái | Test | Ghi chú |
+|---|---|---|---|---|
+| Chứng từ nhóm A ghi sổ thẳng từ nháp (thu chi, bù trừ, điều chỉnh, tạm ứng, kiểm kê quỹ, đơn mua, trả hàng / giảm giá, phân bổ chi phí, đơn bán, phiếu kho, chứng từ đảo kho, kiểm kê); bỏ gửi duyệt / duyệt / từ chối | D-61 | Hoàn thành | Toàn bộ test tích hợp các module (ghi sổ không qua `submit`) | Chứng từ cũ: chờ duyệt / bị từ chối chỉ hủy; đã duyệt vẫn ghi sổ |
+| Chứng từ chờ duyệt cũ: không ghi sổ được, hủy đóng yêu cầu duyệt còn treo; lịch sử duyệt chỉ đọc | D-61 | Hoàn thành | `PurchaseOrderIntegrationTest.legacyPendingApproval` | Dữ liệu cũ giả lập bằng SQL |
+| Chi từ ngưỡng cần `cash-document:post-over-threshold` | BR-CSH-03, D-61 | Hoàn thành | `CashIntegrationTest.paymentApprovalAndCashLimit` | |
+| Đơn mua từ ngưỡng cần `purchase-order:post-over-threshold`; đơn nháp không cộng hàng đang về | BR-PUR-04, D-61 | Hoàn thành | `PurchaseOrderIntegrationTest.thresholdAuthority`, `postAndReverse` | Cấp thêm `purchase-order:post` cho giám đốc `[Suy luận]` |
+| Đơn bán giá dưới sàn / vượt hạn mức cần `sales-order:override-price` / `override-credit`; lý do hiện trên đơn nháp | BR-SAL-03, 14, D-22, D-61 | Hoàn thành | `SalesOrderIntegrationTest.pricingAndAuthority` | Cấp thêm `sales-order:post` cho trưởng phòng kinh doanh, giám đốc `[Suy luận]` |
+| Giữ hàng ngay trên đơn bán nháp; sửa đơn nhả rồi giữ lại; nhả khi ghi sổ / hủy | BR-SAL-13, D-37, D-61 | Hoàn thành | `SalesOrderIntegrationTest.reservation` | Lưu đơn chọn giữ hàng mà thiếu tồn khả dụng: 422 `INSUFFICIENT_STOCK` |
+| Chính sách xuất vượt tồn kích hoạt bằng `stock-policy:activate`; thu hồi kích hoạt / đóng bằng `recall:manage`; kiểm kê ghi sổ thẳng từ Đang đếm | BR-GEN-31, BR-INV-31, 42, D-40, D-53, D-61 | Hoàn thành | `InventoryIntegrationTest.reservationAndPolicy`, `stockCount`, `InventoryControlIntegrationTest.recall` | |
+| Báo cáo đơn đang mở / tồn so với đặt = nháp + đã duyệt cũ; dòng tiền dự kiến chỉ đơn đã duyệt cũ | BR-RPT-05, 06, 26, 30, D-61 | Hoàn thành | `DashboardIntegrationTest`, `OrderReportIntegrationTest`, `CashForecastIntegrationTest.forecastMatchesItems` | |
+| Gỡ API và màn hình Việc chờ duyệt, Luồng duyệt, Ủy quyền duyệt, sửa chế độ duyệt Loại chứng từ; xóa quyền `*:approve`, `approval-workflow:*` | BR-SYS-11, 14, D-52, D-61 | Hoàn thành | `ApprovalIntegrationTest.noApprovalConfiguration`, `approvalEndpointsRemoved`, `navigation.test.ts` | |
+
+Hạn chế: điều kiện khóa kỳ giữ nguyên (chứng từ nháp không chặn khóa kỳ) `[Suy luận]` cần xác nhận; kế toán trưởng / Giám đốc xác nhận D-61 và vai trò mặc định của quyền mới trước UAT; kiểm thử thủ công trên trình duyệt chưa thực hiện.
+
+## D-62 - Bỏ ghi sổ đơn mua / đơn bán (2026-10-21, V37)
+| Chức năng | Mã | Trạng thái | Test | Ghi chú |
+|---|---|---|---|---|
+| Bỏ ghi sổ đơn mua về nháp giữ số: đảo phiếu nhập, công nợ, bút toán theo ngày hạch toán gốc; sửa rồi ghi sổ lại; chặn khi hàng đã xuất / có chứng từ phụ thuộc | BR-PUR-20, BR-GEN-03, D-62 | Hoàn thành | `PurchaseOrderUnpostIntegrationTest` | Nút "Bỏ ghi sổ" trên chi tiết đơn mua |
+| Bỏ ghi sổ đơn bán về nháp giữ số; chặn khi đã chuyển đi giao, có số HĐĐT, có khiếu nại, có chứng từ phụ thuộc | BR-SAL-25, BR-GEN-03, D-62 | Hoàn thành | `SalesOrderUnpostIntegrationTest`, `orderActions.test.ts` | Đơn về nháp không tự giữ hàng lại |
+| Ràng buộc duy nhất khoản công nợ / bút toán gốc chỉ cho bản chưa đảo; đảo bút toán lấy bút toán gốc mới nhất | D-62 | Hoàn thành | `AccountingIntegrationTest.postAndReverse` | |
+
+Hạn chế: chưa có test bỏ ghi sổ khi kỳ gốc đã khóa (dùng chung `PeriodGuard` với đảo); `[Suy luận]` xử lý hóa đơn điện tử đã phát hành cần kế toán trưởng / pháp chế xác nhận.
+
+## D-63 - Chọn chứng từ nhập trên dòng đơn bán (F8) (2026-10-21, V38)
+| Chức năng | Mã | Trạng thái | Test | Ghi chú |
+|---|---|---|---|---|
+| F8 / nút cạnh ô lô trên dòng đơn bán: danh sách chứng từ nhập còn tồn (FEFO), chọn nhiều dòng, SL lấy, lý do khác FEFO; lưu liên kết dòng nhập và số chứng từ; kiểm tra khi lưu; xuất đúng lô khi ghi sổ | BR-SAL-26, D-63 | Hoàn thành | `SalesReceiptSourceIntegrationTest`, `salesLines.test.ts` | Giá vốn đích danh theo chứng từ nhập: Giai đoạn 8; tồn hiện có theo lô (lô nhập nhiều lần dùng chung) `[Giả định]` |
+
+## Sao chép đơn mua / đơn bán (2026-10-21, chỉ frontend)
+| Chức năng | Mã | Trạng thái | Test | Ghi chú |
+|---|---|---|---|---|
+| Nút "Sao chép" (đơn mua, đơn bán: biểu tượng ở cột Thao tác của danh sách, cùng Bỏ ghi sổ / Đảo, tên hiện khi rê chuột, 2026-10-22) (quyền `*:create`, mọi trạng thái): mở form lập đơn mới điền sẵn đối tác, kho, dòng hàng, số lượng, giá, chiết khấu, thuế (đơn bán thêm người nhận, lịch thanh toán); ngày đơn = hôm nay | BR-PUR-04, BR-SAL-20 | Hoàn thành | Chưa có test tự động (lint, build) | Không sao chép hóa đơn NCC, ngày hạch toán / giao / hạn thanh toán, lô / hạn dùng / serial, giữ hàng; không thêm API (dùng `POST` lập mới, server kiểm tra lại) `[Giả định]` |
 
 ## D-59 - Bản quyền phần mềm (2026-10-17, V30)
 | Chức năng | Mã | Trạng thái | Test | Ghi chú |

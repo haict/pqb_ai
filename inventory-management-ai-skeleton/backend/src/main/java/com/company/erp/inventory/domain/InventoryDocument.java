@@ -26,15 +26,17 @@ import java.util.Set;
 
 /**
  * Chứng từ kho nhóm A (BR mục 5.1). Chuyển trạng thái chỉ qua phương thức domain, kiểm tra trạng thái nguồn
- * (business-integrity.md mục 1): DRAFT → SUBMITTED → APPROVED → POSTED; SUBMITTED → REJECTED → (sửa) → SUBMITTED;
- * chuyển kho khác chi nhánh APPROVED → IN_TRANSIT → POSTED; POSTED → REVERSED qua chứng từ đảo.
+ * (business-integrity.md mục 1). Không qua duyệt (D-61): DRAFT → POSTED; chuyển kho khác chi nhánh DRAFT → IN_TRANSIT
+ * → POSTED; POSTED → REVERSED qua chứng từ đảo. Chứng từ lập trước D-61: APPROVED vẫn ghi sổ được, SUBMITTED /
+ * REJECTED chỉ còn hủy. Cột người / thời điểm gửi, duyệt giữ lại để tra cứu chứng từ cũ.
  */
 @Entity
 @Table(name = "inventory_documents")
 public class InventoryDocument extends AuditableEntity {
 
-    private static final Set<InventoryDocumentStatus> EDITABLE =
-            EnumSet.of(InventoryDocumentStatus.DRAFT, InventoryDocumentStatus.REJECTED);
+    private static final Set<InventoryDocumentStatus> EDITABLE = EnumSet.of(InventoryDocumentStatus.DRAFT);
+    private static final Set<InventoryDocumentStatus> POSTABLE =
+            EnumSet.of(InventoryDocumentStatus.DRAFT, InventoryDocumentStatus.APPROVED);
     private static final Set<InventoryDocumentStatus> CANCELLABLE = EnumSet.of(InventoryDocumentStatus.DRAFT,
             InventoryDocumentStatus.REJECTED, InventoryDocumentStatus.SUBMITTED, InventoryDocumentStatus.APPROVED);
 
@@ -208,31 +210,16 @@ public class InventoryDocument extends AuditableEntity {
                 .reduce(BigDecimal::add).orElse(null);
     }
 
-    public void submit(Long actorId, Instant now) {
-        requireStatus(EDITABLE, "gửi duyệt");
+    /** Sẵn sàng ghi sổ: nháp (hoặc đã duyệt trước D-61) và có dòng (trừ chứng từ đảo). */
+    public void requirePostable() {
+        requireStatus(POSTABLE, "ghi sổ");
         if (lines.isEmpty() && documentType != InventoryDocumentType.PDK) {
             throw BusinessException.invalidField("lines", "Chứng từ phải có ít nhất một dòng.");
         }
-        this.status = InventoryDocumentStatus.SUBMITTED;
-        this.submittedBy = actorId;
-        this.submittedAt = now;
-    }
-
-    /** Duyệt xong (hoặc loại không cần duyệt): chứng từ sẵn sàng ghi sổ (BR-GEN-05). */
-    public void approve(Long actorId, Instant now) {
-        requireStatus(EnumSet.of(InventoryDocumentStatus.SUBMITTED), "duyệt");
-        this.status = InventoryDocumentStatus.APPROVED;
-        this.approvedBy = actorId;
-        this.approvedAt = now;
-    }
-
-    public void reject() {
-        requireStatus(EnumSet.of(InventoryDocumentStatus.SUBMITTED), "từ chối");
-        this.status = InventoryDocumentStatus.REJECTED;
     }
 
     public void markPosted(Long actorId, Instant now) {
-        requireStatus(EnumSet.of(InventoryDocumentStatus.APPROVED), "ghi sổ");
+        requireStatus(POSTABLE, "ghi sổ");
         this.status = InventoryDocumentStatus.POSTED;
         this.postedBy = actorId;
         this.postedAt = now;
@@ -240,7 +227,7 @@ public class InventoryDocument extends AuditableEntity {
 
     /** Chuyển kho khác chi nhánh: đã xuất khỏi kho nguồn, hàng đang ở kho "đang vận chuyển" (BR-INV-30). */
     public void markShipped(Long actorId, Instant now) {
-        requireStatus(EnumSet.of(InventoryDocumentStatus.APPROVED), "xuất chuyển kho");
+        requireStatus(POSTABLE, "xuất chuyển kho");
         this.status = InventoryDocumentStatus.IN_TRANSIT;
         this.postedBy = actorId;
         this.postedAt = now;
