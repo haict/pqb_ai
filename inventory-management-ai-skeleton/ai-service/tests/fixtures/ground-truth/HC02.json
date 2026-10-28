@@ -1,0 +1,98 @@
+{
+  "key": "HC02",
+  "file": "docs/HC02.png",
+  "documentType": "PURCHASE_INVOICE",
+  "kind": "PNG",
+  "degrade": null,
+  "sourceDocument": null,
+  "template": "INV_A",
+  "header": {
+    "documentNo": "0000140",
+    "documentDate": "2026-10-22",
+    "partnerName": "Nhà phân phối thiết bị mẫu",
+    "partnerTaxCode": "0300000001",
+    "partnerAddress": "TP. Hồ Chí Minh",
+    "currency": "VND",
+    "invoiceSeries": "1C26TAA"
+  },
+  "expectPartner": {
+    "status": "MATCHED",
+    "code": "NCC_01",
+    "by": "tax_code"
+  },
+  "lines": [
+    {
+      "code": null,
+      "name": "SAPPHIRE 800 CS ALKALINE WASH SOLUTION (2000ml) )Glenbio/Anh)",
+      "unit": "Hộp",
+      "quantity": "20",
+      "unitPrice": "5224000",
+      "discountPercent": null,
+      "taxRate": "10",
+      "printedAmount": "104480000",
+      "calculatedAmount": "104480000",
+      "expectProduct": {
+        "status": "MATCHED",
+        "code": "GL8S911",
+        "by": "name"
+      }
+    },
+    {
+      "code": null,
+      "name": "AST (9x50/3x30ml)(Glenbio/Anh)",
+      "unit": "Hộp",
+      "quantity": "6",
+      "unitPrice": "8829000",
+      "discountPercent": null,
+      "taxRate": "10",
+      "printedAmount": "52974000",
+      "calculatedAmount": "52974000",
+      "expectProduct": {
+        "status": "MATCHED",
+        "code": "GLM107",
+        "by": "name"
+      }
+    },
+    {
+      "code": null,
+      "name": "HDL cholesterol direct plus( 4x50ml/4x17mL/1x1ml)(Glenbio/Anh)",
+      "unit": "Hộp",
+      "quantity": "5",
+      "unitPrice": "7478000",
+      "discountPercent": null,
+      "taxRate": "10",
+      "printedAmount": "37390000",
+      "calculatedAmount": "37390000",
+      "expectProduct": {
+        "status": "MATCHED",
+        "code": "GLAU6012",
+        "by": "name"
+      }
+    },
+    {
+      "code": null,
+      "name": "Albumin BCG (6x64mk/6x16ml)(Glenbio/Anh)",
+      "unit": "Hộp",
+      "quantity": "12",
+      "unitPrice": "7072000",
+      "discountPercent": null,
+      "taxRate": "10",
+      "printedAmount": "84864000",
+      "calculatedAmount": "84864000",
+      "expectProduct": {
+        "status": "MATCHED",
+        "code": "GL8S307",
+        "by": "name"
+      }
+    }
+  ],
+  "totals": {
+    "goods": "279708000",
+    "vat": "27970800",
+    "total": "307678800"
+  },
+  "notes": [
+    "Chữ chìm đỏ chéo trang đè lên nội dung"
+  ],
+  "synthetic": true
+}

@@ -105,3 +105,37 @@ erp:
   idempotency:
     ttl: 24h
     cleanup-cron: "0 15 * * * *"
+
+# Trợ lý AI và OCR (D-64, docs/14 mục 10.1). Tắt mặc định; bật cần AI Service chạy cùng máy (ai-service/).
+ai:
+  enabled: ${AI_ENABLED:false}
+  service:
+    base-url: ${AI_SERVICE_BASE_URL:http://127.0.0.1:8090}
+    # Trùng AI_SERVICE_API_KEY của AI Service, tối thiểu 16 ký tự; không commit giá trị thật.
+    api-key: ${AI_SERVICE_API_KEY:}
+    connect-timeout: 2s
+    health-interval: 30s
+  ocr:
+    timeout: 60s
+    max-file-size: 10MB
+    max-image-pixels: 40000000
+    max-concurrent: 1
+    acquire-timeout: 3s
+    # Chênh lệch cho phép khi kiểm tra thành tiền / tổng tiền (đồng).
+    amount-tolerance: 1
+    max-candidates: 10
+    # Độ giống tối thiểu (0..1) để đưa tên hàng vào danh sách ứng viên.
+    name-similarity: 0.85
+  chat:
+    # Dài hơn CHAT_TIMEOUT_SECONDS của AI Service (80 s) để nhận lỗi rõ ràng từ AI Service.
+    timeout: 90s
+    max-concurrent: 1
+    acquire-timeout: 3s
+    max-message-chars: 2000
+    max-history-turns: 10
+    max-context-chars: 12000
+    retention-days: 90
+    # Xóa hội thoại quá hạn lúc 02:30 hằng ngày.
+    retention-cron: "0 30 2 * * *"
+  rate-limit:
+    per-user-per-minute: 10

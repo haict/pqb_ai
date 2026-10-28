@@ -23,6 +23,9 @@ export interface SalesLineForm {
   receiptNo?: string;
   description?: string;
   priceHint?: string;
+  /** Chỉ hiển thị trên form, không gửi server: điều cần kiểm tra của dòng nhận dạng chứng từ (D-64). */
+  ocrHints?: string[];
+  ocrLevel?: 'warning' | 'error';
 }
 
 /** Dòng nhập được chọn trong hộp F8 và số lượng lấy (đơn vị cơ sở). */

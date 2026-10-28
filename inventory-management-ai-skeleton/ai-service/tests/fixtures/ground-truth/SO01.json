@@ -1,0 +1,114 @@
+{
+  "key": "SO01",
+  "file": "docs/SO01.pdf",
+  "documentType": "SALES_ORDER",
+  "kind": "PDF",
+  "degrade": null,
+  "sourceDocument": null,
+  "template": "PO_CUSTOMER",
+  "header": {
+    "documentNo": "125/PĐH-KXN",
+    "documentDate": "2026-10-08",
+    "partnerName": "Bệnh viện Đa khoa mẫu",
+    "partnerTaxCode": "0100000001",
+    "partnerAddress": "Hà Nội",
+    "currency": "VND",
+    "deliveryAddress": "Khoa Xét nghiệm, Bệnh viện Đa khoa mẫu, Hà Nội"
+  },
+  "expectPartner": {
+    "status": "MATCHED",
+    "code": "KH_BV01",
+    "by": "tax_code"
+  },
+  "lines": [
+    {
+      "code": "GLAUH1019",
+      "name": "ISE Cleaning Solution(450ml) (Glenbio/Anh)",
+      "unit": "Hộp",
+      "quantity": "10",
+      "unitPrice": "3661000",
+      "discountPercent": null,
+      "taxRate": "5",
+      "printedAmount": "36610000",
+      "calculatedAmount": "36610000",
+      "expectProduct": {
+        "status": "MATCHED",
+        "code": "GLAUH1019",
+        "by": "code"
+      }
+    },
+    {
+      "code": "GLAU119",
+      "name": "CK Nac (4x50ml/1x50ml)(Glenbio/Anh)",
+      "unit": "Hộp",
+      "quantity": "20",
+      "unitPrice": "2967000",
+      "discountPercent": null,
+      "taxRate": "5",
+      "printedAmount": "59340000",
+      "calculatedAmount": "59340000",
+      "expectProduct": {
+        "status": "MATCHED",
+        "code": "GLAU119",
+        "by": "code"
+      }
+    },
+    {
+      "code": "GLM605",
+      "name": "LDL Cholesterol Direct (5x60/5x20/1x1ml)(Glenbio/Anh)",
+      "unit": "Hộp",
+      "quantity": "4",
+      "unitPrice": "5608000",
+      "discountPercent": null,
+      "taxRate": "5",
+      "printedAmount": "22432000",
+      "calculatedAmount": "22432000",
+      "expectProduct": {
+        "status": "MATCHED",
+        "code": "GLM605",
+        "by": "code"
+      }
+    },
+    {
+      "code": "GLAU1008",
+      "name": "LACTATE (8x60ml)(Glenbio/Anh)",
+      "unit": "Hộp",
+      "quantity": "5",
+      "unitPrice": "2000000",
+      "discountPercent": null,
+      "taxRate": "5",
+      "printedAmount": "10000000",
+      "calculatedAmount": "10000000",
+      "expectProduct": {
+        "status": "MATCHED",
+        "code": "GLAU1008",
+        "by": "code"
+      }
+    },
+    {
+      "code": "GLC24025",
+      "name": "Bilirubin Total Vanadate 4x40ml 4x10ml",
+      "unit": "Hộp",
+      "quantity": "12",
+      "unitPrice": "8054000",
+      "discountPercent": null,
+      "taxRate": "5",
+      "printedAmount": "96648000",
+      "calculatedAmount": "96648000",
+      "expectProduct": {
+        "status": "MATCHED",
+        "code": "GLC24025",
+        "by": "code"
+      }
+    }
+  ],
+  "totals": {
+    "goods": "225030000",
+    "vat": "11251500",
+    "total": "236281500"
+  },
+  "notes": [
+    "Khách khớp MST, hàng khớp mã"
+  ],
+  "synthetic": true
+}

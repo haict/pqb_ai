@@ -1,0 +1,25 @@
+﻿key,file,documentType,kind,sourceDocument,partnerExpect,lines,notes
+HC01,docs/HC01.png,PURCHASE_INVOICE,PNG,,,0,Trang trắng: mong đợi OCR_NO_TEXT
+HC02,docs/HC02.png,PURCHASE_INVOICE,PNG,,MATCHED,4,Chữ chìm đỏ chéo trang đè lên nội dung
+INV01,docs/INV01.pdf,PURCHASE_INVOICE,PDF,,MATCHED,4,NCC khớp MST | Hàng khớp theo tên (hóa đơn kiểu A không có mã)
+INV02,docs/INV02.png,PURCHASE_INVOICE,PNG,,MATCHED,6,"Dòng 6 tên trùng 2 mã hàng: phải AMBIGUOUS, không tự chọn"
+INV03,docs/INV03.pdf,PURCHASE_INVOICE,PDF,,NOT_FOUND,5,"NCC không có trong danh mục (MST giả) | Thuế suất theo dòng, có chiết khấu | Dòng 5 mã của NCC, không có trong danh mục"
+INV04,docs/INV04.pdf,PURCHASE_INVOICE,PDF,,MATCHED,4,Dòng 4 thuế suất 8%: danh mục chỉ có 0/5/10% -> thuế suất NOT_FOUND
+INV05,docs/INV05.pdf,PURCHASE_INVOICE,PDF,,MATCHED,30,"30 dòng, nhiều trang (chỉ PDF)"
+INV06,docs/INV06.png,PURCHASE_INVOICE,PNG,,MATCHED,4,"Dòng 3 thành tiền in lệch SL x đơn giá 100.000: MISMATCH, giữ giá trị OCR | Tổng tiền hàng in theo giá trị đúng nên lệch với tổng các dòng in"
+INV07,docs/INV07.jpg,PURCHASE_INVOICE,PHOTO_JPG,INV01,MATCHED,4,NCC khớp MST | Hàng khớp theo tên (hóa đơn kiểu A không có mã)
+INV08,docs/INV08.jpg,PURCHASE_INVOICE,PHOTO_JPG,INV02,MATCHED,6,"Dòng 6 tên trùng 2 mã hàng: phải AMBIGUOUS, không tự chọn"
+INV09,docs/INV09.jpg,PURCHASE_INVOICE,PHOTO_JPG,INV03,NOT_FOUND,5,"NCC không có trong danh mục (MST giả) | Thuế suất theo dòng, có chiết khấu | Dòng 5 mã của NCC, không có trong danh mục"
+INV10,docs/INV10.jpg,PURCHASE_INVOICE,PHOTO_JPG,INV04,MATCHED,4,Dòng 4 thuế suất 8%: danh mục chỉ có 0/5/10% -> thuế suất NOT_FOUND
+PO01,docs/PO01.pdf,PURCHASE_ORDER,PDF,,MATCHED,5,Có mã hàng ERP: mọi dòng MATCHED theo mã
+PO02,docs/PO02.png,PURCHASE_ORDER,PNG,,MATCHED,4,"Dòng 4 không ghi mã, tên trùng 2 mã: AMBIGUOUS"
+PO03,docs/PO03.jpg,PURCHASE_ORDER,PHOTO_JPG,PO01,MATCHED,5,Có mã hàng ERP: mọi dòng MATCHED theo mã
+PO04,docs/PO04.pdf,PURCHASE_ORDER,PDF,,MATCHED,3,Đơn tiền USD: P1 chỉ VND (D-24) -> cảnh báo loại tiền
+PO05,docs/PO05.jpg,PURCHASE_ORDER,PHOTO_JPG,PO02,MATCHED,4,"Dòng 4 không ghi mã, tên trùng 2 mã: AMBIGUOUS"
+SO01,docs/SO01.pdf,SALES_ORDER,PDF,,MATCHED,5,"Khách khớp MST, hàng khớp mã"
+SO02,docs/SO02.png,SALES_ORDER,PNG,,MATCHED,5,"Không có mã, không có giá: đơn giá để trống (server lấy bảng giá) | Dòng 4 AMBIGUOUS, dòng 5 NOT_FOUND"
+SO03,docs/SO03.pdf,SALES_ORDER,PDF,,NOT_FOUND,4,Khách không có trong danh mục
+SO04,docs/SO04.png,SALES_ORDER,PNG,,CANDIDATES_BY_NAME,3,"Không in MST: chỉ trả ứng viên theo tên, không tự gán khách"
+SO05,docs/SO05.jpg,SALES_ORDER,PHOTO_JPG,SO01,MATCHED,5,"Khách khớp MST, hàng khớp mã"
+SO06,docs/SO06.jpg,SALES_ORDER,PHOTO_JPG,SO02,MATCHED,5,"Không có mã, không có giá: đơn giá để trống (server lấy bảng giá) | Dòng 4 AMBIGUOUS, dòng 5 NOT_FOUND"
+SO07,docs/SO07.jpg,SALES_ORDER,PHOTO_JPG,SO03,NOT_FOUND,4,Khách không có trong danh mục

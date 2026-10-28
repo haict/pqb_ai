@@ -1,0 +1,112 @@
+{
+  "key": "INV03",
+  "file": "docs/INV03.pdf",
+  "documentType": "PURCHASE_INVOICE",
+  "kind": "PDF",
+  "degrade": null,
+  "sourceDocument": null,
+  "template": "INV_B",
+  "header": {
+    "documentNo": "0000245",
+    "documentDate": "2026-10-09",
+    "partnerName": "CÔNG TY TNHH VẬT TƯ XÉT NGHIỆM SAO MAI (GIẢ LẬP)",
+    "partnerTaxCode": "0399999901",
+    "partnerAddress": "Số 12 đường Giả Lập, Phường Mẫu, TP. Hồ Chí Minh",
+    "currency": "VND",
+    "invoiceSeries": "1C26TSM"
+  },
+  "expectPartner": {
+    "status": "NOT_FOUND"
+  },
+  "lines": [
+    {
+      "code": "GLAU216",
+      "name": "Creatinine (7x70ml 7x35ml)(Glenbio/Anh)",
+      "unit": "Hộp",
+      "quantity": "1",
+      "unitPrice": "2273000",
+      "discountPercent": "10",
+      "taxRate": "5",
+      "printedAmount": "2045700",
+      "calculatedAmount": "2045700",
+      "expectProduct": {
+        "status": "MATCHED",
+        "code": "GLAU216",
+        "by": "code"
+      }
+    },
+    {
+      "code": "GLAUH1016",
+      "name": "Beckman olympus ise high/low urine standard (100ml)(Glenbio/Anh)",
+      "unit": "Lọ",
+      "quantity": "5",
+      "unitPrice": "5367000",
+      "discountPercent": "10",
+      "taxRate": "5",
+      "printedAmount": "24151500",
+      "calculatedAmount": "24151500",
+      "expectProduct": {
+        "status": "MATCHED",
+        "code": "GLAUH1016",
+        "by": "code"
+      }
+    },
+    {
+      "code": "GL8S112",
+      "name": "CALCIUM ARSENAZO III (10x63ml)(Glenbio/Anh)",
+      "unit": "Hộp",
+      "quantity": "5",
+      "unitPrice": "1718000",
+      "discountPercent": "5",
+      "taxRate": "5",
+      "printedAmount": "8160500",
+      "calculatedAmount": "8160500",
+      "expectProduct": {
+        "status": "MATCHED",
+        "code": "GL8S112",
+        "by": "code"
+      }
+    },
+    {
+      "code": "GLM605",
+      "name": "LDL Cholesterol Direct (5x60/5x20/1x1ml)(Glenbio/Anh)",
+      "unit": "Hộp",
+      "quantity": "20",
+      "unitPrice": "6749000",
+      "discountPercent": "5",
+      "taxRate": "10",
+      "printedAmount": "128231000",
+      "calculatedAmount": "128231000",
+      "expectProduct": {
+        "status": "MATCHED",
+        "code": "GLM605",
+        "by": "code"
+      }
+    },
+    {
+      "code": "SM-0045",
+      "name": "Que thử đường huyết GlucoTest (hộp 50 que)",
+      "unit": "Hộp",
+      "quantity": "10",
+      "unitPrice": "185000",
+      "discountPercent": null,
+      "taxRate": "10",
+      "printedAmount": "1850000",
+      "calculatedAmount": "1850000",
+      "expectProduct": {
+        "status": "NOT_FOUND"
+      }
+    }
+  ],
+  "totals": {
+    "goods": "164438700",
+    "vat": "14725985",
+    "total": "179164685"
+  },
+  "notes": [
+    "NCC không có trong danh mục (MST giả)",
+    "Thuế suất theo dòng, có chiết khấu",
+    "Dòng 5 mã của NCC, không có trong danh mục"
+  ],
+  "synthetic": true
+}

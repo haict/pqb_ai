@@ -1,0 +1,103 @@
+{
+  "key": "INV07",
+  "file": "docs/INV07.jpg",
+  "documentType": "PURCHASE_INVOICE",
+  "kind": "PHOTO_JPG",
+  "degrade": {
+    "rotate": 4.5,
+    "blur": 1.2,
+    "quality": 78
+  },
+  "sourceDocument": "INV01",
+  "template": "INV_A",
+  "header": {
+    "documentNo": "0000101",
+    "documentDate": "2026-10-05",
+    "partnerName": "Nhà phân phối thiết bị mẫu",
+    "partnerTaxCode": "0300000001",
+    "partnerAddress": "TP. Hồ Chí Minh",
+    "currency": "VND",
+    "invoiceSeries": "1C26TAA"
+  },
+  "expectPartner": {
+    "status": "MATCHED",
+    "code": "NCC_01",
+    "by": "tax_code"
+  },
+  "lines": [
+    {
+      "code": null,
+      "name": "HBA1C (1x14ml/1x6ml/1x9ml/1x32ml)(Glenbio/Anh)",
+      "unit": "Hộp",
+      "quantity": "4",
+      "unitPrice": "7040000",
+      "discountPercent": null,
+      "taxRate": "10",
+      "printedAmount": "28160000",
+      "calculatedAmount": "28160000",
+      "expectProduct": {
+        "status": "MATCHED",
+        "code": "GLAU2201",
+        "by": "name"
+      }
+    },
+    {
+      "code": null,
+      "name": "RF Control Level 2 (5x1ml)(Glenbio/Anh)",
+      "unit": "Hộp",
+      "quantity": "2",
+      "unitPrice": "4074000",
+      "discountPercent": null,
+      "taxRate": "10",
+      "printedAmount": "8148000",
+      "calculatedAmount": "8148000",
+      "expectProduct": {
+        "status": "MATCHED",
+        "code": "GL9014",
+        "by": "name"
+      }
+    },
+    {
+      "code": null,
+      "name": "HDL Cholesterol Direct (6x60ml/6x20ml)(Glenbio/Anh)",
+      "unit": "Hộp",
+      "quantity": "1",
+      "unitPrice": "803000",
+      "discountPercent": null,
+      "taxRate": "10",
+      "printedAmount": "803000",
+      "calculatedAmount": "803000",
+      "expectProduct": {
+        "status": "MATCHED",
+        "code": "GL8S602",
+        "by": "name"
+      }
+    },
+    {
+      "code": null,
+      "name": "General Chemistry Calibrator (10x5ml)(Glenbio/Anh)",
+      "unit": "Lọ",
+      "quantity": "12",
+      "unitPrice": "7254000",
+      "discountPercent": null,
+      "taxRate": "10",
+      "printedAmount": "87048000",
+      "calculatedAmount": "87048000",
+      "expectProduct": {
+        "status": "MATCHED",
+        "code": "GL983",
+        "by": "name"
+      }
+    }
+  ],
+  "totals": {
+    "goods": "124159000",
+    "vat": "12415900",
+    "total": "136574900"
+  },
+  "notes": [
+    "NCC khớp MST",
+    "Hàng khớp theo tên (hóa đơn kiểu A không có mã)"
+  ],
+  "synthetic": true
+}

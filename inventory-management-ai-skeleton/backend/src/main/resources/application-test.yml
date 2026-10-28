@@ -16,3 +16,24 @@ erp:
     # Test tích hợp đăng nhập sai nhiều lần từ cùng địa chỉ 127.0.0.1; giới hạn theo IP có unit test riêng.
     ip-rate-limit:
       max-failures: 100000
+
+# Test thay AI Service bằng máy chủ HTTP giả lập trong test (AiServiceStub, cổng cố định); không cần Python.
+ai:
+  enabled: true
+  service:
+    base-url: http://127.0.0.1:18090
+    api-key: test-ai-service-key-0001
+    health-interval: 1h
+  ocr:
+    timeout: 2s
+    acquire-timeout: 200ms
+    max-file-size: 1MB
+    max-image-pixels: 4000000
+  chat:
+    timeout: 2s
+    acquire-timeout: 200ms
+    max-message-chars: 200
+    max-history-turns: 4
+    retention-cron: "-"
+  rate-limit:
+    per-user-per-minute: 1000

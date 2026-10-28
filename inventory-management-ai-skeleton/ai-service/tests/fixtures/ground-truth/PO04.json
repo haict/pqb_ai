@@ -1,0 +1,81 @@
+{
+  "key": "PO04",
+  "file": "docs/PO04.pdf",
+  "documentType": "PURCHASE_ORDER",
+  "kind": "PDF",
+  "degrade": null,
+  "sourceDocument": null,
+  "template": "PO_BUY",
+  "header": {
+    "documentNo": "PQB-PO-2026-0055",
+    "documentDate": "2026-10-20",
+    "partnerName": "Nhà phân phối thiết bị mẫu",
+    "partnerTaxCode": "0300000001",
+    "partnerAddress": "TP. Hồ Chí Minh",
+    "currency": "USD"
+  },
+  "expectPartner": {
+    "status": "MATCHED",
+    "code": "NCC_01",
+    "by": "tax_code"
+  },
+  "lines": [
+    {
+      "code": "GLM615",
+      "name": "LDL Cholesterol Direct (5x30/5x10ml)(Glenbio/Anh)",
+      "unit": "Hộp",
+      "quantity": "5",
+      "unitPrice": "71",
+      "discountPercent": null,
+      "taxRate": "0",
+      "printedAmount": "355",
+      "calculatedAmount": "355",
+      "expectProduct": {
+        "status": "MATCHED",
+        "code": "GLM615",
+        "by": "code"
+      }
+    },
+    {
+      "code": "GLAUWASH5",
+      "name": "AU SERRIES SYSTEM WASH SOLUTION 5000l (GLENBIO/ANH)",
+      "unit": "Hộp",
+      "quantity": "1",
+      "unitPrice": "80",
+      "discountPercent": null,
+      "taxRate": "0",
+      "printedAmount": "80",
+      "calculatedAmount": "80",
+      "expectProduct": {
+        "status": "MATCHED",
+        "code": "GLAUWASH5",
+        "by": "code"
+      }
+    },
+    {
+      "code": "GLAU721",
+      "name": "ALP DGKC (12x70/4x40ml)(Glenbio/Anh)",
+      "unit": "Hộp",
+      "quantity": "6",
+      "unitPrice": "111",
+      "discountPercent": null,
+      "taxRate": "0",
+      "printedAmount": "666",
+      "calculatedAmount": "666",
+      "expectProduct": {
+        "status": "MATCHED",
+        "code": "GLAU721",
+        "by": "code"
+      }
+    }
+  ],
+  "totals": {
+    "goods": "1101",
+    "vat": "0",
+    "total": "1101"
+  },
+  "notes": [
+    "Đơn tiền USD: P1 chỉ VND (D-24) -> cảnh báo loại tiền"
+  ],
+  "synthetic": true
+}

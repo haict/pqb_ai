@@ -1,0 +1,11 @@
+[project]
+name = "erp-ai-service"
+version = "0.1.0"
+description = "AI Service nội bộ của ERP: OCR chứng từ (D-64)"
+requires-python = ">=3.11,<3.12"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "slow: chạy model PaddleOCR thật (cần OCR_MODEL_DIR và bộ chứng từ mẫu AI_SAMPLES_DIR)",
+]

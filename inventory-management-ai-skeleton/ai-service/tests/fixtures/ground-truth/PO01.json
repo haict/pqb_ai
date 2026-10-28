@@ -1,0 +1,113 @@
+{
+  "key": "PO01",
+  "file": "docs/PO01.pdf",
+  "documentType": "PURCHASE_ORDER",
+  "kind": "PDF",
+  "degrade": null,
+  "sourceDocument": null,
+  "template": "PO_BUY",
+  "header": {
+    "documentNo": "PQB-PO-2026-0051",
+    "documentDate": "2026-10-03",
+    "partnerName": "Nhà phân phối thiết bị mẫu",
+    "partnerTaxCode": "0300000001",
+    "partnerAddress": "TP. Hồ Chí Minh",
+    "currency": "VND"
+  },
+  "expectPartner": {
+    "status": "MATCHED",
+    "code": "NCC_01",
+    "by": "tax_code"
+  },
+  "lines": [
+    {
+      "code": "GLC24025",
+      "name": "Bilirubin Total Vanadate 4x40ml 4x10ml",
+      "unit": "Hộp",
+      "quantity": "3",
+      "unitPrice": "7887000",
+      "discountPercent": null,
+      "taxRate": "5",
+      "printedAmount": "23661000",
+      "calculatedAmount": "23661000",
+      "expectProduct": {
+        "status": "MATCHED",
+        "code": "GLC24025",
+        "by": "code"
+      }
+    },
+    {
+      "code": "GLM612",
+      "name": "HDL Cholesterol Direct (10x60/4x50ml)(Glenbio/Anh)",
+      "unit": "Hộp",
+      "quantity": "3",
+      "unitPrice": "6302000",
+      "discountPercent": null,
+      "taxRate": "5",
+      "printedAmount": "18906000",
+      "calculatedAmount": "18906000",
+      "expectProduct": {
+        "status": "MATCHED",
+        "code": "GLM612",
+        "by": "code"
+      }
+    },
+    {
+      "code": "GL8S109",
+      "name": "CK NAC (4X60ml/4X15ml)(Glenbio/Anh)",
+      "unit": "Hộp",
+      "quantity": "1",
+      "unitPrice": "4592000",
+      "discountPercent": null,
+      "taxRate": "5",
+      "printedAmount": "4592000",
+      "calculatedAmount": "4592000",
+      "expectProduct": {
+        "status": "MATCHED",
+        "code": "GL8S109",
+        "by": "code"
+      }
+    },
+    {
+      "code": "GL8S218",
+      "name": "Glucose PAP (12x66.5ml)(Glenbio/Anh)",
+      "unit": "Hộp",
+      "quantity": "5",
+      "unitPrice": "9518000",
+      "discountPercent": null,
+      "taxRate": "5",
+      "printedAmount": "47590000",
+      "calculatedAmount": "47590000",
+      "expectProduct": {
+        "status": "MATCHED",
+        "code": "GL8S218",
+        "by": "code"
+      }
+    },
+    {
+      "code": "GL8S206",
+      "name": "Creatinine Jaffe (9x66ml/9x16.5ml)(Glenbio/Anh)",
+      "unit": "Hộp",
+      "quantity": "3",
+      "unitPrice": "8293000",
+      "discountPercent": null,
+      "taxRate": "5",
+      "printedAmount": "24879000",
+      "calculatedAmount": "24879000",
+      "expectProduct": {
+        "status": "MATCHED",
+        "code": "GL8S206",
+        "by": "code"
+      }
+    }
+  ],
+  "totals": {
+    "goods": "119628000",
+    "vat": "5981400",
+    "total": "125609400"
+  },
+  "notes": [
+    "Có mã hàng ERP: mọi dòng MATCHED theo mã"
+  ],
+  "synthetic": true
+}

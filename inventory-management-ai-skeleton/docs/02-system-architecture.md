@@ -234,4 +234,22 @@ Không dùng Docker. MySQL 8 local; backend chạy Eclipse + Tomcat 10.1 tại `
 
 | ADR-17 | Gộp chứng từ mua / bán (D-54): đơn mua và đơn bán là chứng từ ghi sổ (nhóm A) duy nhất của nghiệp vụ. Ghi sổ đơn mua gọi `StockInService` (phiếu nhập kho PNK nguồn `DMH`), `IncomingStockService`, `DebtPostingService.recordInvoice` (nguồn `DMH`), `JournalPostingService` (quy tắc hạch toán DMH) trong một transaction. Ghi sổ đơn bán gọi `StockOutService` (phiếu xuất PXK nguồn `DBH`, loại SALE, dùng giữ chỗ của đơn), `DebtPostingService.recordInvoice` (nguồn `DBH`), `JournalPostingService` (quy tắc DBH). Hàng thực xuất lưu ở `sales_order_items`; theo dõi giao hàng và số hóa đơn điện tử là cột của đơn. Trả hàng / giảm giá / phân bổ chi phí tham chiếu dòng đơn đã ghi sổ; công nợ giảm theo khoản của đơn (`reduceInvoice` với nguồn `DMH` / `DBH`). Bỏ bảng và API đề nghị mua, phiếu nhận, hóa đơn mua, báo giá, phiếu giao, hóa đơn bán, bán nhanh (migration V22, V23) | Người dùng muốn chỉ một màn hình đơn mua / đơn bán, chấp nhận mất nhận / giao nhiều đợt cho một đơn. Chủ dự án duyệt 2026-10-12 |
 | ADR-18 | Báo cáo M10 (BR-RPT-01..35) đặt hết trong module `reporting`, API `/api/v1/reports/{reportCode}` (ví dụ `/reports/stock-card`); truy vấn đọc trực tiếp bảng của các module bằng SQL chỉ đọc trong `reporting.infrastructure`. Xuất Excel / PDF dựng ở trình duyệt từ cùng dữ liệu API (như phiếu kho, sổ chi tiết bán / mua). Báo cáo đã làm trong module trước ADR này (báo cáo doanh số, sổ chi tiết bán hàng, sổ chi tiết mua hàng) giữ nguyên chỗ | Một chỗ cho mọi báo cáo, truy vấn tổng hợp nhiều bảng hiệu quả hơn gọi nhiều API module. Đánh đổi: phá ranh giới module ở mức SQL, ArchUnit không phát hiện; đổi schema của module khác phải rà truy vấn `reporting` (tìm tên bảng trong `reporting/infrastructure`) và chạy lại test `reporting`. Chủ dự án chọn 2026-10-14 (thay khuyến cáo "báo cáo theo module, dashboard gọi API công khai") |
+| ADR-19 | Trợ lý ảo và OCR: module backend `ai` (M11) điều phối; dịch vụ Python FastAPI riêng (PaddleOCR, Ollama) chỉ nghe `127.0.0.1`, chỉ Spring Boot gọi; AI không ghi dữ liệu ERP. Chi tiết `docs/14-ai-assistant-ocr.md` | OCR và LLM chạy nội bộ cần hệ sinh thái Python, không chạy trong JVM; tách tiến trình để giới hạn tài nguyên và để ERP chạy được khi AI ngừng. Đánh đổi: thêm nền tảng vận hành, thêm công nghệ vào `CLAUDE.md` mục 2 (D-64). Chủ dự án duyệt 2026-10-27 |
 Thay đổi kiến trúc phải cập nhật tài liệu này trước khi triển khai và được duyệt.
+
+## 11. Mở rộng AI: trợ lý ảo và OCR (ADR-19, D-64)
+Thiết kế chi tiết: `docs/14-ai-assistant-ocr.md`. Thiết kế đã duyệt 2026-10-27, chưa triển khai. Máy chủ Windows Server hoặc Linux đều được; model AI chốt sau đợt AI-0.
+
+```mermaid
+flowchart LR
+    FE[React] -->|/api/v1, JWT| BE[Spring Boot<br/>module ai]
+    BE -->|127.0.0.1, X-AI-Service-Key, timeout| AI[Python FastAPI]
+    AI --> OCR[PaddleOCR]
+    AI --> OL[Ollama]
+    BE --> MOD[API truy vấn công khai<br/>masterdata, purchasing, sales, inventory, finance]
+```
+- Module mới `ai` (M11) chỉ phụ thuộc ra ngoài (`system`, `masterdata`, `purchasing`, `sales`, `inventory`, `finance`, `common`); không module nào phụ thuộc `ai` (ArchUnit).
+- Trình duyệt không gọi FastAPI / Ollama. AI Service không có quyền database, không gọi ngược ERP.
+- OCR chỉ trả gợi ý để điền form đơn mua (kèm hóa đơn NCC) và đơn bán; người dùng lưu bằng nút Lưu hiện có. Spring Boot ánh xạ danh mục (không tự chọn khi nhiều kết quả) và kiểm tra số học bằng `BigDecimal`.
+- Trợ lý chỉ có công cụ chỉ đọc; Spring Boot thực thi công cụ với quyền và phạm vi dữ liệu của người dùng.
+- Giới hạn đồng thời bằng semaphore, timeout mọi lời gọi AI; AI ngừng thì ERP vẫn chạy bình thường.

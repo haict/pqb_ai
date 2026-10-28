@@ -1,0 +1,98 @@
+{
+  "key": "INV04",
+  "file": "docs/INV04.pdf",
+  "documentType": "PURCHASE_INVOICE",
+  "kind": "PDF",
+  "degrade": null,
+  "sourceDocument": null,
+  "template": "INV_B",
+  "header": {
+    "documentNo": "0000110",
+    "documentDate": "2026-10-12",
+    "partnerName": "Nhà phân phối thiết bị mẫu",
+    "partnerTaxCode": "0300000001",
+    "partnerAddress": "TP. Hồ Chí Minh",
+    "currency": "VND",
+    "invoiceSeries": "1C26TAA"
+  },
+  "expectPartner": {
+    "status": "MATCHED",
+    "code": "NCC_01",
+    "by": "tax_code"
+  },
+  "lines": [
+    {
+      "code": "GLAU6052",
+      "name": "LDL Cholesterol Direct (2x45ml/1x30mL/1x1ml)(Glenbio/Anh)",
+      "unit": "Hộp",
+      "quantity": "6",
+      "unitPrice": "7472000",
+      "discountPercent": null,
+      "taxRate": "10",
+      "printedAmount": "44832000",
+      "calculatedAmount": "44832000",
+      "expectProduct": {
+        "status": "MATCHED",
+        "code": "GLAU6052",
+        "by": "code"
+      }
+    },
+    {
+      "code": "GLAUWASH5",
+      "name": "AU SERRIES SYSTEM WASH SOLUTION 5000l (GLENBIO/ANH)",
+      "unit": "Hộp",
+      "quantity": "5",
+      "unitPrice": "2697000",
+      "discountPercent": null,
+      "taxRate": "10",
+      "printedAmount": "13485000",
+      "calculatedAmount": "13485000",
+      "expectProduct": {
+        "status": "MATCHED",
+        "code": "GLAUWASH5",
+        "by": "code"
+      }
+    },
+    {
+      "code": "GLC24025",
+      "name": "Bilirubin Total Vanadate 4x40ml 4x10ml",
+      "unit": "Hộp",
+      "quantity": "1",
+      "unitPrice": "4342000",
+      "discountPercent": null,
+      "taxRate": "10",
+      "printedAmount": "4342000",
+      "calculatedAmount": "4342000",
+      "expectProduct": {
+        "status": "MATCHED",
+        "code": "GLC24025",
+        "by": "code"
+      }
+    },
+    {
+      "code": "GLAUW2AL",
+      "name": "AU W2 Alkai Wash Solution (250ml)(Glenbio/Anh)",
+      "unit": "Hộp",
+      "quantity": "4",
+      "unitPrice": "1250000",
+      "discountPercent": null,
+      "taxRate": "8",
+      "printedAmount": "5000000",
+      "calculatedAmount": "5000000",
+      "expectProduct": {
+        "status": "MATCHED",
+        "code": "GLAUW2AL",
+        "by": "code"
+      }
+    }
+  ],
+  "totals": {
+    "goods": "67659000",
+    "vat": "6665900",
+    "total": "74324900"
+  },
+  "notes": [
+    "Dòng 4 thuế suất 8%: danh mục chỉ có 0/5/10% -> thuế suất NOT_FOUND"
+  ],
+  "synthetic": true
+}

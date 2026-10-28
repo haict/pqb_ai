@@ -10,6 +10,8 @@ public enum ErrorCode {
 
     VALIDATION_ERROR(HttpStatus.BAD_REQUEST, "Dữ liệu không hợp lệ."),
     MALFORMED_REQUEST(HttpStatus.BAD_REQUEST, "Yêu cầu sai định dạng."),
+    OCR_FILE_INVALID(HttpStatus.BAD_REQUEST, "File hỏng hoặc không đọc được."),
+    ASSISTANT_MESSAGE_TOO_LONG(HttpStatus.BAD_REQUEST, "Câu hỏi quá dài."),
 
     UNAUTHENTICATED(HttpStatus.UNAUTHORIZED, "Vui lòng đăng nhập."),
     TOKEN_EXPIRED(HttpStatus.UNAUTHORIZED, "Phiên đăng nhập đã hết hạn."),
@@ -37,6 +39,10 @@ public enum ErrorCode {
     CONFIGURATION_IN_EFFECT(HttpStatus.CONFLICT, "Cấu hình đã có hiệu lực, không xóa được."),
     INVALID_PERIOD_STATE(HttpStatus.CONFLICT, "Trạng thái kỳ không cho phép thao tác này."),
 
+    OCR_FILE_TOO_LARGE(HttpStatus.PAYLOAD_TOO_LARGE, "File vượt dung lượng cho phép."),
+    OCR_UNSUPPORTED_TYPE(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "Chỉ hỗ trợ file ảnh JPG, PNG hoặc PDF."),
+
+    OCR_NO_TEXT(HttpStatus.UNPROCESSABLE_ENTITY, "Không nhận dạng được chữ trên tài liệu."),
     INSUFFICIENT_STOCK(HttpStatus.UNPROCESSABLE_ENTITY, "Tồn khả dụng không đủ."),
     LOT_EXPIRED(HttpStatus.UNPROCESSABLE_ENTITY, "Lô hàng đã hết hạn."),
     LOT_NOT_SELLABLE(HttpStatus.UNPROCESSABLE_ENTITY, "Lô hàng không ở trạng thái được bán."),
@@ -62,8 +68,11 @@ public enum ErrorCode {
     LOCK_TIMEOUT(HttpStatus.LOCKED, "Dữ liệu đang được xử lý, vui lòng thử lại."),
 
     TOO_MANY_REQUESTS(HttpStatus.TOO_MANY_REQUESTS, "Quá nhiều lần thử, vui lòng thử lại sau."),
+    AI_BUSY(HttpStatus.TOO_MANY_REQUESTS, "Hệ thống AI đang bận, vui lòng thử lại sau."),
 
-    INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "Lỗi hệ thống, vui lòng thử lại hoặc liên hệ quản trị.");
+    INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "Lỗi hệ thống, vui lòng thử lại hoặc liên hệ quản trị."),
+    AI_SERVICE_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "Chức năng AI tạm thời không khả dụng; vẫn nhập tay bình thường."),
+    AI_TIMEOUT(HttpStatus.GATEWAY_TIMEOUT, "Hệ thống AI xử lý quá thời gian, vui lòng thử lại.");
 
     private final HttpStatus httpStatus;
     private final String defaultMessage;

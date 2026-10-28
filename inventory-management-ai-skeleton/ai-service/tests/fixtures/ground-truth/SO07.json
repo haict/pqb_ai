@@ -1,0 +1,101 @@
+{
+  "key": "SO07",
+  "file": "docs/SO07.jpg",
+  "documentType": "SALES_ORDER",
+  "kind": "PHOTO_JPG",
+  "degrade": {
+    "scale": 0.45,
+    "gray": true,
+    "noise": 8,
+    "quality": 60
+  },
+  "sourceDocument": "SO03",
+  "template": "PO_CUSTOMER",
+  "header": {
+    "documentNo": "PO-ALM-2026-017",
+    "documentDate": "2026-10-14",
+    "partnerName": "TRUNG TÂM Y TẾ HUYỆN AN LẠC (GIẢ LẬP)",
+    "partnerTaxCode": "0199999902",
+    "partnerAddress": "Xã An Lạc, Tỉnh Mẫu",
+    "currency": "VND",
+    "deliveryAddress": "Kho dược, Trung tâm y tế huyện An Lạc"
+  },
+  "expectPartner": {
+    "status": "NOT_FOUND"
+  },
+  "lines": [
+    {
+      "code": "GLM605",
+      "name": "LDL Cholesterol Direct (5x60/5x20/1x1ml)(Glenbio/Anh)",
+      "unit": "Hộp",
+      "quantity": "1",
+      "unitPrice": "3195000",
+      "discountPercent": null,
+      "taxRate": "5",
+      "printedAmount": "3195000",
+      "calculatedAmount": "3195000",
+      "expectProduct": {
+        "status": "MATCHED",
+        "code": "GLM605",
+        "by": "code"
+      }
+    },
+    {
+      "code": "GLAU813",
+      "name": "Uric acid (4x30ml/4x20mL)(Glenbio/Anh)",
+      "unit": "Hộp",
+      "quantity": "3",
+      "unitPrice": "7428000",
+      "discountPercent": null,
+      "taxRate": "5",
+      "printedAmount": "22284000",
+      "calculatedAmount": "22284000",
+      "expectProduct": {
+        "status": "MATCHED",
+        "code": "GLAU813",
+        "by": "code"
+      }
+    },
+    {
+      "code": "GL964",
+      "name": "CRP calibrator (10x1ml)(Glenbio/Anh)",
+      "unit": "Lọ",
+      "quantity": "3",
+      "unitPrice": "7037000",
+      "discountPercent": null,
+      "taxRate": "5",
+      "printedAmount": "21111000",
+      "calculatedAmount": "21111000",
+      "expectProduct": {
+        "status": "MATCHED",
+        "code": "GL964",
+        "by": "code"
+      }
+    },
+    {
+      "code": "GLM307",
+      "name": "Albumin BCG (6x50ml)(Glenbio/Anh)",
+      "unit": "Hộp",
+      "quantity": "6",
+      "unitPrice": "9357000",
+      "discountPercent": null,
+      "taxRate": "5",
+      "printedAmount": "56142000",
+      "calculatedAmount": "56142000",
+      "expectProduct": {
+        "status": "MATCHED",
+        "code": "GLM307",
+        "by": "code"
+      }
+    }
+  ],
+  "totals": {
+    "goods": "102732000",
+    "vat": "5136600",
+    "total": "107868600"
+  },
+  "notes": [
+    "Khách không có trong danh mục"
+  ],
+  "synthetic": true
+}

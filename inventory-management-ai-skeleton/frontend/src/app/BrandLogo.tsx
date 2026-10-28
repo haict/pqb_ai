@@ -1,42 +1,34 @@
-import { MedicineBoxOutlined } from '@ant-design/icons';
+import logo from '../assets/pqb-logo.svg';
 import { BRAND } from './theme';
 
-/** Nhận diện ứng dụng: biểu tượng hộp y tế + tên; {@code compact} chỉ hiện biểu tượng (menu thu gọn). */
+/** Nhận diện ứng dụng: logo PQB + tên; {@code compact} chỉ hiện logo (menu thu gọn). */
 export function BrandLogo({ compact = false, inverse = false }: { compact?: boolean; inverse?: boolean }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10, overflow: 'hidden', whiteSpace: 'nowrap' }}>
-      <span
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, overflow: 'hidden' }}>
+      <img
+        src={logo}
+        alt="PQB Medical Device"
         style={{
           flex: 'none',
-          width: 36,
-          height: 36,
-          borderRadius: 10,
-          display: 'grid',
-          placeItems: 'center',
-          fontSize: 19,
-          color: inverse ? BRAND.primary : '#fff',
-          background: inverse ? '#fff' : BRAND.gradient,
-          boxShadow: inverse ? undefined : '0 4px 10px rgba(13, 148, 136, 0.3)',
+          // Menu thu gọn chỉ rộng 64px nên giữ cỡ nhỏ.
+          width: compact ? 40 : 60,
+          height: compact ? 40 : 60,
+          objectFit: 'contain',
+          // Khung trắng giữ màu xanh logo rõ trên nền tối của trang đăng nhập.
+          padding: 2,
+          borderRadius: 8,
+          background: '#fff',
         }}
-      >
-        <MedicineBoxOutlined />
-      </span>
+      />
       {!compact && (
-        <span style={{ lineHeight: 1.2 }}>
-          <span
-            style={{ display: 'block', fontWeight: 700, fontSize: 15, color: inverse ? '#fff' : BRAND.text }}
-          >
-            ERP Y tế
-          </span>
-          <span
-            style={{
-              display: 'block',
-              fontSize: 12,
-              color: inverse ? 'rgba(255,255,255,0.85)' : BRAND.muted,
-            }}
-          >
-            Thiết bị - Vật tư y tế
-          </span>
+        <span
+          style={{
+            fontSize: 14,
+            lineHeight: 1.25,
+            color: inverse ? '#fff' : BRAND.text,
+          }}
+        >
+          Công nghệ y tế &amp; giáo dục PQP
         </span>
       )}
     </div>

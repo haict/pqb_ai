@@ -1,0 +1,137 @@
+{
+  "key": "INV08",
+  "file": "docs/INV08.jpg",
+  "documentType": "PURCHASE_INVOICE",
+  "kind": "PHOTO_JPG",
+  "degrade": {
+    "rotate": -2.5,
+    "persp": 0.05,
+    "shadow": true,
+    "quality": 75
+  },
+  "sourceDocument": "INV02",
+  "template": "INV_A",
+  "header": {
+    "documentNo": "0000102",
+    "documentDate": "2026-10-07",
+    "partnerName": "Nhà phân phối thiết bị mẫu",
+    "partnerTaxCode": "0300000001",
+    "partnerAddress": "TP. Hồ Chí Minh",
+    "currency": "VND",
+    "invoiceSeries": "1C26TAA"
+  },
+  "expectPartner": {
+    "status": "MATCHED",
+    "code": "NCC_01",
+    "by": "tax_code"
+  },
+  "lines": [
+    {
+      "code": null,
+      "name": "Amylase IFCC (6x66ml/6x16ml)(Glenbio/Anh)",
+      "unit": "Hộp",
+      "quantity": "12",
+      "unitPrice": "3742000",
+      "discountPercent": null,
+      "taxRate": "5",
+      "printedAmount": "44904000",
+      "calculatedAmount": "44904000",
+      "expectProduct": {
+        "status": "MATCHED",
+        "code": "GL8S113",
+        "by": "name"
+      }
+    },
+    {
+      "code": null,
+      "name": "SAPPHIRE 800 CS ALKALINE WASH SOLUTION (2000ml) )Glenbio/Anh)",
+      "unit": "Hộp",
+      "quantity": "5",
+      "unitPrice": "6650000",
+      "discountPercent": null,
+      "taxRate": "5",
+      "printedAmount": "33250000",
+      "calculatedAmount": "33250000",
+      "expectProduct": {
+        "status": "MATCHED",
+        "code": "GL8S911",
+        "by": "name"
+      }
+    },
+    {
+      "code": null,
+      "name": "Lipase (4x20ml/2x8ml)(Glenbio/Anh)",
+      "unit": "Hộp",
+      "quantity": "3",
+      "unitPrice": "3636000",
+      "discountPercent": null,
+      "taxRate": "5",
+      "printedAmount": "10908000",
+      "calculatedAmount": "10908000",
+      "expectProduct": {
+        "status": "MATCHED",
+        "code": "GL8S537",
+        "by": "name"
+      }
+    },
+    {
+      "code": null,
+      "name": "Amylase CNPG (4x60ml) (Glenbio/Anh)",
+      "unit": "Hộp",
+      "quantity": "12",
+      "unitPrice": "5699000",
+      "discountPercent": null,
+      "taxRate": "5",
+      "printedAmount": "68388000",
+      "calculatedAmount": "68388000",
+      "expectProduct": {
+        "status": "MATCHED",
+        "code": "GLC24010",
+        "by": "name"
+      }
+    },
+    {
+      "code": null,
+      "name": "C.R.P Hs (4x4ml/2x17ml)(Glenbio/Anh)",
+      "unit": "Hộp",
+      "quantity": "10",
+      "unitPrice": "2476000",
+      "discountPercent": null,
+      "taxRate": "5",
+      "printedAmount": "24760000",
+      "calculatedAmount": "24760000",
+      "expectProduct": {
+        "status": "MATCHED",
+        "code": "GLAU304",
+        "by": "name"
+      }
+    },
+    {
+      "code": null,
+      "name": "Triglycerides (12x65ml)(Glenbio/Anh)",
+      "unit": "Hộp",
+      "quantity": "2",
+      "unitPrice": "2450000",
+      "discountPercent": null,
+      "taxRate": "5",
+      "printedAmount": "4900000",
+      "calculatedAmount": "4900000",
+      "expectProduct": {
+        "status": "AMBIGUOUS",
+        "candidates": [
+          "GL8S104",
+          "GLM114"
+        ]
+      }
+    }
+  ],
+  "totals": {
+    "goods": "187110000",
+    "vat": "9355500",
+    "total": "196465500"
+  },
+  "notes": [
+    "Dòng 6 tên trùng 2 mã hàng: phải AMBIGUOUS, không tự chọn"
+  ],
+  "synthetic": true
+}

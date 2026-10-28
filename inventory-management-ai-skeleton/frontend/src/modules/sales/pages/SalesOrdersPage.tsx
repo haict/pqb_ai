@@ -63,6 +63,8 @@ import type {
 } from '../types';
 import { BranchCol } from '../../../shared/components/BranchCol';
 import { SalesLineImportButton } from '../components/SalesLineImportButton';
+import { SalesOcrButton } from '../components/SalesOcrButton';
+import { OcrNotes } from '../../ai/components/OcrHints';
 
 interface TermForm {
   percent?: number;
@@ -569,6 +571,7 @@ function OrderFields({
 }) {
   const warehouses = useWarehouses();
   const branchId = Form.useWatch('branchId', form) as number | undefined;
+  const [ocrNotes, setOcrNotes] = useState<string[]>([]);
   return (
     <>
       <Row gutter={12}>
@@ -657,8 +660,14 @@ function OrderFields({
           </Form.Item>
         </Col>
       </Row>
-      <SalesLineImportButton form={form} />
-      <SalesLinesEditor form={form} withExpectedDate />
+      <OcrNotes notes={ocrNotes} onClose={() => setOcrNotes([])} />
+      <SalesLinesEditor
+        form={form}
+        withExpectedDate
+        actions={
+          <SalesLineImportButton form={form} extra={<SalesOcrButton form={form} onNotes={setOcrNotes} />} />
+        }
+      />
       <Typography.Title level={5} style={{ marginTop: 16 }}>
         Lịch thu tiền (tùy chọn, tổng 100%)
       </Typography.Title>

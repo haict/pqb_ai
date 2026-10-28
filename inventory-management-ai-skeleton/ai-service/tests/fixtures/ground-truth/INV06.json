@@ -1,0 +1,100 @@
+{
+  "key": "INV06",
+  "file": "docs/INV06.png",
+  "documentType": "PURCHASE_INVOICE",
+  "kind": "PNG",
+  "degrade": null,
+  "sourceDocument": null,
+  "template": "INV_A",
+  "header": {
+    "documentNo": "0000131",
+    "documentDate": "2026-10-18",
+    "partnerName": "Nhà phân phối thiết bị mẫu",
+    "partnerTaxCode": "0300000001",
+    "partnerAddress": "TP. Hồ Chí Minh",
+    "currency": "VND",
+    "invoiceSeries": "1C26TAA"
+  },
+  "expectPartner": {
+    "status": "MATCHED",
+    "code": "NCC_01",
+    "by": "tax_code"
+  },
+  "lines": [
+    {
+      "code": null,
+      "name": "LDL Cholesterol Direct (6x40ml/4x20ml/1x1ml)(Glenbio/Anh)",
+      "unit": "Hộp",
+      "quantity": "20",
+      "unitPrice": "356000",
+      "discountPercent": null,
+      "taxRate": "10",
+      "printedAmount": "7120000",
+      "calculatedAmount": "7120000",
+      "expectProduct": {
+        "status": "MATCHED",
+        "code": "GL8S605",
+        "by": "name"
+      }
+    },
+    {
+      "code": null,
+      "name": "Glucose HEX (4x25ml/4x12mL)(Glenbio/Anh)",
+      "unit": "Hộp",
+      "quantity": "3",
+      "unitPrice": "2157000",
+      "discountPercent": null,
+      "taxRate": "10",
+      "printedAmount": "6471000",
+      "calculatedAmount": "6471000",
+      "expectProduct": {
+        "status": "MATCHED",
+        "code": "GLAU716",
+        "by": "name"
+      }
+    },
+    {
+      "code": null,
+      "name": "ASO Control Level 1 (5x1ml) (Glenbio/Anh)",
+      "unit": "Hộp",
+      "quantity": "6",
+      "unitPrice": "6863000",
+      "discountPercent": null,
+      "taxRate": "10",
+      "printedAmount": "41278000",
+      "calculatedAmount": "41178000",
+      "expectProduct": {
+        "status": "MATCHED",
+        "code": "GL9005",
+        "by": "name"
+      },
+      "expectAmountCheck": "MISMATCH"
+    },
+    {
+      "code": null,
+      "name": "Albumin BCG (6x50ml)(Glenbio/Anh)",
+      "unit": "Hộp",
+      "quantity": "2",
+      "unitPrice": "529000",
+      "discountPercent": null,
+      "taxRate": "10",
+      "printedAmount": "1058000",
+      "calculatedAmount": "1058000",
+      "expectProduct": {
+        "status": "MATCHED",
+        "code": "GLM307",
+        "by": "name"
+      }
+    }
+  ],
+  "totals": {
+    "goods": "55827000",
+    "vat": "5582700",
+    "total": "61409700"
+  },
+  "notes": [
+    "Dòng 3 thành tiền in lệch SL x đơn giá 100.000: MISMATCH, giữ giá trị OCR",
+    "Tổng tiền hàng in theo giá trị đúng nên lệch với tổng các dòng in"
+  ],
+  "synthetic": true
+}

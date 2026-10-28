@@ -1,0 +1,15 @@
+# AI Service (D-64). Phiên bản cố định; đổi phiên bản phải đo lại trên bộ chứng từ mẫu (docs/14 mục 9.4).
+fastapi==0.162.0
+starlette==1.10.0
+uvicorn==0.54.0
+pydantic==2.14.1
+pydantic-settings==2.16.1
+python-multipart==0.0.32
+paddlepaddle==3.2.1
+paddleocr==3.7.0
+paddlex==3.7.2
+numpy==2.3.5
+opencv-contrib-python==4.10.0.84
+pillow==12.1.0
+pypdfium2==5.14.0
+httpx==0.28.1

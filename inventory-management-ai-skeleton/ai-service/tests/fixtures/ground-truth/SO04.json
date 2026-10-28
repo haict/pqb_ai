@@ -1,0 +1,84 @@
+{
+  "key": "SO04",
+  "file": "docs/SO04.png",
+  "documentType": "SALES_ORDER",
+  "kind": "PNG",
+  "degrade": null,
+  "sourceDocument": null,
+  "template": "PO_CUSTOMER",
+  "header": {
+    "documentNo": "131/PĐH-KXN",
+    "documentDate": "2026-10-21",
+    "partnerName": "Bệnh viện Đa khoa mẫu",
+    "partnerTaxCode": null,
+    "partnerAddress": "Hà Nội",
+    "currency": "VND",
+    "deliveryAddress": "Khoa Xét nghiệm, Bệnh viện Đa khoa mẫu, Hà Nội"
+  },
+  "expectPartner": {
+    "status": "CANDIDATES_BY_NAME",
+    "candidates": [
+      "KH_BV01"
+    ],
+    "autoAssign": false
+  },
+  "lines": [
+    {
+      "code": "GLC24025",
+      "name": "Bilirubin Total Vanadate 4x40ml 4x10ml",
+      "unit": "Hộp",
+      "quantity": "4",
+      "unitPrice": "8930000",
+      "discountPercent": null,
+      "taxRate": "5",
+      "printedAmount": "35720000",
+      "calculatedAmount": "35720000",
+      "expectProduct": {
+        "status": "MATCHED",
+        "code": "GLC24025",
+        "by": "code"
+      }
+    },
+    {
+      "code": "GL974",
+      "name": "HsCRP Calibrator (6x2ml )(Glenbio/Anh)",
+      "unit": "Hộp",
+      "quantity": "6",
+      "unitPrice": "3330000",
+      "discountPercent": null,
+      "taxRate": "5",
+      "printedAmount": "19980000",
+      "calculatedAmount": "19980000",
+      "expectProduct": {
+        "status": "MATCHED",
+        "code": "GL974",
+        "by": "code"
+      }
+    },
+    {
+      "code": "GL8S912",
+      "name": "Sapphiare 800 Detergent Solution (1000ml)",
+      "unit": "Lọ",
+      "quantity": "1",
+      "unitPrice": "4916000",
+      "discountPercent": null,
+      "taxRate": "5",
+      "printedAmount": "4916000",
+      "calculatedAmount": "4916000",
+      "expectProduct": {
+        "status": "MATCHED",
+        "code": "GL8S912",
+        "by": "code"
+      }
+    }
+  ],
+  "totals": {
+    "goods": "60616000",
+    "vat": "3030800",
+    "total": "63646800"
+  },
+  "notes": [
+    "Không in MST: chỉ trả ứng viên theo tên, không tự gán khách"
+  ],
+  "synthetic": true
+}

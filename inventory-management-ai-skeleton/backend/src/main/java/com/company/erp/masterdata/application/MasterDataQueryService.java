@@ -322,12 +322,12 @@ public class MasterDataQueryService {
                 .map(MasterDataQueryService::toInfo).toList();
     }
 
-    private static TaxRateInfo toInfo(TaxRate rate) {
+    static TaxRateInfo toInfo(TaxRate rate) {
         return new TaxRateInfo(rate.getId(), rate.getCompanyId(), rate.getCode(), rate.getName(), rate.getRate(),
                 rate.getValidFrom(), rate.getValidTo(), rate.isActive());
     }
 
-    private static ProductInfo toInfo(Product product) {
+    static ProductInfo toInfo(Product product) {
         return new ProductInfo(product.getId(), product.getCompanyId(), product.getCode(), product.getName(),
                 product.getProductType(), product.getBaseUnitId(), product.isLotTracked(), product.isExpiryTracked(),
                 product.isSerialTracked(), product.isActive(),
@@ -345,7 +345,7 @@ public class MasterDataQueryService {
                 location.getZoneType(), location.isDefaultLocation(), location.getStatus() == RecordStatus.ACTIVE);
     }
 
-    private static PartnerInfo toInfo(Partner partner) {
+    static PartnerInfo toInfo(Partner partner) {
         return new PartnerInfo(partner.getId(), partner.getCompanyId(), partner.getCode(), partner.getName(),
                 partner.getRoles(), partner.getSalesUserId(), partner.isActive(), partner.getPaymentTermDays(),
                 partner.getSupplierPaymentTermDays(), partner.getTaxCode(), partner.getAddress(),

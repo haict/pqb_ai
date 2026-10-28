@@ -1,7 +1,7 @@
 import { UploadOutlined } from '@ant-design/icons';
-import { Button, Form, type FormInstance } from 'antd';
+import { Button, Form, Space, type FormInstance } from 'antd';
 import dayjs, { type Dayjs } from 'dayjs';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { ImportModal } from '../../masterdata/components/ImportModal';
 import { useCompanyId } from '../../masterdata/lookups';
 import { salesOrderApi } from '../api';
@@ -10,12 +10,15 @@ import type { SalesLineForm } from './salesLines';
 
 /**
  * Nút "Nhập dòng từ Excel" trong form đơn bán: server chỉ đọc file và trả dòng, dòng được nối sau các dòng đã chọn
- * hàng (dòng trống bị bỏ). Không lưu đơn; người dùng kiểm tra rồi bấm Lưu như lập tay.
+ * hàng (dòng trống bị bỏ). Không lưu đơn; người dùng kiểm tra rồi bấm Lưu như lập tay. {@code extra}: nút đặt trước nút nhập
+ * (ví dụ nhận dạng chứng từ).
  */
 export function SalesLineImportButton<T extends { lines?: SalesLineForm[]; documentDate?: Dayjs }>({
   form,
+  extra,
 }: {
   form: FormInstance<T>;
+  extra?: ReactNode;
 }) {
   const companyId = useCompanyId();
   const [open, setOpen] = useState(false);
@@ -29,11 +32,12 @@ export function SalesLineImportButton<T extends { lines?: SalesLineForm[]; docum
 
   return (
     <>
-      <div style={{ display: 'flex', justifyContent: 'flex-end', margin: '8px 0' }}>
+      <Space>
+        {extra}
         <Button icon={<UploadOutlined />} onClick={() => setOpen(true)}>
           Nhập dòng từ Excel
         </Button>
-      </div>
+      </Space>
       <ImportModal<SalesLineImportResult>
         open={open}
         title="Nhập dòng hàng đơn bán từ Excel"

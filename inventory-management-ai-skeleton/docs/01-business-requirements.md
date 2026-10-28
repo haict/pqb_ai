@@ -4,6 +4,7 @@
 |---|---|
 | Phiên bản | 0.8 (DRAFT - đã chốt toàn bộ quyết định ở mục 20) |
 | Ngày cập nhật | 2026-10-12 |
+| Thay đổi bổ sung 2026-10-27 | **D-64** thêm phân hệ M11 Trợ lý AI và OCR chứng từ mua / bán; yêu cầu chi tiết BR-AI-01..10 ở `docs/14-ai-assistant-ocr.md` |
 | Doanh nghiệp | Công ty TNHH Công nghệ B2K (Hà Nội) |
 | Loại hình | Thương mại / phân phối: máy móc, thiết bị y tế, vật tư y tế, hóa chất - thuốc thử xét nghiệm; tham gia đấu thầu cung cấp cho cơ sở y tế |
 | Nguồn | (1) Đặc tả yêu cầu dự án do chủ dự án cung cấp ngày 2026-10-09; (2) ảnh hiện trạng MISA SME 2026 R5 Enterprise (`docs/HienTrang/01..19.jpg`); (3) tài liệu tham khảo `docs/HienTrang/để lập 1 phần mềm theo dõi xuất nhập tồn.docx` |
@@ -128,6 +129,7 @@ Ngoài ba chuỗi trên, hệ thống quản lý dịch vụ kỹ thuật (bảo
 | M08 | Kế toán và giá vốn | CST, ACC, TAX | 13 |
 | M09 | Thiết bị, bảo hành và hồ sơ sản phẩm | EQP, SVC, MED | 14 |
 | M10 | Báo cáo và dashboard | RPT | 15 |
+| M11 | Trợ lý AI và OCR chứng từ mua / bán (D-64) | AI | `docs/14-ai-assistant-ocr.md` |
 
 ```
                  ┌──────────────── M01 QUẢN TRỊ HỆ THỐNG ────────────────┐
@@ -933,6 +935,7 @@ Ngày 2026-10-09 (lần 2) chủ dự án chốt toàn bộ quyết định còn
 | D-62 | Bỏ ghi sổ đơn mua / đơn bán để sửa (2026-10-21; sửa BR-GEN-03, thêm BR-PUR-20, BR-SAL-25) | Đơn mua, đơn bán đã ghi sổ được bỏ ghi sổ (`POST /{resource}/{id}/unpost`, quyền `purchase-order:unpost`, `sales-order:unpost`, mặc định gán cho vai trò có quyền đảo đơn tương ứng): sổ phụ vẫn chỉ INSERT - hệ thống sinh dòng ngược (phiếu kho đảo PDK, công nợ, bút toán) theo ngày hạch toán gốc, đơn về nháp giữ nguyên số để sửa và ghi sổ lại. Điều kiện chặn như đảo; đơn bán thêm: chưa chuyển đi giao, chưa có số hóa đơn điện tử, không có khiếu nại. Chứng từ khác vẫn chỉ đảo. Ràng buộc duy nhất của khoản công nợ / bút toán gốc theo chứng từ nguồn chỉ áp dụng cho bản còn hiệu lực (V37). `[Suy luận]` Hóa đơn điện tử đã phát hành xử lý bằng đảo đơn và hóa đơn điều chỉnh / thay thế theo quy định hóa đơn - chưa kiểm chứng, kế toán trưởng / pháp chế xác nhận trước UAT | Đã chốt |
 | D-63 | Chọn chứng từ nhập trên dòng đơn bán (F8) (2026-10-21; thêm BR-SAL-26) | Như F8 của MISA SME: chọn dòng nhập kho còn tồn (lô / serial) cho dòng đơn bán, lưu liên kết `sales_order_lines.receipt_transaction_id` (dòng `inventory_transactions` chiều nhập) và số chứng từ nhập (V38); áp dụng mọi hàng quản lý lô / serial, quyền `sales-order:create`. Không đổi D-02: vật tư / thuốc thử vẫn bình quân gia quyền cuối kỳ; liên kết dùng cho giá vốn đích danh ở Giai đoạn 8 khi được áp dụng. `[Giả định]` Tồn hiện có tính theo lô / serial tại kho (lô nhập nhiều lần dùng chung tồn), chưa theo dõi tồn còn lại riêng từng phiếu nhập | Đã chốt |
 | D-48 | Sửa cấu hình số chứng từ đã cấp số (BR-SYS-10) | Thay đổi chỉ có hiệu lực từ chu kỳ sau (đầu tháng sau nếu đặt lại theo tháng; đầu năm sau nếu theo năm hoặc đổi chu kỳ); chưa cấp số thì hiệu lực ngay. Chi nhánh và kỳ luôn in trong số. Chốt 2026-10-10 | Đã chốt |
+| D-64 | Trợ lý AI và OCR chứng từ (2026-10-27; thêm phân hệ M11, BR-AI-01..10, ADR-19) | Thiết kế theo `docs/14-ai-assistant-ocr.md`: React chỉ gọi Spring Boot; Spring Boot (module `ai`) xác thực, phân quyền, kiểm tra file, ánh xạ danh mục, thực thi công cụ tra cứu; dịch vụ Python FastAPI (PaddleOCR, Ollama) chạy nội bộ, không truy cập DB, không gửi dữ liệu ra Internet. OCR chỉ gợi ý điền form, không tạo / lưu chứng từ; phạm vi P1: đơn mua (kèm hóa đơn NCC), đơn bán; phiếu nhập / xuất kho lập tay ở đợt sau; hóa đơn bán ngoài phạm vi. Không lưu file chứng từ. Trợ lý chỉ có công cụ chỉ đọc theo quyền và phạm vi dữ liệu người dùng; lịch sử hội thoại giữ 90 ngày. Quyền `ocr:use`, `assistant:use`. Máy chủ Windows Server hoặc Linux đều được. Model AI chốt sau đợt thử nghiệm AI-0 trên máy đích | Đã chốt (model chờ AI-0) |
 
 ---
 

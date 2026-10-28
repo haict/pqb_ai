@@ -1,0 +1,514 @@
+{
+  "key": "INV05",
+  "file": "docs/INV05.pdf",
+  "documentType": "PURCHASE_INVOICE",
+  "kind": "PDF",
+  "degrade": null,
+  "sourceDocument": null,
+  "template": "INV_A",
+  "header": {
+    "documentNo": "0000120",
+    "documentDate": "2026-10-15",
+    "partnerName": "Nhà phân phối thiết bị mẫu",
+    "partnerTaxCode": "0300000001",
+    "partnerAddress": "TP. Hồ Chí Minh",
+    "currency": "VND",
+    "invoiceSeries": "1C26TAA"
+  },
+  "expectPartner": {
+    "status": "MATCHED",
+    "code": "NCC_01",
+    "by": "tax_code"
+  },
+  "lines": [
+    {
+      "code": null,
+      "name": "Bilirubin Diriect DPD (5x17/5x5,5ml)(Glenbio/Anh)",
+      "unit": "Hộp",
+      "quantity": "20",
+      "unitPrice": "5611000",
+      "discountPercent": null,
+      "taxRate": "5",
+      "printedAmount": "112220000",
+      "calculatedAmount": "112220000",
+      "expectProduct": {
+        "status": "MATCHED",
+        "code": "GL8S215",
+        "by": "name"
+      }
+    },
+    {
+      "code": null,
+      "name": "Cholesterol (9x50ml)(Glenbio/Anh)",
+      "unit": "Hộp",
+      "quantity": "20",
+      "unitPrice": "5950000",
+      "discountPercent": null,
+      "taxRate": "5",
+      "printedAmount": "119000000",
+      "calculatedAmount": "119000000",
+      "expectProduct": {
+        "status": "MATCHED",
+        "code": "GLM115",
+        "by": "name"
+      }
+    },
+    {
+      "code": null,
+      "name": "Gamma GT (6x50ml/5x12ml)(Glenbio/Anh)",
+      "unit": "Hộp",
+      "quantity": "10",
+      "unitPrice": "6966000",
+      "discountPercent": null,
+      "taxRate": "5",
+      "printedAmount": "69660000",
+      "calculatedAmount": "69660000",
+      "expectProduct": {
+        "status": "MATCHED",
+        "code": "GLM705",
+        "by": "name"
+      }
+    },
+    {
+      "code": null,
+      "name": "Prestige 24i Acid Wash Solution 500ml (Conc) (Glenbio/Anh)",
+      "unit": "Hộp",
+      "quantity": "10",
+      "unitPrice": "5954000",
+      "discountPercent": null,
+      "taxRate": "5",
+      "printedAmount": "59540000",
+      "calculatedAmount": "59540000",
+      "expectProduct": {
+        "status": "MATCHED",
+        "code": "SP2209",
+        "by": "name"
+      }
+    },
+    {
+      "code": null,
+      "name": "Creatinine Enzymatic (10x60ml/5x60ml)(Glenbio/Anh)",
+      "unit": "Hộp",
+      "quantity": "2",
+      "unitPrice": "6910000",
+      "discountPercent": null,
+      "taxRate": "5",
+      "printedAmount": "13820000",
+      "calculatedAmount": "13820000",
+      "expectProduct": {
+        "status": "MATCHED",
+        "code": "GLM226",
+        "by": "name"
+      }
+    },
+    {
+      "code": null,
+      "name": "CALCIUM ARSENAZO III (10x63ml)(Glenbio/Anh)",
+      "unit": "Hộp",
+      "quantity": "6",
+      "unitPrice": "4973000",
+      "discountPercent": null,
+      "taxRate": "5",
+      "printedAmount": "29838000",
+      "calculatedAmount": "29838000",
+      "expectProduct": {
+        "status": "MATCHED",
+        "code": "GL8S112",
+        "by": "name"
+      }
+    },
+    {
+      "code": null,
+      "name": "Creatinine (7x70ml 7x35ml)(Glenbio/Anh)",
+      "unit": "Hộp",
+      "quantity": "12",
+      "unitPrice": "8724000",
+      "discountPercent": null,
+      "taxRate": "5",
+      "printedAmount": "104688000",
+      "calculatedAmount": "104688000",
+      "expectProduct": {
+        "status": "MATCHED",
+        "code": "GLAU216",
+        "by": "name"
+      }
+    },
+    {
+      "code": null,
+      "name": "Cholesterol (10x70mL)(Glenbio/Anh)",
+      "unit": "Hộp",
+      "quantity": "20",
+      "unitPrice": "8923000",
+      "discountPercent": null,
+      "taxRate": "5",
+      "printedAmount": "178460000",
+      "calculatedAmount": "178460000",
+      "expectProduct": {
+        "status": "MATCHED",
+        "code": "GLAU714",
+        "by": "name"
+      }
+    },
+    {
+      "code": null,
+      "name": "Total bilirubin Vanadate (5x50ml/5x12ml)(Glenbio/Anh)",
+      "unit": "Hộp",
+      "quantity": "1",
+      "unitPrice": "1566000",
+      "discountPercent": null,
+      "taxRate": "5",
+      "printedAmount": "1566000",
+      "calculatedAmount": "1566000",
+      "expectProduct": {
+        "status": "MATCHED",
+        "code": "GLM265",
+        "by": "name"
+      }
+    },
+    {
+      "code": null,
+      "name": "Iron (5x30/3x10ml)(Glenbio/Anh)",
+      "unit": "Hộp",
+      "quantity": "2",
+      "unitPrice": "9009000",
+      "discountPercent": null,
+      "taxRate": "5",
+      "printedAmount": "18018000",
+      "calculatedAmount": "18018000",
+      "expectProduct": {
+        "status": "MATCHED",
+        "code": "GLM311",
+        "by": "name"
+      }
+    },
+    {
+      "code": null,
+      "name": "Triglycerides (5x50mL)(Glenbio/Anh)",
+      "unit": "Hộp",
+      "quantity": "4",
+      "unitPrice": "8798000",
+      "discountPercent": null,
+      "taxRate": "5",
+      "printedAmount": "35192000",
+      "calculatedAmount": "35192000",
+      "expectProduct": {
+        "status": "MATCHED",
+        "code": "GLAU8022",
+        "by": "name"
+      }
+    },
+    {
+      "code": null,
+      "name": "HsCRP Control Level 1 (10x2ml )(Glenbio/Anh)",
+      "unit": "Hộp",
+      "quantity": "12",
+      "unitPrice": "6211000",
+      "discountPercent": null,
+      "taxRate": "5",
+      "printedAmount": "74532000",
+      "calculatedAmount": "74532000",
+      "expectProduct": {
+        "status": "MATCHED",
+        "code": "GQC904",
+        "by": "name"
+      }
+    },
+    {
+      "code": null,
+      "name": "Phosphorus 4x22ml/4x10ml",
+      "unit": "Hộp",
+      "quantity": "12",
+      "unitPrice": "915000",
+      "discountPercent": null,
+      "taxRate": "5",
+      "printedAmount": "10980000",
+      "calculatedAmount": "10980000",
+      "expectProduct": {
+        "status": "MATCHED",
+        "code": "GLM312",
+        "by": "name"
+      }
+    },
+    {
+      "code": null,
+      "name": "AST (5x30ml/3x10ml)(Glenbio/Anh)",
+      "unit": "Hộp",
+      "quantity": "3",
+      "unitPrice": "5157000",
+      "discountPercent": null,
+      "taxRate": "5",
+      "printedAmount": "15471000",
+      "calculatedAmount": "15471000",
+      "expectProduct": {
+        "status": "MATCHED",
+        "code": "GLM117",
+        "by": "name"
+      }
+    },
+    {
+      "code": null,
+      "name": "CK Nac (4x50ml/1x50ml)(Glenbio/Anh)",
+      "unit": "Hộp",
+      "quantity": "1",
+      "unitPrice": "5880000",
+      "discountPercent": null,
+      "taxRate": "5",
+      "printedAmount": "5880000",
+      "calculatedAmount": "5880000",
+      "expectProduct": {
+        "status": "MATCHED",
+        "code": "GLAU119",
+        "by": "name"
+      }
+    },
+    {
+      "code": null,
+      "name": "Beckman olypus ise low serum standard (100ml)(Glenbio/Anh)",
+      "unit": "Lọ",
+      "quantity": "3",
+      "unitPrice": "3957000",
+      "discountPercent": null,
+      "taxRate": "5",
+      "printedAmount": "11871000",
+      "calculatedAmount": "11871000",
+      "expectProduct": {
+        "status": "MATCHED",
+        "code": "GLAUH1014",
+        "by": "name"
+      }
+    },
+    {
+      "code": null,
+      "name": "Alcohol Calibrator (2x5ml)(Glenbio/Anh)",
+      "unit": "Hộp",
+      "quantity": "2",
+      "unitPrice": "8619000",
+      "discountPercent": null,
+      "taxRate": "5",
+      "printedAmount": "17238000",
+      "calculatedAmount": "17238000",
+      "expectProduct": {
+        "status": "MATCHED",
+        "code": "GDOA9613",
+        "by": "name"
+      }
+    },
+    {
+      "code": null,
+      "name": "HDL/LDL Calibrator (5x1ml)(Glenbio/Anh)",
+      "unit": "Lọ",
+      "quantity": "4",
+      "unitPrice": "4151000",
+      "discountPercent": null,
+      "taxRate": "5",
+      "printedAmount": "16604000",
+      "calculatedAmount": "16604000",
+      "expectProduct": {
+        "status": "MATCHED",
+        "code": "GL9717",
+        "by": "name"
+      }
+    },
+    {
+      "code": null,
+      "name": "HBA1C (4x14ml/4x6ml/4x9ml/4x32mL)(Glenbio/Anh)",
+      "unit": "Hộp",
+      "quantity": "4",
+      "unitPrice": "9761000",
+      "discountPercent": null,
+      "taxRate": "5",
+      "printedAmount": "39044000",
+      "calculatedAmount": "39044000",
+      "expectProduct": {
+        "status": "MATCHED",
+        "code": "GLAU2204",
+        "by": "name"
+      }
+    },
+    {
+      "code": null,
+      "name": "CK MB (4x25ml/4x5ml)(Glenbio/Anh)",
+      "unit": "Hộp",
+      "quantity": "20",
+      "unitPrice": "7801000",
+      "discountPercent": null,
+      "taxRate": "5",
+      "printedAmount": "156020000",
+      "calculatedAmount": "156020000",
+      "expectProduct": {
+        "status": "MATCHED",
+        "code": "GLAU406",
+        "by": "name"
+      }
+    },
+    {
+      "code": null,
+      "name": "LDL Cholesterol Direct (2x45ml/1x30mL/1x1ml)(Glenbio/Anh)",
+      "unit": "Hộp",
+      "quantity": "5",
+      "unitPrice": "2587000",
+      "discountPercent": null,
+      "taxRate": "5",
+      "printedAmount": "12935000",
+      "calculatedAmount": "12935000",
+      "expectProduct": {
+        "status": "MATCHED",
+        "code": "GLAU6052",
+        "by": "name"
+      }
+    },
+    {
+      "code": null,
+      "name": "HDL Cholesterol Direct (5x60ml/5x20ml)(Glenbio/Anh)",
+      "unit": "Hộp",
+      "quantity": "20",
+      "unitPrice": "6513000",
+      "discountPercent": null,
+      "taxRate": "5",
+      "printedAmount": "130260000",
+      "calculatedAmount": "130260000",
+      "expectProduct": {
+        "status": "MATCHED",
+        "code": "GLM602",
+        "by": "name"
+      }
+    },
+    {
+      "code": null,
+      "name": "CK MB (6x21 ml/2x14.6 ml)(Glenbio/Anh)",
+      "unit": "Hộp",
+      "quantity": "6",
+      "unitPrice": "3481000",
+      "discountPercent": null,
+      "taxRate": "5",
+      "printedAmount": "20886000",
+      "calculatedAmount": "20886000",
+      "expectProduct": {
+        "status": "MATCHED",
+        "code": "GL8S406",
+        "by": "name"
+      }
+    },
+    {
+      "code": null,
+      "name": "Urine control level 2 (10x10ml)(Glenbio/Anh)",
+      "unit": "Lọ",
+      "quantity": "1",
+      "unitPrice": "8694000",
+      "discountPercent": null,
+      "taxRate": "5",
+      "printedAmount": "8694000",
+      "calculatedAmount": "8694000",
+      "expectProduct": {
+        "status": "MATCHED",
+        "code": "GL959",
+        "by": "name"
+      }
+    },
+    {
+      "code": null,
+      "name": "Albumin BCG (6x50ml)(Glenbio/Anh)",
+      "unit": "Hộp",
+      "quantity": "5",
+      "unitPrice": "2472000",
+      "discountPercent": null,
+      "taxRate": "5",
+      "printedAmount": "12360000",
+      "calculatedAmount": "12360000",
+      "expectProduct": {
+        "status": "MATCHED",
+        "code": "GLM307",
+        "by": "name"
+      }
+    },
+    {
+      "code": null,
+      "name": "C.R.P Hs (4x4ml/2x17ml)(Glenbio/Anh)",
+      "unit": "Hộp",
+      "quantity": "6",
+      "unitPrice": "8982000",
+      "discountPercent": null,
+      "taxRate": "5",
+      "printedAmount": "53892000",
+      "calculatedAmount": "53892000",
+      "expectProduct": {
+        "status": "MATCHED",
+        "code": "GLAU304",
+        "by": "name"
+      }
+    },
+    {
+      "code": null,
+      "name": "Bilirubin Direct Vanadate 4x36ml 4x9ml",
+      "unit": "Hộp",
+      "quantity": "10",
+      "unitPrice": "2998000",
+      "discountPercent": null,
+      "taxRate": "5",
+      "printedAmount": "29980000",
+      "calculatedAmount": "29980000",
+      "expectProduct": {
+        "status": "MATCHED",
+        "code": "GLC24022",
+        "by": "name"
+      }
+    },
+    {
+      "code": null,
+      "name": "AU SERRIES SYSTEM WASH SOLUTION 5000l (GLENBIO/ANH)",
+      "unit": "Hộp",
+      "quantity": "4",
+      "unitPrice": "8753000",
+      "discountPercent": null,
+      "taxRate": "5",
+      "printedAmount": "35012000",
+      "calculatedAmount": "35012000",
+      "expectProduct": {
+        "status": "MATCHED",
+        "code": "GLAUWASH5",
+        "by": "name"
+      }
+    },
+    {
+      "code": null,
+      "name": "Uric Acid (6x66ml/6x16ml)(Glenbio/Anh)",
+      "unit": "Hộp",
+      "quantity": "1",
+      "unitPrice": "3747000",
+      "discountPercent": null,
+      "taxRate": "5",
+      "printedAmount": "3747000",
+      "calculatedAmount": "3747000",
+      "expectProduct": {
+        "status": "MATCHED",
+        "code": "GL8S176",
+        "by": "name"
+      }
+    },
+    {
+      "code": null,
+      "name": "SAPPHIRE 800 CS ALKALINE WASH SOLUTION (2000ml) )Glenbio/Anh)",
+      "unit": "Hộp",
+      "quantity": "6",
+      "unitPrice": "6412000",
+      "discountPercent": null,
+      "taxRate": "5",
+      "printedAmount": "38472000",
+      "calculatedAmount": "38472000",
+      "expectProduct": {
+        "status": "MATCHED",
+        "code": "GL8S911",
+        "by": "name"
+      }
+    }
+  ],
+  "totals": {
+    "goods": "1435880000",
+    "vat": "71794000",
+    "total": "1507674000"
+  },
+  "notes": [
+    "30 dòng, nhiều trang (chỉ PDF)"
+  ],
+  "synthetic": true
+}

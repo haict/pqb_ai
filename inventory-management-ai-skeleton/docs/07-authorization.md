@@ -236,6 +236,16 @@ V23 xóa `sales-quote:*`, `sales-delivery:*`, `sales-invoice:*`, `sales-quick-sa
 - Số liệu theo phạm vi kho của người xem (BR-RPT-12): phạm vi toàn công ty xem mọi kho; phạm vi chi nhánh xem kho của chi nhánh và kho được gán; chọn kho ngoài phạm vi: 400 `warehouseId`.
 - Màn hình chọn lô / serial dùng API `/inventory/lots`, `/inventory/serials` nên người xem cần thêm `inventory:view`.
 
+### 2.11 Quyền AI (M11, D-64, migration V39, V40)
+| Quyền | Ý nghĩa | Vai trò mặc định |
+|---|---|---|
+| `ocr:use` | Nhận dạng chứng từ (OCR) để điền gợi ý vào form; kèm quyền lập form đích (`purchase-order:create` cho form đơn mua, `sales-order:create` cho form đơn bán, AI-2). Chỉ trả gợi ý, không lưu | Vai trò đang có `purchase-order:create` hoặc `sales-order:create` (Q-10) |
+| `assistant:use` | Dùng trợ lý AI hỏi đáp cách dùng ERP (AI-3); chỉ đọc tài liệu hướng dẫn, không xem dữ liệu kinh doanh | Mọi vai trò có tại thời điểm chạy V40 (Q-10). Vai trò tạo sau phải gán tay |
+
+- Module nhóm quyền: `AI`. `GET /ai/health` chỉ cần đăng nhập.
+- Phạm vi: công ty và chi nhánh gửi kèm phải thuộc phạm vi của người dùng (ngoài phạm vi: 404). Danh mục đối chiếu là danh mục dùng chung của công ty.
+- Hội thoại trợ lý chỉ chủ sở hữu đọc / ghi / xóa; hội thoại của người khác trả 404 (chống IDOR). Không có quyền xem hội thoại của người khác, kể cả quản trị qua ứng dụng.
+
 ## 3. Phạm vi dữ liệu (BR-SYS-04, BR-SYS-06)
 | Loại | Ý nghĩa |
 |---|---|

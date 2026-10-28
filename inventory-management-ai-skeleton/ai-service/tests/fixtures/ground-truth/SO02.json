@@ -1,0 +1,111 @@
+{
+  "key": "SO02",
+  "file": "docs/SO02.png",
+  "documentType": "SALES_ORDER",
+  "kind": "PNG",
+  "degrade": null,
+  "sourceDocument": null,
+  "template": "PO_CUSTOMER",
+  "header": {
+    "documentNo": "38/PK-2026",
+    "documentDate": "2026-10-11",
+    "partnerName": "Phòng khám đa khoa mẫu",
+    "partnerTaxCode": "0100000002",
+    "partnerAddress": "Hà Nội",
+    "currency": "VND",
+    "deliveryAddress": "Phòng khám đa khoa mẫu, Hà Nội"
+  },
+  "expectPartner": {
+    "status": "MATCHED",
+    "code": "KH_PK01",
+    "by": "tax_code"
+  },
+  "lines": [
+    {
+      "code": null,
+      "name": "ALP DGKC (12x70/4x40ml)(Glenbio/Anh)",
+      "unit": "Hộp",
+      "quantity": "10",
+      "unitPrice": null,
+      "discountPercent": null,
+      "taxRate": null,
+      "printedAmount": null,
+      "calculatedAmount": null,
+      "expectProduct": {
+        "status": "MATCHED",
+        "code": "GLAU721",
+        "by": "name"
+      }
+    },
+    {
+      "code": null,
+      "name": "HBA1C Control (2x0.5mL)(Glenbio/Anh)",
+      "unit": "Hộp",
+      "quantity": "20",
+      "unitPrice": null,
+      "discountPercent": null,
+      "taxRate": null,
+      "printedAmount": null,
+      "calculatedAmount": null,
+      "expectProduct": {
+        "status": "MATCHED",
+        "code": "GL9104",
+        "by": "name"
+      }
+    },
+    {
+      "code": null,
+      "name": "Alcohol Cotrol (2x1ml)(Glenbio/Anh)",
+      "unit": "Hộp",
+      "quantity": "3",
+      "unitPrice": null,
+      "discountPercent": null,
+      "taxRate": null,
+      "printedAmount": null,
+      "calculatedAmount": null,
+      "expectProduct": {
+        "status": "MATCHED",
+        "code": "GDOA9633",
+        "by": "name"
+      }
+    },
+    {
+      "code": null,
+      "name": "Triglycerides (12x65ml)(Glenbio/Anh)",
+      "unit": "Hộp",
+      "quantity": "2",
+      "unitPrice": null,
+      "discountPercent": null,
+      "taxRate": null,
+      "printedAmount": null,
+      "calculatedAmount": null,
+      "expectProduct": {
+        "status": "AMBIGUOUS",
+        "candidates": [
+          "GL8S104",
+          "GLM114"
+        ]
+      }
+    },
+    {
+      "code": null,
+      "name": "Ống nghiệm EDTA K2 2ml (khay 100 ống)",
+      "unit": "Khay",
+      "quantity": "5",
+      "unitPrice": null,
+      "discountPercent": null,
+      "taxRate": null,
+      "printedAmount": null,
+      "calculatedAmount": null,
+      "expectProduct": {
+        "status": "NOT_FOUND"
+      }
+    }
+  ],
+  "totals": null,
+  "notes": [
+    "Không có mã, không có giá: đơn giá để trống (server lấy bảng giá)",
+    "Dòng 4 AMBIGUOUS, dòng 5 NOT_FOUND"
+  ],
+  "synthetic": true
+}

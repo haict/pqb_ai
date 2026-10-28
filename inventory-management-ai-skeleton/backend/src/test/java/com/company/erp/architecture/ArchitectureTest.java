@@ -22,7 +22,7 @@ class ArchitectureTest {
     private static final String ROOT = "com.company.erp";
     private static final List<String> BUSINESS_MODULES = List.of(
             "system", "masterdata", "purchasing", "inventory", "sales",
-            "tender", "finance", "accounting", "equipment", "reporting");
+            "tender", "finance", "accounting", "equipment", "reporting", "ai");
 
     private static JavaClasses classes;
 
@@ -60,6 +60,15 @@ class ArchitectureTest {
         String[] businessPackages = BUSINESS_MODULES.stream().map(m -> ROOT + "." + m + "..").toArray(String[]::new);
         noClasses().that().resideInAPackage(ROOT + ".common..")
                 .should().dependOnClassesThat().resideInAnyPackage(businessPackages)
+                .check(classes);
+    }
+
+    @Test
+    @DisplayName("Không module nào phụ thuộc module ai (D-64: ERP chạy đủ khi tắt AI)")
+    void noModuleDependsOnAi() {
+        noClasses().that().resideOutsideOfPackage(ROOT + ".ai..")
+                .and().resideOutsideOfPackage(ROOT)
+                .should().dependOnClassesThat().resideInAPackage(ROOT + ".ai..")
                 .check(classes);
     }
 

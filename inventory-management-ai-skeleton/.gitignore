@@ -15,3 +15,9 @@ logs/
 # Private key ký license (D-59): chỉ nhà cung cấp giữ, không commit. Ngoại lệ: khóa test của test tự động.
 *.private.key
 !backend/src/test/resources/license/test.private.key
+
+# AI Service (D-64): venv, cache token OCR, cache Python
+ai-service/.venv/
+ai-service/.cache/
+__pycache__/
+.pytest_cache/

@@ -116,3 +116,57 @@ cd backend  && mvn clean verify          # đọc datasource test từ ~/.erp/ap
 cd frontend && npm run lint && npm test && npm run build
 ```
 Không có file local và không có `ERP_TEST_DB_URL` thì test tích hợp bị bỏ qua và **chưa được tính là đạt**. CI dùng `ERP_TEST_DB_URL`, `ERP_TEST_DB_USERNAME`, `ERP_TEST_DB_PASSWORD`.
+
+## 6. AI Service (D-64, `ai-service/`)
+Python 3.11, chạy bằng `python -m app` trong venv `ai-service/.venv`. Cấu hình bằng biến môi trường; máy dev đặt trong `~/.erp/ai-service.env` (ngoài repo) và trỏ `AI_SERVICE_ENV_FILE` tới file đó. Mẫu: `ai-service/.env.example`. Hướng dẫn cài: `ai-service/README.md`.
+
+| Biến | Ý nghĩa | Mặc định |
+|---|---|---|
+| `AI_SERVICE_ENV_FILE` | Đường dẫn file biến môi trường (chỉ dùng ở dev) | không có |
+| `AI_SERVICE_HOST`, `AI_SERVICE_PORT` | Địa chỉ lắng nghe; chỉ `127.0.0.1` trừ khi tách máy AI (Q-08) | `127.0.0.1`, `8090` |
+| `AI_SERVICE_API_KEY` | Secret header `X-AI-Service-Key`, trùng `ai.service.api-key` của Spring; ≥ 16 ký tự | bắt buộc |
+| `AI_SERVICE_ENABLE_DOCS` | Bật `/docs` (Swagger); chỉ dev | `false` |
+| `OCR_MODEL_DIR` | Thư mục model cài sẵn, mỗi model một thư mục con | bắt buộc |
+| `OCR_DET_MODEL`, `OCR_REC_MODEL` | Tên model (docs/14 mục 9.4) | `PP-OCRv5_mobile_det`, `latin_PP-OCRv5_mobile_rec` |
+| `OCR_CPU_THREADS` | Số luồng CPU của PaddleOCR | `4` |
+| `OCR_MAX_FILE_SIZE` | Dung lượng tối đa (byte) | `10485760` |
+| `OCR_MAX_PDF_PAGES` | Số trang PDF tối đa | `5` |
+| `OCR_MAX_IMAGE_PIXELS` | Số điểm ảnh tối đa mỗi trang | `40000000` |
+| `OCR_MAX_IMAGE_SIDE` | Cạnh dài tối đa sau khi thu nhỏ (px) | `2500` |
+| `OCR_PDF_DPI` | Độ phân giải render PDF | `144` |
+| `OCR_MIN_CONFIDENCE` | Dưới ngưỡng thì trường `LOW_CONFIDENCE` | `0.85` |
+| `OCR_TEXT_DIACRITICS_RELIABLE` | `false`: trường văn bản luôn `LOW_CONFIDENCE` (model thiếu chữ có dấu) | `false` |
+| `OLLAMA_BASE_URL` | Ollama nội bộ (AI-3) | `http://127.0.0.1:11434` |
+| `CHAT_MODEL` | Model chat cài sẵn trên Ollama (không tự tải) | `qwen2.5:3b` |
+| `CHAT_TIMEOUT_SECONDS` | Chờ Ollama trả lời; ngắn hơn `ai.chat.timeout` của Spring | `80` |
+| `CHAT_MAX_ANSWER_TOKENS`, `CHAT_TEMPERATURE`, `CHAT_CONTEXT_TOKENS` | Giới hạn câu trả lời, độ ngẫu nhiên, ngữ cảnh model | `400`, `0.2`, `4096` |
+| `CHAT_MAX_QUESTION_CHARS` | Độ dài câu hỏi tối đa | `2000` |
+| `RAG_INDEX_DIR` | Thư mục chỉ mục tài liệu hướng dẫn (`guide-index.json`); thiếu thì trợ lý không khả dụng, OCR vẫn chạy | không có |
+| `RAG_TOP_K`, `RAG_MIN_SCORE`, `RAG_MAX_CONTEXT_CHARS` | Số đoạn tài liệu tối đa; điểm BM25 tối thiểu (thấp hơn thì trả "chưa có trong tài liệu", không gọi LLM); tổng ký tự đoạn đưa vào prompt | `3`, `5.0`, `6000` |
+| `LOG_LEVEL` | Mức log | `INFO` |
+
+### 6.1 Backend gọi AI Service (`ai.*` trong `application.yml`, AI-1b)
+| Biến môi trường / khóa | Ý nghĩa | Mặc định |
+|---|---|---|
+| `AI_ENABLED` / `ai.enabled` | Bật chức năng AI; tắt thì nút nhận dạng ẩn, API trả 503 | `false` |
+| `AI_SERVICE_BASE_URL` / `ai.service.base-url` | Địa chỉ AI Service | `http://127.0.0.1:8090` |
+| `AI_SERVICE_API_KEY` / `ai.service.api-key` | Trùng `AI_SERVICE_API_KEY` của AI Service; bắt buộc khi bật (≥ 16 ký tự, không khởi động được nếu thiếu) | trống |
+| `ai.service.connect-timeout`, `ai.service.health-interval` | Chờ kết nối; chu kỳ kiểm tra AI Service | `2s`, `30s` |
+| `ai.ocr.timeout`, `ai.ocr.max-file-size`, `ai.ocr.max-image-pixels` | Thời gian chờ nhận dạng; giới hạn file | `60s`, `10MB`, `40000000` |
+| `ai.ocr.max-concurrent`, `ai.ocr.acquire-timeout` | Số yêu cầu OCR cùng lúc; chờ suất trước khi trả `AI_BUSY` | `1`, `3s` |
+| `ai.ocr.amount-tolerance`, `ai.ocr.max-candidates`, `ai.ocr.name-similarity` | Dung sai kiểm tra tiền (đồng); số ứng viên danh mục; độ giống tối thiểu của tên hàng / tên đối tác | `1`, `10`, `0.85` |
+| `ai.chat.timeout`, `ai.chat.max-concurrent`, `ai.chat.acquire-timeout` | Chờ một câu trả lời; số câu hỏi xử lý cùng lúc; chờ suất trước khi trả `AI_BUSY` (AI-3) | `90s`, `1`, `3s` |
+| `ai.chat.max-message-chars`, `ai.chat.max-history-turns`, `ai.chat.max-context-chars` | Độ dài câu hỏi; số tin nhắn trước gửi kèm; tổng ký tự gửi kèm | `2000`, `10`, `12000` |
+| `ai.chat.retention-days`, `ai.chat.retention-cron` | Giữ hội thoại (Q-05); lịch xóa hội thoại quá hạn (`-` để tắt) | `90`, `0 30 2 * * *` |
+| `ai.rate-limit.per-user-per-minute` | Số câu hỏi tối đa của một người trong 60 giây (đếm trong bộ nhớ, một máy chủ) | `10` |
+
+Máy dev: đặt `ai.enabled: true`, `ai.service.base-url`, `ai.service.api-key` trong `~/.erp/application-local.yml` rồi chạy AI Service (`ai-service/README.md`). Test tự động (`application-test.yml`) bật AI với máy chủ giả lập trong test ở cổng `18090`, không cần Python.
+
+Chỉ mục tài liệu hướng dẫn cho trợ lý (AI-3), chạy lại mỗi khi `docs/13-huong-dan-su-dung.docx` thay đổi rồi khởi động lại AI Service:
+```
+cd ai-service
+.venv\Scripts\python -m tools.build_rag_index --source ..\docs\13-huong-dan-su-dung.docx --out %USERPROFILE%\.erp\ai-rag --exclude 4,13
+```
+Mặc định bỏ chương 4 (việc chờ duyệt, ủy quyền duyệt: đã bỏ theo D-61) và chương 13 (chức năng chưa có). Máy dev đặt `RAG_INDEX_DIR` trong `~/.erp/ai-service.env`.
+
+Test: `cd ai-service && .venv\Scripts\python -m pytest`. Test model thật cần thêm `OCR_MODEL_DIR` và `AI_SAMPLES_DIR` (bộ chứng từ giả lập `~/.erp/ai-samples/synthetic`); thiếu thì bị bỏ qua và **chưa được tính là đạt**.

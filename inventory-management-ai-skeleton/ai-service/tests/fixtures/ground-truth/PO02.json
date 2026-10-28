@@ -1,0 +1,99 @@
+{
+  "key": "PO02",
+  "file": "docs/PO02.png",
+  "documentType": "PURCHASE_ORDER",
+  "kind": "PNG",
+  "degrade": null,
+  "sourceDocument": null,
+  "template": "PO_BUY",
+  "header": {
+    "documentNo": "PQB-PO-2026-0052",
+    "documentDate": "2026-10-06",
+    "partnerName": "Nhà phân phối thiết bị mẫu",
+    "partnerTaxCode": "0300000001",
+    "partnerAddress": "TP. Hồ Chí Minh",
+    "currency": "VND"
+  },
+  "expectPartner": {
+    "status": "MATCHED",
+    "code": "NCC_01",
+    "by": "tax_code"
+  },
+  "lines": [
+    {
+      "code": "GLAU716",
+      "name": "Glucose HEX (4x25ml/4x12mL)(Glenbio/Anh)",
+      "unit": "Hộp",
+      "quantity": "3",
+      "unitPrice": "2958000",
+      "discountPercent": null,
+      "taxRate": "5",
+      "printedAmount": "8874000",
+      "calculatedAmount": "8874000",
+      "expectProduct": {
+        "status": "MATCHED",
+        "code": "GLAU716",
+        "by": "code"
+      }
+    },
+    {
+      "code": "GLAU2201",
+      "name": "HBA1C (1x14ml/1x6ml/1x9ml/1x32ml)(Glenbio/Anh)",
+      "unit": "Hộp",
+      "quantity": "3",
+      "unitPrice": "6779000",
+      "discountPercent": null,
+      "taxRate": "5",
+      "printedAmount": "20337000",
+      "calculatedAmount": "20337000",
+      "expectProduct": {
+        "status": "MATCHED",
+        "code": "GLAU2201",
+        "by": "code"
+      }
+    },
+    {
+      "code": "GLAUW2AL",
+      "name": "AU W2 Alkai Wash Solution (250ml)(Glenbio/Anh)",
+      "unit": "Hộp",
+      "quantity": "3",
+      "unitPrice": "3421000",
+      "discountPercent": null,
+      "taxRate": "5",
+      "printedAmount": "10263000",
+      "calculatedAmount": "10263000",
+      "expectProduct": {
+        "status": "MATCHED",
+        "code": "GLAUW2AL",
+        "by": "code"
+      }
+    },
+    {
+      "code": null,
+      "name": "Triglycerides (12x65ml)(Glenbio/Anh)",
+      "unit": "Hộp",
+      "quantity": "3",
+      "unitPrice": "2450000",
+      "discountPercent": null,
+      "taxRate": "5",
+      "printedAmount": "7350000",
+      "calculatedAmount": "7350000",
+      "expectProduct": {
+        "status": "AMBIGUOUS",
+        "candidates": [
+          "GL8S104",
+          "GLM114"
+        ]
+      }
+    }
+  ],
+  "totals": {
+    "goods": "46824000",
+    "vat": "2341200",
+    "total": "49165200"
+  },
+  "notes": [
+    "Dòng 4 không ghi mã, tên trùng 2 mã: AMBIGUOUS"
+  ],
+  "synthetic": true
+}

@@ -54,6 +54,7 @@ Không có endpoint cập nhật trực tiếp số dư tồn kho, công nợ, q
 - Cùng key + nội dung khác → `409 IDEMPOTENCY_KEY_REUSED`.
 - Lưu key và kết quả trong bảng riêng có thời hạn; ghi trong cùng transaction với nghiệp vụ.
 - Ngoài key, server vẫn kiểm tra trạng thái (ghi sổ chứng từ đã POSTED → `409 INVALID_DOCUMENT_STATE`).
+- Ngoại lệ (D-64): `POST /ocr/recognitions` không bắt buộc key vì chỉ trả gợi ý, không tạo dữ liệu nghiệp vụ. Gửi tin nhắn trợ lý vẫn bắt buộc key.
 
 ## 6. Phản hồi và lỗi
 Thành công:
@@ -80,8 +81,13 @@ Lỗi:
 | 404 | Không tồn tại hoặc ngoài phạm vi dữ liệu |
 | 409 | Xung đột: trùng khóa nghiệp vụ, sai trạng thái, sửa đồng thời, idempotency |
 | 422 | Vi phạm quy tắc nghiệp vụ (`INSUFFICIENT_STOCK`, `PERIOD_LOCKED`, `CONTRACT_QUANTITY_EXCEEDED`, `CREDIT_LIMIT_EXCEEDED`) |
+| 413 | File vượt dung lượng cho phép (`OCR_FILE_TOO_LARGE`) |
+| 415 | Loại file thật không được hỗ trợ (`OCR_UNSUPPORTED_TYPE`) |
 | 423 | Hết thời gian chờ khóa dữ liệu (`LOCK_TIMEOUT`), người dùng thử lại |
+| 429 | Vượt giới hạn đồng thời / tần suất (`AI_BUSY`), người dùng thử lại |
 | 500 | Lỗi hệ thống (thông báo chung, không lộ chi tiết) |
+| 503 | Dịch vụ phụ thuộc không khả dụng (`AI_SERVICE_UNAVAILABLE`) |
+| 504 | Dịch vụ phụ thuộc quá thời gian (`AI_TIMEOUT`) |
 
 - Mã lỗi ổn định, liệt kê trong `docs/04-api-specification.md`.
 - Thông báo tiếng Việt, dễ hiểu; không chứa stack trace, SQL, tên bảng.

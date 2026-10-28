@@ -14,6 +14,7 @@ import {
   Select,
   Space,
   Table,
+  Tooltip,
   Typography,
   type FormInstance,
   type TableColumnsType,
@@ -46,6 +47,8 @@ import type {
   SalesReturnType as PurchaseReturnType,
 } from '../types';
 import { DecimalInput } from '../../../shared/components/DecimalInput';
+import { LineGrid, LineGridRow } from '../../../shared/components/LineGrid';
+import { lineCellStyle, type LineGridColumn } from '../../../shared/components/lineGridStyles';
 import { BranchCol } from '../../../shared/components/BranchCol';
 
 interface LineForm {
@@ -468,37 +471,60 @@ function ReturnFields({
         </Col>
       </Row>
       <Form.List name="lines">
-        {(fields, { add, remove }) => (
-          <>
-            {fields.map((field) => (
-              <ReturnLineFields
-                key={field.key}
-                form={form}
-                name={field.name}
-                goods={documentType !== 'GGB'}
-                sources={sources}
-                options={sources.map((line) => ({ value: sourceKey(line), label: sourceLabel(line) }))}
-                onRemove={() => remove(field.name)}
-              />
-            ))}
-            <Space wrap>
-              <Button icon={<PlusOutlined />} disabled={sources.length === 0} onClick={addAll}>
-                Thêm mọi dòng còn lại
-              </Button>
-              <Button icon={<PlusOutlined />} onClick={() => add({})}>
-                Thêm dòng
-              </Button>
-            </Space>
-          </>
-        )}
+        {(fields, { add, remove }) => {
+          const goods = documentType !== 'GGB';
+          const columns = returnColumns(goods);
+          return (
+            <LineGrid
+              columns={columns}
+              minWidth={goods ? 1100 : 800}
+              onAdd={() => add({})}
+              actions={
+                <Button icon={<PlusOutlined />} disabled={sources.length === 0} onClick={addAll}>
+                  Thêm mọi dòng còn lại
+                </Button>
+              }
+            >
+              {fields.map((field) => (
+                <ReturnLineFields
+                  key={field.key}
+                  form={form}
+                  name={field.name}
+                  columns={columns}
+                  goods={goods}
+                  sources={sources}
+                  options={sources.map((line) => ({ value: sourceKey(line), label: sourceLabel(line) }))}
+                  onRemove={() => remove(field.name)}
+                />
+              ))}
+            </LineGrid>
+          );
+        }}
       </Form.List>
     </>
   );
 }
 
+function returnColumns(goods: boolean): LineGridColumn[] {
+  return goods
+    ? [
+        { title: 'Dòng đơn bán (lô đã xuất)', width: 'minmax(320px, 2fr)' },
+        { title: 'Số lượng trả', width: '120px' },
+        { title: 'Nhập lại trạng thái', width: '160px', tooltip: 'Trống: cách ly' },
+        { title: 'Serial', width: '220px', tooltip: 'Chỉ chọn với hàng quản lý serial' },
+        { title: 'Ghi chú', width: 'minmax(160px, 1fr)' },
+      ]
+    : [
+        { title: 'Dòng đơn bán', width: 'minmax(320px, 2fr)' },
+        { title: 'Số tiền giảm (trước thuế)', width: '180px' },
+        { title: 'Ghi chú', width: 'minmax(200px, 1fr)' },
+      ];
+}
+
 function ReturnLineFields({
   form,
   name,
+  columns,
   goods,
   sources,
   options,
@@ -506,6 +532,7 @@ function ReturnLineFields({
 }: {
   form: FormInstance<ReturnForm>;
   name: number;
+  columns: LineGridColumn[];
   goods: boolean;
   sources: ReturnableLine[];
   options: { value: string; label: string }[];
@@ -519,74 +546,60 @@ function ReturnLineFields({
       ? [...options, { value: current, label: `Dòng nguồn ${current}` }]
       : options;
   return (
-    <Card size="small" style={{ marginBottom: 8 }}>
-      <Row gutter={8}>
-        <Col xs={24} md={goods ? 10 : 14}>
+    <LineGridRow columns={columns}>
+      <Form.Item
+        name={[name, 'sourceKey']}
+        style={lineCellStyle}
+        rules={[{ required: true, message: 'Chọn dòng nguồn' }]}
+      >
+        <Select
+          showSearch
+          optionFilterProp="label"
+          options={allOptions}
+          onChange={(value: string) => {
+            const picked = sources.find((line) => sourceKey(line) === value);
+            if (picked) {
+              form.setFieldValue(['lines', name, 'quantity'], picked.remainingQuantity);
+              form.setFieldValue(['lines', name, 'amount'], picked.remainingAmount);
+              form.setFieldValue(['lines', name, 'serialNumbers'], []);
+            }
+          }}
+        />
+      </Form.Item>
+      {goods ? (
+        <>
           <Form.Item
-            name={[name, 'sourceKey']}
-            label={goods ? 'Dòng đơn bán (lô đã xuất)' : 'Dòng đơn bán'}
-            rules={[{ required: true, message: 'Chọn dòng nguồn' }]}
+            name={[name, 'quantity']}
+            style={lineCellStyle}
+            rules={[{ required: true, message: 'Nhập số lượng' }]}
           >
+            <DecimalInput min={0.001} />
+          </Form.Item>
+          <Form.Item name={[name, 'qualityStatus']} style={lineCellStyle}>
+            <Select allowClear options={QUALITY_OPTIONS} placeholder="Cách ly" />
+          </Form.Item>
+          <Form.Item name={[name, 'serialNumbers']} style={lineCellStyle}>
             <Select
-              showSearch
-              optionFilterProp="label"
-              options={allOptions}
-              onChange={(value: string) => {
-                const picked = sources.find((line) => sourceKey(line) === value);
-                if (picked) {
-                  form.setFieldValue(['lines', name, 'quantity'], picked.remainingQuantity);
-                  form.setFieldValue(['lines', name, 'amount'], picked.remainingAmount);
-                  form.setFieldValue(['lines', name, 'serialNumbers'], []);
-                }
-              }}
+              mode="multiple"
+              options={(source?.serialNumbers ?? []).map((serial) => ({ value: serial, label: serial }))}
             />
           </Form.Item>
-        </Col>
-        {goods ? (
-          <>
-            <Col xs={12} md={3}>
-              <Form.Item
-                name={[name, 'quantity']}
-                label="Số lượng trả"
-                rules={[{ required: true, message: 'Nhập số lượng' }]}
-              >
-                <DecimalInput min={0.001} />
-              </Form.Item>
-            </Col>
-            <Col xs={12} md={4}>
-              <Form.Item name={[name, 'qualityStatus']} label="Nhập lại trạng thái" extra="Trống: cách ly">
-                <Select allowClear options={QUALITY_OPTIONS} />
-              </Form.Item>
-            </Col>
-            <Col xs={22} md={6}>
-              <Form.Item name={[name, 'serialNumbers']} label="Serial (hàng quản lý serial)">
-                <Select
-                  mode="multiple"
-                  options={(source?.serialNumbers ?? []).map((serial) => ({ value: serial, label: serial }))}
-                />
-              </Form.Item>
-            </Col>
-          </>
-        ) : (
-          <Col xs={22} md={9}>
-            <Form.Item
-              name={[name, 'amount']}
-              label="Số tiền giảm (trước thuế)"
-              rules={[{ required: true, message: 'Nhập số tiền' }]}
-            >
-              <InputNumber<number> min={1} {...moneyInputProps} />
-            </Form.Item>
-          </Col>
-        )}
-        <Col xs={2} md={1}>
-          <Button style={{ marginTop: 30 }} icon={<DeleteOutlined />} onClick={onRemove} />
-        </Col>
-        <Col xs={24}>
-          <Form.Item name={[name, 'description']} label="Ghi chú">
-            <Input maxLength={500} />
-          </Form.Item>
-        </Col>
-      </Row>
-    </Card>
+        </>
+      ) : (
+        <Form.Item
+          name={[name, 'amount']}
+          style={lineCellStyle}
+          rules={[{ required: true, message: 'Nhập số tiền' }]}
+        >
+          <InputNumber<number> min={1} {...moneyInputProps} />
+        </Form.Item>
+      )}
+      <Form.Item name={[name, 'description']} style={lineCellStyle}>
+        <Input maxLength={500} />
+      </Form.Item>
+      <Tooltip title="Xóa dòng">
+        <Button icon={<DeleteOutlined />} aria-label="Xóa dòng" onClick={onRemove} />
+      </Tooltip>
+    </LineGridRow>
   );
 }

@@ -1,4 +1,4 @@
-import { CopyOutlined, DeleteOutlined, PlusOutlined, UploadOutlined } from '@ant-design/icons';
+import { CopyOutlined, DeleteOutlined, UploadOutlined } from '@ant-design/icons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   App,
@@ -26,6 +26,8 @@ import { useServerTable } from '../../../shared/api/useServerTable';
 import { useCan } from '../../../shared/auth/authContext';
 import { DecimalInput } from '../../../shared/components/DecimalInput';
 import { FormModal } from '../../../shared/components/FormModal';
+import { LineGrid, LineGridRow, NotApplicable } from '../../../shared/components/LineGrid';
+import { lineCellStyle, type LineGridColumn } from '../../../shared/components/lineGridStyles';
 import { ListToolbar } from '../../../shared/components/ListToolbar';
 import { formatMoney } from '../../accounting/labels';
 import { moneyInputProps } from '../../finance/components/debtInputs';
@@ -42,6 +44,8 @@ import { StockInSlipDownload, StockInSlipPrint } from '../components/StockInSlip
 import { CompanyPrintButton } from '../../../shared/components/CompanyPrintButton';
 import { SourceJournal } from '../components/SourceJournal';
 import { useProductUnits } from '../components/productUnits';
+import { OcrLineHints, OcrNotes } from '../../ai/components/OcrHints';
+import { PurchaseOcrButton } from '../components/PurchaseOcrButton';
 import { orderActions, PURCHASE_STATUSES } from '../labels';
 import type {
   ImportedOrderLine,
@@ -68,6 +72,9 @@ interface LineForm {
   expiryDate?: Dayjs;
   serialNumbers?: string[];
   note?: string;
+  /** Chỉ hiển thị, không gửi server: điều cần kiểm tra của dòng điền từ chứng từ nhận dạng (D-64). */
+  ocrHints?: string[];
+  ocrLevel?: 'warning' | 'error';
 }
 
 interface OrderForm {
@@ -498,6 +505,7 @@ function OrderFields({
   const warehouses = useWarehouses();
   const companyId = useCompanyId();
   const [importing, setImporting] = useState(false);
+  const [ocrNotes, setOcrNotes] = useState<string[]>([]);
   const branchId = Form.useWatch('branchId', form) as number | undefined;
   const supplierId = Form.useWatch('supplierId', form) as number | undefined;
   const documentDate = Form.useWatch('documentDate', form) as Dayjs | undefined;
@@ -607,11 +615,7 @@ function OrderFields({
         Hóa đơn của nhà cung cấp không bắt buộc; nhập thì đủ ký hiệu, số, ngày. Hàng nhiều lô: mỗi lô một
         dòng.
       </Typography.Text>
-      <div style={{ display: 'flex', justifyContent: 'flex-end', margin: '8px 0' }}>
-        <Button icon={<UploadOutlined />} onClick={() => setImporting(true)}>
-          Nhập dòng từ Excel
-        </Button>
-      </div>
+      <OcrNotes notes={ocrNotes} onClose={() => setOcrNotes([])} />
       <ImportModal<OrderLineImportResult>
         open={importing}
         title="Nhập dòng hàng đơn mua từ Excel"
@@ -626,24 +630,50 @@ function OrderFields({
       <Form.List name="lines">
         {(fields, { add, remove }) => (
           <>
-            {fields.map((field) => (
-              <OrderLineFields
-                key={field.key}
-                form={form}
-                name={field.name}
-                removable={fields.length > 1}
-                onRemove={() => remove(field.name)}
-              />
-            ))}
-            <Button type="dashed" block icon={<PlusOutlined />} onClick={() => add({})}>
-              Thêm dòng
-            </Button>
+            <LineGrid
+              columns={LINE_COLUMNS}
+              minWidth={LINE_GRID_MIN_WIDTH}
+              onAdd={() => add({})}
+              actions={
+                <Space>
+                  <PurchaseOcrButton form={form} companyId={companyId} onNotes={setOcrNotes} />
+                  <Button icon={<UploadOutlined />} onClick={() => setImporting(true)}>
+                    Nhập dòng từ Excel
+                  </Button>
+                </Space>
+              }
+            >
+              {fields.map((field) => (
+                <OrderLineFields
+                  key={field.key}
+                  form={form}
+                  name={field.name}
+                  removable={fields.length > 1}
+                  onRemove={() => remove(field.name)}
+                />
+              ))}
+            </LineGrid>
           </>
         )}
       </Form.List>
     </>
   );
 }
+
+const LINE_COLUMNS: LineGridColumn[] = [
+  { title: 'Hàng hóa', width: '260px' },
+  { title: 'Đơn vị', width: '100px' },
+  { title: 'Số lượng', width: '100px' },
+  { title: 'Đơn giá', width: '130px' },
+  { title: 'CK %', width: '70px' },
+  { title: 'Thuế suất', width: '110px' },
+  { title: 'Số lô', width: '120px' },
+  { title: 'Ngày sản xuất', width: '125px' },
+  { title: 'Hạn dùng', width: '125px' },
+  { title: 'Serial', width: '180px', tooltip: 'Gõ serial rồi Enter; số serial = số lượng theo đơn vị cơ sở' },
+  { title: 'Ghi chú', width: 'minmax(140px, 1fr)' },
+];
+const LINE_GRID_MIN_WIDTH = 1500;
 
 function OrderLineFields({
   form,
@@ -660,123 +690,114 @@ function OrderLineFields({
   const productId = Form.useWatch(['lines', name, 'productId'], form) as number | undefined;
   const service = Form.useWatch(['lines', name, 'serviceLine'], form) as boolean | undefined;
   const { product, options } = useProductUnits(productId);
+  const lotTracked = !service && product?.lotTracked;
+  const serialTracked = !service && product?.serialTracked;
   return (
-    <Card size="small" style={{ margin: '8px 0' }}>
-      <Row gutter={8}>
-        <Col xs={24} md={7}>
-          <Form.Item
-            name={[name, 'productId']}
-            label="Hàng hóa"
-            rules={[{ required: true, message: 'Chọn hàng' }]}
-          >
-            <ProductSelect
-              selectedLabel={form.getFieldValue(['lines', name, 'productLabel'])}
-              onProduct={(product) => {
-                // Không dùng preserve={false} cho lô / hạn / serial: trường hiện sau khi tải hàng, mở lại form sửa
-                // (hàng đã có trong cache) bị xóa giá trị; đổi hàng thì xóa tường minh ở đây.
-                form.setFieldValue(['lines', name, 'lotNo'], undefined);
-                form.setFieldValue(['lines', name, 'manufactureDate'], undefined);
-                form.setFieldValue(['lines', name, 'expiryDate'], undefined);
-                form.setFieldValue(['lines', name, 'serialNumbers'], []);
-                if (product) {
-                  form.setFieldValue(['lines', name, 'unitId'], product.baseUnitId);
-                  form.setFieldValue(['lines', name, 'taxRateId'], product.defaultTaxRateId ?? undefined);
-                  form.setFieldValue(['lines', name, 'serviceLine'], product.productType === 'SERVICE');
-                }
-              }}
-            />
-          </Form.Item>
+    <LineGridRow
+      columns={LINE_COLUMNS}
+      below={
+        <>
           <Form.Item name={[name, 'serviceLine']} hidden>
             <Input />
           </Form.Item>
-        </Col>
-        <Col xs={12} md={3}>
-          <Form.Item name={[name, 'unitId']} label="Đơn vị" rules={[{ required: true, message: 'Chọn ĐVT' }]}>
-            <Select options={options} />
-          </Form.Item>
-        </Col>
-        <Col xs={12} md={3}>
+          <OcrLineHints form={form} name={name} />
+        </>
+      }
+    >
+      <Form.Item
+        name={[name, 'productId']}
+        style={lineCellStyle}
+        rules={[{ required: true, message: 'Chọn hàng' }]}
+      >
+        <ProductSelect
+          selectedLabel={form.getFieldValue(['lines', name, 'productLabel'])}
+          onProduct={(product) => {
+            // Không dùng preserve={false} cho lô / hạn / serial: trường hiện sau khi tải hàng, mở lại form sửa
+            // (hàng đã có trong cache) bị xóa giá trị; đổi hàng thì xóa tường minh ở đây.
+            form.setFieldValue(['lines', name, 'lotNo'], undefined);
+            form.setFieldValue(['lines', name, 'manufactureDate'], undefined);
+            form.setFieldValue(['lines', name, 'expiryDate'], undefined);
+            form.setFieldValue(['lines', name, 'serialNumbers'], []);
+            if (product) {
+              form.setFieldValue(['lines', name, 'unitId'], product.baseUnitId);
+              form.setFieldValue(['lines', name, 'taxRateId'], product.defaultTaxRateId ?? undefined);
+              form.setFieldValue(['lines', name, 'serviceLine'], product.productType === 'SERVICE');
+            }
+          }}
+        />
+      </Form.Item>
+      <Form.Item
+        name={[name, 'unitId']}
+        style={lineCellStyle}
+        rules={[{ required: true, message: 'Chọn ĐVT' }]}
+      >
+        <Select options={options} />
+      </Form.Item>
+      <Form.Item
+        name={[name, 'quantity']}
+        style={lineCellStyle}
+        rules={[{ required: true, message: 'Nhập số lượng' }]}
+      >
+        <DecimalInput min={0.001} />
+      </Form.Item>
+      <Form.Item
+        name={[name, 'unitPrice']}
+        style={lineCellStyle}
+        rules={[{ required: true, message: 'Nhập đơn giá' }]}
+      >
+        <InputNumber<number> min={0} {...moneyInputProps} />
+      </Form.Item>
+      <Form.Item name={[name, 'discountPercent']} style={lineCellStyle}>
+        <DecimalInput min={0} max={100} fractionDigits={4} />
+      </Form.Item>
+      <Form.Item name={[name, 'taxRateId']} style={lineCellStyle}>
+        <Select allowClear options={taxRates.options} />
+      </Form.Item>
+      {lotTracked ? (
+        <>
           <Form.Item
-            name={[name, 'quantity']}
-            label="Số lượng"
-            rules={[{ required: true, message: 'Nhập số lượng' }]}
+            name={[name, 'lotNo']}
+            style={lineCellStyle}
+            rules={[{ required: true, message: 'Nhập số lô' }]}
           >
-            <DecimalInput min={0.001} />
+            <Input maxLength={50} />
           </Form.Item>
-        </Col>
-        <Col xs={12} md={4}>
+          <Form.Item name={[name, 'manufactureDate']} style={lineCellStyle}>
+            <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} />
+          </Form.Item>
           <Form.Item
-            name={[name, 'unitPrice']}
-            label="Đơn giá"
-            rules={[{ required: true, message: 'Nhập đơn giá' }]}
+            name={[name, 'expiryDate']}
+            style={lineCellStyle}
+            rules={[{ required: product.expiryTracked, message: 'Nhập hạn dùng' }]}
           >
-            <InputNumber<number> min={0} {...moneyInputProps} />
+            <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} />
           </Form.Item>
-        </Col>
-        <Col xs={12} md={2}>
-          <Form.Item name={[name, 'discountPercent']} label="CK %">
-            <DecimalInput min={0} max={100} fractionDigits={4} />
-          </Form.Item>
-        </Col>
-        <Col xs={12} md={4}>
-          <Form.Item name={[name, 'taxRateId']} label="Thuế suất">
-            <Select allowClear options={taxRates.options} />
-          </Form.Item>
-        </Col>
-        <Col xs={2} md={1}>
-          <Button
-            style={{ marginTop: 30 }}
-            icon={<DeleteOutlined />}
-            disabled={!removable}
-            onClick={onRemove}
-          />
-        </Col>
-        {!service && product?.lotTracked && (
-          <>
-            <Col xs={12} md={4}>
-              <Form.Item
-                name={[name, 'lotNo']}
-                label="Số lô"
-                rules={[{ required: true, message: 'Nhập số lô' }]}
-              >
-                <Input maxLength={50} />
-              </Form.Item>
-            </Col>
-            <Col xs={12} md={3}>
-              <Form.Item name={[name, 'manufactureDate']} label="Ngày sản xuất">
-                <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} />
-              </Form.Item>
-            </Col>
-            <Col xs={12} md={3}>
-              <Form.Item
-                name={[name, 'expiryDate']}
-                label="Hạn dùng"
-                rules={[{ required: product.expiryTracked, message: 'Nhập hạn dùng' }]}
-              >
-                <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} />
-              </Form.Item>
-            </Col>
-          </>
-        )}
-        {!service && product?.serialTracked && (
-          <Col xs={24} md={8}>
-            <Form.Item
-              name={[name, 'serialNumbers']}
-              label="Serial"
-              tooltip="Gõ serial rồi Enter; số serial = số lượng theo đơn vị cơ sở"
-              rules={[{ required: true, message: 'Nhập serial' }]}
-            >
-              <Select mode="tags" tokenSeparators={[',', ' ']} open={false} />
-            </Form.Item>
-          </Col>
-        )}
-        <Col xs={24} md={service ? 24 : 6}>
-          <Form.Item name={[name, 'note']} label="Ghi chú">
-            <Input maxLength={500} />
-          </Form.Item>
-        </Col>
-      </Row>
-    </Card>
+        </>
+      ) : (
+        <>
+          <NotApplicable />
+          <NotApplicable />
+          <NotApplicable />
+        </>
+      )}
+      {serialTracked ? (
+        <Form.Item
+          name={[name, 'serialNumbers']}
+          style={lineCellStyle}
+          rules={[{ required: true, message: 'Nhập serial' }]}
+        >
+          <Select mode="tags" tokenSeparators={[',', ' ']} open={false} />
+        </Form.Item>
+      ) : (
+        <NotApplicable />
+      )}
+      <Form.Item name={[name, 'note']} style={lineCellStyle}>
+        <Input maxLength={500} />
+      </Form.Item>
+      <Tooltip title="Xóa dòng">
+        <Button icon={<DeleteOutlined />} aria-label="Xóa dòng" disabled={!removable} onClick={onRemove} />
+      </Tooltip>
+    </LineGridRow>
   );
 }
 

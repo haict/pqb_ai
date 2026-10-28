@@ -1,22 +1,20 @@
-import { DeleteOutlined, FileSearchOutlined, PlusOutlined } from '@ant-design/icons';
+import { DeleteOutlined, FileSearchOutlined } from '@ant-design/icons';
 import {
   App,
   Button,
-  Card,
   Checkbox,
-  Col,
   DatePicker,
   Form,
   Input,
   InputNumber,
-  Row,
   Select,
+  Space,
   Tag,
   Tooltip,
   Typography,
   type FormInstance,
 } from 'antd';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { formatMoney } from '../../accounting/labels';
 import { moneyInputProps } from '../../finance/components/debtInputs';
 import { ProductSelect } from '../../masterdata/components/EntitySelects';
@@ -27,49 +25,90 @@ import { PRICE_SOURCES } from '../labels';
 import { ReceiptSourcePicker } from './ReceiptSourcePicker';
 import { linesFromReceipts, type SalesLineForm } from './salesLines';
 import { DecimalInput } from '../../../shared/components/DecimalInput';
+import { LineGrid, LineGridRow } from '../../../shared/components/LineGrid';
+import { lineCellStyle, type LineGridColumn } from '../../../shared/components/lineGridStyles';
+import { OcrLineHints } from '../../ai/components/OcrHints';
 
 /**
  * Danh sách dòng đơn bán trong form (tên trường {@code lines}): giá, chiết khấu, thuế, lô / serial chỉ định. F8 trên
  * một dòng (hoặc nút "Chọn CT nhập") mở danh sách chứng từ nhập còn tồn để xuất đích danh (D-63); form cần có
- * {@code branchId}, {@code warehouseId}.
+ * {@code branchId}, {@code warehouseId}. Dòng hiện dạng bảng, mỗi dòng một hàng; {@code actions}: nút đặt cùng hàng
+ * tiêu đề (nhập Excel, nhận dạng chứng từ).
  */
 export function SalesLinesEditor<T extends { lines?: SalesLineForm[]; customerId?: number }>({
   form,
   withExpectedDate,
+  actions,
 }: {
   form: FormInstance<T>;
   withExpectedDate?: boolean;
+  actions?: ReactNode;
 }) {
+  const columns = lineColumns(withExpectedDate);
   return (
     <Form.List name="lines">
       {(fields, { add, remove }) => (
-        <>
+        <LineGrid
+          columns={columns}
+          minWidth={withExpectedDate ? 1720 : 1590}
+          onAdd={() => add({ quantity: 1 })}
+          actions={actions}
+        >
           {fields.map((field) => (
             <SalesLineFields
               key={field.key}
               form={form as unknown as FormInstance<{ lines?: SalesLineForm[]; customerId?: number }>}
               name={field.name}
+              columns={columns}
               withExpectedDate={withExpectedDate}
               onRemove={() => remove(field.name)}
             />
           ))}
-          <Button icon={<PlusOutlined />} onClick={() => add({ quantity: 1 })}>
-            Thêm dòng hàng
-          </Button>
-        </>
+        </LineGrid>
       )}
     </Form.List>
   );
 }
 
+function lineColumns(withExpectedDate?: boolean): LineGridColumn[] {
+  return [
+    { title: 'Hàng hóa / dịch vụ', width: '260px' },
+    { title: 'Đơn vị', width: '100px' },
+    { title: 'Số lượng', width: '100px' },
+    { title: 'Đơn giá', width: '130px', tooltip: 'Trống: theo bảng giá' },
+    { title: 'CK %', width: '70px' },
+    { title: 'Thuế suất', width: '110px' },
+    { title: 'Tặng', width: '50px' },
+    ...(withExpectedDate ? [{ title: 'Ngày giao dự kiến', width: '125px' }] : []),
+    {
+      title: 'Lô chỉ định',
+      width: '170px',
+      tooltip: 'Trống: kho chọn lô hết hạn sớm nhất (FEFO). F8: chọn theo chứng từ nhập',
+    },
+    {
+      title: 'Lý do khác FEFO',
+      width: '180px',
+      tooltip: 'Bắt buộc khi lô chỉ định không phải lô hết hạn sớm nhất (BR-INV-21)',
+    },
+    {
+      title: 'Serial chỉ định',
+      width: '180px',
+      tooltip: 'Hàng quản lý serial: gõ serial rồi Enter; trống thì kho chọn',
+    },
+    { title: 'Ghi chú', width: 'minmax(140px, 1fr)' },
+  ];
+}
+
 function SalesLineFields({
   form,
   name,
+  columns,
   withExpectedDate,
   onRemove,
 }: {
   form: FormInstance<{ lines?: SalesLineForm[]; customerId?: number }>;
   name: number;
+  columns: LineGridColumn[];
   withExpectedDate?: boolean;
   onRemove(): void;
 }) {
@@ -140,159 +179,139 @@ function SalesLineFields({
   };
 
   return (
-    <Card
-      size="small"
-      style={{ marginBottom: 8 }}
+    <LineGridRow
+      columns={columns}
       onKeyDown={(event) => {
         if (event.key === 'F8') {
           event.preventDefault();
           openPicker();
         }
       }}
-    >
-      <Form.Item name={[name, 'priceHint']} hidden>
-        <Input />
-      </Form.Item>
-      <Form.Item name={[name, 'receiptTransactionId']} hidden>
-        <Input />
-      </Form.Item>
-      <Form.Item name={[name, 'receiptNo']} hidden>
-        <Input />
-      </Form.Item>
-      <Row gutter={8}>
-        <Col xs={24} md={8}>
-          <Form.Item
-            name={[name, 'productId']}
-            label="Hàng hóa / dịch vụ"
-            rules={[{ required: true, message: 'Chọn hàng' }]}
-          >
-            <ProductSelect
-              selectedLabel={form.getFieldValue(['lines', name, 'productLabel'])}
-              onProduct={(product) => {
-                clearReceipt();
-                if (product) {
-                  form.setFieldValue(['lines', name, 'unitId'], product.baseUnitId);
-                  form.setFieldValue(['lines', name, 'unitPrice'], undefined);
-                  form.setFieldValue(['lines', name, 'taxRateId'], product.defaultTaxRateId ?? undefined);
-                  void suggest(true);
-                }
-              }}
-            />
+      below={
+        <>
+          <Form.Item name={[name, 'priceHint']} hidden>
+            <Input />
           </Form.Item>
-        </Col>
-        <Col xs={12} md={3}>
-          <Form.Item name={[name, 'unitId']} label="Đơn vị" rules={[{ required: true, message: 'Chọn ĐVT' }]}>
-            <Select options={options} onChange={() => void suggest(true)} />
+          <Form.Item name={[name, 'receiptTransactionId']} hidden>
+            <Input />
           </Form.Item>
-        </Col>
-        <Col xs={12} md={3}>
-          <Form.Item
-            name={[name, 'quantity']}
-            label="Số lượng"
-            rules={[{ required: true, message: 'Nhập SL' }]}
-          >
-            <DecimalInput min={0.001} onBlur={() => void suggest(false)} />
+          <Form.Item name={[name, 'receiptNo']} hidden>
+            <Input />
           </Form.Item>
-        </Col>
-        <Col xs={12} md={4}>
-          <Form.Item name={[name, 'unitPrice']} label="Đơn giá" extra="Trống: theo bảng giá">
-            <InputNumber<number> min={0} {...moneyInputProps} />
-          </Form.Item>
-        </Col>
-        <Col xs={12} md={2}>
-          <Form.Item name={[name, 'discountPercent']} label="CK %">
-            <DecimalInput min={0} max={100} fractionDigits={2} />
-          </Form.Item>
-        </Col>
-        <Col xs={12} md={3}>
-          <Form.Item name={[name, 'taxRateId']} label="Thuế suất">
-            <Select allowClear options={taxRates.options} />
-          </Form.Item>
-        </Col>
-        <Col xs={10} md={1}>
-          <Form.Item name={[name, 'promotional']} valuePropName="checked" label="Tặng">
-            <Checkbox />
-          </Form.Item>
-        </Col>
-        {withExpectedDate && (
-          <Col xs={12} md={4}>
-            <Form.Item name={[name, 'expectedDate']} label="Ngày giao dự kiến">
-              <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} />
-            </Form.Item>
-          </Col>
-        )}
-        <Col xs={12} md={4}>
-          <Form.Item
-            name={[name, 'lotNo']}
-            label="Lô chỉ định"
-            tooltip="Trống: kho chọn lô hết hạn sớm nhất (FEFO). F8: chọn theo chứng từ nhập"
-            extra={
-              receiptNo && (
-                <Tag closable onClose={clearReceipt} style={{ marginTop: 4 }}>
+          {(hint || receiptNo) && (
+            <Space size={8} style={{ marginTop: 2 }}>
+              {hint && (
+                <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                  {hint}
+                </Typography.Text>
+              )}
+              {receiptNo && (
+                <Tag closable onClose={clearReceipt}>
                   CT nhập: {receiptNo}
                 </Tag>
-              )
-            }
-          >
-            <Input
-              maxLength={50}
-              onChange={clearReceipt}
-              addonAfter={
-                <Tooltip title="Chọn chứng từ nhập (F8)">
-                  <FileSearchOutlined aria-label="Chọn chứng từ nhập" onClick={openPicker} />
-                </Tooltip>
-              }
+              )}
+            </Space>
+          )}
+          {picker && product && productId && (
+            <ReceiptSourcePicker
+              branchId={picker.branchId}
+              warehouseId={picker.warehouseId}
+              productId={productId}
+              productLabel={form.getFieldValue(['lines', name, 'productLabel']) as string | undefined}
+              baseUnitName={unitName(product.baseUnitId) || ''}
+              onCancel={() => setPicker(null)}
+              onPick={(picks, reason) => {
+                const lines = [...((form.getFieldValue('lines') as SalesLineForm[] | undefined) ?? [])];
+                lines.splice(
+                  name,
+                  1,
+                  ...linesFromReceipts(lines[name] ?? {}, picks, product.baseUnitId, reason),
+                );
+                form.setFieldValue('lines', lines);
+                setPicker(null);
+              }}
             />
-          </Form.Item>
-        </Col>
-        <Col xs={24} md={6}>
-          <Form.Item
-            name={[name, 'lotOverrideReason']}
-            label="Lý do chọn lô khác FEFO"
-            tooltip="Bắt buộc khi lô chỉ định không phải lô hết hạn sớm nhất (BR-INV-21)"
-          >
-            <Input maxLength={500} />
-          </Form.Item>
-        </Col>
-        <Col xs={24} md={withExpectedDate ? 10 : 14}>
-          <Form.Item
-            name={[name, 'serialNumbers']}
-            label="Serial chỉ định"
-            tooltip="Hàng quản lý serial: gõ serial rồi Enter; trống thì kho chọn"
-          >
-            <Select mode="tags" tokenSeparators={[',', ' ']} open={false} />
-          </Form.Item>
-        </Col>
-        <Col xs={22} md={23}>
-          <Form.Item name={[name, 'description']} label="Ghi chú">
-            <Input maxLength={500} />
-          </Form.Item>
-        </Col>
-        <Col xs={2} md={1}>
-          <Button style={{ marginTop: 30 }} icon={<DeleteOutlined />} onClick={onRemove} />
-        </Col>
-      </Row>
-      {hint && (
-        <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-          {hint}
-        </Typography.Text>
-      )}
-      {picker && product && productId && (
-        <ReceiptSourcePicker
-          branchId={picker.branchId}
-          warehouseId={picker.warehouseId}
-          productId={productId}
-          productLabel={form.getFieldValue(['lines', name, 'productLabel']) as string | undefined}
-          baseUnitName={unitName(product.baseUnitId) || ''}
-          onCancel={() => setPicker(null)}
-          onPick={(picks, reason) => {
-            const lines = [...((form.getFieldValue('lines') as SalesLineForm[] | undefined) ?? [])];
-            lines.splice(name, 1, ...linesFromReceipts(lines[name] ?? {}, picks, product.baseUnitId, reason));
-            form.setFieldValue('lines', lines);
-            setPicker(null);
+          )}
+          <OcrLineHints form={form} name={name} />
+        </>
+      }
+    >
+      <Form.Item
+        name={[name, 'productId']}
+        style={lineCellStyle}
+        rules={[{ required: true, message: 'Chọn hàng' }]}
+      >
+        <ProductSelect
+          selectedLabel={form.getFieldValue(['lines', name, 'productLabel'])}
+          onProduct={(product) => {
+            clearReceipt();
+            if (product) {
+              form.setFieldValue(['lines', name, 'unitId'], product.baseUnitId);
+              form.setFieldValue(['lines', name, 'unitPrice'], undefined);
+              form.setFieldValue(['lines', name, 'taxRateId'], product.defaultTaxRateId ?? undefined);
+              void suggest(true);
+            }
           }}
         />
+      </Form.Item>
+      <Form.Item
+        name={[name, 'unitId']}
+        style={lineCellStyle}
+        rules={[{ required: true, message: 'Chọn ĐVT' }]}
+      >
+        <Select options={options} onChange={() => void suggest(true)} />
+      </Form.Item>
+      <Form.Item
+        name={[name, 'quantity']}
+        style={lineCellStyle}
+        rules={[{ required: true, message: 'Nhập SL' }]}
+      >
+        <DecimalInput min={0.001} onBlur={() => void suggest(false)} />
+      </Form.Item>
+      <Form.Item name={[name, 'unitPrice']} style={lineCellStyle}>
+        <InputNumber<number> min={0} placeholder="Theo bảng giá" {...moneyInputProps} />
+      </Form.Item>
+      <Form.Item name={[name, 'discountPercent']} style={lineCellStyle}>
+        <DecimalInput min={0} max={100} fractionDigits={2} />
+      </Form.Item>
+      <Form.Item name={[name, 'taxRateId']} style={lineCellStyle}>
+        <Select allowClear options={taxRates.options} />
+      </Form.Item>
+      <Form.Item
+        name={[name, 'promotional']}
+        valuePropName="checked"
+        style={{ ...lineCellStyle, textAlign: 'center' }}
+      >
+        <Checkbox aria-label="Hàng tặng" />
+      </Form.Item>
+      {withExpectedDate && (
+        <Form.Item name={[name, 'expectedDate']} style={lineCellStyle}>
+          <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} />
+        </Form.Item>
       )}
-    </Card>
+      <Form.Item name={[name, 'lotNo']} style={lineCellStyle}>
+        <Input
+          maxLength={50}
+          onChange={clearReceipt}
+          addonAfter={
+            <Tooltip title="Chọn chứng từ nhập (F8)">
+              <FileSearchOutlined aria-label="Chọn chứng từ nhập" onClick={openPicker} />
+            </Tooltip>
+          }
+        />
+      </Form.Item>
+      <Form.Item name={[name, 'lotOverrideReason']} style={lineCellStyle}>
+        <Input maxLength={500} />
+      </Form.Item>
+      <Form.Item name={[name, 'serialNumbers']} style={lineCellStyle}>
+        <Select mode="tags" tokenSeparators={[',', ' ']} open={false} />
+      </Form.Item>
+      <Form.Item name={[name, 'description']} style={lineCellStyle}>
+        <Input maxLength={500} />
+      </Form.Item>
+      <Tooltip title="Xóa dòng">
+        <Button icon={<DeleteOutlined />} aria-label="Xóa dòng" onClick={onRemove} />
+      </Tooltip>
+    </LineGridRow>
   );
 }

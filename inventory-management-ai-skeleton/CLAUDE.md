@@ -28,6 +28,7 @@ Không số dư nào (tồn kho, công nợ, quỹ, giá vốn) được thay đ
 | Logging | SLF4J + Logback |
 | Quản lý mã nguồn | Git |
 | Tiện ích | Lombok (dùng có kiểm soát) |
+| AI Service (D-64) | Python 3, FastAPI, PaddleOCR (OCR), Ollama (LLM chạy nội bộ); chỉ backend gọi, nghe `127.0.0.1`. Thiết kế: `docs/14-ai-assistant-ocr.md` |
 
 - **Không** tự nâng lên Java 21 hoặc Spring Boot 4. Mọi dependency phải tương thích Java 17 và Spring Boot 3.x; ưu tiên phiên bản do Spring Boot BOM quản lý.
 - Không thêm dependency mới khi chưa giải thích lý do, phạm vi dùng và lựa chọn thay thế.
@@ -48,6 +49,7 @@ Không số dư nào (tồn kho, công nợ, quỹ, giá vốn) được thay đ
 /
 ├── backend/            Maven, Spring Boot WAR
 ├── frontend/           React + TypeScript + Ant Design
+├── ai-service/         Python FastAPI: OCR, trợ lý AI (D-64)
 ├── docs/               tài liệu nghiệp vụ, kiến trúc, ERD, API, vận hành
 ├── CLAUDE.md
 └── .claude/rules/
@@ -71,6 +73,7 @@ Gói gốc: `com.company.erp` (D-43; đặt lại khi có tên chính thức).
 | `accounting` | M08 Kế toán và giá vốn |
 | `equipment` | M09 Thiết bị, bảo hành, hồ sơ sản phẩm |
 | `reporting` | M10 Báo cáo và dashboard |
+| `ai` | M11 Trợ lý AI và OCR (D-64): chỉ đọc / gợi ý, không ghi chứng từ; không module nào phụ thuộc `ai` |
 
 Cấu trúc trong mỗi module (chỉ tạo tầng thực sự cần):
 ```

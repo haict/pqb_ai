@@ -611,6 +611,59 @@ Từ D-61 (V32..V36) hệ thống không còn bước duyệt: mọi `approval_m
 - `recalls (product_id, lot_id | serial_id, reason, status)`; `stock_issue_policies (warehouse_id, product_id, max_quantity, used_quantity, used_by_document_id, valid_from, valid_to, status)` (D-53; `used_by_document_id` thêm ở V8, FK `inventory_documents`: mỗi chính sách một chứng từ); `inventory_reservations (product, warehouse, source_type/id/line_id, quantity, consumed, released, status)`.
 - V7: tham số `inventory.expiry-warning-days` (mặc định 90 `[Suy luận]`) cho cảnh báo hạn dùng.
 
+### 4.24 `ai_ocr_requests` (V39, D-64, module `ai`)
+Nhật ký mỗi lần nhận dạng chứng từ, **chỉ metadata** (BR-AI-10): không lưu file, văn bản nhận dạng, MST, số tiền.
+
+| Cột | Kiểu | Ghi chú |
+|---|---|---|
+| `id` | BIGINT PK | |
+| `company_id`, `branch_id` | BIGINT FK `companies`, `branches` | Phạm vi của form gửi nhận dạng |
+| `user_id` | BIGINT FK `sys_users` | Người gửi |
+| `document_type` | VARCHAR(30) | `PURCHASE_INVOICE`, `PURCHASE_ORDER`, `SALES_ORDER` (AI-2) |
+| `file_sha256` | VARCHAR(64) NULL | Băm nội dung file (null khi bị chặn trước khi đọc file, ví dụ quá dung lượng) |
+| `file_size`, `page_count` | BIGINT, INT NULL | |
+| `status`, `error_code` | VARCHAR(20), VARCHAR(50) NULL | `SUCCEEDED` / `FAILED` + mã lỗi API |
+| `duration_ms`, `request_id`, `created_at` | INT, VARCHAR(64), DATETIME(3) UTC | |
+
+- Index `(company_id, created_at)`, `(user_id, created_at)`. Chỉ INSERT từ ứng dụng; không phải sổ phụ, được xóa theo vòng đời khi có quyết định thời hạn lưu.
+
+### 4.25 `ai_conversations`, `ai_messages` (V40, D-64 AI-3, module `ai`)
+Hội thoại với trợ lý hỏi đáp cách dùng ERP. Thuộc một người dùng, chỉ chủ sở hữu đọc / ghi / xóa. Không phải chứng từ, không phải sổ phụ: người dùng tự xóa; tác vụ nền xóa hội thoại không có tin nhắn mới quá `ai.chat.retention-days` (90 ngày, Q-05).
+
+```mermaid
+erDiagram
+    sys_users ||--o{ ai_conversations : "sở hữu"
+    ai_conversations ||--o{ ai_messages : "gồm (ON DELETE CASCADE)"
+    ai_messages ||--o| ai_messages : "câu trả lời reply_to_id"
+```
+
+`ai_conversations`
+
+| Cột | Kiểu | Ghi chú |
+|---|---|---|
+| `id` | BIGINT PK | |
+| `company_id`, `user_id` | BIGINT FK `companies`, `sys_users` | Chủ sở hữu |
+| `title` | VARCHAR(200) | Trống khi tạo thì lấy câu hỏi đầu tiên |
+| `created_at`, `last_message_at` | DATETIME(3) UTC | `last_message_at` dùng cho danh sách và thời hạn lưu |
+
+`ai_messages`
+
+| Cột | Kiểu | Ghi chú |
+|---|---|---|
+| `id` | BIGINT PK | |
+| `conversation_id` | BIGINT FK `ai_conversations` ON DELETE CASCADE | |
+| `role` | VARCHAR(20) | `USER` / `ASSISTANT` |
+| `content` | TEXT | Câu hỏi hoặc câu trả lời (có thể chứa dữ liệu kinh doanh người dùng gõ vào: chỉ chủ sở hữu đọc) |
+| `status` | VARCHAR(20) | Câu hỏi: `PENDING` → `ANSWERED` / `FAILED`; câu trả lời: `COMPLETED` |
+| `reply_to_id` | BIGINT NULL FK `ai_messages` | Câu trả lời trỏ về câu hỏi |
+| `citations` | TEXT NULL | Tên mục tài liệu hướng dẫn được trích, mỗi dòng một mục. Không lưu đoạn tài liệu, prompt |
+| `grounded` | BOOLEAN NULL | Câu trả lời dựa trên tài liệu tìm được |
+| `error_code`, `duration_ms`, `created_at` | VARCHAR(50) NULL, INT NULL, DATETIME(3) UTC | Mã lỗi khi câu hỏi `FAILED` |
+
+- Index `ai_conversations (user_id, last_message_at)`, `(last_message_at)`; `ai_messages (conversation_id, id)`.
+- Gửi lại cùng `Idempotency-Key`: key lưu ở `idempotency_records` trỏ tới câu hỏi đã lưu, không tạo câu hỏi trùng (AT-13).
+- Chưa lưu tên công cụ tra cứu (`tool_names` trong docs/14 mục 7): thêm bằng migration mới ở AI-4.
+
 ## 5. Index chính
 | Truy vấn | Index |
 |---|---|

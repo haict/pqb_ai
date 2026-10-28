@@ -16,6 +16,7 @@ import { BrandLogo } from './BrandLogo';
 import { GROUP_ICONS, ITEM_ICONS } from './navIcons';
 import { visibleNavGroups } from './navigation';
 import { NotificationBell } from './NotificationBell';
+import { AssistantButton } from '../modules/ai/components/AssistantDrawer';
 import { BRAND } from './theme';
 import { BRANCH_VISIBLE } from '../shared/branch';
 import { LicenseBanner } from './LicenseBanner';
@@ -151,6 +152,7 @@ export function AppLayout() {
             <span className="app-status-pill">
               <ServerStatusBadge />
             </span>
+            <AssistantButton />
             <NotificationBell />
             <span style={{ width: 1, height: 28, background: BRAND.border }} />
             <Dropdown menu={{ items: userMenu, onClick: onUserMenu }} trigger={['click']}>
