@@ -6,7 +6,10 @@ interface Item {
   status: RecordStatus;
 }
 
-/** Trạng thái và xử lý cho {@link ChangeStatusModal} của một danh sách. */
+/**
+ * Trạng thái và xử lý cho {@link ChangeStatusModal} của một danh sách. {@code change} trả chuỗi thì dùng làm thông báo
+ * thành công (ví dụ nhóm hàng bị xóa thay vì ngừng, D-67).
+ */
 export function useStatusChange<T extends Item>(
   change: (item: T, status: RecordStatus, reason: string) => Promise<unknown>,
   labelOf: (item: T) => string,
@@ -27,8 +30,8 @@ export function useStatusChange<T extends Item>(
           return;
         }
         try {
-          await change(target, nextStatus, reason);
-          message.success('Đã cập nhật trạng thái.');
+          const result = await change(target, nextStatus, reason);
+          message.success(typeof result === 'string' ? result : 'Đã cập nhật trạng thái.');
           setTarget(null);
           await onDone();
         } catch (err) {

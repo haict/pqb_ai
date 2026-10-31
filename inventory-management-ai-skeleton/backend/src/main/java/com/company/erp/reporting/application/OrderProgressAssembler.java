@@ -19,8 +19,9 @@ import org.springframework.stereotype.Component;
 @Component
 class OrderProgressAssembler {
 
+    /** Đơn không còn trạng thái CANCELLED: đơn chưa từng ghi sổ được xóa hẳn (D-65). */
     private static final Set<String> STATUSES = Set.of("DRAFT", "SUBMITTED", "REJECTED", "APPROVED", "POSTED",
-            "CANCELLED", "REVERSED");
+            "REVERSED");
     /** Đơn chưa ghi sổ còn hiệu lực: nháp, và đơn đã duyệt trước D-61 (D-61 không qua duyệt). */
     private static final Set<String> OPEN = Set.of("DRAFT", "APPROVED");
 

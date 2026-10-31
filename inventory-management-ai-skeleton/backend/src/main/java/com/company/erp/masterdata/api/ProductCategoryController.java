@@ -61,7 +61,8 @@ public class ProductCategoryController {
         return ApiResponse.ok(categoryService.create(user, idempotencyKey, request));
     }
 
-    @Operation(summary = "Sửa", description = "Gửi version đã đọc; dữ liệu đã đổi: 409 CONCURRENT_MODIFICATION.")
+    @Operation(summary = "Sửa", description = "Gửi version đã đọc; dữ liệu đã đổi: 409 CONCURRENT_MODIFICATION. D-67: "
+            + "sửa được mã (trống thì giữ mã cũ), trùng mã: 409 DUPLICATE_CODE.")
     @PutMapping("/{id}")
     @PreAuthorize("hasAuthority('catalog:manage')")
     public ApiResponse<ProductCategoryResponse> update(@AuthenticationPrincipal CurrentUser user, @PathVariable Long id,
@@ -69,7 +70,8 @@ public class ProductCategoryController {
         return ApiResponse.ok(categoryService.update(user, id, request));
     }
 
-    @Operation(summary = "Ngừng hoạt động / kích hoạt lại")
+    @Operation(summary = "Ngừng hoạt động / kích hoạt lại", description = "D-67: ngừng nhóm chưa có hàng và nhóm con "
+            + "thì xóa hẳn, phản hồi deleted=true.")
     @PatchMapping("/{id}/status")
     @PreAuthorize("hasAuthority('catalog:manage')")
     public ApiResponse<ProductCategoryResponse> changeStatus(@AuthenticationPrincipal CurrentUser user, @PathVariable Long id,

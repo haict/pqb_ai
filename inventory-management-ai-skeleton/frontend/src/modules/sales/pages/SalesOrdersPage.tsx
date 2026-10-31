@@ -50,8 +50,8 @@ import {
   DUE_BASES,
   ORDER_ACTION_ORDER,
   ORDER_ROW_ACTION_ORDER,
+  ORDER_STATUSES,
   orderActions,
-  POSTING_STATUSES,
 } from '../labels';
 import { DocumentActions } from '../../inventory/components/DocumentActions';
 import type {
@@ -300,7 +300,7 @@ export function SalesOrdersPage() {
             style={{ width: 170 }}
             value={status}
             onChange={setStatus}
-            options={POSTING_STATUSES.map((value) => ({ value, label: statusLabel(value) }))}
+            options={ORDER_STATUSES.map((value) => ({ value, label: statusLabel(value) }))}
           />
         }
         createLabel="Lập đơn bán"
@@ -588,6 +588,7 @@ function OrderFields({
           <Form.Item name="customerId" label="Khách hàng" rules={[{ required: true, message: 'Chọn khách' }]}>
             <PartnerSelect
               role="CUSTOMER"
+              creatable
               disabled={!isNew}
               selectedLabel={form.getFieldValue('customerLabel')}
             />

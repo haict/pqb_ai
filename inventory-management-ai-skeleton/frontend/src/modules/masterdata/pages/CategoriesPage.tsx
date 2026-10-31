@@ -73,7 +73,10 @@ export function CategoriesPage() {
   const tree = useMemo(() => buildTree(query.data?.items ?? []), [query.data]);
   const refresh = () => queryClient.invalidateQueries({ queryKey: ['product-categories'] });
   const statusChange = useStatusChange(
-    categoryApi.changeStatus,
+    async (item: ProductCategory, status: RecordStatus, reason: string) => {
+      const result = await categoryApi.changeStatus(item, status, reason);
+      return result.deleted ? `Đã xóa nhóm hàng ${item.code} (chưa có hàng và nhóm con).` : result;
+    },
     (item) => `${item.code} - ${item.name}`,
     refresh,
   );
@@ -85,6 +88,7 @@ export function CategoriesPage() {
       message.success('Đã thêm nhóm hàng.');
     } else if (editing) {
       await categoryApi.update(editing.id, {
+        code: values.code,
         name: values.name,
         parentId: values.parentId ?? null,
         version: editing.version,
@@ -160,16 +164,17 @@ export function CategoriesPage() {
         <Form.Item
           name="code"
           label="Mã nhóm"
-          rules={
+          tooltip={
             editing === 'new'
-              ? [
-                  { required: true, message: 'Nhập mã' },
-                  { pattern: /^[A-Z0-9_.-]{1,30}$/, message: 'Mã gồm 1-30 ký tự A-Z, 0-9, _ . -' },
-                ]
-              : []
+              ? undefined
+              : 'Hàng hóa tham chiếu nhóm theo ID nên đổi mã không ảnh hưởng hàng đã khai báo'
           }
+          rules={[
+            { required: true, message: 'Nhập mã' },
+            { pattern: /^[A-Z0-9_.-]{1,30}$/, message: 'Mã gồm 1-30 ký tự A-Z, 0-9, _ . -' },
+          ]}
         >
-          <Input disabled={editing !== 'new'} maxLength={30} />
+          <Input maxLength={30} />
         </Form.Item>
         <Form.Item
           name="name"
@@ -186,7 +191,10 @@ export function CategoriesPage() {
           />
         </Form.Item>
       </FormModal>
-      <ChangeStatusModal {...statusChange.modalProps} />
+      <ChangeStatusModal
+        {...statusChange.modalProps}
+        deactivateNote="Nhóm chưa có hàng và nhóm con sẽ bị xóa hẳn; nhóm đã có hàng hoặc nhóm con thì chuyển sang ngừng hoạt động."
+      />
     </Card>
   );
 }

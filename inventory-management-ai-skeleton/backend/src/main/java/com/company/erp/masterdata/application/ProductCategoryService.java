@@ -11,6 +11,7 @@ import com.company.erp.masterdata.application.dto.ProductCategoryResponse;
 import com.company.erp.masterdata.application.dto.UpdateProductCategoryRequest;
 import com.company.erp.masterdata.domain.ProductCategory;
 import com.company.erp.masterdata.infrastructure.persistence.ProductCategoryRepository;
+import com.company.erp.masterdata.infrastructure.persistence.ProductRepository;
 import com.company.erp.system.application.CurrentUser;
 import com.company.erp.system.application.dto.ChangeStatusRequest;
 import java.util.HashSet;
@@ -21,7 +22,10 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/** Nhóm hàng dạng cây (BR-MD-03). Danh sách trả phẳng (có {@code parentId}); giao diện dựng cây. */
+/**
+ * Nhóm hàng dạng cây (BR-MD-03). Danh sách trả phẳng (có {@code parentId}); giao diện dựng cây. Mã sửa được, ngừng
+ * nhóm chưa có hàng và nhóm con thì xóa hẳn (D-67).
+ */
 @Service
 public class ProductCategoryService {
 
@@ -29,12 +33,14 @@ public class ProductCategoryService {
     private static final int MAX_DEPTH = 10;
 
     private final ProductCategoryRepository repository;
+    private final ProductRepository productRepository;
     private final MasterDataGuard guard;
     private final IdempotencyService idempotency;
 
-    public ProductCategoryService(ProductCategoryRepository repository, MasterDataGuard guard,
-                                  IdempotencyService idempotency) {
+    public ProductCategoryService(ProductCategoryRepository repository, ProductRepository productRepository,
+                                  MasterDataGuard guard, IdempotencyService idempotency) {
         this.repository = repository;
+        this.productRepository = productRepository;
         this.guard = guard;
         this.idempotency = idempotency;
     }
@@ -74,8 +80,12 @@ public class ProductCategoryService {
         ProductCategory category = guard.visible(actor, repository.findById(id));
         category.verifyVersion(request.version());
         requireParent(category.getCompanyId(), id, request.parentId());
+        String code = request.code() == null ? category.getCode() : request.code();
+        if (!code.equals(category.getCode())) {
+            guard.requireNewCode(repository.existsByCompanyIdAndCode(category.getCompanyId(), code), "Nhóm hàng", code);
+        }
         ProductCategoryResponse before = toResponse(category);
-        category.update(request.name().trim(), request.parentId());
+        category.update(code, request.name().trim(), request.parentId());
         ProductCategoryResponse after = toResponse(repository.saveAndFlush(category));
         guard.audit(actor, MasterDataAudit.UPDATE, MasterDataAudit.PRODUCT_CATEGORY, id, null, before, after,
                 category.getCompanyId());
@@ -87,6 +97,16 @@ public class ProductCategoryService {
         ProductCategory category = guard.visible(actor, repository.findById(id));
         category.verifyVersion(request.version());
         ProductCategoryResponse before = toResponse(category);
+        if (request.status() == RecordStatus.INACTIVE && !productRepository.existsByCategoryId(id)
+                && !repository.existsByParentId(id)) {
+            // D-67: nhóm chưa có hàng và nhóm con không bị tham chiếu nên xóa hẳn thay vì ngừng.
+            repository.delete(category);
+            repository.flush();
+            guard.audit(actor, MasterDataAudit.DELETE, MasterDataAudit.PRODUCT_CATEGORY, id, request.reason(),
+                    before, null, category.getCompanyId());
+            return new ProductCategoryResponse(before.id(), before.companyId(), before.parentId(), before.code(),
+                    before.name(), RecordStatus.INACTIVE, before.version(), before.updatedAt(), true);
+        }
         category.changeStatus(request.status());
         ProductCategoryResponse after = toResponse(repository.saveAndFlush(category));
         guard.audit(actor, MasterDataAudit.CHANGE_STATUS, MasterDataAudit.PRODUCT_CATEGORY, id, request.reason(),
@@ -114,6 +134,6 @@ public class ProductCategoryService {
     private static ProductCategoryResponse toResponse(ProductCategory category) {
         return new ProductCategoryResponse(category.getId(), category.getCompanyId(), category.getParentId(),
                 category.getCode(), category.getName(), category.getStatus(), category.getVersion(),
-                category.getUpdatedAt());
+                category.getUpdatedAt(), false);
     }
 }

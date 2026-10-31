@@ -105,6 +105,15 @@ erp:
   idempotency:
     ttl: 24h
     cleanup-cron: "0 15 * * * *"
+  # Tra cứu doanh nghiệp theo mã số thuế khi thêm đối tác (D-66): API Xinvoice, mã số thuế nối vào cuối base-url.
+  # client-id / api-key cấp khi đăng ký API (không commit giá trị thật). Máy chủ không ra được Internet thì tắt.
+  tax-code-lookup:
+    enabled: ${TAX_CODE_LOOKUP_ENABLED:true}
+    base-url: ${TAX_CODE_LOOKUP_BASE_URL:https://api.xinvoice.vn/gdt-api/tax-payer}
+    client-id: ${TAX_CODE_LOOKUP_CLIENT_ID:}
+    api-key: ${TAX_CODE_LOOKUP_API_KEY:}
+    connect-timeout: 3s
+    read-timeout: 8s
 
 # Trợ lý AI và OCR (D-64, docs/14 mục 10.1). Tắt mặc định; bật cần AI Service chạy cùng máy (ai-service/).
 ai:

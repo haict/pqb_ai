@@ -14,7 +14,8 @@ import { orderReportApi } from '../api';
 import { orderProgressReport } from '../orderReports';
 import { BranchCol } from '../../../shared/components/BranchCol';
 
-const STATUSES = ['DRAFT', 'POSTED', 'CANCELLED', 'REVERSED'];
+/** Đơn không còn trạng thái "Đã hủy" (D-65). */
+const STATUSES = ['DRAFT', 'POSTED', 'REVERSED'];
 
 interface Filters extends PeriodValues {
   branchId?: number;

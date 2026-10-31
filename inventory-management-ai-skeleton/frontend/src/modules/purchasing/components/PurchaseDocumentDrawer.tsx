@@ -15,7 +15,7 @@ interface Props<T extends PurchaseDocumentBase> {
   queryKey: string;
   listKeys: string[];
   load(id: number): Promise<T>;
-  act(id: number, action: string, body: object | undefined, key: string): Promise<T>;
+  act(id: number, action: string, body: object | undefined, key: string): Promise<unknown>;
   /** Tiền tố quyền: {@code <prefix>:create|post|reverse}. */
   permission: string;
   title(document: T): string;
@@ -72,8 +72,14 @@ export function PurchaseDocumentDrawer<T extends PurchaseDocumentBase>(props: Pr
                 order={actionOrder}
                 onAction={async (action, body, key) => {
                   await act(id, action, body, key);
-                  void queryClient.invalidateQueries({ queryKey: [queryKey, id] });
                   listKeys.forEach((key) => void queryClient.invalidateQueries({ queryKey: [key] }));
+                  if (action === 'delete') {
+                    // D-65: chứng từ đã bị xóa hẳn, không tải lại chi tiết.
+                    queryClient.removeQueries({ queryKey: [queryKey, id] });
+                    onClose();
+                    return;
+                  }
+                  void queryClient.invalidateQueries({ queryKey: [queryKey, id] });
                 }}
               />
             </Space>

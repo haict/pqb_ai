@@ -1,4 +1,5 @@
 import {
+  deleteWithKey,
   downloadFile,
   getOne,
   getPage,
@@ -11,6 +12,7 @@ import type { ListParams } from '../../shared/api/useServerTable';
 import type { PrintCompany } from '../../shared/components/CompanyPrintButton';
 import type {
   CostAllocationSource,
+  DeletedOrder,
   OrderLineImportResult,
   PurchaseCostAllocation,
   PurchaseLedger,
@@ -33,8 +35,15 @@ function documentApi<T>(path: string) {
   };
 }
 
+const orderDocuments = documentApi<PurchaseOrder>('/purchase-orders');
+
 export const purchaseOrderApi = {
-  ...documentApi<PurchaseOrder>('/purchase-orders'),
+  ...orderDocuments,
+  /** Xóa hẳn đơn chưa từng ghi sổ (D-65) bằng DELETE; hành động khác POST /{id}/{action}. */
+  act: (id: number, action: string, body: object | undefined, key: string): Promise<unknown> =>
+    action === 'delete'
+      ? deleteWithKey<DeletedOrder>(`/purchase-orders/${id}`, body, key)
+      : orderDocuments.act(id, action, body, key),
   /** {@code companyId}: công ty in đầu phiếu (D-58); trống là công ty của đơn. */
   stockInSlip: (id: number, companyId?: number) =>
     getOne<StockInSlip>(`/purchase-orders/${id}/stock-in-slip`, { companyId }),

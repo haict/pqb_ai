@@ -58,6 +58,19 @@ export async function patchStatus<T>(
   return response.data.data;
 }
 
+/** DELETE có nội dung (lý do) và Idempotency-Key: xóa chứng từ chưa từng ghi sổ (D-65). */
+export async function deleteWithKey<T>(
+  url: string,
+  body: object | undefined,
+  idempotencyKey: string,
+): Promise<T> {
+  const response = await httpClient.delete<ApiResponse<T>>(url, {
+    data: body ?? {},
+    headers: { [IDEMPOTENCY_HEADER]: idempotencyKey },
+  });
+  return response.data.data;
+}
+
 export async function deleteJson(url: string): Promise<void> {
   await httpClient.delete(url);
 }

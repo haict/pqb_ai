@@ -12,6 +12,14 @@ springdoc:
 erp:
   security:
     cors-allowed-origins: http://localhost:5173
+  # Test thay Xinvoice bằng máy chủ HTTP giả lập trong TaxCodeLookupIntegrationTest (cổng cố định); không gọi Internet.
+  tax-code-lookup:
+    enabled: true
+    base-url: http://127.0.0.1:18091/gdt-api/tax-payer
+    client-id: test-client
+    api-key: test-api-key
+    connect-timeout: 1s
+    read-timeout: 1s
   auth:
     # Test tích hợp đăng nhập sai nhiều lần từ cùng địa chỉ 127.0.0.1; giới hạn theo IP có unit test riêng.
     ip-rate-limit:

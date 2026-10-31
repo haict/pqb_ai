@@ -76,6 +76,15 @@ Tham số nghiệp vụ (không phải biến môi trường) nằm trong bảng
 
 Múi giờ nghiệp vụ `erp.calendar.time-zone` (mặc định `Asia/Ho_Chi_Minh`, D-15): xác định "hôm nay" cho ngày chứng từ và chu kỳ số chứng từ. Thời điểm vẫn lưu UTC.
 
+### 4.1 Tra cứu mã số thuế (`erp.tax-code-lookup.*`, D-66)
+| Biến môi trường / khóa | Ý nghĩa | Mặc định |
+|---|---|---|
+| `TAX_CODE_LOOKUP_ENABLED` / `erp.tax-code-lookup.enabled` | Bật nút tra cứu MST khi thêm / sửa đối tác; máy chủ không ra được Internet thì đặt `false` (API trả 503, vẫn nhập tay) | `true` |
+| `TAX_CODE_LOOKUP_BASE_URL` / `erp.tax-code-lookup.base-url` | Địa chỉ nguồn tra cứu; mã số thuế nối vào cuối đường dẫn. Máy chủ phải ra được `https://api.xinvoice.vn` (cổng 443) | `https://api.xinvoice.vn/gdt-api/tax-payer` |
+| `TAX_CODE_LOOKUP_CLIENT_ID` / `erp.tax-code-lookup.client-id` | `client-id` cấp khi đăng ký API Xinvoice; trống thì không gửi header | trống |
+| `TAX_CODE_LOOKUP_API_KEY` / `erp.tax-code-lookup.api-key` | `api-key` đi cùng `client-id` (secret, không commit); trống thì không gửi header | trống |
+| `erp.tax-code-lookup.connect-timeout`, `erp.tax-code-lookup.read-timeout` | Chờ kết nối; chờ phản hồi | `3s`, `8s` |
+
 ## 5. Thiết lập máy phát triển
 ### 5.1 MySQL local
 Chạy bằng tài khoản quản trị MySQL (một lần):

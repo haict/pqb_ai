@@ -88,6 +88,7 @@ export const SERIAL_STATUSES: Record<SerialStatus, string> = {
 export const ACTION_LABELS: Record<string, string> = {
   activate: 'Kích hoạt',
   cancel: 'Hủy',
+  delete: 'Xóa',
   post: 'Ghi sổ',
   receive: 'Nhận hàng',
   reverse: 'Đảo chứng từ',
@@ -110,7 +111,7 @@ export const SOURCE_TYPES: Record<string, string> = {
 };
 
 /** Hành động bắt buộc lý do (api.md mục 3). */
-export const REASON_ACTIONS = new Set(['cancel', 'reverse', 'unpost', 'close']);
+export const REASON_ACTIONS = new Set(['cancel', 'delete', 'reverse', 'unpost', 'close']);
 
 /**
  * Định dạng theo Việt Nam: không truyền số lẻ là số lượng (2 số lẻ), 0 là giá trị tiền (D-57); số khác (đơn giá,

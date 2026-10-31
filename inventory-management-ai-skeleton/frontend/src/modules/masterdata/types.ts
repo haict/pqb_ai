@@ -65,6 +65,8 @@ export interface ProductCategory {
   name: string;
   status: RecordStatus;
   version: number;
+  /** Lệnh ngừng đã xóa hẳn nhóm chưa có hàng và nhóm con (D-67). */
+  deleted?: boolean;
 }
 
 export type ProductType = 'MACHINE' | 'CONSUMABLE' | 'REAGENT' | 'SPARE_PART' | 'TOOL' | 'SERVICE' | 'OTHER';
@@ -180,6 +182,18 @@ export interface PartnerAddress {
   receiverName?: string | null;
   phone?: string | null;
   defaultAddress: boolean;
+}
+
+/** Thông tin doanh nghiệp tra theo mã số thuế (D-66); trường nguồn không có thì null. */
+export interface TaxCodeLookup {
+  taxCode: string;
+  name: string | null;
+  internationalName: string | null;
+  shortName: string | null;
+  address: string | null;
+  phone: string | null;
+  status: string | null;
+  source: string | null;
 }
 
 export interface Partner {

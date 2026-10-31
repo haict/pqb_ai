@@ -3,6 +3,7 @@ package com.company.erp.purchasing;
 import static com.company.erp.support.ApiTestSupport.newKey;
 import static com.company.erp.support.ApiTestSupport.unique;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -35,7 +36,7 @@ class PurchaseOrderUnpostIntegrationTest extends PurchasingIntegrationSupport {
     }
 
     @Test
-    @DisplayName("D-62, AT-09, AT-10, AT-13: bỏ ghi sổ đơn mua về nháp giữ số, sổ phụ ghi ngược, sửa rồi ghi sổ lại")
+    @DisplayName("D-62, AT-09, AT-10, AT-13: bỏ ghi sổ đơn mua về nháp giữ số, sổ phụ ghi ngược, sửa rồi ghi sổ lại; D-65 không xóa được")
     void unpostEditRepost() throws Exception {
         long tube = product("VT_ONG_01");
         long box = unit("HOP");
@@ -58,6 +59,9 @@ class PurchaseOrderUnpostIntegrationTest extends PurchasingIntegrationSupport {
                 .andExpect(jsonPath("$.data.inventoryDocumentId").doesNotExist());
         send(keeper, post(ORDERS + "/" + order + "/unpost"), UNPOST, key).andExpect(status().isOk());
         act(keeper, ORDERS, order, "unpost", UNPOST).andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("INVALID_DOCUMENT_STATE"));
+        // D-65: đơn đã từng ghi sổ còn sổ phụ tham chiếu, về nháp vẫn không xóa được.
+        send(buyer, delete(ORDERS + "/" + order), UNPOST, newKey()).andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("INVALID_DOCUMENT_STATE"));
 
         assertThat(lotOnHand(lot)).isEqualByComparingTo("0");

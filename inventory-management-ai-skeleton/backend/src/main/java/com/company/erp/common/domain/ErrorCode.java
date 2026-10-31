@@ -25,6 +25,7 @@ public enum ErrorCode {
             + "xem, in, xuất dữ liệu. Liên hệ nhà cung cấp để gia hạn."),
 
     NOT_FOUND(HttpStatus.NOT_FOUND, "Không tìm thấy dữ liệu."),
+    TAX_CODE_NOT_FOUND(HttpStatus.NOT_FOUND, "Không tìm thấy doanh nghiệp theo mã số thuế."),
     METHOD_NOT_ALLOWED(HttpStatus.METHOD_NOT_ALLOWED, "Phương thức không được hỗ trợ."),
 
     DUPLICATE_CODE(HttpStatus.CONFLICT, "Mã đã tồn tại."),
@@ -72,7 +73,11 @@ public enum ErrorCode {
 
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "Lỗi hệ thống, vui lòng thử lại hoặc liên hệ quản trị."),
     AI_SERVICE_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "Chức năng AI tạm thời không khả dụng; vẫn nhập tay bình thường."),
-    AI_TIMEOUT(HttpStatus.GATEWAY_TIMEOUT, "Hệ thống AI xử lý quá thời gian, vui lòng thử lại.");
+    TAX_CODE_LOOKUP_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE,
+            "Dịch vụ tra cứu mã số thuế tạm thời không khả dụng; vẫn nhập tay bình thường."),
+    AI_TIMEOUT(HttpStatus.GATEWAY_TIMEOUT, "Hệ thống AI xử lý quá thời gian, vui lòng thử lại."),
+    TAX_CODE_LOOKUP_TIMEOUT(HttpStatus.GATEWAY_TIMEOUT,
+            "Dịch vụ tra cứu mã số thuế phản hồi quá lâu, vui lòng thử lại.");
 
     private final HttpStatus httpStatus;
     private final String defaultMessage;

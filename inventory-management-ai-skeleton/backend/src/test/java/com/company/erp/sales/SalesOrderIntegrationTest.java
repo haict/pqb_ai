@@ -6,6 +6,7 @@ import static com.company.erp.support.ApiTestSupport.unique;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.hasItems;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -96,7 +97,7 @@ class SalesOrderIntegrationTest extends SalesIntegrationSupport {
     }
 
     @Test
-    @DisplayName("BR-SAL-13, D-37, D-61: giữ hàng ngay trên đơn nháp, nhả, giữ lại không cộng dồn, sửa giữ lại theo dòng mới, hủy đơn nhả hàng; cảnh báo thiếu tồn")
+    @DisplayName("BR-SAL-13, D-37, D-61: giữ hàng ngay trên đơn nháp, nhả, giữ lại không cộng dồn, sửa giữ lại theo dòng mới; D-65 xóa đơn nháp nhả hàng; cảnh báo thiếu tồn")
     void reservation() throws Exception {
         long tube = product("VT_ONG_01");
         long box = unit("HOP");
@@ -122,9 +123,17 @@ class SalesOrderIntegrationTest extends SalesIntegrationSupport {
                 .value(300));
         act(manager, ORDERS, reserving, "reserve", null).andExpect(status().isOk());
         assertThat(reserved(tube, store).subtract(before)).isEqualByComparingTo("300");
-        act(manager, ORDERS, reserving, "cancel", "{\"reason\":\"Khách đổi kế hoạch\"}")
-                .andExpect(jsonPath("$.data.status").value("CANCELLED"));
+        String reason = "{\"reason\":\"Khách đổi kế hoạch\"}";
+        send(keeper, delete(ORDERS + "/" + reserving), reason, newKey()).andExpect(status().isForbidden());
+        send(manager, delete(ORDERS + "/" + reserving), "{}", newKey()).andExpect(status().isBadRequest());
+        String key = newKey();
+        send(manager, delete(ORDERS + "/" + reserving), reason, key).andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.id").value(reserving));
+        send(manager, delete(ORDERS + "/" + reserving), reason, key).andExpect(status().isOk());
         assertThat(reserved(tube, store)).isEqualByComparingTo(before);
+        assertThat(id("SELECT COUNT(*) FROM sales_orders WHERE id = " + reserving)).isZero();
+        assertThat(id("SELECT COUNT(*) FROM sys_audit_logs WHERE entity_type = 'SALES_ORDER' AND entity_id = "
+                + reserving + " AND action = 'DELETE' AND before_value IS NOT NULL")).isEqualTo(1);
 
         send(manager, post(ORDERS), order(partner("KH_BV01"), store, false, List.of(line(tube, box, "100000", null,
                 null))), newKey()).andExpect(status().isCreated())

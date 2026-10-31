@@ -143,6 +143,60 @@ class MasterDataIntegrationTest {
     }
 
     @Test
+    @DisplayName("D-67: sửa mã nhóm hàng (trùng 409, hàng giữ theo ID); ngừng nhóm chưa có hàng / nhóm con thì xóa hẳn")
+    void categoryRecodeAndDelete() throws Exception {
+        Session admin = login(mockMvc, "admin");
+        String parentCode = unique("C");
+        Integer parent = createCategory(admin, parentCode, null);
+        Integer child = createCategory(admin, unique("C"), parent);
+        Integer used = createCategory(admin, unique("C"), null);
+        long box = id("SELECT id FROM units WHERE company_id = 1 AND code = 'HOP'");
+        Integer productId = json(send(admin, post("/api/v1/products"),
+                product(unique("P"), "CONSUMABLE", used, box, true, true, false), newKey())
+                .andExpect(status().isCreated()).andReturn(), "$.data.id");
+
+        String newCode = unique("C");
+        mockMvc.perform(as(admin, put("/api/v1/product-categories/" + used)).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"code\":\"" + newCode + "\",\"name\":\"Đã sửa mã\",\"version\":0}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.code").value(newCode));
+        mockMvc.perform(as(admin, put("/api/v1/product-categories/" + used)).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"code\":\"" + parentCode + "\",\"name\":\"Trùng\",\"version\":1}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("DUPLICATE_CODE"));
+        mockMvc.perform(as(admin, put("/api/v1/product-categories/" + used)).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"Không gửi mã\",\"version\":1}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.code").value(newCode));
+        mockMvc.perform(as(admin, get("/api/v1/products/" + productId)))
+                .andExpect(jsonPath("$.data.categoryId").value(used));
+
+        changeCategoryStatus(admin, used, 2).andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("INACTIVE"))
+                .andExpect(jsonPath("$.data.deleted").value(false));
+        changeCategoryStatus(admin, parent, 0).andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.deleted").value(false));
+        changeCategoryStatus(admin, child, 0).andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.deleted").value(true));
+        assertThat(id("SELECT COUNT(*) FROM product_categories WHERE id IN (" + used + "," + parent + "," + child
+                + ")")).isEqualTo(2);
+        assertThat(id("SELECT COUNT(*) FROM sys_audit_logs WHERE entity_type = 'PRODUCT_CATEGORY' AND action = "
+                + "'DELETE' AND entity_id = " + child + " AND before_value IS NOT NULL")).isEqualTo(1);
+    }
+
+    private Integer createCategory(Session session, String code, Integer parentId) throws Exception {
+        return json(send(session, post("/api/v1/product-categories"), "{\"companyId\":1,\"code\":\"" + code
+                + "\",\"name\":\"Nhóm " + code + "\",\"parentId\":" + parentId + "}", newKey())
+                .andExpect(status().isCreated()).andReturn(), "$.data.id");
+    }
+
+    private ResultActions changeCategoryStatus(Session session, Integer categoryId, int version) throws Exception {
+        return mockMvc.perform(as(session, patch("/api/v1/product-categories/" + categoryId + "/status"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"status\":\"INACTIVE\",\"version\":" + version + ",\"reason\":\"Khai báo nhầm\"}"));
+    }
+
+    @Test
     @DisplayName("BR-SYS-04, BR-SYS-06: kho theo phạm vi chi nhánh / kho được gán; vị trí mặc định không ngừng được")
     void warehouseScope() throws Exception {
         Session warehouseStaff = login(mockMvc, "kho.hcm");

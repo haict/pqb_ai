@@ -322,6 +322,31 @@ Hạn chế: chưa có test bỏ ghi sổ khi kỳ gốc đã khóa (dùng chung
 |---|---|---|---|---|
 | License ký số Ed25519, kiểm tra khi khởi động / mỗi giờ / khi nạp; chỉ đọc khi chưa có, sai chữ ký, hết ân hạn, công ty ngoài danh sách MST, lùi đồng hồ; API `GET/PUT /license`; màn hình Quản trị › Bản quyền phần mềm; banner nhắc hạn (từ 15 ngày); công cụ ký `tools/license-signer` | D-59 | Hoàn thành, chưa thử trên trình duyệt | `LicenseIntegrationTest` (5 test); toàn bộ test tích hợp chạy với license test nạp qua `erp.license.import-location` | [Suy luận] Không chống được người có quyền quản trị máy chủ dịch ngược / sửa WAR, hoặc xóa dòng `sys_license_clock` rồi lùi đồng hồ trong khoảng sau ngày cấp license; khóa test (`test`) chỉ có trong resource test, không đóng gói vào WAR; private key nhà cung cấp phải cất ngoài repo |
 
+## D-65 - Xóa đơn mua / đơn bán thay cho hủy (2026-10-29, V41)
+| Chức năng | Mã | Trạng thái | Test | Ghi chú |
+|---|---|---|---|---|
+| Xóa hẳn đơn mua chưa từng ghi sổ (xác nhận, lý do, audit lưu đơn trước khi xóa); chặn POSTED và nháp đã từng ghi sổ | D-65, BR-GEN-03 | Hoàn thành | `PurchaseOrderIntegrationTest.deleteDraft`, `.thresholdAuthority`, `.legacyPendingApproval`, `PurchaseOrderUnpostIntegrationTest` | `DELETE /purchase-orders/{id}` |
+| Xóa hẳn đơn bán chưa từng ghi sổ, nhả hàng đang giữ; chặn nháp đã từng ghi sổ | D-65, BR-GEN-03 | Hoàn thành | `SalesOrderIntegrationTest.reservation`, `SalesOrderUnpostIntegrationTest` | `DELETE /sales-orders/{id}` |
+| Giao diện: nút "Xóa" có hộp thoại xác nhận, lý do, cảnh báo không khôi phục; bỏ "Đã hủy" khỏi bộ lọc đơn và báo cáo tiến độ | D-65 | Hoàn thành | `orderActions.test.ts` | |
+| Migration xóa đơn đã hủy trước D-65; backfill `ever_posted` | D-65 | Hoàn thành | Chạy Flyway trên schema test trống (`mvn clean verify`) | |
+
+Hạn chế: nút "Xóa" vẫn hiện trên đơn nháp đã từng ghi sổ (response chưa có `everPosted`); server chặn 409 và hiện lý do. Tài liệu hướng dẫn `13-huong-dan-su-dung.docx` còn mô tả "Hủy đơn": trợ lý AI có thể trả lời theo cách cũ cho đến khi cập nhật tài liệu và lập chỉ mục lại.
+
+## D-67 - Sửa mã, xóa nhóm hàng khai báo nhầm (2026-10-31)
+| Chức năng | Mã | Trạng thái | Test | Ghi chú |
+|---|---|---|---|---|
+| Sửa mã nhóm hàng (kiểm tra trùng), hàng giữ liên kết theo ID | D-67, BR-MD-03 | Hoàn thành, chưa thử trên trình duyệt | `MasterDataIntegrationTest.categoryRecodeAndDelete` | Không cần migration (bỏ `updatable=false` riêng cho cột `code` của nhóm hàng) |
+| Ngừng nhóm chưa có hàng và nhóm con thì xóa hẳn (lý do, audit); còn hàng / nhóm con thì ngừng như cũ; hộp thoại ghi rõ | D-67 | Hoàn thành, chưa thử trên trình duyệt | `MasterDataIntegrationTest.categoryRecodeAndDelete` | |
+
+## D-66 - Tra cứu doanh nghiệp theo mã số thuế (2026-10-31)
+| Chức năng | Mã | Trạng thái | Test | Ghi chú |
+|---|---|---|---|---|
+| `GET /partners/tax-code-lookup`: backend gọi Xinvoice (`client-id` / `api-key` khi có cấu hình), ánh xạ kết quả / lỗi (400, 404, 429, 503, 504), quyền `partner:manage` | D-66 | Hoàn thành | `TaxCodeLookupIntegrationTest` (3 test, Xinvoice giả lập cổng 18091) | Chưa thử gọi Xinvoice thật từ máy chủ ứng dụng; dev đã gọi thử bằng curl ngày 2026-10-31 không kèm khóa: 200 (MST có), 404 (MST không có) |
+| Form đối tác (trang Đối tác và popup + ở đơn mua / đơn bán): nút tra cứu cạnh ô MST, chỉ điền ô trống, ghi chú khi khác, cảnh báo tình trạng | D-66 | Hoàn thành, chưa thử trên trình duyệt | `partnerFields.test.ts` (2 test) | |
+| Nút + thêm nhà cung cấp / khách hàng / hàng hóa ngay trong ô chọn của đơn mua, đơn bán (popup dùng form danh mục) | BR-MD-30, BR-MD-01 | Hoàn thành, chưa thử trên trình duyệt | Chưa có test tự động (lint, build) | Hiện với người có `partner:manage` / `product:manage` |
+
+Hạn chế: Xinvoice không trả số điện thoại. Tài liệu Xinvoice ghi bắt buộc `client-id` / `api-key` cấp khi đăng ký, nhưng ngày 2026-10-31 gọi không kèm khóa vẫn trả kết quả `[Chưa kiểm chứng]` điều này có tiếp tục; cần đăng ký và cấu hình khóa. Chưa đọc được điều khoản sử dụng / giới hạn tần suất / giá của API.
+
 ## AI-1a - AI Service OCR (2026-10-27, D-64)
 | Chức năng | Mã | Trạng thái | Test | Ghi chú |
 |---|---|---|---|---|

@@ -9,6 +9,7 @@ import com.company.erp.sales.application.SalesOrderService;
 import com.company.erp.sales.application.SalesOrderSlipService;
 import com.company.erp.sales.application.SalesReceiptSourceService;
 import com.company.erp.sales.application.dto.ConfirmDeliveryRequest;
+import com.company.erp.sales.application.dto.DeletedOrderResponse;
 import com.company.erp.sales.application.dto.EinvoiceReferenceRequest;
 import com.company.erp.sales.application.dto.PrintCompanyResponse;
 import com.company.erp.sales.application.dto.ReasonRequest;
@@ -35,6 +36,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -163,13 +165,15 @@ public class SalesOrderController {
         return ApiResponse.ok(service.update(user, id, request));
     }
 
-    @Operation(summary = "Hủy", description = "Chỉ khi chưa ghi sổ; nhả hàng đang giữ; bắt buộc lý do.")
-    @PostMapping("/{id}/cancel")
+    @Operation(summary = "Xóa", description = "D-65: xóa hẳn đơn chưa từng ghi sổ (nháp; đơn cũ trước D-61 chưa ghi "
+            + "sổ), nhả hàng đang giữ; bắt buộc lý do, audit lưu đơn trước khi xóa. Đã ghi sổ, đã đảo hoặc đã từng ghi "
+            + "sổ rồi bỏ ghi sổ: 409 INVALID_DOCUMENT_STATE.")
+    @DeleteMapping("/{id}")
     @PreAuthorize("hasAuthority('sales-order:create')")
-    public ApiResponse<SalesOrderResponse> cancel(@AuthenticationPrincipal CurrentUser user, @PathVariable Long id,
+    public ApiResponse<DeletedOrderResponse> delete(@AuthenticationPrincipal CurrentUser user, @PathVariable Long id,
             @RequestHeader(IdempotentCommand.HEADER) String idempotencyKey,
             @Valid @RequestBody ReasonRequest request) {
-        return ApiResponse.ok(service.cancel(user, id, idempotencyKey, request));
+        return ApiResponse.ok(service.delete(user, id, idempotencyKey, request));
     }
 
     @Operation(summary = "Giữ hàng", description = "Đơn chưa ghi sổ (nháp; đơn đã duyệt trước D-61): giữ dòng hàng hóa, "

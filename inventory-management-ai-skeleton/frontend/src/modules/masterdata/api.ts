@@ -18,6 +18,7 @@ import type {
   Country,
   ImportResult,
   Partner,
+  TaxCodeLookup,
   PriceList,
   PriceListItem,
   Product,
@@ -116,6 +117,7 @@ export const warehouseApi = {
 export const partnerApi = {
   list: <F extends object>(params: ListParams & F) => getPage<Partner>('/partners', params),
   get: (id: number) => getOne<Partner>(`/partners/${id}`),
+  lookupTaxCode: (taxCode: string) => getOne<TaxCodeLookup>('/partners/tax-code-lookup', { taxCode }),
   create: (input: object, key: string) => postWithKey<Partner>('/partners', input, key),
   update: (id: number, input: object) => putJson<Partner>(`/partners/${id}`, input),
   changeStatus: (item: Partner, status: RecordStatus, reason: string) =>

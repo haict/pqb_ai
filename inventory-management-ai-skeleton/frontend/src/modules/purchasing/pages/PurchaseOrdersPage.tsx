@@ -46,7 +46,7 @@ import { SourceJournal } from '../components/SourceJournal';
 import { useProductUnits } from '../components/productUnits';
 import { OcrLineHints, OcrNotes } from '../../ai/components/OcrHints';
 import { PurchaseOcrButton } from '../components/PurchaseOcrButton';
-import { orderActions, PURCHASE_STATUSES } from '../labels';
+import { ORDER_STATUSES, orderActions } from '../labels';
 import type {
   ImportedOrderLine,
   OrderLineImportResult,
@@ -111,7 +111,7 @@ const FIELDS = [
 ];
 
 /** Thao tác trên chi tiết đơn; bỏ ghi sổ, đảo đặt ở cột thao tác của danh sách. */
-const ACTION_ORDER = ['post', 'cancel'];
+const ACTION_ORDER = ['post', 'delete'];
 const ROW_ACTION_ORDER = ['unpost', 'reverse'];
 const LIST_KEYS = ['purchase-orders', 'stock-summaries', 'inventory-documents', 'debt-items'];
 const date = (value?: Dayjs) => (value ? value.format('YYYY-MM-DD') : null);
@@ -306,7 +306,7 @@ export function PurchaseOrdersPage() {
             style={{ width: 160 }}
             value={status}
             onChange={setStatus}
-            options={PURCHASE_STATUSES.map((value) => ({ value, label: statusLabel(value) }))}
+            options={ORDER_STATUSES.map((value) => ({ value, label: statusLabel(value) }))}
           />
         }
         createLabel="Lập đơn mua"
@@ -547,7 +547,7 @@ function OrderFields({
             label="Nhà cung cấp"
             rules={[{ required: true, message: 'Chọn nhà cung cấp' }]}
           >
-            <PartnerSelect role="SUPPLIER" selectedLabel={form.getFieldValue('supplierLabel')} />
+            <PartnerSelect role="SUPPLIER" creatable selectedLabel={form.getFieldValue('supplierLabel')} />
           </Form.Item>
         </Col>
         <Col xs={24} md={4}>
@@ -710,6 +710,7 @@ function OrderLineFields({
         rules={[{ required: true, message: 'Chọn hàng' }]}
       >
         <ProductSelect
+          creatable
           selectedLabel={form.getFieldValue(['lines', name, 'productLabel'])}
           onProduct={(product) => {
             // Không dùng preserve={false} cho lô / hạn / serial: trường hiện sau khi tải hàng, mở lại form sửa

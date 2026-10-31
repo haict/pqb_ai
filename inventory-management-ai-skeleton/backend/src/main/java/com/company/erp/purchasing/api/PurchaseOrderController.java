@@ -7,6 +7,7 @@ import com.company.erp.purchasing.application.PurchaseOrderLineImportService;
 import com.company.erp.purchasing.application.PurchaseOrderPostingService;
 import com.company.erp.purchasing.application.PurchaseOrderService;
 import com.company.erp.purchasing.application.PurchaseOrderSlipService;
+import com.company.erp.purchasing.application.dto.DeletedOrderResponse;
 import com.company.erp.purchasing.application.dto.PrintCompanyResponse;
 import com.company.erp.purchasing.application.dto.PurchaseOrderLineImportResponse;
 import com.company.erp.purchasing.application.dto.PurchaseOrderRequest;
@@ -30,6 +31,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -146,14 +148,15 @@ public class PurchaseOrderController {
         return ApiResponse.ok(service.update(user, id, request));
     }
 
-    @Operation(summary = "Hủy", description = "Chỉ khi chưa ghi sổ; đơn đã duyệt trước D-61 thì trừ hàng đang về; "
-            + "bắt buộc lý do.")
-    @PostMapping("/{id}/cancel")
+    @Operation(summary = "Xóa", description = "D-65: xóa hẳn đơn chưa từng ghi sổ (nháp; đơn cũ trước D-61 chưa ghi "
+            + "sổ), đơn đã duyệt trước D-61 thì trừ hàng đang về; bắt buộc lý do, audit lưu đơn trước khi xóa. Đã ghi "
+            + "sổ, đã đảo hoặc đã từng ghi sổ rồi bỏ ghi sổ: 409 INVALID_DOCUMENT_STATE.")
+    @DeleteMapping("/{id}")
     @PreAuthorize("hasAuthority('purchase-order:create')")
-    public ApiResponse<PurchaseOrderResponse> cancel(@AuthenticationPrincipal CurrentUser user, @PathVariable Long id,
+    public ApiResponse<DeletedOrderResponse> delete(@AuthenticationPrincipal CurrentUser user, @PathVariable Long id,
             @RequestHeader(IdempotentCommand.HEADER) String idempotencyKey,
             @Valid @RequestBody ReasonRequest request) {
-        return ApiResponse.ok(service.cancel(user, id, idempotencyKey, request));
+        return ApiResponse.ok(service.delete(user, id, idempotencyKey, request));
     }
 
     @Operation(summary = "Ghi sổ", description = "Từ DRAFT (hoặc APPROVED trước D-61): phiếu nhập kho (lô, hạn dùng, "

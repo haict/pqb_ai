@@ -1,4 +1,5 @@
 import {
+  deleteWithKey,
   downloadFile,
   getOne,
   getPage,
@@ -10,6 +11,7 @@ import {
 import type { ListParams } from '../../shared/api/useServerTable';
 import type { PrintCompany } from '../../shared/components/CompanyPrintButton';
 import type {
+  DeletedOrder,
   PriceSuggestion,
   ReceiptSource,
   ReturnableSalesLine,
@@ -47,8 +49,15 @@ export const salesPriceApi = {
   }) => getOne<PriceSuggestion>('/sales/price', params),
 };
 
+const orderDocuments = documentApi<SalesOrder>('/sales-orders');
+
 export const salesOrderApi = {
-  ...documentApi<SalesOrder>('/sales-orders'),
+  ...orderDocuments,
+  /** Xóa hẳn đơn chưa từng ghi sổ (D-65) bằng DELETE; hành động khác POST /{id}/{action}. */
+  act: (id: number, action: string, body: object | undefined, key: string): Promise<unknown> =>
+    action === 'delete'
+      ? deleteWithKey<DeletedOrder>(`/sales-orders/${id}`, body, key)
+      : orderDocuments.act(id, action, body, key),
   /** {@code companyId}: công ty in đầu phiếu (D-58); trống là công ty của đơn. */
   stockOutSlip: (id: number, companyId?: number) =>
     getOne<StockOutSlip>(`/sales-orders/${id}/stock-out-slip`, { companyId }),

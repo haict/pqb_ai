@@ -26,8 +26,10 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import com.company.erp.masterdata.application.PartnerService;
+import com.company.erp.masterdata.application.TaxCodeLookupService;
 import com.company.erp.masterdata.application.dto.PartnerRequest;
 import com.company.erp.masterdata.application.dto.PartnerResponse;
+import com.company.erp.masterdata.application.dto.TaxCodeLookupResponse;
 import com.company.erp.masterdata.application.dto.UpdatePartnerRequest;
 import com.company.erp.masterdata.domain.PartnerRole;
 
@@ -38,9 +40,11 @@ import com.company.erp.masterdata.domain.PartnerRole;
 public class PartnerController {
 
     private final PartnerService partnerService;
+    private final TaxCodeLookupService taxCodeLookupService;
 
-    public PartnerController(PartnerService partnerService) {
+    public PartnerController(PartnerService partnerService, TaxCodeLookupService taxCodeLookupService) {
         this.partnerService = partnerService;
+        this.taxCodeLookupService = taxCodeLookupService;
     }
 
     @GetMapping
@@ -58,6 +62,16 @@ public class PartnerController {
     @PreAuthorize("hasAuthority('partner:view')")
     public ApiResponse<PartnerResponse> get(@AuthenticationPrincipal CurrentUser user, @PathVariable Long id) {
         return ApiResponse.ok(partnerService.get(user, id));
+    }
+
+    @Operation(summary = "Tra cứu doanh nghiệp theo mã số thuế",
+            description = "D-66: gợi ý tên, địa chỉ để điền form thêm / sửa đối tác; không lưu dữ liệu. Mã sai định "
+                    + "dạng: 400; không tìm thấy: 404 TAX_CODE_NOT_FOUND; tra quá nhiều: 429 TOO_MANY_REQUESTS; dịch "
+                    + "vụ tắt hoặc lỗi: 503 TAX_CODE_LOOKUP_UNAVAILABLE; quá thời gian: 504 TAX_CODE_LOOKUP_TIMEOUT.")
+    @GetMapping("/tax-code-lookup")
+    @PreAuthorize("hasAuthority('partner:manage')")
+    public ApiResponse<TaxCodeLookupResponse> lookupTaxCode(@RequestParam String taxCode) {
+        return ApiResponse.ok(taxCodeLookupService.lookup(taxCode));
     }
 
     @Operation(summary = "Thêm mới", description = "Bắt buộc header Idempotency-Key.")

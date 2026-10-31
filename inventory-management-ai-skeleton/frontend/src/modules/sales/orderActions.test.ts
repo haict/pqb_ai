@@ -26,6 +26,24 @@ describe('bỏ ghi sổ (D-62)', () => {
 
   it('đơn mua đã ghi sổ có bỏ ghi sổ; đơn nháp không có', () => {
     expect(purchaseOrderActions('POSTED', all)).toEqual(['unpost', 'reverse']);
-    expect(purchaseOrderActions('DRAFT', all)).toEqual(['post', 'cancel']);
+    expect(purchaseOrderActions('DRAFT', all)).toEqual(['post', 'delete']);
+  });
+});
+
+describe('xóa đơn thay cho hủy (D-65)', () => {
+  it('đơn nháp và đơn cũ trước D-61 chưa ghi sổ: xóa, không còn hủy', () => {
+    expect(orderActions(salesOrder({ status: 'DRAFT' }), all)).toEqual([
+      'post',
+      'reserve',
+      'release',
+      'delete',
+    ]);
+    expect(orderActions(salesOrder({ status: 'SUBMITTED' }), all)).toEqual(['delete']);
+    expect(purchaseOrderActions('REJECTED', all)).toEqual(['delete']);
+  });
+
+  it('thiếu quyền lập đơn thì không có nút xóa', () => {
+    expect(orderActions(salesOrder({ status: 'DRAFT' }), without('sales-order:create'))).toEqual(['post']);
+    expect(purchaseOrderActions('DRAFT', without('purchase-order:create'))).toEqual(['post']);
   });
 });

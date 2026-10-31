@@ -5,6 +5,7 @@ import static com.company.erp.support.ApiTestSupport.newKey;
 import static com.company.erp.support.ApiTestSupport.unique;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasItems;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -40,6 +41,8 @@ import org.springframework.test.web.servlet.ResultActions;
 @MySqlIntegrationTest
 @AutoConfigureMockMvc
 class PurchaseOrderIntegrationTest extends PurchasingIntegrationSupport {
+
+    private static final String REASON = "{\"reason\":\"Đổi nhà cung cấp\"}";
 
     @Autowired
     PurchaseOrderIntegrationTest(MockMvc mockMvc, JdbcTemplate jdbc) {
@@ -173,7 +176,7 @@ class PurchaseOrderIntegrationTest extends PurchasingIntegrationSupport {
     }
 
     @Test
-    @DisplayName("D-61, AT-10, AT-13: đơn mua từ ngưỡng chỉ người có quyền ghi sổ vượt ngưỡng ghi sổ được; không có bước duyệt; hủy đơn nháp")
+    @DisplayName("D-61, AT-10, AT-13: đơn mua từ ngưỡng chỉ người có quyền ghi sổ vượt ngưỡng ghi sổ được; không có bước duyệt")
     void thresholdAuthority() throws Exception {
         long machine = product("MAY_XN_01");
         long piece = unit("CAI");
@@ -200,15 +203,44 @@ class PurchaseOrderIntegrationTest extends PurchasingIntegrationSupport {
         assertThat(id("SELECT COUNT(*) FROM sys_audit_logs WHERE entity_type = 'PURCHASE_ORDER' AND entity_id = "
                 + order + " AND action = 'POST' AND reason LIKE 'Ghi sổ đơn mua vượt ngưỡng%'")).isEqualTo(1);
 
-        long draft = jsonId(send(buyer, post(ORDERS), body.replaceFirst("\"SN[^\"]*\"", "\"" + unique("SN") + "\""),
-                newKey()).andExpect(status().isCreated()).andReturn());
-        act(buyer, ORDERS, draft, "cancel", "{\"reason\":\"Đổi nhà cung cấp\"}")
-                .andExpect(jsonPath("$.data.status").value("CANCELLED"));
+        send(buyer, delete(ORDERS + "/" + order), REASON, newKey()).andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("INVALID_DOCUMENT_STATE"));
         assertThat(incoming(machine, warehouse)).isEqualByComparingTo(incomingBefore);
     }
 
     @Test
-    @DisplayName("D-61: đơn chờ duyệt lập trước D-61 không ghi sổ được, chỉ hủy; hủy đóng yêu cầu duyệt còn treo; lịch sử duyệt chỉ đọc")
+    @DisplayName("D-65, AT-10, AT-13: xóa hẳn đơn mua nháp chưa từng ghi sổ; bắt buộc lý do; gửi lại cùng key; audit lưu đơn trước khi xóa")
+    void deleteDraft() throws Exception {
+        long machine = product("MAY_XN_01");
+        long warehouse = warehouse("KHO_HN");
+        String body = order(partner("NCC_01"), warehouse, List.of(orderLine(machine, unit("CAI"), "1", "1000000", null,
+                null).replaceFirst("}$", ",\"serialNumbers\":[\"" + unique("SN") + "\"]}")));
+        long draft = jsonId(send(buyer, post(ORDERS), body, newKey()).andExpect(status().isCreated()).andReturn());
+        String documentNo = jdbc.queryForObject("SELECT document_no FROM purchase_orders WHERE id = ?", String.class,
+                draft);
+
+        send(keeper, delete(ORDERS + "/" + draft), REASON, newKey()).andExpect(status().isForbidden());
+        send(buyer, delete(ORDERS + "/" + draft), "{\"reason\":\" \"}", newKey())
+                .andExpect(status().isBadRequest());
+        send(buyer, delete(ORDERS + "/" + Long.MAX_VALUE), REASON, newKey()).andExpect(status().isNotFound());
+        assertThat(id("SELECT COUNT(*) FROM purchase_orders WHERE id = " + draft)).isEqualTo(1);
+
+        String key = newKey();
+        send(buyer, delete(ORDERS + "/" + draft), REASON, key).andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.id").value(draft))
+                .andExpect(jsonPath("$.data.documentNo").value(documentNo));
+        send(buyer, delete(ORDERS + "/" + draft), REASON, key).andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.documentNo").value(documentNo));
+        assertThat(id("SELECT COUNT(*) FROM purchase_orders WHERE id = " + draft)).isZero();
+        assertThat(id("SELECT COUNT(*) FROM purchase_order_lines WHERE order_id = " + draft)).isZero();
+        assertThat(id("SELECT COUNT(*) FROM sys_audit_logs WHERE entity_type = 'PURCHASE_ORDER' AND entity_id = "
+                + draft + " AND action = 'DELETE' AND reason = 'Đổi nhà cung cấp' AND before_value LIKE '%"
+                + documentNo + "%'")).isEqualTo(1);
+        send(buyer, delete(ORDERS + "/" + draft), REASON, newKey()).andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("D-61: đơn chờ duyệt lập trước D-61 không ghi sổ được, chỉ xóa (D-65); xóa đóng yêu cầu duyệt còn treo; lịch sử duyệt chỉ đọc")
     void legacyPendingApproval() throws Exception {
         String body = order(partner("NCC_01"), warehouse("KHO_HN"), List.of(orderLine(product("DV_VC"), unit("CAI"),
                 "1", "100000", null, null)));
@@ -220,8 +252,8 @@ class PurchaseOrderIntegrationTest extends PurchasingIntegrationSupport {
         mockMvc.perform(as(buyer, get(ORDERS + "/" + order))).andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.approvals.length()").value(1))
                 .andExpect(jsonPath("$.data.approvals[0].status").value("PENDING"));
-        act(buyer, ORDERS, order, "cancel", "{\"reason\":\"Bỏ đơn cũ\"}")
-                .andExpect(jsonPath("$.data.status").value("CANCELLED"));
+        send(buyer, delete(ORDERS + "/" + order), "{\"reason\":\"Bỏ đơn cũ\"}", newKey()).andExpect(status().isOk());
+        assertThat(id("SELECT COUNT(*) FROM purchase_orders WHERE id = " + order)).isZero();
         assertThat(jdbc.queryForObject("SELECT status FROM approval_requests WHERE id = ?", String.class, request))
                 .isEqualTo("CANCELLED");
         assertThat(id("SELECT COUNT(*) FROM approval_actions WHERE request_id = " + request

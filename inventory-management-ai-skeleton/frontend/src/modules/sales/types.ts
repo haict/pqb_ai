@@ -98,6 +98,12 @@ export interface PaymentSchedule {
   description: string | null;
 }
 
+/** Kết quả xóa đơn chưa từng ghi sổ (D-65). */
+export interface DeletedOrder {
+  id: number;
+  documentNo: string;
+}
+
 /** Đơn bán (D-54): ghi sổ = xuất kho + doanh thu + công nợ phải thu + bút toán; số HĐĐT; theo dõi giao hàng. */
 export interface SalesOrder extends SalesDocumentBase {
   customerId: number;

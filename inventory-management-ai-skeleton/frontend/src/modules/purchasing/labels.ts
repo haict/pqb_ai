@@ -1,11 +1,9 @@
 import type { CostAllocationMethod, PurchaseDocumentStatus, PurchaseReturnType } from './types';
 
-export const PURCHASE_STATUSES: PurchaseDocumentStatus[] = [
-  'DRAFT',
-  'POSTED',
-  'CANCELLED',
-  'REVERSED',
-];
+export const PURCHASE_STATUSES: PurchaseDocumentStatus[] = ['DRAFT', 'POSTED', 'CANCELLED', 'REVERSED'];
+
+/** Trạng thái đơn mua: không còn "Đã hủy", đơn chưa từng ghi sổ được xóa hẳn (D-65). */
+export const ORDER_STATUSES: PurchaseDocumentStatus[] = ['DRAFT', 'POSTED', 'REVERSED'];
 
 /**
  * Thao tác chứng từ mua (đơn mua, trả hàng, phân bổ) theo trạng thái và quyền {@code <prefix>:*} (chỉ hỗ trợ hiển thị;
@@ -29,9 +27,14 @@ export function postingActions(
   return actions[status] ?? [];
 }
 
-/** Thao tác đơn mua: như chứng từ ghi sổ, thêm bỏ ghi sổ về nháp để sửa (D-62). */
+/**
+ * Thao tác đơn mua: như chứng từ ghi sổ nhưng xóa hẳn thay cho hủy (D-65), thêm bỏ ghi sổ về nháp để sửa (D-62).
+ * Đơn nháp đã từng ghi sổ vẫn hiện nút xóa; server chặn (409) và báo lý do.
+ */
 export function orderActions(status: PurchaseDocumentStatus, can: (permission: string) => boolean): string[] {
-  const actions = postingActions(status, 'purchase-order', can);
+  const actions = postingActions(status, 'purchase-order', can).map((action) =>
+    action === 'cancel' ? 'delete' : action,
+  );
   return status === 'POSTED' && can('purchase-order:unpost') ? ['unpost', ...actions] : actions;
 }
 

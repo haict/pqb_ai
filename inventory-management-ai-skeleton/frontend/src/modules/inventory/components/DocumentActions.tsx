@@ -2,6 +2,7 @@ import {
   BookOutlined,
   CarOutlined,
   CheckOutlined,
+  DeleteOutlined,
   ImportOutlined,
   InboxOutlined,
   LockOutlined,
@@ -37,6 +38,7 @@ interface Pending {
 
 const DEFAULT_ORDER = ['start', 'activate', 'post', 'receive', 'reverse', 'close', 'cancel'];
 const DATE_ACTIONS = new Set(['reverse', 'receive', 'fail']);
+const DANGER_ACTIONS = new Set(['cancel', 'delete', 'reverse', 'unpost']);
 
 /** Biểu tượng theo ý nghĩa hành động; aria-hidden để tên nút (đọc màn hình, test) chỉ là nhãn tiếng Việt. */
 const ACTION_ICONS: Record<string, ReactNode> = {
@@ -48,6 +50,7 @@ const ACTION_ICONS: Record<string, ReactNode> = {
   unpost: <UndoOutlined aria-hidden />,
   close: <LockOutlined aria-hidden />,
   cancel: <StopOutlined aria-hidden />,
+  delete: <DeleteOutlined aria-hidden />,
   'stock-in': <ImportOutlined aria-hidden />,
   reserve: <PushpinOutlined aria-hidden />,
   release: <UnlockOutlined aria-hidden />,
@@ -114,7 +117,7 @@ export function DocumentActions({ actions, order = DEFAULT_ORDER, onAction, icon
               <Button
                 type="text"
                 size="small"
-                danger={action === 'cancel' || action === 'reverse' || action === 'unpost'}
+                danger={DANGER_ACTIONS.has(action)}
                 icon={ACTION_ICONS[action]}
                 aria-label={ACTION_LABELS[action] ?? action}
                 onClick={() => open(action)}
@@ -124,7 +127,7 @@ export function DocumentActions({ actions, order = DEFAULT_ORDER, onAction, icon
             <Button
               key={action}
               type={action === 'post' || action === 'activate' ? 'primary' : 'default'}
-              danger={action === 'cancel' || action === 'reverse' || action === 'unpost'}
+              danger={DANGER_ACTIONS.has(action)}
               icon={ACTION_ICONS[action]}
               onClick={() => open(action)}
             >
@@ -144,6 +147,14 @@ export function DocumentActions({ actions, order = DEFAULT_ORDER, onAction, icon
         destroyOnHidden
       >
         {error && <Alert type="error" showIcon message={error} style={{ marginBottom: 12 }} />}
+        {pending?.action === 'delete' && (
+          <Alert
+            type="warning"
+            showIcon
+            message="Chứng từ sẽ bị xóa hẳn, không khôi phục được."
+            style={{ marginBottom: 12 }}
+          />
+        )}
         <Form form={form} layout="vertical" disabled={submitting}>
           {pending && REASON_ACTIONS.has(pending.action) && (
             <Form.Item

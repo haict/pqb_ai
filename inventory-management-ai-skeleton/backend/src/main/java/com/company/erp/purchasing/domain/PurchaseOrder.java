@@ -17,6 +17,7 @@ import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
 /**
  * Đơn mua hàng (DMH, BR-PUR-04, D-54): chứng từ ghi sổ duy nhất của nghiệp vụ mua. Nhà cung cấp, kho nhập, hóa đơn
@@ -29,6 +30,9 @@ import java.util.Locale;
 public class PurchaseOrder extends PurchaseDocument {
 
     public static final String TYPE_CODE = "DMH";
+
+    private static final Set<PurchaseDocumentStatus> DELETABLE = EnumSet.of(PurchaseDocumentStatus.DRAFT,
+            PurchaseDocumentStatus.REJECTED, PurchaseDocumentStatus.SUBMITTED, PurchaseDocumentStatus.APPROVED);
 
     /** Hóa đơn của nhà cung cấp gắn trên đơn mua. */
     public record Invoice(String sellerTaxCode, String series, String number, LocalDate date) {
@@ -99,6 +103,10 @@ public class PurchaseOrder extends PurchaseDocument {
 
     @Column(name = "posted_at")
     private Instant postedAt;
+
+    /** Đã từng ghi sổ (giữ nguyên khi bỏ ghi sổ, D-62): còn sổ phụ tham chiếu nên không xóa được (D-65). */
+    @Column(name = "ever_posted", nullable = false)
+    private boolean everPosted;
 
     @Column(name = "reversed_by")
     private Long reversedBy;
@@ -172,11 +180,13 @@ public class PurchaseOrder extends PurchaseDocument {
         totalAmount = amount.subtract(discountAmount).add(taxAmount);
     }
 
-    /** Hủy giải phóng khóa chống trùng hóa đơn để lập lại đơn đúng. */
-    @Override
-    public void cancel(String reason) {
-        super.cancel(reason);
-        this.duplicateKey = null;
+    /** Xóa hẳn đơn (D-65, thay cho hủy): chỉ đơn chưa ghi sổ và chưa từng ghi sổ. */
+    public void requireDeletable() {
+        requireStatus(DELETABLE, "xóa");
+        if (everPosted) {
+            throw new BusinessException(ErrorCode.INVALID_DOCUMENT_STATE, "Đơn mua " + getDocumentNo()
+                    + " đã từng ghi sổ (còn phiếu kho, công nợ, bút toán tham chiếu), không xóa được.");
+        }
     }
 
     /** Ghi sổ (từ DRAFT, hoặc APPROVED trước D-61); {@code inventoryDocumentId} trống khi đơn chỉ có dịch vụ. */
@@ -186,6 +196,7 @@ public class PurchaseOrder extends PurchaseDocument {
         this.inventoryDocumentId = inventoryDocumentId;
         this.postedBy = actorId;
         this.postedAt = now;
+        this.everPosted = true;
     }
 
     /** Đảo: chặn khi còn trả hàng / giảm giá / phân bổ chi phí chưa đảo (BR-GEN-04). */

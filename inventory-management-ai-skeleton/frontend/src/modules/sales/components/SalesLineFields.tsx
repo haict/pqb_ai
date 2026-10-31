@@ -242,6 +242,7 @@ function SalesLineFields({
         rules={[{ required: true, message: 'Chọn hàng' }]}
       >
         <ProductSelect
+          creatable
           selectedLabel={form.getFieldValue(['lines', name, 'productLabel'])}
           onProduct={(product) => {
             clearReceipt();

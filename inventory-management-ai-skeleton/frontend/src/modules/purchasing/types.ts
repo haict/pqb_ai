@@ -57,6 +57,12 @@ export interface PurchaseOrderLine {
   note: string | null;
 }
 
+/** Kết quả xóa đơn chưa từng ghi sổ (D-65). */
+export interface DeletedOrder {
+  id: number;
+  documentNo: string;
+}
+
 /** Đơn mua hàng (D-54): mang hóa đơn của nhà cung cấp; ghi sổ = nhập kho + công nợ phải trả + bút toán. */
 export interface PurchaseOrder extends PurchaseDocumentBase {
   supplierId: number;

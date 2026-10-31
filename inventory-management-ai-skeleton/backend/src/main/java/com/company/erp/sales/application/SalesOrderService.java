@@ -14,6 +14,7 @@ import com.company.erp.masterdata.application.MasterDataQueryService.PartnerInfo
 import com.company.erp.masterdata.application.MasterDataQueryService.ProductDocumentInfo;
 import com.company.erp.masterdata.application.MasterDataQueryService.ProductInfo;
 import com.company.erp.masterdata.application.MasterDataQueryService.WarehouseInfo;
+import com.company.erp.sales.application.dto.DeletedOrderResponse;
 import com.company.erp.sales.application.dto.PaymentTermRequest;
 import com.company.erp.sales.application.dto.PriceSuggestionResponse;
 import com.company.erp.sales.application.dto.ReasonRequest;
@@ -54,7 +55,7 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * Đơn bán (DBH, BR-SAL-10..14, D-54): lập theo giá ưu tiên, kiểm tra tồn khả dụng (cảnh báo, BR-SAL-12), ghi nhận lý
  * do cần thẩm quyền (giá dưới sàn, chiết khấu vượt ngưỡng, vượt hạn mức tín dụng / nợ quá hạn; BR-SAL-03, 14), giữ
- * hàng ngay trên đơn nháp khi lưu hoặc theo lệnh (BR-SAL-13, D-37, D-61), nhả khi hủy. Không qua duyệt (D-61): ghi sổ,
+ * hàng ngay trên đơn nháp khi lưu hoặc theo lệnh (BR-SAL-13, D-37, D-61), nhả khi xóa (D-65). Không qua duyệt (D-61): ghi sổ,
  * đảo, giao hàng, hóa đơn điện tử ở {@link SalesOrderPostingService}. Thứ tự khóa: đơn bán → tổng (hàng, kho) theo thứ tự → giữ chỗ (như ghi sổ kho);
  * READ COMMITTED khi giữ / nhả hàng.
  */
@@ -185,9 +186,28 @@ public class SalesOrderService {
         return flow.act(actor, document, "UPDATE", null, spec);
     }
 
+    /**
+     * Xóa hẳn đơn chưa từng ghi sổ (D-65): đóng yêu cầu duyệt cũ còn treo, nhả hàng đang giữ; audit lưu toàn bộ đơn
+     * trước khi xóa.
+     */
     @Transactional(isolation = Isolation.READ_COMMITTED)
-    public SalesOrderResponse cancel(CurrentUser actor, Long id, String key, ReasonRequest request) {
-        return flow.cancel(actor, id, key, request, spec);
+    public DeletedOrderResponse delete(CurrentUser actor, Long id, String key, ReasonRequest request) {
+        return flow.idempotent(actor, key, "DELETE " + PATH + "/" + id, request, DeletedOrderResponse.class, () -> {
+            access.requirePermission(actor, CREATE);
+            SalesOrder document = flow.lock(actor, id, spec);
+            document.requireDeletable();
+            String reason = request.reason().trim();
+            SalesOrderResponse before = toResponse(document, true);
+            if (document.getStatus() == SalesDocumentStatus.SUBMITTED) {
+                approvalService.cancelPending(actor, SalesOrder.TYPE_CODE, id, reason);
+            }
+            releaseReservations(document);
+            repository.delete(document);
+            repository.flush();
+            access.audit(actor, "DELETE", ENTITY, id, document.getDocumentNo(), reason, before, null,
+                    document.getCompanyId(), document.getBranchId());
+            return new DeletedOrderResponse(id, document.getDocumentNo());
+        });
     }
 
     /** Giữ hàng cho dòng hàng hóa của đơn chưa ghi sổ (giữ lại từ đầu); thiếu tồn khả dụng: 422 {@code INSUFFICIENT_STOCK}. */

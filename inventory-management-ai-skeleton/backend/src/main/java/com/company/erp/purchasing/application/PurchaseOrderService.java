@@ -7,6 +7,7 @@ import com.company.erp.masterdata.application.MasterDataQueryService.PartnerInfo
 import com.company.erp.masterdata.application.MasterDataQueryService.ProductInfo;
 import com.company.erp.masterdata.application.MasterDataQueryService.TaxRateInfo;
 import com.company.erp.masterdata.application.MasterDataQueryService.WarehouseInfo;
+import com.company.erp.purchasing.application.dto.DeletedOrderResponse;
 import com.company.erp.purchasing.application.dto.PurchaseOrderLineRequest;
 import com.company.erp.purchasing.application.dto.PurchaseOrderLineResponse;
 import com.company.erp.purchasing.application.dto.PurchaseOrderRequest;
@@ -32,8 +33,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Đơn mua hàng (DMH, BR-PUR-04, D-54): lập, sửa, hủy (D-61 không qua duyệt). Hủy đơn đã duyệt trước D-61 trừ hàng đang
- * về trong cùng transaction. Ghi sổ, đảo và kiểm soát ngưỡng giá trị ở {@link PurchaseOrderPostingService}.
+ * Đơn mua hàng (DMH, BR-PUR-04, D-54): lập, sửa, xóa đơn chưa từng ghi sổ (D-61 không qua duyệt, D-65 bỏ hủy). Xóa đơn
+ * đã duyệt trước D-61 trừ hàng đang về trong cùng transaction. Ghi sổ, đảo và kiểm soát ngưỡng giá trị ở {@link PurchaseOrderPostingService}.
  */
 @Service
 public class PurchaseOrderService {
@@ -119,9 +120,30 @@ public class PurchaseOrderService {
         return flow.act(actor, document, "UPDATE", null, spec);
     }
 
+    /**
+     * Xóa hẳn đơn chưa từng ghi sổ (D-65): đóng yêu cầu duyệt cũ còn treo, trừ hàng đang về của đơn đã duyệt trước
+     * D-61; audit lưu toàn bộ đơn trước khi xóa.
+     */
     @Transactional
-    public PurchaseOrderResponse cancel(CurrentUser actor, Long id, String key, ReasonRequest request) {
-        return flow.cancel(actor, id, key, request, spec);
+    public DeletedOrderResponse delete(CurrentUser actor, Long id, String key, ReasonRequest request) {
+        return flow.idempotent(actor, key, "DELETE " + PATH + "/" + id, request, DeletedOrderResponse.class, () -> {
+            access.requirePermission(actor, CREATE);
+            PurchaseOrder document = flow.lock(actor, id, spec);
+            document.requireDeletable();
+            String reason = request.reason().trim();
+            PurchaseOrderResponse before = toResponse(document, true);
+            if (document.getStatus() == PurchaseDocumentStatus.SUBMITTED) {
+                approvalService.cancelPending(actor, PurchaseOrder.TYPE_CODE, id, reason);
+            }
+            if (document.getStatus() == PurchaseDocumentStatus.APPROVED) {
+                spec.onCancelled().accept(document);
+            }
+            repository.delete(document);
+            repository.flush();
+            access.audit(actor, "DELETE", ENTITY, id, document.getDocumentNo(), reason, before, null,
+                    document.getCompanyId(), document.getBranchId());
+            return new DeletedOrderResponse(id, document.getDocumentNo());
+        });
     }
 
     PurchaseDocumentFlow.Spec<PurchaseOrder, PurchaseOrderResponse> spec() {

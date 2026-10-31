@@ -109,7 +109,9 @@ public class OrderProgressJdbc {
         if (filter.partnerId() != null) {
             where.append(" AND ").append(partnerColumn).append(" = :partnerId");
         }
-        where.append(filter.status() != null ? " AND h.status = :status" : " AND h.status <> 'CANCELLED'");
+        if (filter.status() != null) {
+            where.append(" AND h.status = :status");
+        }
         if (owned && filter.ownerId() != null) {
             where.append(" AND (h.sales_user_id = :ownerId OR h.created_by = :ownerId)");
         }

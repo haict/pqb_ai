@@ -1,5 +1,5 @@
-import { Form, Input, Modal } from 'antd';
-import { useState } from 'react';
+import { Alert, Form, Input, Modal } from 'antd';
+import { useState, type ReactNode } from 'react';
 import type { RecordStatus } from './StatusTag';
 
 interface Props {
@@ -9,10 +9,19 @@ interface Props {
   currentStatus: RecordStatus;
   onConfirm(nextStatus: RecordStatus, reason: string): Promise<void>;
   onCancel(): void;
+  /** Lưu ý thêm khi ngừng hoạt động (ví dụ nhóm hàng chưa dùng sẽ bị xóa hẳn). */
+  deactivateNote?: ReactNode;
 }
 
 /** Xác nhận kích hoạt / ngừng hoạt động; ngừng hoạt động bắt buộc lý do (frontend.md mục 3). */
-export function ChangeStatusModal({ open, label, currentStatus, onConfirm, onCancel }: Props) {
+export function ChangeStatusModal({
+  open,
+  label,
+  currentStatus,
+  onConfirm,
+  onCancel,
+  deactivateNote,
+}: Props) {
   const [form] = Form.useForm<{ reason: string }>();
   const [submitting, setSubmitting] = useState(false);
   const nextStatus: RecordStatus = currentStatus === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
@@ -46,6 +55,9 @@ export function ChangeStatusModal({ open, label, currentStatus, onConfirm, onCan
       <p>
         {deactivating ? 'Ngừng hoạt động' : 'Kích hoạt lại'} <b>{label}</b>?
       </p>
+      {deactivating && deactivateNote && (
+        <Alert type="warning" showIcon message={deactivateNote} style={{ marginBottom: 12 }} />
+      )}
       <Form form={form} layout="vertical">
         <Form.Item
           name="reason"

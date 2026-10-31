@@ -21,6 +21,7 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Đơn bán hàng (DBH, BR-SAL-10..14, D-54): chứng từ ghi sổ duy nhất của nghiệp vụ bán, không qua duyệt (D-61). Giá
@@ -34,6 +35,9 @@ import java.util.Map;
 public class SalesOrder extends SalesDocument {
 
     public static final String TYPE_CODE = "DBH";
+
+    private static final Set<SalesDocumentStatus> DELETABLE = EnumSet.of(SalesDocumentStatus.DRAFT,
+            SalesDocumentStatus.REJECTED, SalesDocumentStatus.SUBMITTED, SalesDocumentStatus.APPROVED);
 
     public record Header(LocalDate documentDate, LocalDate postingDate, String contactName, String deliveryAddress,
                          String receiverName, String receiverPhone, LocalDate expectedDate, Integer paymentTermDays,
@@ -150,6 +154,10 @@ public class SalesOrder extends SalesDocument {
 
     @Column(name = "posted_at")
     private Instant postedAt;
+
+    /** Đã từng ghi sổ (giữ nguyên khi bỏ ghi sổ, D-62): còn sổ phụ tham chiếu nên không xóa được (D-65). */
+    @Column(name = "ever_posted", nullable = false)
+    private boolean everPosted;
 
     @Column(name = "reversed_by")
     private Long reversedBy;
@@ -271,18 +279,20 @@ public class SalesOrder extends SalesDocument {
         }
     }
 
-    /** Hủy giải phóng khóa chống trùng số hóa đơn điện tử. */
-    @Override
-    public void cancel(String reason) {
-        super.cancel(reason);
-        this.einvoiceKey = null;
+    /** Xóa hẳn đơn (D-65, thay cho hủy): chỉ đơn chưa ghi sổ và chưa từng ghi sổ. */
+    public void requireDeletable() {
+        requireStatus(DELETABLE, "xóa");
+        if (everPosted) {
+            throw new BusinessException(ErrorCode.INVALID_DOCUMENT_STATE, "Đơn bán " + getDocumentNo()
+                    + " đã từng ghi sổ (còn phiếu kho, công nợ, bút toán tham chiếu), không xóa được.");
+        }
     }
 
-    /** Ghi số hóa đơn điện tử từ MISA; được cập nhật cả sau khi ghi sổ (chưa đảo / hủy). */
+    /** Ghi số hóa đơn điện tử từ MISA; được cập nhật cả sau khi ghi sổ (chưa đảo). */
     public void recordEinvoice(EinvoiceReference reference) {
-        if (getStatus() == SalesDocumentStatus.CANCELLED || getStatus() == SalesDocumentStatus.REVERSED) {
+        if (getStatus() == SalesDocumentStatus.REVERSED) {
             throw new BusinessException(ErrorCode.INVALID_DOCUMENT_STATE, "Đơn bán " + getDocumentNo()
-                    + " đã hủy / đảo.");
+                    + " đã đảo.");
         }
         this.einvoiceSeries = reference.series().trim();
         this.einvoiceNo = reference.number().trim();
@@ -303,6 +313,7 @@ public class SalesOrder extends SalesDocument {
         this.dueDate = postingDate.plusDays(paymentTermDays == null ? 0 : paymentTermDays);
         this.postedBy = actorId;
         this.postedAt = now;
+        this.everPosted = true;
         this.reservedUntil = null;
         lines.forEach(line -> line.replaceItems(issued.getOrDefault(line.getId(), List.of())));
     }

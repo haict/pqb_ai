@@ -41,7 +41,7 @@ class PurchaseDocumentFlow {
      *
      * @param path        đường dẫn API (khóa chống xử lý trùng)
      * @param entityType  loại thực thể ghi audit
-     * @param onCancelled hoàn chỉ tiêu khi hủy chứng từ đã duyệt trước D-61
+     * @param onCancelled hoàn chỉ tiêu khi hủy (xóa với đơn mua, D-65) chứng từ đã duyệt trước D-61
      */
     record Spec<D extends PurchaseDocument, R>(String path, String viewPermission, String createPermission,
                                                String entityType, Function<Long, Optional<D>> lockById,

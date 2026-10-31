@@ -7,7 +7,10 @@ import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.MappedSuperclass;
 
-/** Danh mục dạng mã - tên theo công ty: mã duy nhất trong công ty, không đổi; ngừng hoạt động thay vì xóa. */
+/**
+ * Danh mục dạng mã - tên theo công ty: mã duy nhất trong công ty, không đổi (trừ lớp con khai báo cột {@code code}
+ * cập nhật được, ví dụ nhóm hàng D-67); ngừng hoạt động thay vì xóa.
+ */
 @MappedSuperclass
 public abstract class CodeNameEntity extends AuditableEntity {
 
@@ -32,6 +35,11 @@ public abstract class CodeNameEntity extends AuditableEntity {
         this.code = code;
         this.name = name;
         this.status = RecordStatus.ACTIVE;
+    }
+
+    /** Đổi mã; chỉ có tác dụng với lớp con ghi đè cột {@code code} cho phép cập nhật. */
+    protected void recode(String code) {
+        this.code = code;
     }
 
     public void rename(String name) {
