@@ -1,6 +1,7 @@
 package com.company.erp.inventory.application.dto;
 
 import com.company.erp.common.domain.QualityStatus;
+import com.company.erp.inventory.domain.ItemCondition;
 import com.company.erp.inventory.domain.MovementDirection;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -29,5 +30,6 @@ public record InventoryLineResponse(
         BigDecimal amount,
         String lotOverrideReason,
         String note,
-        List<String> serialNumbers) {
+        List<String> serialNumbers,
+        ItemCondition itemCondition) {
 }

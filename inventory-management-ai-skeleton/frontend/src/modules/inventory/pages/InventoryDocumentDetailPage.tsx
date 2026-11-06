@@ -1,27 +1,30 @@
-import { EditOutlined } from '@ant-design/icons';
+import { EditOutlined, FileExcelOutlined } from '@ant-design/icons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { App, Button, Card, Descriptions, Result, Space, Spin, Table, Tabs, Typography } from 'antd';
 import dayjs from 'dayjs';
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { formatDateTime } from '../../../shared/format';
+import { saveBlob } from '../../../shared/inventorySlip/slipContent';
 import { FormModal } from '../../../shared/components/FormModal';
-import { useWarehouses } from '../../masterdata/lookups';
+import { useCatalog, useWarehouses } from '../../masterdata/lookups';
 import { ApprovalHistory } from '../../system/components/ApprovalHistory';
 import { documentApi } from '../api';
 import { DocumentActions } from '../components/DocumentActions';
+import { openingStockToExcel } from '../components/openingStockExcel';
 import { DocumentFormFields } from '../components/DocumentForm';
 import { DOCUMENT_FIELDS, toDocumentInput, type DocumentFormValues } from '../components/documentFormValues';
 import {
   DOCUMENT_TYPES,
+  OPENING_SUB_TYPE,
   RECEIPT_SUB_TYPES,
   SOURCE_TYPES,
   TRANSACTION_TYPES,
   formatDate,
   formatNumber,
 } from '../labels';
-import { DocumentStatusTag, QualityTag } from '../components/StatusTags';
-import type { InventoryDocument, InventoryLine, InventoryTransaction } from '../types';
+import { DocumentStatusTag, ItemConditionTag, QualityTag } from '../components/StatusTags';
+import type { InventoryDocument, InventoryLine, InventoryTransaction, ItemCondition } from '../types';
 
 function editValues(document: InventoryDocument): Partial<DocumentFormValues> {
   return {
@@ -54,6 +57,7 @@ function editValues(document: InventoryDocument): Partial<DocumentFormValues> {
         lotOverrideReason: line.lotOverrideReason ?? undefined,
         note: line.note ?? undefined,
         serialNumbers: line.serialNumbers,
+        itemCondition: inbound ? (line.itemCondition ?? undefined) : undefined,
       };
     }),
   };
@@ -67,7 +71,9 @@ export function InventoryDocumentDetailPage() {
   const navigate = useNavigate();
   const { message } = App.useApp();
   const warehouses = useWarehouses();
+  const units = useCatalog('units');
   const [editing, setEditing] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const query = useQuery({
     queryKey: ['inventory-document', documentId],
     queryFn: () => documentApi.get(documentId),
@@ -100,6 +106,23 @@ export function InventoryDocumentDetailPage() {
   };
   const warehouseName = (warehouseId: number | null) =>
     warehouseId ? `${warehouses.codeOf(warehouseId)} - ${warehouses.nameOf(warehouseId)}` : '';
+  const opening = document.documentType === 'PNK' && document.subType === OPENING_SUB_TYPE;
+  /** Tồn kho đầu kỳ (nháp hoặc đã ghi sổ): xuất dòng hàng theo cột file mẫu nhập để đối chiếu / sửa rồi nhập lại. */
+  const exportExcel = async () => {
+    setExporting(true);
+    try {
+      const blob = await openingStockToExcel(
+        document,
+        { warehouseCode: warehouses.codeOf, unitCode: units.codeOf },
+        warehouseName(document.warehouseId),
+      );
+      saveBlob(blob, `Ton-dau-ky_${document.documentNo}.xlsx`);
+    } catch {
+      message.error('Không tạo được file Excel, vui lòng thử lại.');
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const lineColumns = [
     { title: '#', dataIndex: 'lineNo', width: 50 },
@@ -113,6 +136,7 @@ export function InventoryDocumentDetailPage() {
       render: (_: unknown, line: InventoryLine) =>
         `${formatNumber(line.quantity)}${line.conversionFactor !== 1 ? ` (= ${formatNumber(line.baseQuantity)})` : ''}`,
     },
+    { title: 'ĐVT', dataIndex: 'unitId', width: 80, render: (unitId: number) => units.nameOf(unitId) },
     {
       title: 'Tăng/giảm',
       dataIndex: 'direction',
@@ -121,6 +145,12 @@ export function InventoryDocumentDetailPage() {
     { title: 'Lô', dataIndex: 'lotNo' },
     { title: 'Hạn dùng', dataIndex: 'expiryDate', render: formatDate },
     { title: 'Serial', dataIndex: 'serialNumbers', render: (serials: string[]) => serials.join(', ') },
+    {
+      title: 'Máy cũ',
+      dataIndex: 'itemCondition',
+      width: 80,
+      render: (condition: ItemCondition | null) => <ItemConditionTag condition={condition} />,
+    },
     {
       title: 'Trạng thái CL',
       render: (_: unknown, line: InventoryLine) => (
@@ -186,6 +216,11 @@ export function InventoryDocumentDetailPage() {
           {document.allowedActions.includes('update') && (
             <Button onClick={() => setEditing(true)} icon={<EditOutlined />}>
               Sửa
+            </Button>
+          )}
+          {opening && (
+            <Button icon={<FileExcelOutlined />} loading={exporting} onClick={() => void exportExcel()}>
+              Xuất Excel
             </Button>
           )}
           <DocumentActions actions={document.allowedActions} onAction={act} />
@@ -278,7 +313,7 @@ export function InventoryDocumentDetailPage() {
       <FormModal<DocumentFormValues>
         open={editing}
         title={`Sửa ${document.documentNo}`}
-        width={980}
+        width={1200}
         initialValues={editValues(document)}
         fieldNames={DOCUMENT_FIELDS}
         onSubmit={save}

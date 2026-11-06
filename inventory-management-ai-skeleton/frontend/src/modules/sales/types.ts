@@ -67,6 +67,8 @@ export interface SalesLine {
   serviceLine: boolean;
   expectedDate: string | null;
   lotNo: string | null;
+  /** Hạn dùng của lô chỉ định, lấy từ lô trong kho (chỉ đọc). */
+  expiryDate: string | null;
   lotOverrideReason: string | null;
   serialNumbers: string[];
   /** Chứng từ nhập chọn xuất đích danh (D-63, F8); trống: kho chọn FEFO. */
@@ -319,6 +321,8 @@ export interface StockOutSlip {
   taxRates: number[];
   taxAmount: number;
   paymentAmount: number;
+  /** Đơn chưa ghi sổ: phiếu nháp gửi khách (D-71), chưa có số phiếu, tài khoản. */
+  draft: boolean;
 }
 
 /** Dòng sổ chi tiết bán hàng (S16-DNN); số âm ở dòng đảo. */

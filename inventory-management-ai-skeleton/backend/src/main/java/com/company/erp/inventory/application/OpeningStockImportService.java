@@ -12,6 +12,7 @@ import com.company.erp.inventory.application.dto.InventoryDocumentResponse;
 import com.company.erp.inventory.application.dto.InventoryLineRequest;
 import com.company.erp.inventory.application.dto.OpeningStockImportResponse;
 import com.company.erp.inventory.domain.InventoryDocumentType;
+import com.company.erp.inventory.domain.ItemCondition;
 import com.company.erp.masterdata.application.MasterDataQueryService;
 import com.company.erp.masterdata.application.MasterDataQueryService.ProductInfo;
 import com.company.erp.masterdata.application.MasterDataQueryService.UnitInfo;
@@ -44,7 +45,7 @@ public class OpeningStockImportService {
 
     static final List<String> HEADERS = List.of("Mã kho*", "Mã hàng*", "Mã ĐVT (trống = ĐVT cơ sở)", "Số lượng*",
             "Đơn giá*", "Số lô", "Ngày sản xuất (dd/mm/yyyy)", "Hạn dùng (dd/mm/yyyy)",
-            "Số serial (phân tách dấu phẩy)", "Trạng thái chất lượng", "Ghi chú");
+            "Số serial (phân tách dấu phẩy)", "Trạng thái chất lượng", "Ghi chú", "Máy cũ (x)");
     /** Danh sách chọn cột trạng thái: mã + diễn giải, khi nhập chỉ đọc phần mã; để trống là ĐẠT (D-56). */
     static final List<String> QUALITY_OPTIONS = List.of("PASSED (đạt)", "PENDING_INSPECTION (chờ kiểm tra)",
             "QUARANTINE (cách ly)", "FAILED (không đạt)", "EXPIRED (hết hạn)");
@@ -59,6 +60,8 @@ public class OpeningStockImportService {
     private static final int SERIALS = 8;
     private static final int QUALITY = 9;
     private static final int NOTE = 10;
+    /** Cột cuối để file mẫu cũ (chưa có cột) vẫn nhập được; trống là máy mới (BR-INV-43). */
+    private static final int USED_MACHINE = 11;
     /** Giới hạn số dòng của một chứng từ kho ({@link InventoryDocumentRequest}); kho nhiều dòng hơn được tách phiếu. */
     private static final int LINES_PER_DOCUMENT = 500;
     private static final Pattern LINE_FIELD = Pattern.compile("^lines\\[(\\d+)]\\.?(.*)$");
@@ -94,6 +97,8 @@ public class OpeningStockImportService {
         guide.add(List.of("Số serial", "Bắt buộc với hàng quản lý serial; số serial bằng số lượng theo ĐVT cơ sở"));
         guide.add(List.of("Trạng thái chất lượng", "Chọn trong danh sách: " + String.join(", ", QUALITY_OPTIONS)
                 + ". Để trống = PASSED (đạt)."));
+        guide.add(List.of("Máy cũ", "Chỉ cho hàng thuộc nhóm máy, quản lý theo serial hoặc lô: ghi x nếu là máy cũ; "
+                + "để trống là máy mới."));
         guide.add(List.of("Ngày chứng từ", "Chọn trên màn hình khi nhập file"));
         guide.add(List.of("Số dòng tối đa", String.valueOf(ExcelSupport.MAX_ROWS)));
         Workbook workbook = ExcelSupport.template("Ton dau ky", HEADERS, guide);
@@ -166,13 +171,15 @@ public class OpeningStockImportService {
         LocalDate manufactureDate = ExcelSupport.date(row, MANUFACTURE_DATE, errors, "manufactureDate");
         LocalDate expiryDate = ExcelSupport.date(row, EXPIRY_DATE, errors, "expiryDate");
         QualityStatus quality = quality(ExcelSupport.text(row, QUALITY), errors);
+        ItemCondition condition = ExcelSupport.flag(row, USED_MACHINE, errors, "itemCondition")
+                ? ItemCondition.USED : null;
         if (warehouse == null || product == null || unitId == null || quantity == null || quantity.signum() <= 0
                 || unitCost == null || unitCost.signum() < 0) {
             return null;
         }
         InventoryLineRequest line = new InventoryLineRequest(product.id(), unitId, quantity, null, null, null, null,
                 ExcelSupport.nullable(row, LOT_NO), manufactureDate, expiryDate, quality, null, unitCost, null,
-                ExcelSupport.nullable(row, NOTE), serials(ExcelSupport.text(row, SERIALS)));
+                ExcelSupport.nullable(row, NOTE), serials(ExcelSupport.text(row, SERIALS)), condition);
         return new ParsedLine(row.getRowNum() + 1, warehouse.id(), line);
     }
 

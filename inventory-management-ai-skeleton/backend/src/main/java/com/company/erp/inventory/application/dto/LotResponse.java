@@ -1,5 +1,6 @@
 package com.company.erp.inventory.application.dto;
 
+import com.company.erp.inventory.domain.ItemCondition;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
@@ -12,6 +13,7 @@ public record LotResponse(
         String lotNo,
         LocalDate manufactureDate,
         LocalDate expiryDate,
+        ItemCondition itemCondition,
         Long daysToExpiry,
         boolean blocked,
         String blockReason,

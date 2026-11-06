@@ -399,10 +399,11 @@ public class SalesOrderService {
             Map<Long, Availability> stock = open ? stockAvailability.availability(document.getWarehouseId(),
                     document.goodsLines().stream().map(SalesOrderLine::getProductId).distinct().toList()) : Map.of();
             Map<Long, BigDecimal> reserved = reservedByLine(document);
+            Map<Long, LocalDate> expiries = receiptSources.expiryDates(document.getLines());
             lines = document.getLines().stream().map(line -> SalesLineMapper.toResponse(line,
                     products.get(line.getProductId()), documents.get(line.getProductId()),
                     stock.containsKey(line.getProductId()) ? stock.get(line.getProductId()).available() : null,
-                    reserved.getOrDefault(line.getId(), BigDecimal.ZERO))).toList();
+                    reserved.getOrDefault(line.getId(), BigDecimal.ZERO), expiries.get(line.getId()))).toList();
             warnings = open ? availabilityWarnings(document, products, stock, reserved) : List.of();
         }
         return new SalesOrderResponse(document.getId(), document.getCompanyId(), document.getBranchId(),

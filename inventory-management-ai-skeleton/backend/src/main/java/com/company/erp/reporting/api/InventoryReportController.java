@@ -2,11 +2,13 @@ package com.company.erp.reporting.api;
 
 import com.company.erp.common.api.ApiResponse;
 import com.company.erp.reporting.application.StockExceptionReportService;
+import com.company.erp.reporting.application.IssuedInvoiceStatusService;
 import com.company.erp.reporting.application.StockLedgerReportService;
 import com.company.erp.reporting.application.StockLedgerReportService.CardCriteria;
 import com.company.erp.reporting.application.StockLedgerReportService.MovementCriteria;
 import com.company.erp.reporting.application.TraceabilityReportService;
 import com.company.erp.reporting.application.dto.InventoryMovementResponse;
+import com.company.erp.reporting.application.dto.IssuedInvoiceStatusResponse;
 import com.company.erp.reporting.application.dto.StockCardResponse;
 import com.company.erp.reporting.application.dto.StockExceptionResponse.Exceptions;
 import com.company.erp.reporting.application.dto.StockExceptionResponse.MissingDocuments;
@@ -35,12 +37,37 @@ public class InventoryReportController {
     private final StockLedgerReportService ledger;
     private final StockExceptionReportService exceptions;
     private final TraceabilityReportService traceability;
+    private final IssuedInvoiceStatusService issuedInvoices;
 
     public InventoryReportController(StockLedgerReportService ledger, StockExceptionReportService exceptions,
-                                     TraceabilityReportService traceability) {
+                                     TraceabilityReportService traceability,
+                                     IssuedInvoiceStatusService issuedInvoices) {
         this.ledger = ledger;
         this.exceptions = exceptions;
         this.traceability = traceability;
+        this.issuedInvoices = issuedInvoices;
+    }
+
+    @Operation(summary = "Xuất bán đã / chưa có hóa đơn", description = "D-68. Theo hàng × kho, xuất kho theo đơn bán "
+            + "trong kỳ (ngày hạch toán) trừ trả lại; tách theo đơn đã / chưa có số hóa đơn điện tử (trạng thái hiện "
+            + "tại). productIds dạng 1,2,3 (tối đa 200).")
+    @GetMapping("/issued-invoice-status")
+    public ApiResponse<IssuedInvoiceStatusResponse> issuedInvoiceStatus(@AuthenticationPrincipal CurrentUser user,
+            @RequestParam Long companyId, @RequestParam(required = false) Long warehouseId,
+            @RequestParam(required = false) List<Long> productIds, @RequestParam LocalDate dateFrom,
+            @RequestParam LocalDate dateTo) {
+        return ApiResponse.ok(issuedInvoices.quantities(user, companyId, warehouseId, productIds, dateFrom, dateTo));
+    }
+
+    @Operation(summary = "Đơn bán cấu thành số xuất đã / chưa có hóa đơn", description = "D-68. Tối đa 1.000 đơn "
+            + "(truncated=true khi còn).")
+    @GetMapping("/issued-invoice-status/orders")
+    public ApiResponse<IssuedInvoiceStatusResponse.Orders> issuedInvoiceOrders(
+            @AuthenticationPrincipal CurrentUser user, @RequestParam Long companyId, @RequestParam Long warehouseId,
+            @RequestParam Long productId, @RequestParam boolean invoiced, @RequestParam LocalDate dateFrom,
+            @RequestParam LocalDate dateTo) {
+        return ApiResponse.ok(issuedInvoices.orders(user, companyId, warehouseId, productId, invoiced, dateFrom,
+                dateTo));
     }
 
     @Operation(summary = "Thẻ kho, lịch sử serial", description = "BR-RPT-21. Chọn productId hoặc serialId; kho, lô tùy "

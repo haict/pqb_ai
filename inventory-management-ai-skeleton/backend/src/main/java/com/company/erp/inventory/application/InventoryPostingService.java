@@ -6,6 +6,7 @@ import com.company.erp.common.domain.PeriodModule;
 import com.company.erp.common.domain.QualityStatus;
 import com.company.erp.inventory.application.PostingCommand.ProductWarehouse;
 import com.company.erp.inventory.domain.InventorySerial;
+import com.company.erp.inventory.domain.ItemCondition;
 import com.company.erp.inventory.domain.InventoryTransaction;
 import com.company.erp.inventory.domain.MovementDirection;
 import com.company.erp.inventory.domain.SerialStatus;
@@ -308,10 +309,11 @@ public class InventoryPostingService {
         if (!ledger.decrement(allocation.balance().id(), allocation.quantity(), now)) {
             throw new BusinessException(ErrorCode.INSUFFICIENT_STOCK, "Tồn thực tế không đủ để xuất.");
         }
+        InventorySerial serial = key.serialId() == null ? null : serial(key.serialId());
         InventoryTransaction transaction = record(command, warehouses, now, key, allocation.movement(),
-                MovementDirection.OUT, allocation.quantity(), null);
-        if (key.serialId() != null) {
-            serial(key.serialId()).moveTo(allocation.movement().type() == TransactionType.SCRAP
+                MovementDirection.OUT, allocation.quantity(), null, serial == null ? null : serial.getItemCondition());
+        if (serial != null) {
+            serial.moveTo(allocation.movement().type() == TransactionType.SCRAP
                     ? SerialStatus.SCRAPPED : SerialStatus.ISSUED, null);
         }
         return new PostedMovement(transaction.getId(), allocation.movement().lineId(), MovementDirection.OUT, key,
@@ -328,10 +330,16 @@ public class InventoryPostingService {
             }
         }
         ledger.increment(command.companyId(), key, movement.quantity(), now);
+        InventorySerial serial = key.serialId() == null ? null : serial(key.serialId());
+        if (serial != null && movement.itemCondition() != null) {
+            // BR-INV-43: nhập lại serial (thu hồi, đảo phiếu xuất) mang tình trạng của dòng nhập / dòng sổ gốc
+            serial.changeCondition(movement.itemCondition());
+        }
         InventoryTransaction transaction = record(command, warehouses, now, key, movement, MovementDirection.IN,
-                movement.quantity(), movement.unitCost());
-        if (key.serialId() != null) {
-            serial(key.serialId()).moveTo(SerialStatus.IN_STOCK, key.warehouseId());
+                movement.quantity(), movement.unitCost(),
+                serial == null ? movement.itemCondition() : serial.getItemCondition());
+        if (serial != null) {
+            serial.moveTo(SerialStatus.IN_STOCK, key.warehouseId());
         }
         return new PostedMovement(transaction.getId(), movement.lineId(), MovementDirection.IN, key,
                 movement.quantity());
@@ -339,13 +347,13 @@ public class InventoryPostingService {
 
     private InventoryTransaction record(PostingCommand command, Map<Long, WarehouseInfo> warehouses, Instant now,
                                         StockKey key, StockMovement movement, MovementDirection direction,
-                                        BigDecimal quantity, BigDecimal unitCost) {
+                                        BigDecimal quantity, BigDecimal unitCost, ItemCondition condition) {
         return transactionRepository.save(new InventoryTransaction(command.companyId(),
                 warehouses.get(key.warehouseId()).branchId(), command.postingDate(), now, key, movement.type(),
                 direction, quantity, unitCost, command.partnerId(),
                 new InventoryTransaction.Reference(command.referenceType(), command.referenceId(), movement.lineId(),
                         command.referenceNo()),
-                movement.reversalOfId(), command.actorId()));
+                movement.reversalOfId(), condition, command.actorId()));
     }
 
     private InventorySerial serial(Long serialId) {

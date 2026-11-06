@@ -188,7 +188,7 @@ describe('báo cáo mua / bán đợt 10B', () => {
           productName: 'Ống nghiệm',
           unitName: 'Cái',
           warehouseId: 1,
-          warehouseCode: 'KHO_HN',
+          warehouseCode: 'HH',
           ordered: 9,
           orderCount: 1,
           onHand: 7,

@@ -37,6 +37,11 @@ export function toDocumentInput(values: DocumentFormValues): InventoryDocumentIn
       ...line,
       expiryDate: line.expiryDate?.format('YYYY-MM-DD'),
       manufactureDate: line.manufactureDate?.format('YYYY-MM-DD'),
+      // Máy mới / cũ chỉ cho dòng nhập (BR-INV-43): bỏ giá trị còn lại khi đổi loại chứng từ hoặc sang giảm tồn
+      itemCondition:
+        values.documentType === 'PNK' || (values.documentType === 'PDC' && line.direction === 'IN')
+          ? line.itemCondition
+          : undefined,
     })),
   };
 }

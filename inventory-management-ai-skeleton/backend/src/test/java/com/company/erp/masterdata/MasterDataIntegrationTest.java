@@ -98,6 +98,14 @@ class MasterDataIntegrationTest {
         send(admin, post("/api/v1/products"), product(unique("P"), "SERVICE", category, box, false, false, true),
                 newKey()).andExpect(status().isBadRequest());
 
+        // D-69: mã hàng có khoảng trắng đơn giữa các ký tự; đầu / cuối tự cắt; không liên tiếp
+        String spaced = unique("P") + " MAY-01";
+        send(admin, post("/api/v1/products"), product(" " + spaced + " ", "CONSUMABLE", category, box, false, false,
+                false), newKey()).andExpect(status().isCreated()).andExpect(jsonPath("$.data.code").value(spaced));
+        send(admin, post("/api/v1/products"), product(unique("P") + "  A", "CONSUMABLE", category, box, false, false,
+                false), newKey()).andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[0].field").value("code"));
+
         MvcResult created = send(admin, post("/api/v1/products"),
                 product(unique("P"), "REAGENT", category, box, true, true, false), newKey())
                 .andExpect(status().isCreated())
@@ -203,8 +211,8 @@ class MasterDataIntegrationTest {
         MvcResult list = mockMvc.perform(as(warehouseStaff, get("/api/v1/warehouses")).param("companyId", "1"))
                 .andExpect(status().isOk()).andReturn();
         List<String> codes = json(list, "$.data.items[*].code");
-        assertThat(codes).contains("KHO_HCM").doesNotContain("KHO_HN");
-        long hanoi = id("SELECT id FROM warehouses WHERE company_id = 1 AND code = 'KHO_HN'");
+        assertThat(codes).contains("SH").doesNotContain("HH");
+        long hanoi = id("SELECT id FROM warehouses WHERE company_id = 1 AND code = 'HH'");
         mockMvc.perform(as(warehouseStaff, get("/api/v1/warehouses/" + hanoi))).andExpect(status().isNotFound());
 
         Session admin = login(mockMvc, "admin");
@@ -218,7 +226,7 @@ class MasterDataIntegrationTest {
         MvcResult scopedList = mockMvc.perform(as(warehouseScoped, get("/api/v1/warehouses")).param("companyId", "1"))
                 .andExpect(status().isOk()).andReturn();
         List<String> scopedCodes = json(scopedList, "$.data.items[*].code");
-        assertThat(scopedCodes).containsExactly("KHO_HN");
+        assertThat(scopedCodes).containsExactly("HH");
 
         String code = unique("W");
         Integer warehouseId = json(send(admin, post("/api/v1/warehouses"), "{\"branchId\":1,\"code\":\"" + code
@@ -355,8 +363,9 @@ class MasterDataIntegrationTest {
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM products WHERE code IN (?, ?)", Integer.class, first,
                 second)).isZero();
 
-        importFile(admin, workbook(List.of(row(first, "VT", "CONSUMABLE"),
-                row(second, "VT", "REAGENT (thuốc thử - hóa chất)"))))
+        // D-69: khoảng trắng không ngắt / ký tự vô hình đầu, cuối ô (copy từ web, PDF) được cắt
+        importFile(admin, workbook(List.of(row(" " + first + " ", "VT", "CONSUMABLE"),
+                row("﻿" + second + " ", "VT", "REAGENT (thuốc thử - hóa chất)"))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.created").value(2));
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM products WHERE code IN (?, ?) AND lot_tracked = TRUE",

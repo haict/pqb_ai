@@ -57,6 +57,7 @@ export const stockApi = {
   serials: <F extends object>(params: ListParams & F) => getPage<Serial>('/inventory/serials', params),
   fefo: (warehouseId: number, productId: number, quantity: number) =>
     getOne<FefoAllocation[]>('/inventory/fefo-suggestions', { warehouseId, productId, quantity }),
+  machineCategories: (companyId: number) => getOne<number[]>('/inventory/machine-categories', { companyId }),
   alerts: (companyId: number, warehouseId?: number) =>
     getOne<StockAlert[]>('/inventory/alerts', { companyId, warehouseId }),
   block: (kind: 'lots' | 'serials', id: number, blocked: boolean, reason: string, key: string) =>

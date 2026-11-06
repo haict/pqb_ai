@@ -33,11 +33,12 @@ class SalesReceiptSourceIntegrationTest extends SalesIntegrationSupport {
     }
 
     @Test
-    @DisplayName("D-63, AT-10: F8 liệt kê chứng từ nhập còn tồn (FEFO), lưu liên kết, chặn lô không khớp, xuất đúng lô")
+    @DisplayName("D-63, AT-10: F8 liệt kê chứng từ nhập còn tồn (FEFO), lưu liên kết, hạn dùng theo lô, chặn lô không"
+            + " khớp, xuất đúng lô")
     void pickReceiptSource() throws Exception {
         long item = newProduct(true, false);
         long piece = unit("CAI");
-        long store = warehouse("KHO_HN");
+        long store = warehouse("HH");
         String later = unique("L");
         String earlier = unique("L");
         stockIn(item, "5", later, "2028-06-30", null);
@@ -68,7 +69,14 @@ class SalesReceiptSourceIntegrationTest extends SalesIntegrationSupport {
                 pickedLine(item, piece, "2", later, laterReceipt))), newKey())
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data.lines[0].receiptTransactionId").value(laterReceipt))
-                .andExpect(jsonPath("$.data.lines[0].receiptNo").value(laterNo)).andReturn());
+                .andExpect(jsonPath("$.data.lines[0].receiptNo").value(laterNo))
+                .andExpect(jsonPath("$.data.lines[0].expiryDate").value("2028-06-30")).andReturn());
+        // D-71: phiếu xuất kho nháp ghi lô, hạn dùng chỉ định
+        mockMvc.perform(as(manager, get(ORDERS + "/" + order + "/stock-out-slip"))).andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.draft").value(true))
+                .andExpect(jsonPath("$.data.lines[0].items[0].lotNo").value(later))
+                .andExpect(jsonPath("$.data.lines[0].items[0].expiryDate").value("2028-06-30"))
+                .andExpect(jsonPath("$.data.lines[0].items[0].baseQuantity").value(2));
         postWithAuthority(keeper, order).andExpect(jsonPath("$.data.status").value("POSTED"));
         assertThat(lotOnHand(later)).isEqualByComparingTo("3");
         assertThat(lotOnHand(earlier)).isEqualByComparingTo("3");

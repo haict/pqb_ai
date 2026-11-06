@@ -21,6 +21,7 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.function.Function;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellStyle;
@@ -48,6 +49,9 @@ public final class ExcelSupport {
     private static final Set<String> FALSE_VALUES = Set.of("", "k", "không", "khong", "0", "false", "no");
     private static final DateTimeFormatter VN_DATE = DateTimeFormatter.ofPattern("d/M/yyyy");
     private static final DataFormatter FORMATTER = new DataFormatter(Locale.ROOT);
+    // Ô copy từ web / PDF hay chứa khoảng trắng không ngắt (U+00A0) hoặc ký tự vô hình mà String.trim() không cắt
+    private static final Pattern UNICODE_SPACE = Pattern.compile("[\\p{Zs}\\t]");
+    private static final Pattern INVISIBLE = Pattern.compile("[\\u200B\\u200C\\u200D\\u2060\\uFEFF]");
 
     private ExcelSupport() {
     }
@@ -182,7 +186,8 @@ public final class ExcelSupport {
             BigDecimal value = BigDecimal.valueOf(cell.getNumericCellValue()).stripTrailingZeros();
             return value.toPlainString();
         }
-        return FORMATTER.formatCellValue(cell).trim();
+        String value = INVISIBLE.matcher(FORMATTER.formatCellValue(cell)).replaceAll("");
+        return UNICODE_SPACE.matcher(value).replaceAll(" ").strip();
     }
 
     public static String nullable(Row row, int column) {

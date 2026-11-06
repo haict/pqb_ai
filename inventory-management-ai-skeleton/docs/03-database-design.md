@@ -302,6 +302,7 @@ Các bảng còn lại được chi tiết hóa khi thiết kế module.
 | lot_no | VARCHAR(50) | NOT NULL | Số lô |
 | manufacture_date | DATE | | Ngày sản xuất |
 | expiry_date | DATE | | Hạn dùng (ngày cuối tháng nếu chỉ có tháng, D-06) |
+| item_condition | VARCHAR(10) | NOT NULL, mặc định NEW | Máy mới / cũ (NEW, USED; V42, BR-INV-43); cố định khi tạo lô |
 | is_temporary | BOOLEAN | NOT NULL | Lô tạm khi chuyển đổi (D-13) |
 | audit, version | | | |
 
@@ -314,6 +315,7 @@ Unique `uk_inventory_lots_product_lot (product_id, lot_no)`. Index `(expiry_date
 | product_id | BIGINT | FK, NOT NULL | |
 | serial_no | VARCHAR(100) | NOT NULL | |
 | lot_id | BIGINT | FK | Lô (nếu có) |
+| item_condition | VARCHAR(10) | NOT NULL, mặc định NEW | Máy mới / cũ theo lần nhập kho gần nhất (V42, BR-INV-43) |
 | lifecycle_status | VARCHAR(30) | NOT NULL | IN_STOCK, ISSUED, AT_CUSTOMER, IN_REPAIR, RETURNED, SCRAPPED |
 | current_warehouse_id | BIGINT | FK | Vị trí hiện tại (bản đọc nhanh) |
 | audit, version | | | |
@@ -330,6 +332,7 @@ Unique `(product_id, serial_no)`.
 | product_id | BIGINT | FK, NOT NULL | |
 | warehouse_id, location_id | BIGINT | FK, NOT NULL | |
 | lot_id, serial_id | BIGINT | FK | |
+| item_condition | VARCHAR(10) | | Máy mới / cũ tại lúc ghi sổ: dòng có serial, hoặc dòng nhập có khai báo (V42); dòng đảo nhập lại serial lấy giá trị của dòng gốc |
 | quality_status | VARCHAR(30) | NOT NULL | |
 | transaction_type | VARCHAR(30) | NOT NULL | OPENING, PURCHASE_RECEIPT, SALES_ISSUE, SALES_RETURN, PURCHASE_RETURN, TRANSFER_OUT, TRANSFER_IN, COUNT_GAIN, COUNT_LOSS, ADJUST_IN, ADJUST_OUT, STATUS_OUT, STATUS_IN, INTERNAL_ISSUE, SCRAP, REVERSAL... |
 | direction | VARCHAR(3) | NOT NULL | IN / OUT |
@@ -610,6 +613,7 @@ Từ D-61 (V32..V36) hệ thống không còn bước duyệt: mọi `approval_m
 - `stock_counts (warehouse_id, count_date, status DRAFT|COUNTING|SUBMITTED|APPROVED|POSTED|CANCELLED, adjustment_document_id)` + `stock_count_lines (product, location, lot, serial, quality_status, snapshot_quantity, counted_quantity)`.
 - `recalls (product_id, lot_id | serial_id, reason, status)`; `stock_issue_policies (warehouse_id, product_id, max_quantity, used_quantity, used_by_document_id, valid_from, valid_to, status)` (D-53; `used_by_document_id` thêm ở V8, FK `inventory_documents`: mỗi chính sách một chứng từ); `inventory_reservations (product, warehouse, source_type/id/line_id, quantity, consumed, released, status)`.
 - V7: tham số `inventory.expiry-warning-days` (mặc định 90 `[Suy luận]`) cho cảnh báo hạn dùng.
+- V42 (D-70, BR-INV-43): cột `item_condition` (NEW / USED, CHECK) ở `inventory_lots`, `inventory_serials` (NOT NULL, mặc định NEW), `inventory_document_lines`, `inventory_transactions` (NULL được); tham số `inventory.machine-category-code` (STRING, mặc định `MAY`). Không đổi khóa `inventory_balances`.
 
 ### 4.24 `ai_ocr_requests` (V39, D-64, module `ai`)
 Nhật ký mỗi lần nhận dạng chứng từ, **chỉ metadata** (BR-AI-10): không lưu file, văn bản nhận dạng, MST, số tiền.

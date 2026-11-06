@@ -48,7 +48,9 @@ import org.springframework.web.multipart.MultipartFile;
 @Service
 public class MasterDataImportService {
 
-    private static final Pattern PRODUCT_CODE = Pattern.compile("[A-Za-z0-9_.-]{1,50}");
+    /** Mã hàng: chữ, số, _ . - và khoảng trắng đơn giữa các ký tự (D-69). */
+    private static final Pattern PRODUCT_CODE = Pattern.compile("(?=.{1,50}$)[A-Za-z0-9_.-]+( [A-Za-z0-9_.-]+)*");
+    private static final Pattern PARTNER_CODE = Pattern.compile("[A-Za-z0-9_.-]{1,50}");
     private static final Pattern TAX_CODE = Pattern.compile("[0-9]{10}(-[0-9]{3})?");
     private static final Map<String, PartnerRole> ROLE_CODES = Map.of(
             "KH", PartnerRole.CUSTOMER, "NCC", PartnerRole.SUPPLIER, "DL", PartnerRole.AGENT,
@@ -186,7 +188,8 @@ public class MasterDataImportService {
     private Product parseProduct(Long companyId, Row row, RowErrors errors, Set<String> codesInFile) {
         String code = ExcelSupport.text(row, 0);
         if (!PRODUCT_CODE.matcher(code).matches()) {
-            errors.add("code", "Mã hàng bắt buộc, 1-50 ký tự chữ, số, _ . -");
+            errors.add("code",
+                    "Mã hàng bắt buộc, 1-50 ký tự chữ, số, _ . - và khoảng trắng đơn giữa các ký tự.");
         } else if (!codesInFile.add(code)) {
             errors.add("code", "Mã hàng '" + code + "' trùng trong file.");
         } else if (productRepository.existsByCompanyIdAndCode(companyId, code)) {
@@ -257,7 +260,7 @@ public class MasterDataImportService {
 
     private Partner parsePartner(Long companyId, Row row, RowErrors errors, Set<String> codesInFile) {
         String code = ExcelSupport.text(row, 0);
-        if (!PRODUCT_CODE.matcher(code).matches()) {
+        if (!PARTNER_CODE.matcher(code).matches()) {
             errors.add("code", "Mã đối tác bắt buộc, 1-50 ký tự chữ, số, _ . -");
         } else if (!codesInFile.add(code)) {
             errors.add("code", "Mã đối tác '" + code + "' trùng trong file.");

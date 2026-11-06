@@ -3,6 +3,8 @@ package com.company.erp.inventory.infrastructure.persistence;
 import com.company.erp.inventory.domain.InventoryLot;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
@@ -16,17 +18,19 @@ public interface InventoryLotRepository extends JpaRepository<InventoryLot, Long
 
     boolean existsByIdAndCompanyId(Long id, Long companyId);
 
+    List<InventoryLot> findByProductIdInAndLotNoIn(Collection<Long> productIds, Collection<String> lotNos);
+
     /** Tạo lô nếu chưa có (một câu lệnh, an toàn khi hai phiếu cùng nhập một lô mới). */
     @Modifying
     @Query(nativeQuery = true, value = """
             insert ignore into inventory_lots
-                (company_id, product_id, lot_no, manufacture_date, expiry_date, is_temporary, blocked, version,
-                 created_by, created_at, updated_by, updated_at)
-            values (:companyId, :productId, :lotNo, :manufactureDate, :expiryDate, false, false, 0,
+                (company_id, product_id, lot_no, manufacture_date, expiry_date, item_condition, is_temporary, blocked,
+                 version, created_by, created_at, updated_by, updated_at)
+            values (:companyId, :productId, :lotNo, :manufactureDate, :expiryDate, :itemCondition, false, false, 0,
                     :actorId, :now, :actorId, :now)
             """)
     int insertIfAbsent(@Param("companyId") Long companyId, @Param("productId") Long productId,
                        @Param("lotNo") String lotNo, @Param("manufactureDate") LocalDate manufactureDate,
-                       @Param("expiryDate") LocalDate expiryDate, @Param("actorId") Long actorId,
-                       @Param("now") Instant now);
+                       @Param("expiryDate") LocalDate expiryDate, @Param("itemCondition") String itemCondition,
+                       @Param("actorId") Long actorId, @Param("now") Instant now);
 }

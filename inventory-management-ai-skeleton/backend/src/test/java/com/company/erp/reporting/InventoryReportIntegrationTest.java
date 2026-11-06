@@ -132,10 +132,54 @@ class InventoryReportIntegrationTest extends ReportIntegrationSupport {
     }
 
     @Test
+    @DisplayName("D-68, AT-12: xuất bán đã / chưa có hóa đơn theo hàng × kho, trừ trả lại và đơn đã đảo; đơn cấu thành")
+    void issuedInvoiceStatus() throws Exception {
+        long item = newProduct("CONSUMABLE");
+        String lot = unique("L");
+        stockIn(item, "20", lot);
+        long customer = customer();
+        long invoiced = postedOrder(customer, item, "5");
+        send(clerk, post(ORDERS + "/" + invoiced + "/einvoice-reference"), "{\"series\":\"" + unique("1C26T")
+                + "\",\"number\":\"0000068\",\"date\":\"" + DATE + "\"}").andExpect(status().isOk());
+        postedReturn(customer, invoiced, lot, "1");
+        long pending = postedOrder(customer, item, "3");
+        long cancelled = postedOrder(customer, item, "2");
+        send(chief, post(ORDERS + "/" + cancelled + "/reverse"), "{\"reason\":\"Lập sai\"}")
+                .andExpect(jsonPath("$.data.status").value("REVERSED"));
+        LocalDate tomorrow = LocalDate.now().plusDays(1);
+        String to = tomorrow.isAfter(LocalDate.parse(DATE)) ? tomorrow.toString() : DATE;
+        String store = String.valueOf(warehouse());
+
+        mockMvc.perform(report(keeper, "/issued-invoice-status").param("productIds", String.valueOf(item))
+                        .param("dateFrom", DATE).param("dateTo", to))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.rows.length()").value(1))
+                .andExpect(jsonPath("$.data.rows[0].warehouseId").value(warehouse()))
+                .andExpect(jsonPath("$.data.rows[0].invoicedQuantity").value(4))
+                .andExpect(jsonPath("$.data.rows[0].uninvoicedQuantity").value(3));
+        mockMvc.perform(report(keeper, "/issued-invoice-status/orders").param("productId", String.valueOf(item))
+                        .param("warehouseId", store).param("invoiced", "false")
+                        .param("dateFrom", DATE).param("dateTo", to))
+                .andExpect(jsonPath("$.data.orders.length()").value(1))
+                .andExpect(jsonPath("$.data.orders[0].orderId").value(pending))
+                .andExpect(jsonPath("$.data.orders[0].quantity").value(3))
+                .andExpect(jsonPath("$.data.truncated").value(false));
+        mockMvc.perform(report(keeper, "/issued-invoice-status/orders").param("productId", String.valueOf(item))
+                        .param("warehouseId", store).param("invoiced", "true")
+                        .param("dateFrom", DATE).param("dateTo", to))
+                .andExpect(jsonPath("$.data.orders.length()").value(1))
+                .andExpect(jsonPath("$.data.orders[0].orderId").value(invoiced))
+                .andExpect(jsonPath("$.data.orders[0].einvoiceNo").value("0000068"))
+                .andExpect(jsonPath("$.data.orders[0].quantity").value(4));
+        mockMvc.perform(report(salesManager, "/issued-invoice-status").param("dateFrom", DATE).param("dateTo", to))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
     @DisplayName("AT-10, BR-RPT-12: không quyền 403, chưa đăng nhập 401, kho ngoài phạm vi 400, điều kiện sai 400")
     void accessAndValidation() throws Exception {
         long product = id("SELECT id FROM products WHERE company_id = 1 AND code = 'VT_ONG_01'");
-        long hanoi = id("SELECT id FROM warehouses WHERE company_id = 1 AND code = 'KHO_HN'");
+        long hanoi = id("SELECT id FROM warehouses WHERE company_id = 1 AND code = 'HH'");
         mockMvc.perform(report(salesManager, "/stock-card").param("productId", String.valueOf(product))
                 .param("dateFrom", DATE).param("dateTo", DATE)).andExpect(status().isForbidden());
         mockMvc.perform(get(REPORTS + "/stock-exceptions").param("companyId", "1"))

@@ -57,6 +57,12 @@ public class ParameterService {
         return new BigDecimal(rawValue(companyId, key));
     }
 
+    /** Giá trị chuỗi (mã danh mục...) của tham số cho công ty: giá trị riêng nếu đã đặt, ngược lại mặc định. */
+    @Transactional(readOnly = true)
+    public String stringValue(Long companyId, String key) {
+        return rawValue(companyId, key);
+    }
+
     private String rawValue(Long companyId, String key) {
         return parameterRepository.findByCompanyIdAndKey(companyId, key)
                 .map(Parameter::getValue)

@@ -1,6 +1,7 @@
 package com.company.erp.inventory.application;
 
 import com.company.erp.common.domain.QualityStatus;
+import com.company.erp.inventory.domain.ItemCondition;
 import com.company.erp.inventory.domain.MovementDirection;
 import com.company.erp.inventory.domain.TransactionType;
 import java.math.BigDecimal;
@@ -15,6 +16,7 @@ import java.util.Objects;
  * @param unitCost     đơn giá nhập (chiều nhập); giá xuất do tính giá vốn (Giai đoạn 4)
  * @param reversalOfId dòng sổ nhật ký gốc khi đây là dòng đảo
  * @param lotChoiceJustified đã ghi lý do khi chỉ định lô khác lô FEFO đề xuất (BR-INV-21)
+ * @param itemCondition máy mới / cũ của dòng nhập (BR-INV-43); trống: giữ tình trạng serial đã có
  */
 public record StockMovement(
         Long lineId,
@@ -30,7 +32,8 @@ public record StockMovement(
         BigDecimal unitCost,
         OutRule outRule,
         Long reversalOfId,
-        boolean lotChoiceJustified) {
+        boolean lotChoiceJustified,
+        ItemCondition itemCondition) {
 
     /** Điều kiện của tồn được xuất. */
     public enum OutRule {
@@ -40,6 +43,15 @@ public record StockMovement(
         DISPOSABLE,
         /** Điều chỉnh, chuyển trạng thái, đảo: đúng trạng thái đã chỉ định, chỉ kiểm tra không âm. */
         EXACT_STATUS
+    }
+
+    /** Biến động không đổi tình trạng máy (xuất, chuyển kho, chuyển trạng thái chất lượng). */
+    public StockMovement(Long lineId, MovementDirection direction, TransactionType type, Long productId,
+                         Long warehouseId, Long locationId, Long lotId, Long serialId, QualityStatus qualityStatus,
+                         BigDecimal quantity, BigDecimal unitCost, OutRule outRule, Long reversalOfId,
+                         boolean lotChoiceJustified) {
+        this(lineId, direction, type, productId, warehouseId, locationId, lotId, serialId, qualityStatus, quantity,
+                unitCost, outRule, reversalOfId, lotChoiceJustified, null);
     }
 
     public StockMovement {

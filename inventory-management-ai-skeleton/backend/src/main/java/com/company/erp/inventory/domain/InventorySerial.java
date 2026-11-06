@@ -37,6 +37,10 @@ public class InventorySerial extends AuditableEntity {
     private Long lotId;
 
     @Enumerated(EnumType.STRING)
+    @Column(name = "item_condition", nullable = false, length = 10)
+    private ItemCondition itemCondition = ItemCondition.NEW;
+
+    @Enumerated(EnumType.STRING)
     @Column(name = "lifecycle_status", nullable = false, length = 30)
     private SerialStatus lifecycleStatus;
 
@@ -63,6 +67,14 @@ public class InventorySerial extends AuditableEntity {
     public void moveTo(SerialStatus status, Long warehouseId) {
         this.lifecycleStatus = status;
         this.currentWarehouseId = warehouseId;
+    }
+
+    /**
+     * Tình trạng theo lần nhập kho (BR-INV-43); chỉ gọi khi ghi sổ dòng nhập serial, sau khi đã kiểm tra serial không
+     * còn tồn ở nơi khác.
+     */
+    public void changeCondition(ItemCondition condition) {
+        this.itemCondition = condition;
     }
 
     public void block(String reason) {
@@ -99,6 +111,10 @@ public class InventorySerial extends AuditableEntity {
 
     public Long getLotId() {
         return lotId;
+    }
+
+    public ItemCondition getItemCondition() {
+        return itemCondition;
     }
 
     public SerialStatus getLifecycleStatus() {

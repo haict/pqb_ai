@@ -8,7 +8,10 @@ import { useCatalog } from '../../masterdata/lookups';
 import { salesOrderApi } from '../api';
 import type { StockOutSlip, StockOutSlipLine } from '../types';
 
-/** Phiếu xuất kho in từ đơn bán đã ghi sổ: dữ liệu do server tổng hợp, chỉ dòng hàng hóa, lô / serial thực xuất. */
+/**
+ * Phiếu xuất kho in từ đơn bán: dữ liệu do server tổng hợp, chỉ dòng hàng hóa, lô / serial thực xuất. Đơn chưa ghi sổ
+ * in bản nháp (D-71): cùng tiêu đề, chưa có số phiếu, lô / serial theo chỉ định trên đơn.
+ */
 export function StockOutSlipPrint({ orderId, companyId }: { orderId: number; companyId?: number }) {
   const units = useCatalog('units');
   const slip = useQuery({

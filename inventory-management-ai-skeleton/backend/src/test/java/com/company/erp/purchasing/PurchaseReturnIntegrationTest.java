@@ -99,7 +99,7 @@ class PurchaseReturnIntegrationTest extends PurchasingIntegrationSupport {
         long second = postedTubeOrder("1", unique("L"));
         long firstLine = orderLineId(first, 1);
         long secondLine = orderLineId(second, 1);
-        long serviceOrder = postedOrder(orderWithInvoice(partner("NCC_01"), warehouse("KHO_HN"), unique("C26T"), "9",
+        long serviceOrder = postedOrder(orderWithInvoice(partner("NCC_01"), warehouse("HH"), unique("C26T"), "9",
                 List.of(orderLine(product("DV_VC"), unit("CAI"), "1", "300000", null, null))));
         long serviceLine = orderLineId(serviceOrder, 1);
         assertThat(id("SELECT COUNT(*) FROM inventory_documents WHERE source_type = 'DMH' AND source_id = "

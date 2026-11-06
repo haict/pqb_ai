@@ -21,7 +21,8 @@ import { ProductSelect } from '../../masterdata/components/EntitySelects';
 import { useCompanyId, useWarehouses } from '../../masterdata/lookups';
 import { stockApi } from '../api';
 import { SERIAL_STATUSES, formatDate, formatNumber } from '../labels';
-import type { Lot, Serial, SerialStatus } from '../types';
+import type { ItemCondition, Lot, Serial, SerialStatus } from '../types';
+import { ItemConditionTag } from '../components/StatusTags';
 
 interface BlockTarget {
   kind: 'lots' | 'serials';
@@ -74,6 +75,12 @@ function LotsTab({ productId, onBlock }: { productId?: number; onBlock(target: B
     { title: 'Hàng hóa', render: (_, lot) => `${lot.productCode ?? ''} - ${lot.productName ?? ''}` },
     { title: 'Ngày SX', dataIndex: 'manufactureDate', render: formatDate },
     { title: 'Hạn dùng', dataIndex: 'expiryDate', sorter: true, render: formatDate },
+    {
+      title: 'Máy cũ',
+      dataIndex: 'itemCondition',
+      width: 90,
+      render: (condition: ItemCondition) => <ItemConditionTag condition={condition} />,
+    },
     {
       title: 'Còn (ngày)',
       dataIndex: 'daysToExpiry',
@@ -132,6 +139,12 @@ function SerialsTab({ productId, onBlock }: { productId?: number; onBlock(target
     { title: 'Serial', dataIndex: 'serialNo', sorter: true },
     { title: 'Hàng hóa', render: (_, serial) => `${serial.productCode ?? ''} - ${serial.productName ?? ''}` },
     { title: 'Tình trạng', dataIndex: 'lifecycleStatus', render: (v: SerialStatus) => SERIAL_STATUSES[v] },
+    {
+      title: 'Máy cũ',
+      dataIndex: 'itemCondition',
+      width: 90,
+      render: (condition: ItemCondition) => <ItemConditionTag condition={condition} />,
+    },
     {
       title: 'Kho hiện tại',
       dataIndex: 'currentWarehouseId',

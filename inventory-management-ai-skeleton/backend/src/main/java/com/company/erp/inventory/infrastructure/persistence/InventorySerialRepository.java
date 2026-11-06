@@ -24,12 +24,14 @@ public interface InventorySerialRepository
     @Modifying
     @Query(nativeQuery = true, value = """
             insert into inventory_serials
-                (company_id, product_id, serial_no, lot_id, lifecycle_status, blocked, version,
+                (company_id, product_id, serial_no, lot_id, item_condition, lifecycle_status, blocked, version,
                  created_by, created_at, updated_by, updated_at)
-            values (:companyId, :productId, :serialNo, :lotId, 'ISSUED', false, 0, :actorId, :now, :actorId, :now)
+            values (:companyId, :productId, :serialNo, :lotId, :itemCondition, 'ISSUED', false, 0,
+                    :actorId, :now, :actorId, :now)
             on duplicate key update version = version
             """)
     int insertIfAbsent(@Param("companyId") Long companyId, @Param("productId") Long productId,
                        @Param("serialNo") String serialNo, @Param("lotId") Long lotId,
+                       @Param("itemCondition") String itemCondition,
                        @Param("actorId") Long actorId, @Param("now") Instant now);
 }

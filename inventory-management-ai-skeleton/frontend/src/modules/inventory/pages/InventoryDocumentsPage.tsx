@@ -159,7 +159,7 @@ export function InventoryDocumentsPage({ opening = false }: { opening?: boolean 
       <FormModal<DocumentFormValues>
         open={creating}
         title={opening ? 'Lập phiếu nhập tồn kho đầu kỳ' : 'Lập chứng từ kho'}
-        width={980}
+        width={1200}
         okText="Lưu nháp"
         initialValues={{
           documentType: creatable[0],

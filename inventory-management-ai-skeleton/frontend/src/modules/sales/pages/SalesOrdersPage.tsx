@@ -329,7 +329,7 @@ export function SalesOrdersPage() {
           onClose={() => setSelected(null)}
           extra={(document) => (
             <>
-              {document.status === 'POSTED' && (
+              {!['CANCELLED', 'REVERSED'].includes(document.status) && (
                 <CompanyPrintButton
                   label="In phiếu xuất kho"
                   queryKey="sales-orders"
@@ -356,7 +356,9 @@ export function SalesOrdersPage() {
                   <Button onClick={() => setConfirming(document)}>Khách nhận hàng</Button>
                 )}
               {['DRAFT', 'APPROVED', 'POSTED'].includes(document.status) && can('sales-order:post') && (
-                <Button onClick={() => setEinvoice(document)}>Số hóa đơn điện tử</Button>
+                <Tooltip title="Số hóa đơn điện tử">
+                  <Button onClick={() => setEinvoice(document)}>Số HĐĐT</Button>
+                </Tooltip>
               )}
             </>
           )}

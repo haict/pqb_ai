@@ -5,7 +5,8 @@ import java.time.LocalDate;
 import java.util.List;
 
 /**
- * Dòng đơn bán: giá, lô / serial chỉ định, hàng thực xuất khi ghi sổ ({@code items}), thông tin in biên bản giao nhận
+ * Dòng đơn bán: giá, lô / serial chỉ định ({@code expiryDate}: hạn dùng của lô chỉ định, lấy từ lô trong kho, chỉ
+ * đọc), hàng thực xuất khi ghi sổ ({@code items}), thông tin in biên bản giao nhận
  * (xuất xứ, model, số lưu hành), chỉ tiêu sau ghi sổ (đơn vị cơ sở: đã trả lại, còn trả được; giá trị đã giảm, còn
  * lại), tồn khả dụng và đang giữ tại kho của đơn (trước khi ghi sổ).
  */
@@ -34,6 +35,7 @@ public record SalesLineResponse(
         boolean serviceLine,
         LocalDate expectedDate,
         String lotNo,
+        LocalDate expiryDate,
         String lotOverrideReason,
         List<String> serialNumbers,
         Long receiptTransactionId,

@@ -6,6 +6,7 @@ import com.company.erp.masterdata.domain.LocationZone;
 import com.company.erp.masterdata.domain.Partner;
 import com.company.erp.masterdata.domain.PartnerRole;
 import com.company.erp.masterdata.domain.Product;
+import com.company.erp.masterdata.domain.ProductCategory;
 import com.company.erp.masterdata.domain.ProductType;
 import com.company.erp.masterdata.domain.ReferenceCategory;
 import com.company.erp.masterdata.domain.TaxRate;
@@ -14,6 +15,7 @@ import com.company.erp.masterdata.domain.Warehouse;
 import com.company.erp.masterdata.domain.WarehouseLocation;
 import com.company.erp.masterdata.domain.WarehouseType;
 import com.company.erp.masterdata.infrastructure.persistence.PartnerRepository;
+import com.company.erp.masterdata.infrastructure.persistence.ProductCategoryRepository;
 import com.company.erp.masterdata.infrastructure.persistence.ProductRepository;
 import com.company.erp.masterdata.infrastructure.persistence.ProductStockLevelRepository;
 import com.company.erp.masterdata.infrastructure.persistence.ProductUnitRepository;
@@ -25,8 +27,12 @@ import com.company.erp.masterdata.infrastructure.persistence.WarehouseRepository
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Arrays;
+import java.util.ArrayDeque;
 import java.util.Collection;
+import java.util.Deque;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -123,13 +129,15 @@ public class MasterDataQueryService {
     private final ReferenceItemRepository referenceItemRepository;
     private final TaxRateRepository taxRateRepository;
     private final UnitRepository unitRepository;
+    private final ProductCategoryRepository categoryRepository;
 
     public MasterDataQueryService(ProductRepository productRepository, ProductUnitRepository productUnitRepository,
                                   ProductStockLevelRepository stockLevelRepository,
                                   WarehouseRepository warehouseRepository,
                                   WarehouseLocationRepository locationRepository, PartnerRepository partnerRepository,
                                   ReferenceItemRepository referenceItemRepository,
-                                  TaxRateRepository taxRateRepository, UnitRepository unitRepository) {
+                                  TaxRateRepository taxRateRepository, UnitRepository unitRepository,
+                                  ProductCategoryRepository categoryRepository) {
         this.productRepository = productRepository;
         this.productUnitRepository = productUnitRepository;
         this.stockLevelRepository = stockLevelRepository;
@@ -139,6 +147,7 @@ public class MasterDataQueryService {
         this.referenceItemRepository = referenceItemRepository;
         this.taxRateRepository = taxRateRepository;
         this.unitRepository = unitRepository;
+        this.categoryRepository = categoryRepository;
     }
 
     /** Mã loại hàng hợp lệ, dùng làm điều kiện quy tắc hạch toán (BR-ACC-02). */
@@ -149,6 +158,26 @@ public class MasterDataQueryService {
     /** Mã vai trò đối tác hợp lệ, dùng làm điều kiện quy tắc hạch toán (BR-ACC-02). */
     public static boolean isPartnerRole(String code) {
         return Arrays.stream(PartnerRole.values()).anyMatch(role -> role.name().equals(code));
+    }
+
+    /** ID nhóm hàng có mã {@code code} và mọi nhóm con, cháu của nó trong công ty; mã không tồn tại thì rỗng. */
+    @Transactional(readOnly = true)
+    public Set<Long> categoryTree(Long companyId, String code) {
+        List<ProductCategory> categories = categoryRepository.findByCompanyId(companyId);
+        Map<Long, List<Long>> children = categories.stream().filter(category -> category.getParentId() != null)
+                .collect(Collectors.groupingBy(ProductCategory::getParentId,
+                        Collectors.mapping(ProductCategory::getId, Collectors.toList())));
+        Set<Long> tree = new HashSet<>();
+        Deque<Long> pending = new ArrayDeque<>();
+        categories.stream().filter(category -> category.getCode().equals(code)).map(ProductCategory::getId)
+                .forEach(pending::add);
+        while (!pending.isEmpty()) {
+            Long id = pending.pop();
+            if (tree.add(id)) {
+                pending.addAll(children.getOrDefault(id, List.of()));
+            }
+        }
+        return tree;
     }
 
     @Transactional(readOnly = true)

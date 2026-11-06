@@ -1,6 +1,17 @@
-import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
+import { DeleteOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
-import { Button, Card, Col, DatePicker, Form, Input, Row, Select, type FormInstance } from 'antd';
+import {
+  Button,
+  Checkbox,
+  Col,
+  DatePicker,
+  Form,
+  Input,
+  Row,
+  Select,
+  Tooltip,
+  type FormInstance,
+} from 'antd';
 import { productApi } from '../../masterdata/api';
 import { PartnerSelect, ProductSelect } from '../../masterdata/components/EntitySelects';
 import { RemoteSelect } from '../../masterdata/components/RemoteSelect';
@@ -12,6 +23,8 @@ import { CREATABLE_TYPES, DOCUMENT_TYPES, OPENING_SUB_TYPE, RECEIPT_SUB_TYPES } 
 import type { InventoryDocumentType, Lot, StockIssuePolicy } from '../types';
 import type { DocumentFormValues } from './documentFormValues';
 import { DecimalInput } from '../../../shared/components/DecimalInput';
+import { LineGrid, LineGridRow, NotApplicable } from '../../../shared/components/LineGrid';
+import { lineCellStyle, type LineGridColumn } from '../../../shared/components/lineGridStyles';
 
 const QUALITY_OPTIONS = (Object.keys(QUALITY_STATUSES) as QualityStatus[]).map((value) => ({
   value,
@@ -23,17 +36,83 @@ function isInbound(type: InventoryDocumentType, direction?: string) {
   return type === 'PNK' || (type === 'PDC' && direction === 'IN');
 }
 
+/** Cột bảng dòng hàng theo loại chứng từ; ô không áp dụng cho dòng (hàng không theo lô, dòng giảm tồn) hiện dấu –. */
+interface LineLayout {
+  columns: LineGridColumn[];
+  minWidth: number;
+  canReceive: boolean;
+  canIssue: boolean;
+  showQuality: boolean;
+}
+
+function lineLayout(type: InventoryDocumentType, openingStock: boolean): LineLayout {
+  const canReceive = type === 'PNK' || type === 'PDC';
+  const canIssue = type !== 'PNK';
+  const showQuality = type === 'PCL' || type === 'PCK' || type === 'PDC' || openingStock;
+  const columns: LineGridColumn[] = [
+    { title: 'Hàng hóa', width: '260px' },
+    { title: 'Đơn vị', width: '100px' },
+    { title: 'Số lượng', width: '100px' },
+    ...(type === 'PDC' ? [{ title: 'Tăng / giảm', width: '110px' }] : []),
+    ...(canReceive
+      ? [
+          { title: 'Đơn giá (theo ĐVT)', width: '130px' },
+          { title: 'Số lô', width: '120px' },
+          { title: 'Ngày sản xuất', width: '125px' },
+          { title: 'Hạn dùng', width: '125px' },
+          {
+            title: 'Máy cũ',
+            width: '80px',
+            tooltip:
+              'Chỉ hàng thuộc nhóm máy; để trống là máy mới. Tồn máy mới / cũ tách theo serial hoặc lô.',
+          },
+        ]
+      : []),
+    ...(canIssue
+      ? [
+          {
+            title: 'Lô xuất',
+            width: '180px',
+            tooltip: 'Để trống: hệ thống chọn lô hết hạn sớm nhất (FEFO).',
+          },
+          { title: 'Lý do chọn lô khác FEFO', width: '180px' },
+        ]
+      : []),
+    { title: 'Serial', width: '180px', tooltip: 'Gõ serial rồi Enter; mỗi serial một đơn vị cơ sở' },
+    ...(showQuality
+      ? [
+          {
+            title: type === 'PCL' ? 'Trạng thái hiện tại' : 'Trạng thái CL',
+            width: '140px',
+            tooltip: openingStock
+              ? 'Để trống: theo cấu hình hàng. Hàng không xác định được lô: nhập lô tạm, chọn Cách ly (D-13).'
+              : undefined,
+          },
+        ]
+      : []),
+    ...(type === 'PCL' ? [{ title: 'Trạng thái mới', width: '140px' }] : []),
+    { title: 'Ghi chú', width: 'minmax(140px, 1fr)' },
+  ];
+  // Cột "minmax(...)" tính theo bề rộng tối thiểu 140px; cộng khoảng cách cột và nút xóa dòng
+  const minWidth = columns.reduce((sum, column) => sum + (parseInt(column.width, 10) || 140) + 4, 40);
+  return { columns, minWidth, canReceive, canIssue, showQuality };
+}
+
 function LineFields({
   form,
   name,
   type,
-  openingStock,
+  layout,
+  machineCategories,
+  removable,
   onRemove,
 }: {
   form: FormInstance<DocumentFormValues>;
   name: number;
   type: InventoryDocumentType;
-  openingStock: boolean;
+  layout: LineLayout;
+  machineCategories: Set<number>;
+  removable: boolean;
   onRemove(): void;
 }) {
   const units = useCatalog('units');
@@ -53,103 +132,119 @@ function LineFields({
         .filter((id, index, all) => all.indexOf(id) === index)
         .map((id) => ({ value: id, label: units.nameOf(id) || `#${id}` }))
     : [];
+  const receiveLot = product?.lotTracked && inbound;
+  const machine = product !== undefined && machineCategories.has(product.categoryId);
+  const issueLot = product?.lotTracked && !inbound && (type !== 'PDC' || direction === 'OUT');
 
   return (
-    <Card
-      size="small"
-      style={{ marginBottom: 8 }}
-      title={`Dòng ${name + 1}`}
-      extra={<Button type="text" danger icon={<DeleteOutlined />} onClick={onRemove} />}
-    >
-      <Row gutter={8}>
-        <Col xs={24} md={10}>
+    <LineGridRow columns={layout.columns}>
+      <Form.Item
+        name={[name, 'productId']}
+        style={lineCellStyle}
+        rules={[{ required: true, message: 'Chọn hàng' }]}
+      >
+        <ProductSelect
+          onProduct={(selected) => {
+            if (selected) {
+              form.setFieldValue(['lines', name, 'unitId'], selected.baseUnitId);
+            }
+            // Hàng nhóm máy mặc định máy mới (BR-INV-43); hàng khác không gửi tình trạng
+            form.setFieldValue(
+              ['lines', name, 'itemCondition'],
+              selected && machineCategories.has(selected.categoryId) ? 'NEW' : undefined,
+            );
+          }}
+        />
+      </Form.Item>
+      <Form.Item
+        name={[name, 'unitId']}
+        style={lineCellStyle}
+        rules={[{ required: true, message: 'Chọn ĐVT' }]}
+      >
+        <Select options={unitOptions} />
+      </Form.Item>
+      <Form.Item
+        name={[name, 'quantity']}
+        style={lineCellStyle}
+        rules={[{ required: true, message: 'Nhập số lượng' }]}
+      >
+        <DecimalInput min={0.001} />
+      </Form.Item>
+      {type === 'PDC' && (
+        <Form.Item
+          name={[name, 'direction']}
+          style={lineCellStyle}
+          rules={[{ required: true, message: 'Chọn tăng / giảm' }]}
+        >
+          <Select
+            options={[
+              { value: 'IN', label: 'Tăng tồn' },
+              { value: 'OUT', label: 'Giảm tồn' },
+            ]}
+          />
+        </Form.Item>
+      )}
+      {layout.canReceive &&
+        (inbound ? (
           <Form.Item
-            name={[name, 'productId']}
-            label="Hàng hóa"
-            rules={[{ required: true, message: 'Chọn hàng' }]}
+            name={[name, 'unitCost']}
+            style={lineCellStyle}
+            rules={[{ required: true, message: 'Nhập đơn giá' }]}
           >
-            <ProductSelect
-              onProduct={(selected) =>
-                selected && form.setFieldValue(['lines', name, 'unitId'], selected.baseUnitId)
-              }
-            />
+            <DecimalInput min={0} fractionDigits={4} />
           </Form.Item>
-        </Col>
-        <Col xs={12} md={4}>
-          <Form.Item name={[name, 'unitId']} label="Đơn vị" rules={[{ required: true, message: 'Chọn ĐVT' }]}>
-            <Select options={unitOptions} />
-          </Form.Item>
-        </Col>
-        <Col xs={12} md={4}>
-          <Form.Item
-            name={[name, 'quantity']}
-            label="Số lượng"
-            rules={[{ required: true, message: 'Nhập số lượng' }]}
-          >
-            <DecimalInput min={0.001} />
-          </Form.Item>
-        </Col>
-        {type === 'PDC' && (
-          <Col xs={12} md={6}>
-            <Form.Item name={[name, 'direction']} label="Tăng / giảm" rules={[{ required: true }]}>
-              <Select
-                options={[
-                  { value: 'IN', label: 'Tăng tồn' },
-                  { value: 'OUT', label: 'Giảm tồn' },
-                ]}
-              />
-            </Form.Item>
-          </Col>
-        )}
-        {inbound && (
-          <Col xs={12} md={6}>
-            <Form.Item
-              name={[name, 'unitCost']}
-              label="Đơn giá (theo ĐVT)"
-              rules={[{ required: true, message: 'Nhập đơn giá' }]}
-            >
-              <DecimalInput min={0} fractionDigits={4} />
-            </Form.Item>
-          </Col>
-        )}
-      </Row>
-      {product?.lotTracked && inbound && (
-        <Row gutter={8}>
-          <Col xs={24} md={8}>
+        ) : (
+          <NotApplicable />
+        ))}
+      {layout.canReceive &&
+        (receiveLot ? (
+          <>
             <Form.Item
               name={[name, 'lotNo']}
-              label="Số lô"
+              style={lineCellStyle}
               rules={[{ required: true, message: 'Nhập số lô' }]}
             >
               <Input maxLength={50} />
             </Form.Item>
-          </Col>
-          <Col xs={12} md={8}>
-            <Form.Item name={[name, 'manufactureDate']} label="Ngày sản xuất">
+            <Form.Item name={[name, 'manufactureDate']} style={lineCellStyle}>
               <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} />
             </Form.Item>
-          </Col>
-          <Col xs={12} md={8}>
             <Form.Item
               name={[name, 'expiryDate']}
-              label="Hạn dùng"
+              style={lineCellStyle}
               rules={[{ required: product.expiryTracked, message: 'Nhập hạn dùng' }]}
             >
               <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} />
             </Form.Item>
-          </Col>
-        </Row>
-      )}
-      {product?.lotTracked && !inbound && (
-        <Row gutter={8}>
-          <Col xs={24} md={10}>
-            <Form.Item
-              name={[name, 'lotId']}
-              label="Lô"
-              extra="Để trống: hệ thống chọn lô hết hạn sớm nhất (FEFO)."
-            >
+          </>
+        ) : (
+          <>
+            <NotApplicable />
+            <NotApplicable />
+            <NotApplicable />
+          </>
+        ))}
+      {layout.canReceive &&
+        (inbound && machine ? (
+          <Form.Item
+            name={[name, 'itemCondition']}
+            style={{ ...lineCellStyle, textAlign: 'center' }}
+            valuePropName="checked"
+            getValueProps={(value?: string) => ({ checked: value === 'USED' })}
+            normalize={(checked: boolean) => (checked ? 'USED' : 'NEW')}
+          >
+            <Checkbox aria-label="Máy cũ" />
+          </Form.Item>
+        ) : (
+          <NotApplicable />
+        ))}
+      {layout.canIssue &&
+        (issueLot ? (
+          <>
+            <Form.Item name={[name, 'lotId']} style={lineCellStyle}>
               <RemoteSelect<Lot>
                 allowClear
+                placeholder="FEFO"
                 queryKey={`lots-${product.id}`}
                 fetch={(keyword) =>
                   stockApi.lots({
@@ -166,53 +261,55 @@ function LineFields({
                 })}
               />
             </Form.Item>
-          </Col>
-          <Col xs={24} md={14}>
-            <Form.Item name={[name, 'lotOverrideReason']} label="Lý do chọn lô khác FEFO">
+            <Form.Item name={[name, 'lotOverrideReason']} style={lineCellStyle}>
               <Input maxLength={500} />
             </Form.Item>
-          </Col>
-        </Row>
-      )}
-      {product?.serialTracked && (
+          </>
+        ) : (
+          <>
+            <NotApplicable />
+            <NotApplicable />
+          </>
+        ))}
+      {product?.serialTracked ? (
         <Form.Item
           name={[name, 'serialNumbers']}
-          label="Serial (mỗi serial một đơn vị cơ sở)"
+          style={lineCellStyle}
           rules={[{ required: true, message: 'Nhập serial' }]}
         >
           <Select mode="tags" tokenSeparators={[',', ' ']} open={false} />
         </Form.Item>
+      ) : (
+        <NotApplicable />
       )}
-      {(type === 'PCL' || type === 'PCK' || (type === 'PDC' && direction) || openingStock) && (
-        <Row gutter={8}>
-          <Col xs={12} md={openingStock ? 16 : 8}>
-            <Form.Item
-              name={[name, 'qualityStatus']}
-              label={type === 'PCL' ? 'Trạng thái hiện tại' : 'Trạng thái chất lượng'}
-              rules={[{ required: type === 'PCL', message: 'Chọn trạng thái' }]}
-              extra={
-                openingStock
-                  ? 'Để trống: theo cấu hình hàng. Hàng không xác định được lô: nhập lô tạm, chọn Cách ly (D-13).'
-                  : undefined
-              }
-            >
-              <Select allowClear options={QUALITY_OPTIONS} />
-            </Form.Item>
-          </Col>
-          {type === 'PCL' && (
-            <Col xs={12} md={8}>
-              <Form.Item
-                name={[name, 'targetQualityStatus']}
-                label="Trạng thái mới"
-                rules={[{ required: true, message: 'Chọn trạng thái mới' }]}
-              >
-                <Select options={QUALITY_OPTIONS} />
-              </Form.Item>
-            </Col>
-          )}
-        </Row>
+      {layout.showQuality &&
+        (type !== 'PDC' || direction ? (
+          <Form.Item
+            name={[name, 'qualityStatus']}
+            style={lineCellStyle}
+            rules={[{ required: type === 'PCL', message: 'Chọn trạng thái' }]}
+          >
+            <Select allowClear options={QUALITY_OPTIONS} />
+          </Form.Item>
+        ) : (
+          <NotApplicable />
+        ))}
+      {type === 'PCL' && (
+        <Form.Item
+          name={[name, 'targetQualityStatus']}
+          style={lineCellStyle}
+          rules={[{ required: true, message: 'Chọn trạng thái mới' }]}
+        >
+          <Select options={QUALITY_OPTIONS} />
+        </Form.Item>
       )}
-    </Card>
+      <Form.Item name={[name, 'note']} style={lineCellStyle}>
+        <Input maxLength={500} />
+      </Form.Item>
+      <Tooltip title="Xóa dòng">
+        <Button icon={<DeleteOutlined />} aria-label="Xóa dòng" disabled={!removable} onClick={onRemove} />
+      </Tooltip>
+    </LineGridRow>
   );
 }
 
@@ -233,6 +330,12 @@ export function DocumentFormFields({
   const companyId = useCompanyId();
   const type = (Form.useWatch('documentType', form) ?? 'PNK') as InventoryDocumentType;
   const subType = Form.useWatch('subType', form) as string | undefined;
+  const layout = lineLayout(type, type === 'PNK' && subType === OPENING_SUB_TYPE);
+  const machineCategories = useQuery({
+    queryKey: ['machine-categories', companyId],
+    queryFn: () => stockApi.machineCategories(companyId),
+    staleTime: 5 * 60 * 1000,
+  }).data;
   return (
     <>
       <Row gutter={8}>
@@ -338,21 +441,20 @@ export function DocumentFormFields({
       </Row>
       <Form.List name="lines">
         {(fields, { add, remove }) => (
-          <>
+          <LineGrid columns={layout.columns} minWidth={layout.minWidth} onAdd={() => add({})}>
             {fields.map((field) => (
               <LineFields
                 key={field.key}
                 form={form}
                 name={field.name}
                 type={type}
-                openingStock={type === 'PNK' && subType === OPENING_SUB_TYPE}
+                layout={layout}
+                machineCategories={new Set(machineCategories ?? [])}
+                removable={fields.length > 1}
                 onRemove={() => remove(field.name)}
               />
             ))}
-            <Button type="dashed" block icon={<PlusOutlined />} onClick={() => add({})}>
-              Thêm dòng hàng
-            </Button>
-          </>
+          </LineGrid>
         )}
       </Form.List>
     </>

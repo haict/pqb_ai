@@ -82,6 +82,7 @@ Trạng thái: **Hoàn thành** (test đạt) / **Đã code, chưa kiểm chứn
 |---|---|---|---|---|
 | Phiếu nhập kho theo lô, hạn dùng, serial, có đơn giá; một lô một hạn dùng; serial không tồn hai nơi | AT-02, BR-INV-01, 02, D-51 | Hoàn thành | `InventoryIntegrationTest.lotsSerialsAndFefo` | Nhập từ mua hàng ở Giai đoạn 5 |
 | Tồn kho đầu kỳ (menu Kho → Tồn kho đầu kỳ): phiếu nhập PNK loại `OPENING` theo lô, hạn dùng, serial; lô tạm chọn trạng thái Cách ly; duyệt, ghi sổ, đảo như phiếu kho | BR-MIG-02, D-13 | Hoàn thành (nhập tay; nhập Excel 2026-10-17) | `InventoryControlIntegrationTest.openingStock`, `InventoryControlIntegrationTest.openingStockImport` | Nhập Excel (BR-UX-05): file mẫu có danh sách chọn trạng thái chất lượng (trống = Đạt); mỗi kho một phiếu nháp, gửi duyệt / ghi sổ như phiếu lập tay; lỗi theo dòng, có lỗi thì không lập phiếu nào; dùng quyền `inventory-receipt:*`; kiểm thử thủ công trên trình duyệt chưa thực hiện |
+| Xuất Excel từ màn chi tiết phiếu tồn kho đầu kỳ (nháp và đã ghi sổ; 2026-11-04): sheet "Ton dau ky" có 12 cột đầu trùng file mẫu nhập (sửa rồi nhập lại được) và cột đối chiếu Tên hàng, Thành tiền; sheet "Thong tin chung tu" gồm số, trạng thái, ngày, kho, tổng giá trị. Tạo ở trình duyệt từ dữ liệu chi tiết, không thêm API | BR-MIG-02, BR-UX-05 | Hoàn thành, chưa thử trên trình duyệt | `openingStockExcel.test.ts` | Mã ĐVT lấy từ danh mục đang hoạt động (ĐVT đã ngừng hoạt động để trống = ĐVT cơ sở khi nhập lại) |
 | Xuất nội bộ, xuất hủy; FEFO; chọn lô khác FEFO phải có lý do; lô hết hạn / khóa / không ĐẠT không xuất bán | AT-03 (phần kho), BR-INV-04, 21, 23, 33 | Hoàn thành | `InventoryIntegrationTest.lotsSerialsAndFefo` | Xuất bán theo đơn ở Giai đoạn 6. FIFO cấu hình được: chưa làm |
 | Xuất đồng thời không âm, không vượt tồn; số dư = sổ kho | AT-04, BR-INV-20 | Hoàn thành | `InventoryIntegrationTest.concurrentIssues` (5 luồng, 10 tồn, 5×3 xuất: đúng 3 thành công) | Test này phát hiện và đã sửa deadlock do nâng khóa (docs/02 mục 6) |
 | Đảo chứng từ kho: dòng ngược đúng từng dòng sổ gốc; chặn khi có chứng từ phụ thuộc, liệt kê số chứng từ | AT-09 (phần kho), BR-GEN-21 | Hoàn thành | `InventoryIntegrationTest.reversal` | |
@@ -214,6 +215,7 @@ Trạng thái: **Hoàn thành** (test đạt) / **Đã code, chưa kiểm chứn
 | Kiểm tra lô / hạn / serial theo cấu hình hàng ngay khi lưu đơn mua (không đợi đến ghi sổ) | BR-INV-01, 02 | Hoàn thành | `PurchaseOrderIntegrationTest.validation` | |
 | Phiếu nhập / xuất kho in thêm phần thuế: cộng tiền hàng, thuế suất GTGT, tiền thuế GTGT, tổng tiền thanh toán; số tiền bằng chữ theo tổng thanh toán (2026-10-13) | BR-UI | Hoàn thành, chưa thử in trên trình duyệt | `PurchaseOrderIntegrationTest.postAndReverse`, `SalesOrderIntegrationTest.postDeliverAndFail` | Chỉ tính dòng hàng hóa (dịch vụ không in); nhiều thuế suất thì in các mức cách nhau dấu phẩy, tiền thuế là tổng |
 | In phiếu xuất kho từ đơn bán đã ghi sổ, cùng mẫu phiếu nhập kho (lô / hạn thực xuất, serial dưới tên hàng, giá bán trước thuế) (2026-10-13) | BR-SAL-21, BR-UI | Hoàn thành, chưa thử in trên trình duyệt | `SalesOrderIntegrationTest.postDeliverAndFail` | Nợ / Có lấy theo bút toán doanh thu phần hàng hóa (dev: 131 / 5111 `[Chưa kiểm chứng]`) theo lựa chọn người dùng; phiếu xuất kho chuẩn thường ghi giá vốn (Nợ 632 / Có 156) `[Suy luận]`, giá vốn ở Giai đoạn 8 |
+| Phiếu xuất kho nháp cho đơn bán chưa ghi sổ (trừ đã hủy / đã đảo): nút "In phiếu xuất kho", tải Excel / Word / PDF; tiêu đề như bản đã ghi sổ (không ghi chữ nháp), không số phiếu, không tài khoản; lô / hạn dùng / serial theo chỉ định (2026-11-02) | D-71, BR-SAL-21 | Hoàn thành, chưa thử trên trình duyệt | `SalesOrderIntegrationTest.postDeliverAndFail`, `SalesReceiptSourceIntegrationTest.pickReceiptSource` | Dòng không chỉ định lô / serial để trống cột lô (kho chọn FEFO khi ghi sổ, có thể khác) |
 | In phiếu nhập kho từ đơn mua đã ghi sổ theo mẫu doanh nghiệp (Nợ / Có, người giao, hóa đơn, lô / hạn, số tiền bằng chữ, chỗ ký) (2026-10-13) | BR-PUR-08, BR-UI | Hoàn thành, chưa thử in trên trình duyệt | `PurchaseOrderIntegrationTest.postAndReverse`, `moneyWords.test.ts` | Chỉ dòng hàng hóa; đơn giá / thành tiền trước thuế; Nợ / Có lấy từ bút toán phần hàng hóa (dev: 1561 / 331 `[Chưa kiểm chứng]`); không có test 403 / 404 riêng cho API in (người dùng bỏ qua) |
 | Chọn công ty in đầu phiếu nhập kho (đơn mua) và phiếu xuất kho (đơn bán) (mặc định công ty người dùng; công ty đang hoạt động trong phạm vi); đầu phiếu in tên + địa chỉ công ty đã chọn; in theo công ty khác ghi audit (2026-10-16) | BR-PUR-08, BR-SAL-21, D-58 | Hoàn thành, chưa thử trên trình duyệt | `PurchaseOrderIntegrationTest.postAndReverse`, `SalesOrderIntegrationTest.postDeliverAndFail` | Biên bản giao nhận không in tên công ty; phiếu kho lập tay chưa có chức năng in |
 | Tải phiếu nhập kho / phiếu xuất kho về máy dạng Excel (.xlsx), Word (.docx), PDF (.pdf), cùng nội dung bản in (gồm phần thuế GTGT, số tiền bằng chữ) (2026-10-14) | BR-PUR-08, BR-SAL-21, BR-UI | Hoàn thành, chưa thử tải trên trình duyệt | `slipExport.test.ts` | Nút Tải về đặt cạnh nút In trên màn hình chi tiết đơn mua / đơn bán (2026-10-16), theo công ty đang chọn (D-58), chỉ gọi API in phiếu khi bấm; dựng file phía trình duyệt từ dữ liệu API in phiếu; thêm thư viện exceljs 4.4.0, docx 9.7.1, pdfmake 0.3.11 (MIT), chỉ tải khi bấm nút; PDF dùng font Roboto (có đủ dấu tiếng Việt), không phải Times New Roman như bản in; Excel giữ số lượng / tiền là ô số |
@@ -311,6 +313,7 @@ Hạn chế: chưa có test bỏ ghi sổ khi kỳ gốc đã khóa (dùng chung
 | Chức năng | Mã | Trạng thái | Test | Ghi chú |
 |---|---|---|---|---|
 | F8 / nút cạnh ô lô trên dòng đơn bán: danh sách chứng từ nhập còn tồn (FEFO), chọn nhiều dòng, SL lấy, lý do khác FEFO; lưu liên kết dòng nhập và số chứng từ; kiểm tra khi lưu; xuất đúng lô khi ghi sổ | BR-SAL-26, D-63 | Hoàn thành | `SalesReceiptSourceIntegrationTest`, `salesLines.test.ts` | Giá vốn đích danh theo chứng từ nhập: Giai đoạn 8; tồn hiện có theo lô (lô nhập nhiều lần dùng chung) `[Giả định]` |
+| Cột "Hạn dùng" (chỉ đọc) trên dòng đơn bán (2026-11-02): tự điền khi chọn chứng từ nhập (F8), tự tra khi gõ lô còn tồn tại kho xuất; response `lines[].expiryDate` lấy từ lô trong kho, không lưu trên dòng đơn; bảng chi tiết đơn chưa ghi sổ hiện "HD" cạnh lô | BR-SAL-26, D-63 | Hoàn thành, chưa thử trên trình duyệt | `SalesReceiptSourceIntegrationTest.pickReceiptSource`, `salesLines.test.ts` | Lô gõ tay không còn tồn tại kho xuất thì hạn dùng để trống trên form đến khi lưu |
 
 ## Sao chép đơn mua / đơn bán (2026-10-21, chỉ frontend)
 | Chức năng | Mã | Trạng thái | Test | Ghi chú |
@@ -332,6 +335,29 @@ Hạn chế: chưa có test bỏ ghi sổ khi kỳ gốc đã khóa (dùng chung
 
 Hạn chế: nút "Xóa" vẫn hiện trên đơn nháp đã từng ghi sổ (response chưa có `everPosted`); server chặn 409 và hiện lý do. Tài liệu hướng dẫn `13-huong-dan-su-dung.docx` còn mô tả "Hủy đơn": trợ lý AI có thể trả lời theo cách cũ cho đến khi cập nhật tài liệu và lập chỉ mục lại.
 
+## D-70 - Máy mới / máy cũ (2026-11-02)
+| Chức năng | Mã | Trạng thái | Test | Ghi chú |
+|---|---|---|---|---|
+| V42: `item_condition` ở lô, serial, dòng chứng từ kho, sổ kho; tham số `inventory.machine-category-code` = `MAY` | D-70, BR-INV-43 | Hoàn thành | Flyway trên schema test trống (`mvn clean verify`) | DB dev cần khởi động lại backend để chạy V42 |
+| Dòng nhập (PNK, tồn đầu kỳ, thu hồi, PDC tăng) nhận `itemCondition`; chặn hàng ngoài nhóm máy, dòng xuất, máy cũ không theo serial / lô (400); lô giữ một tình trạng | BR-INV-43 | Hoàn thành | `MachineConditionIntegrationTest.rejectsInvalidConditions` | |
+| Serial nhận tình trạng theo lần nhập; đảo phiếu xuất / nhập khôi phục tình trạng; sổ kho ghi tình trạng | BR-INV-43, AT-09 | Hoàn thành | `MachineConditionIntegrationTest.serialConditionFollowsReceiptsAndReversals` | Nhập qua đơn mua / trả hàng bán không gửi tình trạng: serial mới là máy mới, serial đã có giữ tình trạng |
+| `GET /inventory/machine-categories`; lọc / cột máy cũ ở tồn chi tiết, sổ kho, lô, serial | BR-INV-43 | Hoàn thành, chưa thử trên trình duyệt | `MachineConditionIntegrationTest.machineCategories`, `stock-balances?itemCondition=USED` | Hàng không phải máy hiện là "Mới" khi lọc NEW |
+| Form chứng từ kho: cột "Máy cũ" (ô tích) cho dòng nhập hàng nhóm máy, mặc định máy mới; chi tiết chứng từ hiện nhãn | BR-INV-43 | Hoàn thành, chưa thử trên trình duyệt | `documentFormValues.test.ts` (chỉ gửi cho dòng nhập) | |
+| Excel tồn đầu kỳ: cột cuối "Máy cũ (x)", file mẫu cũ vẫn nhập được | BR-INV-43 | Hoàn thành, chưa có test tự động riêng | | |
+
+Chưa làm: giá vốn / tài khoản riêng cho máy cũ; bắt buộc chọn máy mới / cũ khi lập đơn bán; tình trạng trên đơn mua (ô tích chỉ ở chứng từ kho theo phạm vi đã duyệt); báo cáo tồn tổng (`inventory_stock_summaries`) chưa tách mới / cũ.
+
+## D-69 - Mã hàng cho phép khoảng trắng (2026-11-01)
+| Chức năng | Mã | Trạng thái | Test | Ghi chú |
+|---|---|---|---|---|
+| Mã hàng nhận khoảng trắng đơn giữa các ký tự (form, API, nhập Excel) | D-69, BR-MD-01 | Hoàn thành, chưa thử trên trình duyệt | `MasterDataIntegrationTest.productRules`, `productImport` | Khoảng trắng đầu / cuối tự cắt (form, API, Excel); hai khoảng trắng liền nhau vẫn báo lỗi |
+
+## D-68 - Xuất bán đã / chưa có hóa đơn trên Tồn kho (2026-10-31)
+| Chức năng | Mã | Trạng thái | Test | Ghi chú |
+|---|---|---|---|---|
+| `GET /reports/issued-invoice-status`, `/issued-invoice-status/orders`: số lượng xuất bán trong kỳ theo đơn đã / chưa có số HĐ, trừ trả lại và đảo; đơn cấu thành | D-68, AT-12 | Hoàn thành | `InventoryReportIntegrationTest.issuedInvoiceStatus` | Trạng thái hóa đơn là trạng thái hiện tại của đơn, không theo ngày hóa đơn |
+| Màn hình Tồn kho: chọn kỳ, hai cột mới, bấm số xem đơn (mở được đơn bán) | D-68 | Hoàn thành, chưa thử trên trình duyệt | Chưa có test tự động (lint, build) | Chỉ hiện với quyền `inventory-report:view`; cột tính cho các hàng trên trang đang xem |
+
 ## D-67 - Sửa mã, xóa nhóm hàng khai báo nhầm (2026-10-31)
 | Chức năng | Mã | Trạng thái | Test | Ghi chú |
 |---|---|---|---|---|
@@ -344,6 +370,7 @@ Hạn chế: nút "Xóa" vẫn hiện trên đơn nháp đã từng ghi sổ (re
 | `GET /partners/tax-code-lookup`: backend gọi Xinvoice (`client-id` / `api-key` khi có cấu hình), ánh xạ kết quả / lỗi (400, 404, 429, 503, 504), quyền `partner:manage` | D-66 | Hoàn thành | `TaxCodeLookupIntegrationTest` (3 test, Xinvoice giả lập cổng 18091) | Chưa thử gọi Xinvoice thật từ máy chủ ứng dụng; dev đã gọi thử bằng curl ngày 2026-10-31 không kèm khóa: 200 (MST có), 404 (MST không có) |
 | Form đối tác (trang Đối tác và popup + ở đơn mua / đơn bán): nút tra cứu cạnh ô MST, chỉ điền ô trống, ghi chú khi khác, cảnh báo tình trạng | D-66 | Hoàn thành, chưa thử trên trình duyệt | `partnerFields.test.ts` (2 test) | |
 | Nút + thêm nhà cung cấp / khách hàng / hàng hóa ngay trong ô chọn của đơn mua, đơn bán (popup dùng form danh mục) | BR-MD-30, BR-MD-01 | Hoàn thành, chưa thử trên trình duyệt | Chưa có test tự động (lint, build) | Hiện với người có `partner:manage` / `product:manage` |
+| Danh mục Hàng hóa: ô tìm kiếm gợi ý khi gõ mã / tên (auto complete, tìm ở server, chờ 300 ms), chọn gợi ý thì lọc theo mã | BR-MD-01, BR-UI | Hoàn thành, chưa thử trên trình duyệt | `SearchAutoComplete.test.tsx` (2) | Gợi ý tối đa 10 hàng theo bộ lọc trạng thái đang chọn |
 
 Hạn chế: Xinvoice không trả số điện thoại. Tài liệu Xinvoice ghi bắt buộc `client-id` / `api-key` cấp khi đăng ký, nhưng ngày 2026-10-31 gọi không kèm khóa vẫn trả kết quả `[Chưa kiểm chứng]` điều này có tiếp tục; cần đăng ký và cấu hình khóa. Chưa đọc được điều khoản sử dụng / giới hạn tần suất / giá của API.
 

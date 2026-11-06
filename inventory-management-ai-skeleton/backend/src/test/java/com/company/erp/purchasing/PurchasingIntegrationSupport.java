@@ -170,7 +170,7 @@ abstract class PurchasingIntegrationSupport {
 
     /** Đơn mua đã ghi sổ: {@code quantity} hộp ống nghiệm lô {@code lot}, 500.000 đ/hộp, VAT 10%. */
     long postedTubeOrder(String quantity, String lot) throws Exception {
-        return postedOrder(orderWithInvoice(partner("NCC_01"), warehouse("KHO_HN"), unique("C26T"), "1",
+        return postedOrder(orderWithInvoice(partner("NCC_01"), warehouse("HH"), unique("C26T"), "1",
                 List.of(lotLine(product("VT_ONG_01"), unit("HOP"), quantity, "500000", taxRate("VAT10"), lot))));
     }
 

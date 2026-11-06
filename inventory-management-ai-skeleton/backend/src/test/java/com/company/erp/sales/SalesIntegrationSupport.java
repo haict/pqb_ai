@@ -92,7 +92,7 @@ abstract class SalesIntegrationSupport {
     /** Nhập tồn VT_ONG_01 (đơn vị Hộp) vào kho HN bằng phiếu nhập kho: lập, gửi (tự duyệt), ghi sổ. */
     void stockIn(String quantity, String lot, String expiry) throws Exception {
         String body = "{\"documentType\":\"PNK\",\"documentDate\":\"" + DATE + "\",\"warehouseId\":"
-                + warehouse("KHO_HN") + ",\"lines\":[{\"productId\":" + product("VT_ONG_01") + ",\"unitId\":"
+                + warehouse("HH") + ",\"lines\":[{\"productId\":" + product("VT_ONG_01") + ",\"unitId\":"
                 + unit("HOP") + ",\"quantity\":" + quantity + ",\"unitCost\":500000,\"lotNo\":\"" + lot
                 + "\",\"expiryDate\":\"" + expiry + "\"}]}";
         long document = jsonId(send(keeper, post("/api/v1/inventory-documents"), body, newKey())
@@ -115,7 +115,7 @@ abstract class SalesIntegrationSupport {
     /** Nhập tồn hàng {@code product} (đơn vị Cái) vào kho HN. */
     void stockIn(long product, String quantity, String lot, String expiry, List<String> serials) throws Exception {
         String body = "{\"documentType\":\"PNK\",\"documentDate\":\"" + DATE + "\",\"warehouseId\":"
-                + warehouse("KHO_HN") + ",\"lines\":[{\"productId\":" + product + ",\"unitId\":" + unit("CAI")
+                + warehouse("HH") + ",\"lines\":[{\"productId\":" + product + ",\"unitId\":" + unit("CAI")
                 + ",\"quantity\":" + quantity + ",\"unitCost\":50000"
                 + (lot == null ? "" : ",\"lotNo\":\"" + lot + "\",\"expiryDate\":\"" + expiry + "\"")
                 + (serials == null ? "" : ",\"serialNumbers\":[\"" + String.join("\",\"", serials) + "\"]") + "}]}";

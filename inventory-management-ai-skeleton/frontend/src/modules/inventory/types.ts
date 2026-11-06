@@ -7,6 +7,8 @@ export type InventoryDocumentType = 'PNK' | 'PXK' | 'PXH' | 'PCK' | 'PDC' | 'PCL
 export type InventoryDocumentStatus =
   'DRAFT' | 'SUBMITTED' | 'APPROVED' | 'REJECTED' | 'IN_TRANSIT' | 'POSTED' | 'CANCELLED' | 'REVERSED';
 export type MovementDirection = 'IN' | 'OUT';
+/** Máy mới / máy cũ (BR-INV-43), chỉ hàng thuộc nhóm máy. */
+export type ItemCondition = 'NEW' | 'USED';
 export type TransactionType =
   | 'OPENING'
   | 'RECALL_IN'
@@ -21,8 +23,7 @@ export type TransactionType =
   | 'STATUS_OUT'
   | 'STATUS_IN'
   | 'REVERSAL';
-export type DocumentAction =
-  'update' | 'cancel' | 'post' | 'receive' | 'reverse';
+export type DocumentAction = 'update' | 'cancel' | 'post' | 'receive' | 'reverse';
 export type SerialStatus = 'IN_STOCK' | 'ISSUED' | 'SCRAPPED';
 export type StockCountStatus = 'DRAFT' | 'COUNTING' | 'SUBMITTED' | 'APPROVED' | 'POSTED' | 'CANCELLED';
 export type RecallStatus = 'DRAFT' | 'SUBMITTED' | 'REJECTED' | 'ACTIVE' | 'CLOSED' | 'CANCELLED';
@@ -45,6 +46,7 @@ export interface InventoryLineInput {
   lotOverrideReason?: string;
   note?: string;
   serialNumbers?: string[];
+  itemCondition?: ItemCondition;
 }
 
 export interface InventoryDocumentInput {
@@ -86,6 +88,7 @@ export interface InventoryLine {
   lotOverrideReason: string | null;
   note: string | null;
   serialNumbers: string[];
+  itemCondition: ItemCondition | null;
 }
 
 export interface InventoryTransaction {
@@ -102,6 +105,7 @@ export interface InventoryTransaction {
   expiryDate: string | null;
   serialId: number | null;
   serialNo: string | null;
+  itemCondition: ItemCondition | null;
   qualityStatus: QualityStatus;
   transactionType: TransactionType;
   direction: MovementDirection;
@@ -191,6 +195,7 @@ export interface StockBalance {
   lotBlocked: boolean;
   serialId: number | null;
   serialNo: string | null;
+  itemCondition: ItemCondition | null;
   qualityStatus: QualityStatus;
   onHandQuantity: number;
 }
@@ -203,6 +208,7 @@ export interface Lot {
   lotNo: string;
   manufactureDate: string | null;
   expiryDate: string | null;
+  itemCondition: ItemCondition;
   daysToExpiry: number | null;
   blocked: boolean;
   blockReason: string | null;
@@ -217,6 +223,7 @@ export interface Serial {
   productName: string | null;
   serialNo: string;
   lotId: number | null;
+  itemCondition: ItemCondition;
   lifecycleStatus: SerialStatus;
   currentWarehouseId: number | null;
   blocked: boolean;

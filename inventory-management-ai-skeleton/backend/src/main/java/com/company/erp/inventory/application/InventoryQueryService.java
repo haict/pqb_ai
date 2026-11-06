@@ -14,6 +14,7 @@ import com.company.erp.inventory.domain.InventoryBalance;
 import com.company.erp.inventory.domain.InventoryLot;
 import com.company.erp.inventory.domain.InventorySerial;
 import com.company.erp.inventory.domain.InventoryTransaction;
+import com.company.erp.inventory.domain.ItemCondition;
 import com.company.erp.inventory.domain.SerialStatus;
 import com.company.erp.inventory.domain.StockSummary;
 import com.company.erp.inventory.infrastructure.persistence.InventoryBalanceRepository;
@@ -30,9 +31,11 @@ import com.company.erp.masterdata.application.MasterDataQueryService.StockLevelI
 import com.company.erp.system.application.CurrentUser;
 import com.company.erp.system.application.ParameterService;
 import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.CriteriaQuery;
 import jakarta.persistence.criteria.Path;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
+import jakarta.persistence.criteria.Subquery;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
@@ -98,7 +101,12 @@ public class InventoryQueryService {
 
     /** Bộ lọc chung của các danh sách tồn. */
     public record StockFilter(Long companyId, Long warehouseId, Long productId, Long lotId, Long serialId,
-                              QualityStatus qualityStatus) {
+                              QualityStatus qualityStatus, ItemCondition itemCondition) {
+
+        public StockFilter(Long companyId, Long warehouseId, Long productId, Long lotId, Long serialId,
+                           QualityStatus qualityStatus) {
+            this(companyId, warehouseId, productId, lotId, serialId, qualityStatus, null);
+        }
     }
 
     /** Bộ lọc sổ nhật ký kho. */
@@ -144,6 +152,9 @@ public class InventoryQueryService {
             if (filter.qualityStatus() != null) {
                 predicates.add(cb.equal(root.get("qualityStatus"), filter.qualityStatus()));
             }
+            if (filter.itemCondition() != null) {
+                predicates.add(conditionOf(root, query, cb, filter.itemCondition()));
+            }
             return cb.and(predicates.toArray(Predicate[]::new));
         };
         Pageable page = PageRequests.checked(pageable, Set.of("productId", "warehouseId", "onHandQuantity"),
@@ -160,8 +171,28 @@ public class InventoryQueryService {
                     product == null ? null : product.name(), row.getWarehouseId(), row.getLocationId(),
                     row.getLotId(), lot == null ? null : lot.getLotNo(), lot == null ? null : lot.getExpiryDate(),
                     lot != null && lot.isBlocked(), row.getSerialId(), serial == null ? null : serial.getSerialNo(),
+                    serial != null ? serial.getItemCondition() : lot == null ? null : lot.getItemCondition(),
                     row.getQualityStatus(), row.getOnHandQuantity());
         });
+    }
+
+    /**
+     * Dòng tồn theo máy mới / cũ (BR-INV-43): tình trạng của serial, hàng không serial theo tình trạng của lô; hàng
+     * không theo lô, serial là hàng mới.
+     */
+    private static Predicate conditionOf(Root<InventoryBalance> root, CriteriaQuery<?> query, CriteriaBuilder cb,
+                                         ItemCondition condition) {
+        Subquery<Long> serials = query.subquery(Long.class);
+        Root<InventorySerial> serial = serials.from(InventorySerial.class);
+        serials.select(serial.get("id")).where(cb.equal(serial.get("itemCondition"), condition));
+        Subquery<Long> lots = query.subquery(Long.class);
+        Root<InventoryLot> lot = lots.from(InventoryLot.class);
+        lots.select(lot.get("id")).where(cb.equal(lot.get("itemCondition"), condition));
+        Predicate byLot = root.get("lotId").in(lots);
+        if (condition == ItemCondition.NEW) {
+            byLot = cb.or(cb.isNull(root.get("lotId")), byLot);
+        }
+        return cb.or(root.get("serialId").in(serials), cb.and(cb.isNull(root.get("serialId")), byLot));
     }
 
     @Transactional(readOnly = true)
@@ -220,7 +251,7 @@ public class InventoryQueryService {
             ProductInfo product = products.get(lot.getProductId());
             return new LotResponse(lot.getId(), lot.getProductId(), product == null ? null : product.code(),
                     product == null ? null : product.name(), lot.getLotNo(), lot.getManufactureDate(),
-                    lot.getExpiryDate(), lot.getExpiryDate() == null ? null
+                    lot.getExpiryDate(), lot.getItemCondition(), lot.getExpiryDate() == null ? null
                     : ChronoUnit.DAYS.between(today, lot.getExpiryDate()), lot.isBlocked(), lot.getBlockReason(),
                     onHand.getOrDefault(lot.getId(), BigDecimal.ZERO), lot.getVersion());
         });
@@ -248,7 +279,7 @@ public class InventoryQueryService {
             ProductInfo product = products.get(serial.getProductId());
             return new SerialResponse(serial.getId(), serial.getProductId(), product == null ? null : product.code(),
                     product == null ? null : product.name(), serial.getSerialNo(), serial.getLotId(),
-                    serial.getLifecycleStatus(), serial.getCurrentWarehouseId(), serial.isBlocked(),
+                    serial.getItemCondition(), serial.getLifecycleStatus(), serial.getCurrentWarehouseId(), serial.isBlocked(),
                     serial.getBlockReason(), serial.getVersion());
         });
     }

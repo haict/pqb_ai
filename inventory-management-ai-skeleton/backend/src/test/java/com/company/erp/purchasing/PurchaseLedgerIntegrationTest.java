@@ -46,7 +46,7 @@ class PurchaseLedgerIntegrationTest extends PurchasingIntegrationSupport {
     void purchaseReturnAndReversal() throws Exception {
         long item = newProduct();
         long supplier = partner("NCC_01");
-        long order = postedOrder(orderWithInvoice(supplier, warehouse("KHO_HN"), unique("C26T"), "88",
+        long order = postedOrder(orderWithInvoice(supplier, warehouse("HH"), unique("C26T"), "88",
                 List.of(orderLine(item, unit("CAI"), "3", "500000", "10", null))));
         long orderLine = orderLineId(order, 1);
         long goodsReturn = postedReturn(returnBody("THN", supplier, order,

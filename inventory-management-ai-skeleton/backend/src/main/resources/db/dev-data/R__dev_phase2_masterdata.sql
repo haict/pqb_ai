@@ -46,10 +46,22 @@ INSERT IGNORE INTO reference_items (company_id, category, code, name, numeric_va
     (1, 'QUALITY_CHANGE_REASON', 'KQ_KIEM_TRA',  'Kết quả kiểm tra chất lượng', NULL, 'ACTIVE', UTC_TIMESTAMP(3), UTC_TIMESTAMP(3)),
     (1, 'QUALITY_CHANGE_REASON', 'CANH_BAO_NSX', 'Cảnh báo của nhà sản xuất',   NULL, 'ACTIVE', UTC_TIMESTAMP(3), UTC_TIMESTAMP(3));
 
+-- 2026-11-01: đổi mã kho KHO_HN -> HH (Kho Huyết Học), KHO_HCM -> SH trên DB đã có dữ liệu.
+-- Chứng từ tham chiếu kho theo ID nên không bị ảnh hưởng; bỏ qua nếu mã mới đã tồn tại.
+UPDATE warehouses w
+JOIN (SELECT COUNT(*) AS taken FROM warehouses WHERE company_id = 1 AND code = 'HH') t ON t.taken = 0
+SET w.code = 'HH', w.name = 'Kho Huyết Học', w.updated_at = UTC_TIMESTAMP(3)
+WHERE w.company_id = 1 AND w.code = 'KHO_HN';
+
+UPDATE warehouses w
+JOIN (SELECT COUNT(*) AS taken FROM warehouses WHERE company_id = 1 AND code = 'SH') t ON t.taken = 0
+SET w.code = 'SH', w.updated_at = UTC_TIMESTAMP(3)
+WHERE w.company_id = 1 AND w.code = 'KHO_HCM';
+
 -- Kho thật và kho ảo (BR-MD-40, BR-MD-41). Kho "đang vận chuyển" dùng cho chuyển kho khác chi nhánh (BR-INV-30).
 INSERT IGNORE INTO warehouses (company_id, branch_id, code, name, warehouse_type, virtual_kind, status, created_at, updated_at) VALUES
-    (1, 1, 'KHO_HN',    'Kho Hà Nội (mẫu)',                'NORMAL',  NULL,          'ACTIVE', UTC_TIMESTAMP(3), UTC_TIMESTAMP(3)),
-    (1, 2, 'KHO_HCM',   'Kho Hồ Chí Minh (mẫu)',           'NORMAL',  NULL,          'ACTIVE', UTC_TIMESTAMP(3), UTC_TIMESTAMP(3)),
+    (1, 1, 'HH',        'Kho Huyết Học',                   'NORMAL',  NULL,          'ACTIVE', UTC_TIMESTAMP(3), UTC_TIMESTAMP(3)),
+    (1, 2, 'SH',        'Kho Hồ Chí Minh (mẫu)',           'NORMAL',  NULL,          'ACTIVE', UTC_TIMESTAMP(3), UTC_TIMESTAMP(3)),
     (1, 1, 'VC_HN',     'Hàng đang vận chuyển về HN (mẫu)', 'VIRTUAL', 'IN_TRANSIT',  'ACTIVE', UTC_TIMESTAMP(3), UTC_TIMESTAMP(3)),
     (1, 2, 'VC_HCM',    'Hàng đang vận chuyển về HCM (mẫu)', 'VIRTUAL', 'IN_TRANSIT', 'ACTIVE', UTC_TIMESTAMP(3), UTC_TIMESTAMP(3)),
     (1, 1, 'TAI_KHACH', 'Hàng gửi tại khách (mẫu)',        'VIRTUAL', 'AT_CUSTOMER', 'ACTIVE', UTC_TIMESTAMP(3), UTC_TIMESTAMP(3));
@@ -60,7 +72,7 @@ FROM warehouses WHERE company_id = 1;
 
 INSERT IGNORE INTO warehouse_locations (warehouse_id, code, name, zone_type, is_default, status, created_at, updated_at)
 SELECT id, 'CACH_LY', 'Khu cách ly', 'QUARANTINE', FALSE, 'ACTIVE', UTC_TIMESTAMP(3), UTC_TIMESTAMP(3)
-FROM warehouses WHERE company_id = 1 AND code IN ('KHO_HN', 'KHO_HCM');
+FROM warehouses WHERE company_id = 1 AND code IN ('HH', 'SH');
 
 -- Hàng mẫu theo ba kiểu quản lý: serial (máy), lô + hạn (thuốc thử, chờ kiểm tra D-09), lô + hạn (vật tư).
 INSERT IGNORE INTO products (company_id, code, name, category_id, product_type, base_unit_id, brand_id, manufacturer_id,

@@ -2,6 +2,7 @@ package com.company.erp.sales.application;
 
 import com.company.erp.common.domain.BusinessException;
 import com.company.erp.inventory.application.ReceiptSourceService;
+import com.company.erp.inventory.application.ReceiptSourceService.LotKey;
 import com.company.erp.inventory.application.ReceiptSourceService.ReceiptRef;
 import com.company.erp.masterdata.application.MasterDataQueryService.ProductInfo;
 import com.company.erp.sales.application.dto.ReceiptSourceResponse;
@@ -9,8 +10,12 @@ import com.company.erp.sales.application.dto.SalesLineRequest;
 import com.company.erp.sales.domain.SalesOrderLine;
 import com.company.erp.system.application.CurrentUser;
 import com.company.erp.system.application.OrganizationQueryService.BranchRef;
+import java.time.LocalDate;
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -45,6 +50,17 @@ public class SalesReceiptSourceService {
                         source.expiryDate(), source.serialNo(), source.receivedQuantity(), source.unitCost(),
                         source.availableQuantity()))
                 .toList();
+    }
+
+    /** Hạn dùng theo lô chỉ định của các dòng (chỉ đọc, lấy từ lô trong kho); khóa là ID dòng. */
+    Map<Long, LocalDate> expiryDates(Collection<SalesOrderLine> lines) {
+        List<SalesOrderLine> withLot = lines.stream().filter(line -> line.getLotNo() != null).toList();
+        Map<LotKey, LocalDate> expiries = receipts.expiryDates(withLot.stream()
+                .map(line -> new LotKey(line.getProductId(), line.getLotNo())).distinct().toList());
+        return withLot.stream()
+                .filter(line -> expiries.containsKey(new LotKey(line.getProductId(), line.getLotNo())))
+                .collect(Collectors.toMap(SalesOrderLine::getId,
+                        line -> expiries.get(new LotKey(line.getProductId(), line.getLotNo()))));
     }
 
     /**

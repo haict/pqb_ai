@@ -44,7 +44,7 @@ class SalesLedgerIntegrationTest extends SalesIntegrationSupport {
         long clinic = partner("KH_PK01");
         long vat = id("SELECT id FROM tax_rates WHERE company_id = 1 AND code = 'VAT10'");
         long order = postedOrder(manager, "{\"branchId\":1,\"customerId\":" + clinic + ",\"warehouseId\":"
-                + warehouse("KHO_HN") + ",\"documentDate\":\"" + DATE + "\",\"lines\":[{\"productId\":" + item
+                + warehouse("HH") + ",\"documentDate\":\"" + DATE + "\",\"lines\":[{\"productId\":" + item
                 + ",\"unitId\":" + unit("CAI") + ",\"quantity\":5,\"unitPrice\":100000,\"taxRateId\":" + vat + "}]}");
         long orderLine = id("SELECT id FROM sales_order_lines WHERE order_id = " + order);
         long goodsReturn = jsonId(send(clerk, post(RETURNS), "{\"documentType\":\"TLB\",\"branchId\":1,"
@@ -99,7 +99,7 @@ class SalesLedgerIntegrationTest extends SalesIntegrationSupport {
     void reversedOrder() throws Exception {
         long item = newProduct(false, false);
         stockIn(item, "2", null, null, null);
-        long order = postedOrder(manager, order(partner("KH_PK01"), warehouse("KHO_HN"), false,
+        long order = postedOrder(manager, order(partner("KH_PK01"), warehouse("HH"), false,
                 List.of(line(item, unit("CAI"), "2", "150000", null))));
         act(chief, ORDERS, order, "reverse", "{\"reason\":\"Khách từ chối nhận\"}")
                 .andExpect(jsonPath("$.data.status").value("REVERSED"));

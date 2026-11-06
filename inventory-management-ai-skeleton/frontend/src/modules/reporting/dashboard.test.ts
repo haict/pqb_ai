@@ -113,7 +113,7 @@ describe('dashboard điều hành đợt 10C', () => {
           productCode: 'VT01',
           productName: 'Ống nghiệm',
           unitName: 'Cái',
-          warehouseCode: 'KHO_HN',
+          warehouseCode: 'HH',
           lotId: 7,
           lotNo: 'L01',
           expiryDate: '2026-10-10',

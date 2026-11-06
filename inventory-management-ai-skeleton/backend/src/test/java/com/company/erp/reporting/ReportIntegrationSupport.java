@@ -171,7 +171,7 @@ abstract class ReportIntegrationSupport {
     }
 
     long warehouse() {
-        return id("SELECT id FROM warehouses WHERE company_id = 1 AND code = 'KHO_HN'");
+        return id("SELECT id FROM warehouses WHERE company_id = 1 AND code = 'HH'");
     }
 
     long id(String sql) {

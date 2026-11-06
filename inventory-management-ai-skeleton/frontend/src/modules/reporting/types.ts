@@ -53,6 +53,33 @@ export interface MovementRow {
   closingValue: number | null;
 }
 
+/** Xuất bán trong kỳ theo đơn bán đã / chưa có số hóa đơn (D-68); số lượng đơn vị cơ sở. */
+export interface IssuedInvoiceStatus {
+  dateFrom: string;
+  dateTo: string;
+  rows: {
+    productId: number;
+    warehouseId: number;
+    invoicedQuantity: number;
+    uninvoicedQuantity: number;
+  }[];
+}
+
+export interface IssuedInvoiceOrders {
+  orders: {
+    orderId: number;
+    documentNo: string;
+    postingDate: string;
+    customerCode: string | null;
+    customerName: string | null;
+    einvoiceSeries: string | null;
+    einvoiceNo: string | null;
+    einvoiceDate: string | null;
+    quantity: number;
+  }[];
+  truncated: boolean;
+}
+
 export interface InventoryMovement {
   dateFrom: string;
   dateTo: string;

@@ -40,7 +40,7 @@ class PurchaseOrderUnpostIntegrationTest extends PurchasingIntegrationSupport {
     void unpostEditRepost() throws Exception {
         long tube = product("VT_ONG_01");
         long box = unit("HOP");
-        long warehouse = warehouse("KHO_HN");
+        long warehouse = warehouse("HH");
         long supplier = partner("NCC_01");
         long vat = taxRate("VAT10");
         String series = unique("C26T");
@@ -102,7 +102,7 @@ class PurchaseOrderUnpostIntegrationTest extends PurchasingIntegrationSupport {
         String lot = unique("L");
         long order = postedTubeOrder("2", lot);
         String issue = "{\"documentType\":\"PXK\",\"documentDate\":\"" + DATE + "\",\"warehouseId\":"
-                + warehouse("KHO_HN") + ",\"lines\":[{\"productId\":" + product("VT_ONG_01") + ",\"unitId\":"
+                + warehouse("HH") + ",\"lines\":[{\"productId\":" + product("VT_ONG_01") + ",\"unitId\":"
                 + unit("HOP") + ",\"quantity\":1,\"lotNo\":\"" + lot + "\"}]}";
         long document = jsonId(send(keeper, post("/api/v1/inventory-documents"), issue, newKey())
                 .andExpect(status().isCreated()).andReturn());

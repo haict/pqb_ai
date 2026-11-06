@@ -27,7 +27,7 @@ erp:
 
 # Test thay AI Service bằng máy chủ HTTP giả lập trong test (AiServiceStub, cổng cố định); không cần Python.
 ai:
-  enabled: true
+  enabled: false
   service:
     base-url: http://127.0.0.1:18090
     api-key: test-ai-service-key-0001

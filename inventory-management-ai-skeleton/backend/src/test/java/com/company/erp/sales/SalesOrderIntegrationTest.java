@@ -56,7 +56,7 @@ class SalesOrderIntegrationTest extends SalesIntegrationSupport {
         long agent = partner("KH_DL01");
         long tube = product("VT_ONG_01");
         long box = unit("HOP");
-        long store = warehouse("KHO_HN");
+        long store = warehouse("HH");
         mockMvc.perform(as(seller, get("/api/v1/sales/price")).param("customerId", String.valueOf(agent))
                         .param("productId", String.valueOf(tube)).param("unitId", String.valueOf(box)))
                 .andExpect(status().isBadRequest());
@@ -101,7 +101,7 @@ class SalesOrderIntegrationTest extends SalesIntegrationSupport {
     void reservation() throws Exception {
         long tube = product("VT_ONG_01");
         long box = unit("HOP");
-        long store = warehouse("KHO_HN");
+        long store = warehouse("HH");
         stockIn("10", unique("L"), "2028-06-30");
         BigDecimal before = reserved(tube, store);
         long reserving = jsonId(send(manager, post(ORDERS), order(partner("KH_BV01"), store, true, List.of(
@@ -145,7 +145,7 @@ class SalesOrderIntegrationTest extends SalesIntegrationSupport {
     void postDeliverAndFail() throws Exception {
         long item = newProduct(true, false);
         long piece = unit("CAI");
-        long store = warehouse("KHO_HN");
+        long store = warehouse("HH");
         long clinic = partner("KH_PK01");
         long vat = id("SELECT id FROM tax_rates WHERE company_id = 1 AND code = 'VAT10'");
         String later = unique("LA");
@@ -162,8 +162,14 @@ class SalesOrderIntegrationTest extends SalesIntegrationSupport {
         assertThat(reserved(item, store)).isEqualByComparingTo("5");
 
         act(courier, ORDERS, order, "post", null).andExpect(status().isForbidden());
-        mockMvc.perform(as(manager, get(ORDERS + "/" + order + "/stock-out-slip"))).andExpect(status().isConflict())
-                .andExpect(jsonPath("$.code").value("INVALID_DOCUMENT_STATE"));
+        // D-71: đơn chưa ghi sổ in phiếu xuất kho nháp: chưa có số phiếu, tài khoản; chưa chỉ định lô thì trống
+        mockMvc.perform(as(manager, get(ORDERS + "/" + order + "/stock-out-slip"))).andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.draft").value(true))
+                .andExpect(jsonPath("$.data.slipNo").doesNotExist())
+                .andExpect(jsonPath("$.data.debitAccounts.length()").value(0))
+                .andExpect(jsonPath("$.data.lines.length()").value(1))
+                .andExpect(jsonPath("$.data.lines[0].items.length()").value(0))
+                .andExpect(jsonPath("$.data.paymentAmount").value(550000));
         String key = newKey();
         MvcResult posted = postOrder(order, key).andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value("POSTED"))
@@ -208,6 +214,7 @@ class SalesOrderIntegrationTest extends SalesIntegrationSupport {
 
         // Phiếu xuất kho in từ đơn: chỉ dòng hàng hóa, lô thực xuất, giá bán trước thuế, tài khoản phần hàng hóa
         mockMvc.perform(as(manager, get(ORDERS + "/" + order + "/stock-out-slip"))).andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.draft").value(false))
                 .andExpect(jsonPath("$.data.slipNo").value((String) json(posted, "$.data.inventoryDocumentNo")))
                 .andExpect(jsonPath("$.data.companyName").isNotEmpty())
                 .andExpect(jsonPath("$.data.einvoiceNo").value("0000001"))

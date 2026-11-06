@@ -43,7 +43,7 @@ class SalesReturnIntegrationTest extends SalesIntegrationSupport {
         long clinic = partner("KH_PK01");
         long vat = id("SELECT id FROM tax_rates WHERE company_id = 1 AND code = 'VAT10'");
         long order = postedOrder(manager, "{\"branchId\":1,\"customerId\":" + clinic + ",\"warehouseId\":"
-                + warehouse("KHO_HN") + ",\"documentDate\":\"" + DATE + "\",\"lines\":[{\"productId\":" + item
+                + warehouse("HH") + ",\"documentDate\":\"" + DATE + "\",\"lines\":[{\"productId\":" + item
                 + ",\"unitId\":" + unit("CAI") + ",\"quantity\":5,\"unitPrice\":100000,\"taxRateId\":" + vat + "}]}");
         long orderLine = id("SELECT id FROM sales_order_lines WHERE order_id = " + order);
         assertThat(receivable(order)).isEqualByComparingTo("550000");

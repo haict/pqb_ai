@@ -16,6 +16,8 @@ export interface SalesLineForm {
   promotional?: boolean;
   expectedDate?: Dayjs;
   lotNo?: string;
+  /** Hạn dùng của lô (chỉ hiển thị, không gửi server): từ chứng từ nhập F8 hoặc tra theo lô trong kho. */
+  expiryDate?: string;
   lotOverrideReason?: string;
   serialNumbers?: string[];
   /** Chứng từ nhập chọn bằng F8 (D-63). */
@@ -67,6 +69,7 @@ export function linesFromReceipts(
       promotional: current.promotional,
       expectedDate: current.expectedDate,
       lotNo: first.lotNo ?? undefined,
+      expiryDate: first.expiryDate ?? undefined,
       lotOverrideReason: first.lotNo ? lotOverrideReason || undefined : undefined,
       serialNumbers: serials,
       receiptTransactionId: first.transactionId,
@@ -87,6 +90,7 @@ export function toLineForm(line: SalesLine): SalesLineForm {
     taxRateId: line.taxRateId ?? undefined,
     promotional: line.promotional,
     lotNo: line.lotNo ?? undefined,
+    expiryDate: line.expiryDate ?? undefined,
     lotOverrideReason: line.lotOverrideReason ?? undefined,
     serialNumbers: line.serialNumbers,
     receiptTransactionId: line.receiptTransactionId ?? undefined,

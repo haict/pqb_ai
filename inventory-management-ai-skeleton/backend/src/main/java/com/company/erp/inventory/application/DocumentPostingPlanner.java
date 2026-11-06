@@ -141,7 +141,8 @@ class DocumentPostingPlanner {
                     wasIn ? MovementDirection.OUT : MovementDirection.IN, TransactionType.REVERSAL, key.productId(),
                     key.warehouseId(), key.locationId(), key.lotId(), key.serialId(), key.qualityStatus(),
                     original.getQuantity(), wasIn ? null : original.getUnitCost(),
-                    wasIn ? StockMovement.OutRule.EXACT_STATUS : null, original.getId(), true));
+                    wasIn ? StockMovement.OutRule.EXACT_STATUS : null, original.getId(), true,
+                    wasIn ? null : original.getItemCondition()));
         }
         return movements;
     }
@@ -150,20 +151,21 @@ class DocumentPostingPlanner {
                                         Long actorId, QualityStatus status, TransactionType type) {
         String field = "lines[" + (line.getLineNo() - 1) + "]";
         Long lotId = items.lotForReceipt(document.getCompanyId(), product, line.getLotId(), line.getLotNo(),
-                line.getManufactureDate(), line.getExpiryDate(), actorId, field + ".lotNo");
+                line.getManufactureDate(), line.getExpiryDate(), line.getItemCondition(), actorId,
+                field + ".lotNo");
         Long location = line.getLocationId() != null ? line.getLocationId() : defaultLocation(document.getWarehouseId());
         if (product.serialTracked()) {
             List<Long> serials = items.serialsForReceipt(document.getCompanyId(), product, line.getSerialNumbers(),
-                    lotId, actorId);
+                    lotId, line.getItemCondition(), actorId);
             return serials.stream()
                     .map(serialId -> new StockMovement(line.getId(), MovementDirection.IN, type, product.id(),
                             document.getWarehouseId(), location, lotId, serialId, status, BigDecimal.ONE,
-                            unitCostPerBase(line), null, null, false))
+                            unitCostPerBase(line), null, null, false, line.getItemCondition()))
                     .toList();
         }
         return List.of(new StockMovement(line.getId(), MovementDirection.IN, type, product.id(),
                 document.getWarehouseId(), location, lotId, null, status, line.getBaseQuantity(), unitCostPerBase(line),
-                null, null, false));
+                null, null, false, line.getItemCondition()));
     }
 
     private List<StockMovement> issue(InventoryDocument document, InventoryDocumentLine line, ProductInfo product,

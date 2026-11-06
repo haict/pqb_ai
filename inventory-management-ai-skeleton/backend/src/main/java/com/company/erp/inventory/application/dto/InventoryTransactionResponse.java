@@ -1,6 +1,7 @@
 package com.company.erp.inventory.application.dto;
 
 import com.company.erp.common.domain.QualityStatus;
+import com.company.erp.inventory.domain.ItemCondition;
 import com.company.erp.inventory.domain.MovementDirection;
 import com.company.erp.inventory.domain.TransactionType;
 import java.math.BigDecimal;
@@ -22,6 +23,7 @@ public record InventoryTransactionResponse(
         LocalDate expiryDate,
         Long serialId,
         String serialNo,
+        ItemCondition itemCondition,
         QualityStatus qualityStatus,
         TransactionType transactionType,
         MovementDirection direction,

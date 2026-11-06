@@ -1,5 +1,6 @@
 package com.company.erp.inventory.application.dto;
 
+import com.company.erp.inventory.domain.ItemCondition;
 import com.company.erp.inventory.domain.SerialStatus;
 
 public record SerialResponse(
@@ -9,6 +10,7 @@ public record SerialResponse(
         String productName,
         String serialNo,
         Long lotId,
+        ItemCondition itemCondition,
         SerialStatus lifecycleStatus,
         Long currentWarehouseId,
         boolean blocked,

@@ -54,7 +54,7 @@ export function SalesDocumentDrawer<T extends SalesDocumentBase>(props: Props<T>
   const document = query.data;
   const editable = document?.status === 'DRAFT';
   return (
-    <Drawer open width={1100} title={document ? title(document) : ''} onClose={onClose}>
+    <Drawer open width={1200} title={document ? title(document) : ''} onClose={onClose}>
       {document && (
         <>
           <Space style={{ width: '100%', justifyContent: 'space-between', marginBottom: 12 }} wrap>

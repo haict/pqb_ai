@@ -3,6 +3,7 @@ package com.company.erp.inventory.application;
 import com.company.erp.common.domain.BusinessException;
 import com.company.erp.common.domain.ErrorCode;
 import com.company.erp.inventory.domain.InventoryLot;
+import com.company.erp.inventory.domain.ItemCondition;
 import com.company.erp.inventory.domain.InventorySerial;
 import com.company.erp.inventory.infrastructure.persistence.InventoryLotRepository;
 import com.company.erp.inventory.infrastructure.persistence.InventorySerialRepository;
@@ -35,21 +36,33 @@ class TrackedItemResolver {
         this.clock = clock;
     }
 
-    /** Lô cho dòng nhập: lô đã có theo id, hoặc tạo / lấy theo số lô (kiểm tra cùng hạn dùng). */
+    /**
+     * Lô cho dòng nhập: lô đã có theo id, hoặc tạo / lấy theo số lô (kiểm tra cùng hạn dùng). Dòng khai báo tình trạng
+     * máy thì lô đã có phải cùng tình trạng (BR-INV-43).
+     */
     Long lotForReceipt(Long companyId, ProductInfo product, Long lotId, String lotNo, LocalDate manufactureDate,
-                       LocalDate expiryDate, Long actorId, String field) {
+                       LocalDate expiryDate, ItemCondition condition, Long actorId, String field) {
         if (!product.lotTracked()) {
             return null;
         }
         if (lotId != null) {
-            return existingLot(product, lotId, field).getId();
+            InventoryLot lot = existingLot(product, lotId, field);
+            lot.requireSameCondition(condition, field);
+            return lot.getId();
         }
         Instant now = Instant.now(clock);
-        lotRepository.insertIfAbsent(companyId, product.id(), lotNo.trim(), manufactureDate, expiryDate, actorId, now);
+        lotRepository.insertIfAbsent(companyId, product.id(), lotNo.trim(), manufactureDate, expiryDate,
+                initialCondition(condition), actorId, now);
         InventoryLot lot = lotRepository.findByProductIdAndLotNo(product.id(), lotNo.trim())
                 .orElseThrow(() -> new IllegalStateException("Không tạo được lô " + lotNo));
         lot.requireSameExpiry(expiryDate, field);
+        lot.requireSameCondition(condition, field);
         return lot.getId();
+    }
+
+    /** Lô / serial mới không khai báo tình trạng là máy / hàng mới. */
+    private static String initialCondition(ItemCondition condition) {
+        return (condition == null ? ItemCondition.NEW : condition).name();
     }
 
     InventoryLot existingLot(ProductInfo product, Long lotId, String field) {
@@ -58,12 +71,16 @@ class TrackedItemResolver {
                 .orElseThrow(() -> BusinessException.invalidField(field, "Lô không thuộc hàng " + product.code() + "."));
     }
 
-    /** Serial cho dòng nhập: tạo nếu chưa có; serial đã có phải cùng lô (nếu hàng quản lý lô). */
+    /**
+     * Serial cho dòng nhập: tạo nếu chưa có; serial đã có phải cùng lô (nếu hàng quản lý lô). Tình trạng máy của serial
+     * đã có đổi khi ghi sổ dòng nhập (InventoryPostingService), sau khi kiểm tra serial không còn tồn.
+     */
     List<Long> serialsForReceipt(Long companyId, ProductInfo product, List<String> serialNumbers, Long lotId,
-                                 Long actorId) {
+                                 ItemCondition condition, Long actorId) {
         Instant now = Instant.now(clock);
         for (String serialNo : serialNumbers) {
-            serialRepository.insertIfAbsent(companyId, product.id(), serialNo.trim(), lotId, actorId, now);
+            serialRepository.insertIfAbsent(companyId, product.id(), serialNo.trim(), lotId,
+                    initialCondition(condition), actorId, now);
         }
         return serials(product, serialNumbers);
     }

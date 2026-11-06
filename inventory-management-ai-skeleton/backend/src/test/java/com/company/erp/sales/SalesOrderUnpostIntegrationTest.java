@@ -40,7 +40,7 @@ class SalesOrderUnpostIntegrationTest extends SalesIntegrationSupport {
     void unpostEditRepost() throws Exception {
         long item = newProduct(true, false);
         long piece = unit("CAI");
-        long store = warehouse("KHO_HN");
+        long store = warehouse("HH");
         String lot = unique("L");
         stockIn(item, "5", lot, "2028-06-30", null);
         long order = postedOrder(manager, order(partner("KH_BV01"), store, false, List.of(
@@ -101,7 +101,7 @@ class SalesOrderUnpostIntegrationTest extends SalesIntegrationSupport {
     void blockedAfterShipmentOrEinvoice() throws Exception {
         long item = newProduct(true, false);
         long piece = unit("CAI");
-        long store = warehouse("KHO_HN");
+        long store = warehouse("HH");
         stockIn(item, "5", unique("L"), "2028-06-30", null);
         long shipped = postedOrder(manager, order(partner("KH_BV01"), store, false, List.of(
                 line(item, piece, "1", "100000", null))));

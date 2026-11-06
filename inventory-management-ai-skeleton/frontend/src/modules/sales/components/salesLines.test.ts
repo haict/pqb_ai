@@ -49,8 +49,10 @@ describe('chọn chứng từ nhập bằng F8 (D-63)', () => {
       lotOverrideReason: 'Khách yêu cầu',
       receiptTransactionId: 1,
       receiptNo: 'PNK-HN-2026-000001',
+      expiryDate: '2028-01-31',
       taxRateId: 3,
     });
+    expect(toLineInput(lines[0] ?? {})).not.toHaveProperty('expiryDate');
     expect(lines[1]).toMatchObject({ quantity: 2, lotNo: 'L2', receiptNo: 'PNK-HN-2026-000002' });
     expect(toLineInput(lines[1] ?? {}).receiptTransactionId).toBe(2);
   });

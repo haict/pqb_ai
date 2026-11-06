@@ -55,7 +55,7 @@ class PurchaseOrderIntegrationTest extends PurchasingIntegrationSupport {
         long tube = product("VT_ONG_01");
         long machine = product("MAY_XN_01");
         long service = product("DV_VC");
-        long warehouse = warehouse("KHO_HN");
+        long warehouse = warehouse("HH");
         long supplier = partner("NCC_01");
         long vat = taxRate("VAT10");
         BigDecimal tubeIncoming = incoming(tube, warehouse);
@@ -180,7 +180,7 @@ class PurchaseOrderIntegrationTest extends PurchasingIntegrationSupport {
     void thresholdAuthority() throws Exception {
         long machine = product("MAY_XN_01");
         long piece = unit("CAI");
-        long warehouse = warehouse("KHO_HN");
+        long warehouse = warehouse("HH");
         String body = order(partner("NCC_01"), warehouse, List.of(orderLine(machine, piece, "1", "60000000", null,
                 null).replaceFirst("}$", ",\"serialNumbers\":[\"" + unique("SN") + "\"]}")));
         long order = jsonId(send(buyer, post(ORDERS), body, newKey()).andExpect(status().isCreated()).andReturn());
@@ -212,7 +212,7 @@ class PurchaseOrderIntegrationTest extends PurchasingIntegrationSupport {
     @DisplayName("D-65, AT-10, AT-13: xóa hẳn đơn mua nháp chưa từng ghi sổ; bắt buộc lý do; gửi lại cùng key; audit lưu đơn trước khi xóa")
     void deleteDraft() throws Exception {
         long machine = product("MAY_XN_01");
-        long warehouse = warehouse("KHO_HN");
+        long warehouse = warehouse("HH");
         String body = order(partner("NCC_01"), warehouse, List.of(orderLine(machine, unit("CAI"), "1", "1000000", null,
                 null).replaceFirst("}$", ",\"serialNumbers\":[\"" + unique("SN") + "\"]}")));
         long draft = jsonId(send(buyer, post(ORDERS), body, newKey()).andExpect(status().isCreated()).andReturn());
@@ -242,7 +242,7 @@ class PurchaseOrderIntegrationTest extends PurchasingIntegrationSupport {
     @Test
     @DisplayName("D-61: đơn chờ duyệt lập trước D-61 không ghi sổ được, chỉ xóa (D-65); xóa đóng yêu cầu duyệt còn treo; lịch sử duyệt chỉ đọc")
     void legacyPendingApproval() throws Exception {
-        String body = order(partner("NCC_01"), warehouse("KHO_HN"), List.of(orderLine(product("DV_VC"), unit("CAI"),
+        String body = order(partner("NCC_01"), warehouse("HH"), List.of(orderLine(product("DV_VC"), unit("CAI"),
                 "1", "100000", null, null)));
         long order = jsonId(send(buyer, post(ORDERS), body, newKey()).andExpect(status().isCreated()).andReturn());
         long request = legacyPendingRequest(order);
@@ -287,11 +287,11 @@ class PurchaseOrderIntegrationTest extends PurchasingIntegrationSupport {
         long tube = product("VT_ONG_01");
         long piece = unit("CAI");
         long supplier = partner("NCC_01");
-        long warehouse = warehouse("KHO_HN");
+        long warehouse = warehouse("HH");
         String line = lotLine(tube, piece, "1", "1000", null, unique("L"));
         send(buyer, post(ORDERS), order(partner("KH_BV01"), warehouse, List.of(line)), newKey())
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("$.errors[0].field").value("supplierId"));
-        send(buyer, post(ORDERS), order(supplier, warehouse("KHO_HCM"), List.of(line)), newKey())
+        send(buyer, post(ORDERS), order(supplier, warehouse("SH"), List.of(line)), newKey())
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("$.errors[0].field").value("warehouseId"));
         send(buyer, post(ORDERS), order(supplier, warehouse, List.of(line))
                 .replace("\"lines\"", "\"currencyCode\":\"USD\",\"lines\""), newKey())

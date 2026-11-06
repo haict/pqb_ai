@@ -58,6 +58,7 @@ export const NEW_PRODUCT_VALUES: ProductFormValues = {
 export function productPayload(values: ProductFormValues) {
   return {
     ...values,
+    code: values.code?.trim(),
     registrationValidTo: values.registrationValidTo ? values.registrationValidTo.format('YYYY-MM-DD') : null,
     lotTracked: Boolean(values.lotTracked),
     expiryTracked: Boolean(values.expiryTracked),

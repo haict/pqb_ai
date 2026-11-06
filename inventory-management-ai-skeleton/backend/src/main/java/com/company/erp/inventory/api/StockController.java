@@ -5,6 +5,7 @@ import com.company.erp.common.api.PageResponse;
 import com.company.erp.common.domain.QualityStatus;
 import com.company.erp.inventory.application.InventoryQueryService;
 import com.company.erp.inventory.application.LotSerialBlockService;
+import com.company.erp.inventory.application.MachineProducts;
 import com.company.erp.inventory.application.dto.FefoAllocationResponse;
 import com.company.erp.inventory.application.dto.InventoryTransactionResponse;
 import com.company.erp.inventory.application.dto.LotResponse;
@@ -13,6 +14,7 @@ import com.company.erp.inventory.application.dto.SerialResponse;
 import com.company.erp.inventory.application.dto.StockAlertResponse;
 import com.company.erp.inventory.application.dto.StockBalanceResponse;
 import com.company.erp.inventory.application.dto.StockSummaryResponse;
+import com.company.erp.inventory.domain.ItemCondition;
 import com.company.erp.inventory.domain.SerialStatus;
 import com.company.erp.system.application.CurrentUser;
 import io.swagger.v3.oas.annotations.Operation;
@@ -22,6 +24,7 @@ import jakarta.validation.constraints.Positive;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Set;
 import java.util.function.Function;
 import org.springframework.data.domain.Pageable;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -46,10 +49,22 @@ public class StockController {
 
     private final InventoryQueryService queryService;
     private final LotSerialBlockService blockService;
+    private final MachineProducts machineProducts;
 
-    public StockController(InventoryQueryService queryService, LotSerialBlockService blockService) {
+    public StockController(InventoryQueryService queryService, LotSerialBlockService blockService,
+                           MachineProducts machineProducts) {
         this.queryService = queryService;
         this.blockService = blockService;
+        this.machineProducts = machineProducts;
+    }
+
+    @Operation(summary = "Nhóm hàng máy", description = "ID nhóm hàng theo tham số inventory.machine-category-code và "
+            + "nhóm con; hàng thuộc các nhóm này khai báo máy mới / máy cũ khi nhập kho (BR-INV-43).")
+    @GetMapping("/machine-categories")
+    @PreAuthorize("hasAuthority('catalog:view')")
+    public ApiResponse<Set<Long>> machineCategories(@AuthenticationPrincipal CurrentUser user,
+                                                    @RequestParam Long companyId) {
+        return ApiResponse.ok(machineProducts.categoryIds(user, companyId));
     }
 
     @Operation(summary = "Tồn theo hàng, kho", description = "Tồn thực tế, bán được, giữ chỗ, khả dụng, đang về.")
@@ -63,16 +78,18 @@ public class StockController {
         return ApiResponse.ok(PageResponse.from(queryService.summaries(user, filter, pageable), Function.identity()));
     }
 
-    @Operation(summary = "Tồn chi tiết", description = "Theo vị trí, lô, serial, trạng thái chất lượng.")
+    @Operation(summary = "Tồn chi tiết", description = "Theo vị trí, lô, serial, trạng thái chất lượng; lọc máy mới / "
+            + "cũ (itemCondition, BR-INV-43).")
     @GetMapping("/stock-balances")
     @PreAuthorize("hasAuthority('inventory:view')")
     public ApiResponse<PageResponse<StockBalanceResponse>> balances(@AuthenticationPrincipal CurrentUser user,
             @RequestParam Long companyId, @RequestParam(required = false) Long warehouseId,
             @RequestParam(required = false) Long productId, @RequestParam(required = false) Long lotId,
             @RequestParam(required = false) Long serialId,
-            @RequestParam(required = false) QualityStatus qualityStatus, Pageable pageable) {
+            @RequestParam(required = false) QualityStatus qualityStatus,
+            @RequestParam(required = false) ItemCondition itemCondition, Pageable pageable) {
         InventoryQueryService.StockFilter filter = new InventoryQueryService.StockFilter(companyId, warehouseId,
-                productId, lotId, serialId, qualityStatus);
+                productId, lotId, serialId, qualityStatus, itemCondition);
         return ApiResponse.ok(PageResponse.from(queryService.balances(user, filter, pageable), Function.identity()));
     }
 

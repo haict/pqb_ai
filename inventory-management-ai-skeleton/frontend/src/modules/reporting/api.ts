@@ -17,6 +17,8 @@ import type {
   StockBacklog,
   SupplierDefects,
   InventoryMovement,
+  IssuedInvoiceOrders,
+  IssuedInvoiceStatus,
   LotTrace,
   MissingDocuments,
   SlowMoving,
@@ -26,6 +28,25 @@ import type {
 
 /** Báo cáo kho M10 (`/reports/...`, ADR-18). */
 export const inventoryReportApi = {
+  issuedInvoiceStatus: (params: {
+    companyId: number;
+    warehouseId?: number;
+    productIds: number[];
+    dateFrom: string;
+    dateTo: string;
+  }) =>
+    getOne<IssuedInvoiceStatus>('/reports/issued-invoice-status', {
+      ...params,
+      productIds: idList(params.productIds),
+    }),
+  issuedInvoiceOrders: (params: {
+    companyId: number;
+    warehouseId: number;
+    productId: number;
+    invoiced: boolean;
+    dateFrom: string;
+    dateTo: string;
+  }) => getOne<IssuedInvoiceOrders>('/reports/issued-invoice-status/orders', params),
   stockCard: (params: {
     companyId: number;
     warehouseId?: number;

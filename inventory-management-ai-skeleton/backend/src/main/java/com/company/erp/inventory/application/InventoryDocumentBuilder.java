@@ -7,6 +7,7 @@ import com.company.erp.inventory.application.dto.InventoryLineRequest;
 import com.company.erp.inventory.domain.InventoryDocument;
 import com.company.erp.inventory.domain.InventoryDocumentLine;
 import com.company.erp.inventory.domain.InventoryDocumentType;
+import com.company.erp.inventory.domain.ItemCondition;
 import com.company.erp.inventory.domain.MovementDirection;
 import com.company.erp.inventory.infrastructure.persistence.InventoryLotRepository;
 import com.company.erp.inventory.infrastructure.persistence.RecallRepository;
@@ -22,6 +23,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -47,15 +49,17 @@ class InventoryDocumentBuilder {
     private final InventoryLotRepository lotRepository;
     private final RecallRepository recallRepository;
     private final StockIssuePolicyRepository policyRepository;
+    private final MachineProducts machineProducts;
 
     InventoryDocumentBuilder(InventoryAccess access, MasterDataQueryService masterData,
                              InventoryLotRepository lotRepository, RecallRepository recallRepository,
-                             StockIssuePolicyRepository policyRepository) {
+                             StockIssuePolicyRepository policyRepository, MachineProducts machineProducts) {
         this.access = access;
         this.masterData = masterData;
         this.lotRepository = lotRepository;
         this.recallRepository = recallRepository;
         this.policyRepository = policyRepository;
+        this.machineProducts = machineProducts;
     }
 
     Built build(CurrentUser actor, InventoryDocumentRequest request, Long documentId) {
@@ -160,6 +164,8 @@ class InventoryDocumentBuilder {
         Map<Long, ProductInfo> products = masterData.products(request.lines().stream()
                         .map(InventoryLineRequest::productId).collect(Collectors.toSet()))
                 .stream().collect(Collectors.toMap(ProductInfo::id, Function.identity()));
+        Set<Long> machineCategories = request.lines().stream().map(InventoryLineRequest::itemCondition)
+                .anyMatch(Objects::nonNull) ? machineProducts.categories(warehouse.companyId()) : Set.of();
         List<InventoryDocumentLine> lines = new ArrayList<>();
         for (int index = 0; index < request.lines().size(); index++) {
             InventoryLineRequest line = request.lines().get(index);
@@ -167,6 +173,8 @@ class InventoryDocumentBuilder {
             ProductInfo product = product(products.get(line.productId()), warehouse.companyId(), field);
             lines.add(new InventoryDocumentLine(index + 1,
                     lineValues(type, request, line, product, warehouse, destination, field)));
+            requireCondition(product, line, direction(type, line, field) == MovementDirection.IN,
+                    machineCategories, field);
         }
         return lines;
     }
@@ -194,7 +202,7 @@ class InventoryDocumentBuilder {
                 line.destinationLocationId(), line.lotId(), inbound && line.lotId() == null ? trim(line.lotNo()) : null,
                 inbound ? line.manufactureDate() : null, inbound ? line.expiryDate() : null, line.qualityStatus(),
                 line.targetQualityStatus(), inbound ? line.unitCost() : null, trim(line.lotOverrideReason()),
-                trim(line.note()), serials);
+                trim(line.note()), serials, inbound ? line.itemCondition() : null);
     }
 
     private static ProductInfo product(ProductInfo product, Long companyId, String field) {
@@ -273,6 +281,29 @@ class InventoryDocumentBuilder {
         if (line.manufactureDate() != null && line.expiryDate() != null
                 && !line.expiryDate().isAfter(line.manufactureDate())) {
             throw BusinessException.invalidField(field + ".expiryDate", "Hạn dùng phải sau ngày sản xuất.");
+        }
+    }
+
+    /**
+     * Máy mới / cũ (BR-INV-43): chỉ trên dòng nhập của hàng nhóm máy. Máy cũ phải tách được tồn theo serial hoặc lô
+     * nên hàng không quản lý serial / lô không nhập máy cũ được.
+     */
+    private static void requireCondition(ProductInfo product, InventoryLineRequest line, boolean inbound,
+                                         Set<Long> machineCategories, String field) {
+        if (line.itemCondition() == null) {
+            return;
+        }
+        String conditionField = field + ".itemCondition";
+        if (!inbound) {
+            throw BusinessException.invalidField(conditionField, "Chỉ khai báo máy mới / máy cũ trên dòng nhập kho.");
+        }
+        if (!MachineProducts.isMachine(product, machineCategories)) {
+            throw BusinessException.invalidField(conditionField, "Hàng " + product.code()
+                    + " không thuộc nhóm máy, không khai báo máy mới / máy cũ.");
+        }
+        if (line.itemCondition() == ItemCondition.USED && !product.serialTracked() && !product.lotTracked()) {
+            throw BusinessException.invalidField(conditionField, "Hàng " + product.code()
+                    + " phải quản lý theo serial hoặc lô để tách tồn máy cũ.");
         }
     }
 

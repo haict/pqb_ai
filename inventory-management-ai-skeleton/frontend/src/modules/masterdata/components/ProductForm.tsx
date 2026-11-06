@@ -48,7 +48,11 @@ export function ProductForm({
                       ? []
                       : [
                           { required: true, message: 'Nhập mã' },
-                          { pattern: /^[A-Za-z0-9_.-]{1,50}$/, message: 'Mã gồm 1-50 ký tự chữ, số, _ . -' },
+                          {
+                            transform: (value?: string) => value?.trim(),
+                            pattern: /^(?=.{1,50}$)[A-Za-z0-9_.-]+( [A-Za-z0-9_.-]+)*$/,
+                            message: 'Mã gồm 1-50 ký tự chữ, số, _ . - và khoảng trắng đơn giữa các ký tự',
+                          },
                         ]
                   }
                 >

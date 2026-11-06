@@ -52,7 +52,11 @@ export function SalesLinesTable({ lines, posted }: { lines: SalesLine[]; posted:
             )
             .join('; ');
         }
-        return [row.lotNo, ...row.serialNumbers].filter(Boolean).join(', ') || 'FEFO';
+        return (
+          [row.lotNo, row.expiryDate ? `HD ${formatDate(row.expiryDate)}` : null, ...row.serialNumbers]
+            .filter(Boolean)
+            .join(', ') || 'FEFO'
+        );
       },
     },
     ...(posted

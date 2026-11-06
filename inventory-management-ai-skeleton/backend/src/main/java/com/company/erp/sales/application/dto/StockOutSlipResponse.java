@@ -5,7 +5,8 @@ import java.time.LocalDate;
 import java.util.List;
 
 /**
- * Dữ liệu in phiếu xuất kho của đơn bán đã ghi sổ. {@code slipNo}: số phiếu xuất kho sinh khi ghi sổ;
+ * Dữ liệu in phiếu xuất kho của đơn bán. {@code draft}: đơn chưa ghi sổ (D-71), khi đó không có {@code slipNo},
+ * tài khoản; {@code items} là lô / serial chỉ định trên dòng. {@code slipNo}: số phiếu xuất kho sinh khi ghi sổ;
  * {@code debitAccounts}, {@code creditAccounts}: tài khoản trong bút toán doanh thu phần hàng hóa (không gồm dịch vụ,
  * thuế GTGT). {@code totalAmount}: cộng tiền hàng; {@code taxRates}: các thuế suất GTGT (%) của dòng hàng hóa;
  * {@code taxAmount}, {@code paymentAmount}: tiền thuế và tổng thanh toán của dòng hàng hóa. Đơn giá, thành tiền là
@@ -35,7 +36,8 @@ public record StockOutSlipResponse(
         BigDecimal totalAmount,
         List<BigDecimal> taxRates,
         BigDecimal taxAmount,
-        BigDecimal paymentAmount) {
+        BigDecimal paymentAmount,
+        boolean draft) {
 
     public record Line(
             int lineNo,

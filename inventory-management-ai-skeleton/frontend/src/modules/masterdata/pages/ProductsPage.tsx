@@ -30,6 +30,7 @@ import { useCan } from '../../../shared/auth/authContext';
 import { ChangeStatusModal } from '../../../shared/components/ChangeStatusModal';
 import { FormModal } from '../../../shared/components/FormModal';
 import { ListToolbar } from '../../../shared/components/ListToolbar';
+import { SearchAutoComplete } from '../../../shared/components/SearchAutoComplete';
 import { StatusTag, type RecordStatus } from '../../../shared/components/StatusTag';
 import { useStatusChange } from '../../../shared/components/useStatusChange';
 import { formValues } from '../../../shared/forms';
@@ -278,6 +279,16 @@ export function ProductsPage() {
       <ListToolbar
         searchPlaceholder="Tìm theo mã, tên, model"
         onSearch={setKeyword}
+        searchBox={
+          <SearchAutoComplete<Product>
+            queryKey="products"
+            fetch={(text) => productApi.list({ page: 0, size: 10, companyId, keyword: text, status })}
+            toOption={(product) => ({ value: product.code, label: `${product.code} - ${product.name}` })}
+            onSearch={setKeyword}
+            placeholder="Tìm theo mã, tên, model"
+            width={300}
+          />
+        }
         status={status}
         onStatusChange={setStatus}
         extraFilters={

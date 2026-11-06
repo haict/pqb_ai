@@ -6,6 +6,8 @@ import type { RecordStatus } from './StatusTag';
 interface Props {
   searchPlaceholder: string;
   onSearch(keyword: string): void;
+  /** Ô tìm kiếm riêng (ví dụ có gợi ý khi gõ) thay cho ô mặc định. */
+  searchBox?: ReactNode;
   status?: RecordStatus;
   onStatusChange?(status: RecordStatus | undefined): void;
   extraFilters?: ReactNode;
@@ -17,6 +19,7 @@ interface Props {
 export function ListToolbar({
   searchPlaceholder,
   onSearch,
+  searchBox,
   status,
   onStatusChange,
   extraFilters,
@@ -28,7 +31,14 @@ export function ListToolbar({
       style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'space-between', marginBottom: 16 }}
     >
       <Space wrap>
-        <Input.Search placeholder={searchPlaceholder} allowClear onSearch={onSearch} style={{ width: 260 }} />
+        {searchBox ?? (
+          <Input.Search
+            placeholder={searchPlaceholder}
+            allowClear
+            onSearch={onSearch}
+            style={{ width: 260 }}
+          />
+        )}
         {extraFilters}
         {onStatusChange && (
           <Select

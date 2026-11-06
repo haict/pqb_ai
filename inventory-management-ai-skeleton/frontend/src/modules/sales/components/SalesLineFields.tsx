@@ -16,11 +16,12 @@ import {
 } from 'antd';
 import { useState, type ReactNode } from 'react';
 import { formatMoney } from '../../accounting/labels';
+import { formatDate } from '../../inventory/labels';
 import { moneyInputProps } from '../../finance/components/debtInputs';
 import { ProductSelect } from '../../masterdata/components/EntitySelects';
 import { useTaxRates } from '../../masterdata/lookups';
 import { useProductUnits } from '../../purchasing/components/productUnits';
-import { salesPriceApi } from '../api';
+import { salesOrderApi, salesPriceApi } from '../api';
 import { PRICE_SOURCES } from '../labels';
 import { ReceiptSourcePicker } from './ReceiptSourcePicker';
 import { linesFromReceipts, type SalesLineForm } from './salesLines';
@@ -50,7 +51,7 @@ export function SalesLinesEditor<T extends { lines?: SalesLineForm[]; customerId
       {(fields, { add, remove }) => (
         <LineGrid
           columns={columns}
-          minWidth={withExpectedDate ? 1720 : 1590}
+          minWidth={withExpectedDate ? 1830 : 1700}
           onAdd={() => add({ quantity: 1 })}
           actions={actions}
         >
@@ -84,6 +85,11 @@ function lineColumns(withExpectedDate?: boolean): LineGridColumn[] {
       title: 'Lô chỉ định',
       width: '170px',
       tooltip: 'Trống: kho chọn lô hết hạn sớm nhất (FEFO). F8: chọn theo chứng từ nhập',
+    },
+    {
+      title: 'Hạn dùng',
+      width: '110px',
+      tooltip: 'Theo lô trong kho: tự điền khi chọn chứng từ nhập (F8) hoặc khi nhập lô còn tồn tại kho xuất',
     },
     {
       title: 'Lý do khác FEFO',
@@ -123,6 +129,27 @@ function SalesLineFields({
   const clearReceipt = () => {
     form.setFieldValue(['lines', name, 'receiptTransactionId'], undefined);
     form.setFieldValue(['lines', name, 'receiptNo'], undefined);
+    form.setFieldValue(['lines', name, 'expiryDate'], undefined);
+  };
+
+  /** Lô gõ tay: lấy hạn dùng của lô từ danh sách lô còn tồn tại kho xuất (cùng nguồn với F8). */
+  const lookupExpiry = async () => {
+    const lotNo = (form.getFieldValue(['lines', name, 'lotNo']) as string | undefined)?.trim();
+    const header = form.getFieldsValue(true) as { branchId?: number; warehouseId?: number };
+    if (!lotNo || !productId || !header.branchId || !header.warehouseId) {
+      return;
+    }
+    try {
+      const sources = await salesOrderApi.receiptSources({
+        branchId: header.branchId,
+        warehouseId: header.warehouseId,
+        productId,
+      });
+      const lot = sources.find((source) => source.lotNo === lotNo);
+      form.setFieldValue(['lines', name, 'expiryDate'], lot?.expiryDate ?? undefined);
+    } catch {
+      form.setFieldValue(['lines', name, 'expiryDate'], undefined);
+    }
   };
 
   /** F8: chọn chứng từ nhập còn tồn của hàng tại kho của đơn (D-63). */
@@ -294,12 +321,16 @@ function SalesLineFields({
         <Input
           maxLength={50}
           onChange={clearReceipt}
+          onBlur={() => void lookupExpiry()}
           addonAfter={
             <Tooltip title="Chọn chứng từ nhập (F8)">
               <FileSearchOutlined aria-label="Chọn chứng từ nhập" onClick={openPicker} />
             </Tooltip>
           }
         />
+      </Form.Item>
+      <Form.Item name={[name, 'expiryDate']} style={lineCellStyle}>
+        <ExpiryText />
       </Form.Item>
       <Form.Item name={[name, 'lotOverrideReason']} style={lineCellStyle}>
         <Input maxLength={500} />
@@ -315,4 +346,9 @@ function SalesLineFields({
       </Tooltip>
     </LineGridRow>
   );
+}
+
+/** Hạn dùng chỉ đọc của dòng (giá trị do form cấp). */
+function ExpiryText({ value }: { value?: string }) {
+  return <Input readOnly tabIndex={-1} value={value ? formatDate(value) : ''} aria-label="Hạn dùng" />;
 }

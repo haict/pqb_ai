@@ -107,7 +107,7 @@ class InventoryDocumentMapper {
                 transaction.getPostedAt(), transaction.getProductId(), product == null ? null : product.code(),
                 product == null ? null : product.name(), transaction.getWarehouseId(), transaction.getLocationId(),
                 transaction.getLotId(), lot == null ? null : lot.getLotNo(), lot == null ? null : lot.getExpiryDate(),
-                transaction.getSerialId(), serial == null ? null : serial.getSerialNo(),
+                transaction.getSerialId(), serial == null ? null : serial.getSerialNo(), transaction.getItemCondition(),
                 transaction.getQualityStatus(), transaction.getTransactionType(), transaction.getDirection(),
                 transaction.getQuantity(), transaction.getUnitCost(), transaction.getAmount(),
                 transaction.getPartnerId(), transaction.getReferenceType(), transaction.getReferenceId(),
@@ -136,7 +136,7 @@ class InventoryDocumentMapper {
                 lot != null ? lot.getLotNo() : line.getLotNo(), line.getManufactureDate(),
                 lot != null ? lot.getExpiryDate() : line.getExpiryDate(), line.getQualityStatus(),
                 line.getTargetQualityStatus(), line.getUnitCost(), line.getAmount(), line.getLotOverrideReason(),
-                line.getNote(), line.getSerialNumbers());
+                line.getNote(), line.getSerialNumbers(), line.getItemCondition());
     }
 
     private String documentNo(Long documentId) {

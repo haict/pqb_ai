@@ -40,7 +40,7 @@ class SalesReportIntegrationTest extends SalesIntegrationSupport {
         long item = newProduct(false, false);
         stockIn(item, "3", null, null, null);
         long clinic = partner("KH_PK01");
-        long order = jsonId(send(shop, post(ORDERS), order(clinic, warehouse("KHO_HN"), false, List.of(
+        long order = jsonId(send(shop, post(ORDERS), order(clinic, warehouse("HH"), false, List.of(
                 line(item, unit("CAI"), "3", "100000", null))), newKey()).andExpect(status().isCreated()).andReturn());
         postWithAuthority(shop, order).andExpect(jsonPath("$.data.status").value("POSTED"));
 
@@ -71,7 +71,7 @@ class SalesReportIntegrationTest extends SalesIntegrationSupport {
         stockIn(item, "1", null, null, null);
         long clinic = partner("KH_PK01");
         long order = jsonId(send(manager, post(ORDERS), "{\"branchId\":1,\"customerId\":" + clinic + ",\"warehouseId\":"
-                + warehouse("KHO_HN") + ",\"documentDate\":\"" + DATE + "\",\"lines\":[" + line(item, unit("CAI"), "1",
+                + warehouse("HH") + ",\"documentDate\":\"" + DATE + "\",\"lines\":[" + line(item, unit("CAI"), "1",
                 "100001", null) + "],\"paymentTerms\":[{\"percent\":50,\"dueBasis\":\"ORDER_DATE\",\"dueDays\":0},"
                 + "{\"percent\":50,\"dueBasis\":\"DELIVERY\",\"dueDays\":30}]}", newKey())
                 .andExpect(status().isCreated()).andReturn());
@@ -84,7 +84,7 @@ class SalesReportIntegrationTest extends SalesIntegrationSupport {
         act(courier, ORDERS, order, "confirm", "{\"receivedDate\":\"2026-10-06\"}")
                 .andExpect(jsonPath("$.data.paymentSchedule[1].dueDate").value("2026-11-05"));
         send(manager, post(ORDERS), "{\"branchId\":1,\"customerId\":" + clinic + ",\"warehouseId\":"
-                + warehouse("KHO_HN") + ",\"documentDate\":\"" + DATE + "\",\"lines\":[" + line(item, unit("CAI"), "1",
+                + warehouse("HH") + ",\"documentDate\":\"" + DATE + "\",\"lines\":[" + line(item, unit("CAI"), "1",
                 "100000", null) + "],\"paymentTerms\":[{\"percent\":40,\"dueBasis\":\"ORDER_DATE\",\"dueDays\":0}]}",
                 newKey()).andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errors[0].field").value("paymentTerms"));

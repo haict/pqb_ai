@@ -1,11 +1,16 @@
 package com.company.erp.inventory.application;
 
 import com.company.erp.common.application.BusinessCalendar;
+import com.company.erp.inventory.domain.InventoryLot;
+import com.company.erp.inventory.infrastructure.persistence.InventoryLotRepository;
 import com.company.erp.inventory.infrastructure.persistence.ReceiptSourceJdbc;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,11 +35,18 @@ public class ReceiptSourceService {
                              String lotNo, String serialNo, boolean usable) {
     }
 
+    /** Lô của một hàng (số lô là duy nhất theo hàng). */
+    public record LotKey(Long productId, String lotNo) {
+    }
+
     private final ReceiptSourceJdbc jdbc;
+    private final InventoryLotRepository lotRepository;
     private final BusinessCalendar calendar;
 
-    public ReceiptSourceService(ReceiptSourceJdbc jdbc, BusinessCalendar calendar) {
+    public ReceiptSourceService(ReceiptSourceJdbc jdbc, InventoryLotRepository lotRepository,
+                                BusinessCalendar calendar) {
         this.jdbc = jdbc;
+        this.lotRepository = lotRepository;
         this.calendar = calendar;
     }
 
@@ -51,5 +63,20 @@ public class ReceiptSourceService {
     public Optional<ReceiptRef> find(Long transactionId) {
         return jdbc.find(transactionId).map(key -> new ReceiptRef(key.transactionId(), key.companyId(),
                 key.warehouseId(), key.productId(), key.referenceNo(), key.lotNo(), key.serialNo(), key.usable()));
+    }
+
+    /** Hạn dùng của các lô đã có trong kho; lô chưa tồn tại hoặc không có hạn dùng không có trong kết quả. */
+    @Transactional(readOnly = true)
+    public Map<LotKey, LocalDate> expiryDates(Collection<LotKey> lots) {
+        if (lots.isEmpty()) {
+            return Map.of();
+        }
+        List<Long> productIds = lots.stream().map(LotKey::productId).distinct().toList();
+        List<String> lotNos = lots.stream().map(LotKey::lotNo).distinct().toList();
+        return lotRepository.findByProductIdInAndLotNoIn(productIds, lotNos).stream()
+                .filter(lot -> lot.getExpiryDate() != null)
+                .map(lot -> Map.entry(new LotKey(lot.getProductId(), lot.getLotNo()), lot.getExpiryDate()))
+                .filter(entry -> lots.contains(entry.getKey()))
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
     }
 }

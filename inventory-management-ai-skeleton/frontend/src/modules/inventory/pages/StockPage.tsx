@@ -1,17 +1,31 @@
 import { useQuery } from '@tanstack/react-query';
-import { Card, DatePicker, Select, Space, Table, Tabs, Tag, Typography, type TableColumnsType } from 'antd';
-import type { Dayjs } from 'dayjs';
+import {
+  Button,
+  Card,
+  DatePicker,
+  Select,
+  Space,
+  Table,
+  Tabs,
+  Tag,
+  Typography,
+  type TableColumnsType,
+} from 'antd';
+import dayjs, { type Dayjs } from 'dayjs';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useServerTable } from '../../../shared/api/useServerTable';
+import { useCan } from '../../../shared/auth/authContext';
 import { ProductSelect } from '../../masterdata/components/EntitySelects';
 import { QUALITY_STATUSES } from '../../masterdata/labels';
 import { useCatalog, useCompanyId, useWarehouses } from '../../masterdata/lookups';
 import type { QualityStatus } from '../../masterdata/types';
+import { inventoryReportApi } from '../../reporting/api';
 import { stockApi } from '../api';
+import { IssuedOrdersModal, type IssuedOrdersTarget } from '../components/IssuedOrdersModal';
 import { TRANSACTION_TYPES, formatDate, formatNumber } from '../labels';
-import { QualityTag } from '../components/StatusTags';
-import type { InventoryTransaction, StockAlert, StockBalance, StockSummary } from '../types';
+import { ItemConditionTag, QualityTag } from '../components/StatusTags';
+import type { InventoryTransaction, ItemCondition, StockAlert, StockBalance, StockSummary } from '../types';
 
 interface Filters {
   warehouseId?: number;
@@ -22,7 +36,61 @@ function SummaryTab({ filters }: { filters: Filters }) {
   const companyId = useCompanyId();
   const warehouses = useWarehouses();
   const units = useCatalog('units');
+  const can = useCan();
   const { tableProps } = useServerTable('stock-summaries', stockApi.summaries, { companyId, ...filters });
+  // D-68: xuất bán trong kỳ theo đơn đã / chưa có số hóa đơn; chỉ người xem được báo cáo kho.
+  const showInvoice = can('inventory-report:view');
+  const [period, setPeriod] = useState<[Dayjs, Dayjs]>(() => [dayjs().startOf('month'), dayjs()]);
+  const [target, setTarget] = useState<IssuedOrdersTarget | null>(null);
+  const dateFrom = period[0].format('YYYY-MM-DD');
+  const dateTo = period[1].format('YYYY-MM-DD');
+  const productIds = [...new Set((tableProps.dataSource ?? []).map((row) => row.productId))];
+  const issued = useQuery({
+    queryKey: ['issued-invoice-status', companyId, filters.warehouseId, productIds, dateFrom, dateTo],
+    queryFn: () =>
+      inventoryReportApi.issuedInvoiceStatus({
+        companyId,
+        warehouseId: filters.warehouseId,
+        productIds,
+        dateFrom,
+        dateTo,
+      }),
+    enabled: showInvoice && productIds.length > 0,
+  });
+  const issuedByKey = new Map(
+    (issued.data?.rows ?? []).map((row) => [`${row.productId}-${row.warehouseId}`, row]),
+  );
+  const issuedColumn = (title: string, invoiced: boolean): TableColumnsType<StockSummary>[number] => ({
+    title,
+    align: 'right',
+    width: 130,
+    render: (_, row) => {
+      const found = issuedByKey.get(`${row.productId}-${row.warehouseId}`);
+      const quantity = found ? (invoiced ? found.invoicedQuantity : found.uninvoicedQuantity) : 0;
+      if (!quantity) {
+        return formatNumber(0);
+      }
+      return (
+        <Button
+          type="link"
+          size="small"
+          style={{ padding: 0 }}
+          onClick={() =>
+            setTarget({
+              productId: row.productId,
+              productLabel: `${row.productCode ?? ''} - ${row.productName ?? ''}`,
+              warehouseId: row.warehouseId,
+              invoiced,
+              dateFrom,
+              dateTo,
+            })
+          }
+        >
+          {formatNumber(quantity)}
+        </Button>
+      );
+    },
+  });
   const columns: TableColumnsType<StockSummary> = [
     { title: 'Mã hàng', dataIndex: 'productCode', width: 130 },
     { title: 'Tên hàng', dataIndex: 'productName' },
@@ -58,14 +126,33 @@ function SummaryTab({ filters }: { filters: Filters }) {
       align: 'right',
       render: (v: number) => formatNumber(v),
     },
+    ...(showInvoice ? [issuedColumn('Đã có HĐ', true), issuedColumn('Chưa có HĐ', false)] : []),
   ];
   return (
-    <Table<StockSummary>
-      {...tableProps}
-      rowKey={(row) => `${row.productId}-${row.warehouseId}`}
-      columns={columns}
-      scroll={{ x: 1000 }}
-    />
+    <>
+      {showInvoice && (
+        <Space style={{ marginBottom: 12 }}>
+          <Typography.Text>Kỳ xuất bán (theo ngày hạch toán):</Typography.Text>
+          <DatePicker.RangePicker
+            format="DD/MM/YYYY"
+            allowClear={false}
+            value={period}
+            onChange={(range) => {
+              if (range?.[0] && range[1]) {
+                setPeriod([range[0], range[1]]);
+              }
+            }}
+          />
+        </Space>
+      )}
+      <Table<StockSummary>
+        {...tableProps}
+        rowKey={(row) => `${row.productId}-${row.warehouseId}`}
+        columns={columns}
+        scroll={{ x: showInvoice ? 1260 : 1000 }}
+      />
+      {target && <IssuedOrdersModal target={target} onClose={() => setTarget(null)} />}
+    </>
   );
 }
 
@@ -73,9 +160,11 @@ function BalanceTab({ filters }: { filters: Filters }) {
   const companyId = useCompanyId();
   const warehouses = useWarehouses();
   const [qualityStatus, setQualityStatus] = useState<QualityStatus>();
+  const [itemCondition, setItemCondition] = useState<ItemCondition>();
   const { tableProps } = useServerTable('stock-balances', stockApi.balances, {
     companyId,
     qualityStatus,
+    itemCondition,
     ...filters,
   });
   const columns: TableColumnsType<StockBalance> = [
@@ -95,6 +184,12 @@ function BalanceTab({ filters }: { filters: Filters }) {
     { title: 'Hạn dùng', dataIndex: 'expiryDate', width: 110, render: formatDate },
     { title: 'Serial', dataIndex: 'serialNo' },
     {
+      title: 'Máy cũ',
+      dataIndex: 'itemCondition',
+      width: 90,
+      render: (condition: ItemCondition | null) => <ItemConditionTag condition={condition} />,
+    },
+    {
       title: 'Trạng thái CL',
       dataIndex: 'qualityStatus',
       render: (status: QualityStatus) => <QualityTag status={status} />,
@@ -113,6 +208,17 @@ function BalanceTab({ filters }: { filters: Filters }) {
           value,
           label: QUALITY_STATUSES[value].label,
         }))}
+      />
+      <Select
+        allowClear
+        placeholder="Máy mới / cũ"
+        style={{ width: 160, marginBottom: 12, marginLeft: 8 }}
+        value={itemCondition}
+        onChange={setItemCondition}
+        options={[
+          { value: 'USED', label: 'Máy cũ' },
+          { value: 'NEW', label: 'Mới' },
+        ]}
       />
       <Table<StockBalance> {...tableProps} columns={columns} scroll={{ x: 1000 }} />
     </>
@@ -150,6 +256,12 @@ function LedgerTab({ filters }: { filters: Filters }) {
     { title: 'Hàng hóa', render: (_, row) => `${row.productCode ?? ''} - ${row.productName ?? ''}` },
     { title: 'Lô', dataIndex: 'lotNo' },
     { title: 'Serial', dataIndex: 'serialNo' },
+    {
+      title: 'Máy cũ',
+      dataIndex: 'itemCondition',
+      width: 90,
+      render: (condition: ItemCondition | null) => <ItemConditionTag condition={condition} />,
+    },
     {
       title: 'Nhập / xuất',
       align: 'right',

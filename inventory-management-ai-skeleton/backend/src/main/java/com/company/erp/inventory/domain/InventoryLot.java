@@ -5,6 +5,8 @@ import com.company.erp.common.domain.BusinessException;
 import com.company.erp.common.domain.ErrorCode;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -38,6 +40,10 @@ public class InventoryLot extends AuditableEntity {
     @Column(name = "expiry_date", updatable = false)
     private LocalDate expiryDate;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "item_condition", nullable = false, length = 10, updatable = false)
+    private ItemCondition itemCondition = ItemCondition.NEW;
+
     @Column(name = "is_temporary", nullable = false, updatable = false)
     private boolean temporary;
 
@@ -63,6 +69,15 @@ public class InventoryLot extends AuditableEntity {
         if (!Objects.equals(expiryDate, expiry)) {
             throw BusinessException.invalidField(field, "Lô " + lotNo + " đã có hạn dùng "
                     + (expiryDate == null ? "trống" : expiryDate) + "; một lô chỉ có một hạn dùng.");
+        }
+    }
+
+    /** Lô đã có: tình trạng máy khai báo khi nhập thêm phải trùng tình trạng của lô (BR-INV-43). */
+    public void requireSameCondition(ItemCondition condition, String field) {
+        if (condition != null && condition != itemCondition) {
+            throw BusinessException.invalidField(field, "Lô " + lotNo + " đã ghi nhận là "
+                    + (itemCondition == ItemCondition.USED ? "máy cũ" : "máy mới")
+                    + "; nhập máy khác tình trạng phải dùng số lô khác.");
         }
     }
 
@@ -108,6 +123,10 @@ public class InventoryLot extends AuditableEntity {
 
     public LocalDate getExpiryDate() {
         return expiryDate;
+    }
+
+    public ItemCondition getItemCondition() {
+        return itemCondition;
     }
 
     public boolean isTemporary() {

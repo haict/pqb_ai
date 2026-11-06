@@ -71,6 +71,10 @@ public class InventoryDocumentLine {
     private LocalDate expiryDate;
 
     @Enumerated(EnumType.STRING)
+    @Column(name = "item_condition", length = 10)
+    private ItemCondition itemCondition;
+
+    @Enumerated(EnumType.STRING)
     @Column(name = "quality_status", length = 30)
     private QualityStatus qualityStatus;
 
@@ -123,6 +127,7 @@ public class InventoryDocumentLine {
         this.lotOverrideReason = values.lotOverrideReason();
         this.note = values.note();
         this.serialNumbers.addAll(values.serialNumbers());
+        this.itemCondition = values.itemCondition();
     }
 
     /** Giá trị một dòng sau khi đã kiểm tra và quy đổi ở tầng application. */
@@ -130,7 +135,8 @@ public class InventoryDocumentLine {
                              BigDecimal baseQuantity, MovementDirection direction, Long locationId,
                              Long destinationLocationId, Long lotId, String lotNo, LocalDate manufactureDate,
                              LocalDate expiryDate, QualityStatus qualityStatus, QualityStatus targetQualityStatus,
-                             BigDecimal unitCost, String lotOverrideReason, String note, List<String> serialNumbers) {
+                             BigDecimal unitCost, String lotOverrideReason, String note, List<String> serialNumbers,
+                             ItemCondition itemCondition) {
 
         public LineValues {
             serialNumbers = serialNumbers == null ? List.of() : List.copyOf(serialNumbers);
@@ -191,6 +197,10 @@ public class InventoryDocumentLine {
 
     public LocalDate getExpiryDate() {
         return expiryDate;
+    }
+
+    public ItemCondition getItemCondition() {
+        return itemCondition;
     }
 
     public QualityStatus getQualityStatus() {

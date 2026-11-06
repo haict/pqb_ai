@@ -15,7 +15,9 @@ import java.time.LocalDate;
 /** Thêm hàng hóa (BR-MD-01..09). */
 public record ProductRequest(
         @NotNull Long companyId,
-        @NotBlank @Pattern(regexp = "[A-Za-z0-9_.-]{1,50}", message = "Mã gồm 1-50 ký tự chữ, số, _ . -") String code,
+        // D-69: cho phép khoảng trắng đơn giữa các ký tự
+        @NotBlank @Pattern(regexp = "(?=.{1,50}$)[A-Za-z0-9_.-]+( [A-Za-z0-9_.-]+)*",
+                message = "Mã gồm 1-50 ký tự chữ, số, _ . - và khoảng trắng đơn giữa các ký tự") String code,
         @Size(max = 50) String legacyCode,
         @NotBlank @Size(max = 255) String name,
         @Size(max = 255) String tradeName,
@@ -45,4 +47,9 @@ public record ProductRequest(
         boolean requiresCalibration,
         @Positive Integer slowMovingDays,
         Long defaultTaxRateId) {
+
+    /** Tự cắt khoảng trắng đầu / cuối mã hàng trước khi kiểm tra (D-69). */
+    public ProductRequest {
+        code = code == null ? null : code.strip();
+    }
 }

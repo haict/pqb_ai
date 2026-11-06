@@ -51,6 +51,11 @@ public class InventoryTransaction {
     @Column(name = "serial_id")
     private Long serialId;
 
+    /** Máy mới / cũ tại thời điểm ghi sổ (BR-INV-43): dòng có serial, hoặc dòng nhập có khai báo tình trạng. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "item_condition", length = 10)
+    private ItemCondition itemCondition;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "quality_status", nullable = false, length = 30)
     private QualityStatus qualityStatus;
@@ -103,7 +108,7 @@ public class InventoryTransaction {
     public InventoryTransaction(Long companyId, Long branchId, LocalDate postingDate, Instant postedAt,
                                 StockKey key, TransactionType transactionType, MovementDirection direction,
                                 BigDecimal quantity, BigDecimal unitCost, Long partnerId, Reference reference,
-                                Long reversalOfId, Long actorId) {
+                                Long reversalOfId, ItemCondition itemCondition, Long actorId) {
         this.companyId = companyId;
         this.branchId = branchId;
         this.postingDate = postingDate;
@@ -125,6 +130,7 @@ public class InventoryTransaction {
         this.referenceLineId = reference.lineId();
         this.referenceNo = reference.number();
         this.reversalOfId = reversalOfId;
+        this.itemCondition = itemCondition;
         this.createdBy = actorId;
         this.createdAt = postedAt;
     }
@@ -175,6 +181,10 @@ public class InventoryTransaction {
 
     public Long getSerialId() {
         return serialId;
+    }
+
+    public ItemCondition getItemCondition() {
+        return itemCondition;
     }
 
     public QualityStatus getQualityStatus() {
