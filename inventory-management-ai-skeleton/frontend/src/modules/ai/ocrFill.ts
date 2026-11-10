@@ -10,6 +10,9 @@ export interface OcrLineValues {
   unitPrice?: number;
   discountPercent?: number;
   taxRateId?: number;
+  /** Chỉ form đơn mua: số lô, hạn dùng in trên phiếu xuất kho của nhà cung cấp. */
+  lotNo?: string;
+  expiryDate?: Dayjs;
   /** Chỉ hiển thị trên form, không gửi server: điều cần kiểm tra của dòng nhận dạng. */
   ocrHints?: string[];
   ocrLevel?: 'warning' | 'error';
@@ -79,13 +82,17 @@ export function partnerNote(partner: CatalogMatch, role: string): string {
   }
 }
 
-/** Dòng hàng nhận dạng thành giá trị form kèm điều cần kiểm tra (BR-AI-06: chỉ gán id khi MATCHED). */
-export function ocrLineValues(line: OcrLine): OcrLineValues {
+/**
+ * Dòng hàng nhận dạng thành giá trị form kèm điều cần kiểm tra (BR-AI-06: chỉ gán id khi MATCHED). {@code prices} =
+ * false (D-73, chế độ chỉ quản lý kho): không lấy đơn giá / chiết khấu trên chứng từ, đơn giá 0 như nhập tay, bỏ cảnh
+ * báo về giá và thành tiền.
+ */
+export function ocrLineValues(line: OcrLine, prices = true): OcrLineValues {
   const hints: string[] = [];
   const values: OcrLineValues = {
     quantity: toNumber(line.quantity),
-    unitPrice: toNumber(line.unitPrice),
-    discountPercent: toNumber(line.discountPercent),
+    unitPrice: prices ? toNumber(line.unitPrice) : 0,
+    discountPercent: prices ? toNumber(line.discountPercent) : undefined,
   };
   const { product, unit, taxRate } = line;
   if (product.status === 'MATCHED' && product.id !== null) {
@@ -109,19 +116,22 @@ export function ocrLineValues(line: OcrLine): OcrLineValues {
   } else if (taxRate.status !== 'UNKNOWN') {
     hints.push(`Thuế suất ${taxRate.rawText ?? ''} không có hoặc trùng trong danh mục: chọn thuế suất.`);
   }
-  for (const [name, value] of [
-    ['Số lượng', line.quantity],
-    ['Đơn giá', line.unitPrice],
-  ] as const) {
+  const checked: [string, OcrValue][] = [['Số lượng', line.quantity]];
+  if (prices) {
+    checked.push(['Đơn giá', line.unitPrice]);
+  }
+  for (const [name, value] of checked) {
     if (value.status === 'LOW_CONFIDENCE') {
       hints.push(`${name} đọc chưa chắc chắn: kiểm tra lại.`);
     }
   }
-  hints.push(...line.amountCheck.warnings);
+  if (prices) {
+    hints.push(...line.amountCheck.warnings);
+  }
   return {
     ...values,
     ocrHints: hints.filter((hint) => hint !== ''),
-    ocrLevel: line.amountCheck.status === 'MISMATCH' ? 'error' : 'warning',
+    ocrLevel: prices && line.amountCheck.status === 'MISMATCH' ? 'error' : 'warning',
   };
 }
 

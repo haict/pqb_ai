@@ -32,6 +32,7 @@ import com.company.erp.sales.domain.SalesOrderItem;
 import com.company.erp.sales.domain.SalesOrderLine;
 import com.company.erp.sales.infrastructure.persistence.SalesComplaintRepository;
 import com.company.erp.system.application.CurrentUser;
+import com.company.erp.system.application.PostingModeService;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -73,6 +74,7 @@ public class SalesOrderPostingService {
     private final DebtPostingService debtPosting;
     private final JournalPostingService journalPosting;
     private final SalesComplaintRepository complaints;
+    private final PostingModeService postingMode;
     private final BusinessCalendar calendar;
     private final Clock clock;
 
@@ -80,7 +82,9 @@ public class SalesOrderPostingService {
     public SalesOrderPostingService(SalesOrderService orders, SalesDocumentFlow flow, SalesAccess access,
                                     StockOutService stockOut, InventoryReservationService reservations,
                                     DebtPostingService debtPosting, JournalPostingService journalPosting,
-                                    SalesComplaintRepository complaints, BusinessCalendar calendar, Clock clock) {
+                                    SalesComplaintRepository complaints, PostingModeService postingMode,
+                                    BusinessCalendar calendar, Clock clock) {
+        this.postingMode = postingMode;
         this.orders = orders;
         this.flow = flow;
         this.access = access;
@@ -110,8 +114,10 @@ public class SalesOrderPostingService {
                     String authorityNote = orders.requirePostingAuthority(actor, order);
                     Issue issue = issue(actor, order);
                     reservations.releaseAll(order.getCompanyId(), SalesOrder.TYPE_CODE, order.getId());
-                    order.markPosted(issue.inventoryId(), issue.items(), actor.id(), Instant.now(clock));
-                    if (order.getTotalAmount().signum() > 0) {
+                    // D-73: chế độ chỉ quản lý kho không ghi công nợ, doanh thu, bút toán.
+                    boolean financial = postingMode.financialPostingEnabled();
+                    order.markPosted(issue.inventoryId(), issue.items(), financial, actor.id(), Instant.now(clock));
+                    if (financial && order.getTotalAmount().signum() > 0) {
                         debtPosting.recordInvoice(new InvoiceDebtCommand(order.getCompanyId(), order.getBranchId(),
                                 InvoiceSide.RECEIVABLE, order.getCustomerId(), SalesOrder.TYPE_CODE, order.getId(),
                                 order.getDocumentNo(), order.invoiceLabel(), order.getPostingDate(),
@@ -169,13 +175,16 @@ public class SalesOrderPostingService {
                 });
     }
 
-    /** Dòng ngược cho phiếu xuất kho, công nợ, bút toán của lần ghi sổ hiện hành (BR-GEN-21). */
+    /**
+     * Dòng ngược cho phiếu xuất kho, công nợ, bút toán của lần ghi sổ hiện hành (BR-GEN-21); công nợ, bút toán chỉ khi
+     * lần ghi sổ đó có ghi (D-73), không theo chế độ hiện tại.
+     */
     private void undoLedgers(CurrentUser actor, SalesOrder order, Long inventoryId, LocalDate date, String action,
                              String reason) {
         if (inventoryId != null) {
             stockOut.reverse(actor, inventoryId, date, reason);
         }
-        if (order.getTotalAmount().signum() > 0) {
+        if (order.isFinancialPosted() && order.getTotalAmount().signum() > 0) {
             debtPosting.reverse(new DebtReversalCommand(order.getCompanyId(), order.getBranchId(),
                     SalesOrder.TYPE_CODE, order.getId(), date, order.getDocumentNo(), actor.id()));
             journalPosting.reverse(new ReversalRequest(order.getCompanyId(), SalesOrder.TYPE_CODE, order.getId(),

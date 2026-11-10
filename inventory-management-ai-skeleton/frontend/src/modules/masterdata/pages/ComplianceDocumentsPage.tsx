@@ -28,6 +28,7 @@ import { PartnerSelect, ProductSelect } from '../components/EntitySelects';
 import { COMPLIANCE_OWNERS } from '../labels';
 import { useCompanyId } from '../lookups';
 import type { ComplianceDocument, ComplianceOwnerType } from '../types';
+import { DATE_INPUT_FORMAT } from '../../../shared/dateInput';
 
 const FIELDS = [
   'documentTypeId',
@@ -267,10 +268,10 @@ export function ComplianceDocumentsPage() {
             </Form.Item>
             <Space wrap>
               <Form.Item name="issuedDate" label="Ngày cấp">
-                <DatePicker format="DD/MM/YYYY" />
+                <DatePicker format={DATE_INPUT_FORMAT} />
               </Form.Item>
               <Form.Item name="expiryDate" label="Ngày hết hạn">
-                <DatePicker format="DD/MM/YYYY" />
+                <DatePicker format={DATE_INPUT_FORMAT} />
               </Form.Item>
             </Space>
             <Form.Item name="issuer" label="Nơi cấp">

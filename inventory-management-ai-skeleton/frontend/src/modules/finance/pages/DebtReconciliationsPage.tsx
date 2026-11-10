@@ -41,6 +41,7 @@ import type {
   DebtType,
   ReconciliationStatus,
 } from '../types';
+import { DATE_INPUT_FORMAT } from '../../../shared/dateInput';
 
 type Range = [Dayjs, Dayjs];
 
@@ -166,7 +167,7 @@ function StatementTab() {
           options={branches.options}
         />
         <DatePicker.RangePicker
-          format="DD/MM/YYYY"
+          format={DATE_INPUT_FORMAT}
           allowClear={false}
           value={range}
           onChange={(value) => value?.[0] && value[1] && setRange([value[0], value[1]])}

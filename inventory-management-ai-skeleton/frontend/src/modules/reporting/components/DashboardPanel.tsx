@@ -22,6 +22,7 @@ import {
 } from '../dashboard';
 import type { CashForecast, DashboardDebt, DashboardRanked, TradeKind } from '../types';
 import { BranchCol } from '../../../shared/components/BranchCol';
+import { useFinancialPosting } from '../../../shared/ui/postingMode';
 
 const TOP_OPTIONS = [5, 10, 20].map((value) => ({ value, label: `Top ${value}` }));
 
@@ -160,7 +161,8 @@ function TopTable({
 
 /**
  * Dashboard điều hành trên trang chủ (BR-RPT-01, 02, 04..06, 10..13): doanh thu, giá trị mua, công nợ, hàng sắp hết hạn,
- * đơn chưa giao đủ, top; bấm chỉ tiêu xem chứng từ nguồn (In, Excel, PDF). Số liệu theo phạm vi người xem.
+ * đơn chưa giao đủ, top; bấm chỉ tiêu xem chứng từ nguồn (In, Excel, PDF). Số liệu theo phạm vi người xem. Chế độ chỉ
+ * quản lý kho (D-73) chỉ hiện hạn dùng và đơn chưa nhận / chưa giao, không hiện số tiền.
  */
 export function DashboardPanel() {
   const companyId = useCompanyId();
@@ -177,6 +179,7 @@ export function DashboardPanel() {
   });
   const data = summary.data;
   const can = useCan();
+  const financial = useFinancialPosting();
   const navigate = useNavigate();
   const forecast = useQuery({
     queryKey: ['dashboard-forecast', params.companyId, params.branchId],
@@ -187,7 +190,7 @@ export function DashboardPanel() {
         granularity: 'WEEK',
         periods: FORECAST_WEEKS,
       }),
-    enabled: can('cash-forecast:view'),
+    enabled: can('cash-forecast:view') && financial,
   });
   const backlogSpan = forecast.data ? 6 : 8;
 
@@ -238,45 +241,49 @@ export function DashboardPanel() {
       ) : (
         <Spin spinning={summary.isFetching}>
           <Row gutter={[16, 16]}>
-            <Col xs={24} md={12} xl={6}>
-              <MetricCard
-                title="Doanh thu thuần"
-                value={money(data.revenue.netAmount)}
-                extra={
-                  <>
-                    Bán {money(data.revenue.grossAmount)} − giảm trừ {money(data.revenue.deductionAmount)} (
-                    {data.revenue.documentCount} đơn)
-                    <br />
-                    Giá vốn, lợi nhuận: có từ Giai đoạn 8
-                  </>
-                }
-                onOpen={() => setDetail({ metric: 'revenue' })}
-              />
-            </Col>
-            <Col xs={24} md={12} xl={6}>
-              <MetricCard
-                title="Giá trị mua thuần"
-                value={money(data.purchases.netAmount)}
-                extra={`Mua ${money(data.purchases.grossAmount)} − trả lại / giảm giá ${money(data.purchases.deductionAmount)}`}
-                onOpen={() => setDetail({ metric: 'purchases' })}
-              />
-            </Col>
-            <Col xs={24} md={12} xl={6}>
-              <MetricCard
-                title="Phải thu còn lại"
-                value={money(data.receivables.totalAmount)}
-                extra={debtExtra(data.receivables)}
-                onOpen={() => setDetail({ metric: 'receivables' })}
-              />
-            </Col>
-            <Col xs={24} md={12} xl={6}>
-              <MetricCard
-                title="Phải trả còn lại"
-                value={money(data.payables.totalAmount)}
-                extra={debtExtra(data.payables)}
-                onOpen={() => setDetail({ metric: 'payables' })}
-              />
-            </Col>
+            {financial && (
+              <>
+                <Col xs={24} md={12} xl={6}>
+                  <MetricCard
+                    title="Doanh thu thuần"
+                    value={money(data.revenue.netAmount)}
+                    extra={
+                      <>
+                        Bán {money(data.revenue.grossAmount)} − giảm trừ {money(data.revenue.deductionAmount)}{' '}
+                        ({data.revenue.documentCount} đơn)
+                        <br />
+                        Giá vốn, lợi nhuận: có từ Giai đoạn 8
+                      </>
+                    }
+                    onOpen={() => setDetail({ metric: 'revenue' })}
+                  />
+                </Col>
+                <Col xs={24} md={12} xl={6}>
+                  <MetricCard
+                    title="Giá trị mua thuần"
+                    value={money(data.purchases.netAmount)}
+                    extra={`Mua ${money(data.purchases.grossAmount)} − trả lại / giảm giá ${money(data.purchases.deductionAmount)}`}
+                    onOpen={() => setDetail({ metric: 'purchases' })}
+                  />
+                </Col>
+                <Col xs={24} md={12} xl={6}>
+                  <MetricCard
+                    title="Phải thu còn lại"
+                    value={money(data.receivables.totalAmount)}
+                    extra={debtExtra(data.receivables)}
+                    onOpen={() => setDetail({ metric: 'receivables' })}
+                  />
+                </Col>
+                <Col xs={24} md={12} xl={6}>
+                  <MetricCard
+                    title="Phải trả còn lại"
+                    value={money(data.payables.totalAmount)}
+                    extra={debtExtra(data.payables)}
+                    onOpen={() => setDetail({ metric: 'payables' })}
+                  />
+                </Col>
+              </>
+            )}
             <Col xs={24} md={12} xl={backlogSpan}>
               <MetricCard
                 title="Hàng đã / sắp hết hạn (lô × kho)"
@@ -289,7 +296,7 @@ export function DashboardPanel() {
               <MetricCard
                 title="Đơn mua chưa nhận"
                 value={`${data.purchaseBacklog.orderCount} đơn`}
-                extra={`${money(data.purchaseBacklog.totalAmount)} · trễ hẹn ${data.purchaseBacklog.overdueCount} đơn`}
+                extra={backlogExtra(financial, data.purchaseBacklog)}
                 onOpen={() => setDetail({ metric: 'purchase-backlog' })}
               />
             </Col>
@@ -297,7 +304,7 @@ export function DashboardPanel() {
               <MetricCard
                 title="Đơn bán chưa giao đủ"
                 value={`${data.salesBacklog.orderCount} đơn`}
-                extra={`${money(data.salesBacklog.totalAmount)} · trễ hẹn ${data.salesBacklog.overdueCount} đơn`}
+                extra={backlogExtra(financial, data.salesBacklog)}
                 onOpen={() => setDetail({ metric: 'sales-backlog' })}
               />
             </Col>
@@ -311,41 +318,49 @@ export function DashboardPanel() {
                 />
               </Col>
             )}
-            <Col xs={24} xl={8}>
-              <TopTable
-                title="Top hàng hóa theo doanh thu"
-                rows={data.topProducts}
-                onOpen={(row) =>
-                  setDetail({ metric: 'revenue', productId: row.id, label: `Hàng ${row.code} - ${row.name}` })
-                }
-              />
-            </Col>
-            <Col xs={24} xl={8}>
-              <TopTable
-                title="Top khách hàng theo doanh thu"
-                rows={data.topCustomers}
-                onOpen={(row) =>
-                  setDetail({
-                    metric: 'revenue',
-                    partnerId: row.id,
-                    label: `Khách ${row.code} - ${row.name}`,
-                  })
-                }
-              />
-            </Col>
-            <Col xs={24} xl={8}>
-              <TopTable
-                title="Top nhà cung cấp theo giá trị mua"
-                rows={data.topSuppliers}
-                onOpen={(row) =>
-                  setDetail({
-                    metric: 'purchases',
-                    partnerId: row.id,
-                    label: `NCC ${row.code} - ${row.name}`,
-                  })
-                }
-              />
-            </Col>
+            {financial && (
+              <>
+                <Col xs={24} xl={8}>
+                  <TopTable
+                    title="Top hàng hóa theo doanh thu"
+                    rows={data.topProducts}
+                    onOpen={(row) =>
+                      setDetail({
+                        metric: 'revenue',
+                        productId: row.id,
+                        label: `Hàng ${row.code} - ${row.name}`,
+                      })
+                    }
+                  />
+                </Col>
+                <Col xs={24} xl={8}>
+                  <TopTable
+                    title="Top khách hàng theo doanh thu"
+                    rows={data.topCustomers}
+                    onOpen={(row) =>
+                      setDetail({
+                        metric: 'revenue',
+                        partnerId: row.id,
+                        label: `Khách ${row.code} - ${row.name}`,
+                      })
+                    }
+                  />
+                </Col>
+                <Col xs={24} xl={8}>
+                  <TopTable
+                    title="Top nhà cung cấp theo giá trị mua"
+                    rows={data.topSuppliers}
+                    onOpen={(row) =>
+                      setDetail({
+                        metric: 'purchases',
+                        partnerId: row.id,
+                        label: `NCC ${row.code} - ${row.name}`,
+                      })
+                    }
+                  />
+                </Col>
+              </>
+            )}
           </Row>
           <Typography.Paragraph type="secondary" style={{ marginTop: 12, marginBottom: 0 }}>
             Doanh thu, giá trị mua theo chứng từ đã ghi sổ trong kỳ, chưa thuế, sau chiết khấu. Công nợ, hạn
@@ -371,4 +386,9 @@ export function DashboardPanel() {
       </Drawer>
     </Card>
   );
+}
+
+function backlogExtra(financial: boolean, backlog: { totalAmount: number; overdueCount: number }): string {
+  const late = `trễ hẹn ${backlog.overdueCount} đơn`;
+  return financial ? `${money(backlog.totalAmount)} · ${late}` : late;
 }

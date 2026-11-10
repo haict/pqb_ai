@@ -111,7 +111,10 @@ export function stockCardReport(card: StockCard): TableReport {
 const AMOUNT = AMOUNT_DIGITS;
 const MOVEMENT_SECTIONS = ['Đầu kỳ', 'Nhập kho', 'Xuất kho', 'Cuối kỳ'];
 
-function movementCells(row: MovementRow): (number | null)[] {
+function movementCells(row: MovementRow, quantityOnly: boolean): (number | null)[] {
+  if (quantityOnly) {
+    return [row.opening, row.inQuantity, row.outQuantity, row.closing];
+  }
   return [
     row.opening,
     row.openingValue,
@@ -132,15 +135,18 @@ function sumCells(rows: (number | null)[][]): (number | null)[] {
   });
 }
 
-/** Nhập - xuất - tồn nhóm theo kho, mỗi kho một dòng tổng; số lượng và giá trị theo từng nhóm cột (BR-RPT-22). */
-export function movementReport(movement: InventoryMovement): TableReport {
+/**
+ * Nhập - xuất - tồn nhóm theo kho, mỗi kho một dòng tổng; số lượng và giá trị theo từng nhóm cột (BR-RPT-22).
+ * {@code quantityOnly}: chế độ chỉ quản lý kho (D-73) bỏ các cột giá trị.
+ */
+export function movementReport(movement: InventoryMovement, quantityOnly = false): TableReport {
   const columns: ReportColumn[] = [
     { title: 'Mã hàng', width: 14 },
     { title: 'Tên hàng', width: 30 },
     { title: 'ĐVT', width: 8 },
     ...MOVEMENT_SECTIONS.flatMap((group): ReportColumn[] => [
       { title: 'Số lượng', digits: QUANTITY, width: 12, group },
-      { title: 'Giá trị', digits: AMOUNT, width: 15, group },
+      ...(quantityOnly ? [] : [{ title: 'Giá trị', digits: AMOUNT, width: 15, group }]),
     ]),
   ];
   const warehouses = new Map<number, MovementRow[]>();
@@ -155,14 +161,14 @@ export function movementReport(movement: InventoryMovement): TableReport {
         `Tên kho : ${items[0]?.warehouseName ?? ''} (${items.length})`,
         null,
         null,
-        ...sumCells(items.map(movementCells)),
+        ...sumCells(items.map((row) => movementCells(row, quantityOnly))),
       ],
       bold: true,
       group: true,
       labelSpan: 3,
     },
     ...items.map((row) => ({
-      cells: [row.productCode, row.productName, row.unitName, ...movementCells(row)],
+      cells: [row.productCode, row.productName, row.unitName, ...movementCells(row, quantityOnly)],
     })),
   ]);
   return {
@@ -172,7 +178,7 @@ export function movementReport(movement: InventoryMovement): TableReport {
     rows,
     notes: [
       'Số lượng theo đơn vị cơ sở; đảo chứng từ trừ vào chiều của chứng từ gốc; chuyển trạng thái chất lượng không tính.',
-      ...(movement.valueAvailable
+      ...(movement.valueAvailable || quantityOnly
         ? []
         : [
             'Giá trị tạm tính = số lượng × đơn giá nhập bình quân đến cuối kỳ, chưa phải giá vốn (giá vốn tính ở Giai đoạn 8). Hàng chưa có đơn giá nhập để trống giá trị.',

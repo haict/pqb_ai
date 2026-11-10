@@ -103,7 +103,8 @@ public class PurchaseReturnPostingService {
                     } else {
                         recordDiscountCosts(actor, document, order);
                     }
-                    if (document.getTotalAmount().signum() > 0) {
+                    // D-73: công nợ, bút toán theo lần ghi sổ của đơn gốc, không theo chế độ hiện tại.
+                    if (order.isFinancialPosted() && document.getTotalAmount().signum() > 0) {
                         debtPosting.reduceInvoice(new InvoiceCreditCommand(document.getCompanyId(),
                                 document.getBranchId(), InvoiceSide.PAYABLE, document.getSupplierId(),
                                 PurchaseOrder.TYPE_CODE, order.getId(), document.typeCode(), document.getId(),
@@ -134,14 +135,15 @@ public class PurchaseReturnPostingService {
                     }
                     LocalDate date = request.postingDate() != null ? request.postingDate() : calendar.today();
                     String reason = request.reason().trim();
-                    applySources(document, lockOrder(document), BigDecimal.ONE.negate());
+                    PurchaseOrder order = lockOrder(document);
+                    applySources(document, order, BigDecimal.ONE.negate());
                     Instant now = Instant.now(clock);
                     if (document.getInventoryDocumentId() != null) {
                         stockOut.reverse(actor, document.getInventoryDocumentId(), date, reason);
                     }
                     costRepository.saveAll(costRepository.findOriginals(document.typeCode(), document.getId())
                             .stream().map(entry -> entry.reversed(date, actor.id(), now)).toList());
-                    if (document.getTotalAmount().signum() > 0) {
+                    if (order.isFinancialPosted() && document.getTotalAmount().signum() > 0) {
                         debtPosting.reverseReduction(new DebtReversalCommand(document.getCompanyId(),
                                 document.getBranchId(), document.typeCode(), document.getId(), date,
                                 document.getDocumentNo(), actor.id()));

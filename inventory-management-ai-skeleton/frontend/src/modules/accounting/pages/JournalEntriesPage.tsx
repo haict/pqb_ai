@@ -12,6 +12,7 @@ import { JournalEntryView, JournalStatusTag } from '../components/JournalEntryVi
 import { JOURNAL_STATUSES, formatMoney } from '../labels';
 import { usePostableAccounts } from '../lookups';
 import type { JournalEntryStatus, JournalEntrySummary } from '../types';
+import { DATE_INPUT_FORMAT } from '../../../shared/dateInput';
 
 function JournalDrawer({ id, onClose }: { id: number; onClose(): void }) {
   const query = useQuery({ queryKey: ['journal-entry', id], queryFn: () => journalApi.get(id) });
@@ -96,7 +97,11 @@ export function JournalEntriesPage() {
         onSearch={setKeyword}
         extraFilters={
           <>
-            <DatePicker.RangePicker format="DD/MM/YYYY" value={range} onChange={(value) => setRange(value)} />
+            <DatePicker.RangePicker
+              format={DATE_INPUT_FORMAT}
+              value={range}
+              onChange={(value) => setRange(value)}
+            />
             <Select
               allowClear
               showSearch

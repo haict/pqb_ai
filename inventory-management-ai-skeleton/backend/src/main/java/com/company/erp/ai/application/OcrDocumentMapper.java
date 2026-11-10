@@ -78,7 +78,9 @@ class OcrDocumentMapper {
             lines.add(new OcrLine(products.get(i),
                     matcher.unit(products.get(i), ExtractedDocument.field(line, "unit"), productUnits),
                     matcher.taxRate(ExtractedDocument.field(line, "taxRate"), date),
-                    quantity, unitPrice, discount, printed, checker.line(quantity, unitPrice, discount, printed)));
+                    quantity, unitPrice, discount, printed, checker.line(quantity, unitPrice, discount, printed),
+                    OcrValue.of(ExtractedDocument.field(line, "lotNo")),
+                    OcrValue.of(ExtractedDocument.field(line, "expiryDate"))));
         }
         return lines;
     }

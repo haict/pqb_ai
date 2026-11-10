@@ -14,6 +14,7 @@ import { PRODUCT_TYPES, toOptions } from '../labels';
 import { useCatalog, useCategories, useCountries, useTaxRates } from '../lookups';
 import type { Product, ProductType } from '../types';
 import { trackingDefaults, type ProductFormValues } from './productFields';
+import { DATE_INPUT_FORMAT } from '../../../shared/dateInput';
 
 export function ProductForm({
   form,
@@ -195,7 +196,7 @@ export function ProductForm({
                   <Input maxLength={100} style={{ width: 220 }} />
                 </Form.Item>
                 <Form.Item name="registrationValidTo" label="Hiệu lực đến">
-                  <DatePicker format="DD/MM/YYYY" />
+                  <DatePicker format={DATE_INPUT_FORMAT} />
                 </Form.Item>
               </Space>
               <Form.Item name="registrationHolder" label="Chủ sở hữu số lưu hành">

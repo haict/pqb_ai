@@ -4,6 +4,8 @@ import static com.company.erp.support.ApiTestSupport.json;
 import static com.company.erp.support.ApiTestSupport.login;
 import static com.company.erp.support.ApiTestSupport.newKey;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.allOf;
+import static org.hamcrest.Matchers.containsString;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -95,7 +97,11 @@ class InventoryIntegrationTest extends InventoryIntegrationSupport {
         long duplicateSerial = create(manager, "PNK", warehouse, List.of(receiptLine(serialProduct, 1, null, null,
                 List.of("S1-" + serialProduct))));
         action(manager, duplicateSerial, "post", null).andExpect(status().isUnprocessableEntity())
-                .andExpect(jsonPath("$.code").value("SERIAL_UNAVAILABLE"));
+                .andExpect(jsonPath("$.code").value("SERIAL_UNAVAILABLE"))
+                .andExpect(jsonPath("$.message").value(allOf(
+                        containsString("Serial S1-" + serialProduct + " của hàng "),
+                        containsString("đang tồn tại kho "),
+                        containsString("(nhập bởi "))));
         assertThat(onHand(serialProduct, warehouse)).isEqualByComparingTo("2");
         assertLedgerConsistent(product);
         assertLedgerConsistent(serialProduct);

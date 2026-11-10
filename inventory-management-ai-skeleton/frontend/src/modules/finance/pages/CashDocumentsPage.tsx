@@ -46,13 +46,9 @@ import type {
   PaymentAllocation,
 } from '../types';
 import { BRANCH_VISIBLE } from '../../../shared/branch';
+import { DATE_INPUT_FORMAT } from '../../../shared/dateInput';
 
-const STATUSES: FinanceDocumentStatus[] = [
-  'DRAFT',
-  'POSTED',
-  'CANCELLED',
-  'REVERSED',
-];
+const STATUSES: FinanceDocumentStatus[] = ['DRAFT', 'POSTED', 'CANCELLED', 'REVERSED'];
 
 const FIELDS = [
   'branchId',
@@ -383,7 +379,11 @@ export function CashDocumentsPage() {
         onSearch={setKeyword}
         extraFilters={
           <>
-            <DatePicker.RangePicker format="DD/MM/YYYY" value={range} onChange={(value) => setRange(value)} />
+            <DatePicker.RangePicker
+              format={DATE_INPUT_FORMAT}
+              value={range}
+              onChange={(value) => setRange(value)}
+            />
             <Select
               allowClear
               placeholder="Loại chứng từ"

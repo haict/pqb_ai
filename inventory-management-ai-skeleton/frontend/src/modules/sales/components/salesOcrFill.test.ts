@@ -34,6 +34,8 @@ const line = (partial: Partial<OcrLine>): OcrLine => ({
   unitPrice: none,
   discountPercent: none,
   printedAmount: none,
+  lotNo: none,
+  expiryDate: none,
   amountCheck: noCheck,
   ...partial,
 });
@@ -94,5 +96,21 @@ describe('salesOcrFill (AI-2)', () => {
     expect(fill.notes[0]).toContain('Không tìm thấy khách hàng BV X (0100000009)');
     expect(fill.lines[0]).toMatchObject({ productId: 3, quantity: 10, unitPrice: 100000 });
     expect(fill.lines[0]?.ocrHints).toEqual(['Đơn giá đọc chưa chắc chắn: kiểm tra lại.']);
+  });
+
+  it('chế độ chỉ quản lý kho (D-73): không lấy đơn giá trên chứng từ', () => {
+    const fill = salesOcrFill(
+      {},
+      result({}, [
+        line({
+          product: match({ id: 3, code: 'TT_GLU_01', name: 'Glucose' }),
+          quantity: value('10'),
+          unitPrice: value('100000', 'LOW_CONFIDENCE'),
+        }),
+      ]),
+      false,
+    );
+    expect(fill.lines[0]).toMatchObject({ productId: 3, quantity: 10, unitPrice: 0 });
+    expect(fill.lines[0]?.ocrHints).toEqual([]);
   });
 });

@@ -25,6 +25,7 @@ import { debtApi } from '../api';
 import { DEBT_ENTRY_TYPES, DEBT_ITEM_STATUSES, DEBT_PARTNER_ROLE, DEBT_TYPES } from '../labels';
 import type { AgingRow, DebtEntryType, DebtItem, DebtItemStatus, DebtLedgerLine, DebtType } from '../types';
 import { whenBranchVisible } from '../../../shared/branch';
+import { DATE_INPUT_FORMAT } from '../../../shared/dateInput';
 
 const money = (value: number) => formatMoney(value);
 
@@ -131,7 +132,7 @@ function AgingTab({ debtType }: { debtType: DebtType }) {
       <Space style={{ marginBottom: 12 }}>
         <span>Tại ngày</span>
         <DatePicker
-          format="DD/MM/YYYY"
+          format={DATE_INPUT_FORMAT}
           allowClear={false}
           value={asOf}
           onChange={(value) => {
@@ -233,7 +234,7 @@ function LedgerTab({ debtType }: { debtType: DebtType }) {
           onChange={(value) => setPartnerId(value ?? undefined)}
         />
         <DatePicker.RangePicker
-          format="DD/MM/YYYY"
+          format={DATE_INPUT_FORMAT}
           allowClear={false}
           value={range}
           onChange={(value) => value && value[0] && value[1] && setRange([value[0], value[1]])}

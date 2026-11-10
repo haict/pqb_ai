@@ -4,6 +4,7 @@ import type { MenuProps } from 'antd';
 import { useState } from 'react';
 import { toApiError } from '../api/apiError';
 import { saveBlob, slipFileName, type InventorySlipView } from './slipContent';
+import { useUiAction } from '../ui/uiFeatures';
 
 type Format = 'xlsx' | 'docx' | 'pdf';
 
@@ -22,11 +23,12 @@ const ITEMS: MenuProps['items'] = [
 
 /**
  * Tải phiếu nhập / xuất kho về máy dưới dạng Excel, Word, PDF; nội dung giống bản in. Dữ liệu phiếu chỉ tải khi bấm
- * ({@code load}) để mở màn hình chi tiết không gọi API in phiếu.
+ * ({@code load}) để mở màn hình chi tiết không gọi API in phiếu. Lựa chọn Excel ẩn được theo cấu hình khách hàng (D-72).
  */
 export function SlipDownloadButton({ load }: { load(): Promise<InventorySlipView> }) {
   const { message } = App.useApp();
   const [busy, setBusy] = useState(false);
+  const items = useUiAction('excel-export') ? ITEMS : ITEMS?.filter((item) => item?.key !== 'xlsx');
 
   const download: MenuProps['onClick'] = async ({ key }) => {
     const format = key as Format;
@@ -42,7 +44,7 @@ export function SlipDownloadButton({ load }: { load(): Promise<InventorySlipView
   };
 
   return (
-    <Dropdown menu={{ items: ITEMS, onClick: download }} trigger={['click']} disabled={busy}>
+    <Dropdown menu={{ items, onClick: download }} trigger={['click']} disabled={busy}>
       <Button icon={<DownloadOutlined />} loading={busy}>
         Tải về
       </Button>

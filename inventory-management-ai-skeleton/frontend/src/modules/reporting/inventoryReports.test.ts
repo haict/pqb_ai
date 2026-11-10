@@ -123,6 +123,41 @@ describe('báo cáo kho M10', () => {
     expect(report.notes?.some((note) => note.includes('tạm tính'))).toBe(true);
   });
 
+  it('D-73: chế độ chỉ quản lý kho, nhập - xuất - tồn chỉ có cột số lượng', () => {
+    const movement: InventoryMovement = {
+      dateFrom: '2026-10-01',
+      dateTo: '2026-10-31',
+      valueAvailable: false,
+      valueProvisional: true,
+      generatedAt: '2026-10-31T03:00:00Z',
+      rows: [
+        {
+          productId: 5,
+          productCode: 'VT01',
+          productName: 'Ống nghiệm',
+          unitName: 'Hộp',
+          warehouseId: 1,
+          warehouseCode: 'HH',
+          warehouseName: 'Kho HN',
+          opening: 1,
+          inQuantity: 11,
+          outQuantity: 4,
+          closing: 8,
+          averageUnitCost: 0,
+          openingValue: 0,
+          inValue: 0,
+          outValue: 0,
+          closingValue: 0,
+        },
+      ],
+    };
+    const report = movementReport(movement, true);
+    expect(report.columns).toHaveLength(7);
+    expect(report.columns.some((column) => column.title === 'Giá trị')).toBe(false);
+    expect(report.rows[1]?.cells).toEqual(['VT01', 'Ống nghiệm', 'Hộp', 1, 11, 4, 8]);
+    expect(report.notes?.some((note) => note.includes('tạm tính'))).toBe(false);
+  });
+
   it('BR-RPT-24: truy xuất lô ghi tổng theo khách và tồn hiện tại', () => {
     const trace: LotTrace = {
       productId: 5,

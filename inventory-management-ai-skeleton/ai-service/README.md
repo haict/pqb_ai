@@ -40,7 +40,7 @@ Chỉ mục tài liệu hướng dẫn cho trợ lý (chạy lại khi tài li�
 | Phương thức | Đường dẫn | Mô tả |
 |---|---|---|
 | GET | `/internal/v1/health` | `status`; `ocr` (model đang dùng, `textDiacriticsReliable`); `chat` (`ready`, `indexReady`, `llmReady`, `model`) |
-| POST | `/internal/v1/ocr/extract` | `multipart/form-data`: `file` (JPG / PNG / PDF), `documentType` (`PURCHASE_ORDER`, `PURCHASE_INVOICE`, `SALES_ORDER`). Trả `header`, `lines`, `totals` theo hợp đồng trường docs/14 mục 4.4 |
+| POST | `/internal/v1/ocr/extract` | `multipart/form-data`: `file` (JPG / PNG / PDF), `documentType` (`PURCHASE_ORDER`, `PURCHASE_INVOICE`, `PURCHASE_DELIVERY_NOTE`, `SALES_ORDER`). Trả `header`, `lines`, `totals` theo hợp đồng trường docs/14 mục 4.4 |
 | POST | `/internal/v1/chat` | JSON `{question, history[]}`; trả `{answer, citations[], grounded, durationMs}` (docs/14 mục 6.3). Không có đoạn tài liệu phù hợp thì trả câu cố định, không gọi LLM |
 
 Lỗi: `{ "success": false, "code", "message", "requestId" }`.

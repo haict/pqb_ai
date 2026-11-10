@@ -7,6 +7,7 @@ import { QualityTag } from '../../inventory/components/StatusTags';
 import { formatDate, formatNumber } from '../../inventory/labels';
 import { salesOrderApi } from '../api';
 import type { SalesOrder } from '../types';
+import { DATE_INPUT_FORMAT } from '../../../shared/dateInput';
 
 interface ModalProps {
   order: SalesOrder;
@@ -61,7 +62,7 @@ export function ConfirmDeliveryModal({ order, onClose, onDone }: ModalProps) {
           label="Ngày khách nhận"
           rules={[{ required: true, message: 'Chọn ngày' }]}
         >
-          <DatePicker format="DD/MM/YYYY" />
+          <DatePicker format={DATE_INPUT_FORMAT} />
         </Form.Item>
         <Form.Item name="receivedBy" label="Người ký nhận">
           <Input maxLength={200} />
@@ -143,7 +144,7 @@ export function EinvoiceModal({ order, onClose, onDone }: ModalProps) {
           <Input maxLength={30} />
         </Form.Item>
         <Form.Item name="date" label="Ngày phát hành" rules={[{ required: true, message: 'Chọn ngày' }]}>
-          <DatePicker format="DD/MM/YYYY" />
+          <DatePicker format={DATE_INPUT_FORMAT} />
         </Form.Item>
         <Form.Item name="taxAuthorityCode" label="Mã cơ quan thuế">
           <Input maxLength={50} />

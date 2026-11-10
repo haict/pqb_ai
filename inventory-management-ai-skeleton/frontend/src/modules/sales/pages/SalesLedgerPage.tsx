@@ -18,6 +18,7 @@ import { ledgerFileName } from '../ledger/ledgerContent';
 import { SalesLedgerSheet } from '../ledger/SalesLedgerSheet';
 import type { SalesLedger, SalesLedgerGrouping, SalesLedgerParams } from '../types';
 import { BranchCol } from '../../../shared/components/BranchCol';
+import { DATE_INPUT_FORMAT } from '../../../shared/dateInput';
 
 /** Giới hạn của server (SalesLedgerService.MAX_SELECTED): số hàng / khách chọn mỗi lần xem. */
 const MAX_SELECTED = 200;
@@ -131,7 +132,7 @@ export function SalesLedgerPage() {
               rules={[{ required: true, message: 'Chọn khoảng ngày' }]}
             >
               <DatePicker.RangePicker
-                format="DD/MM/YYYY"
+                format={DATE_INPUT_FORMAT}
                 allowClear={false}
                 style={{ width: '100%' }}
                 onChange={() => form.setFieldValue('preset', 'CUSTOM')}

@@ -1,6 +1,7 @@
 /** Kiểu dữ liệu nhận dạng chứng từ (D-64, docs/14 mục 4.4, 6.1); khớp DTO module ai của backend. */
 
-export type OcrDocumentType = 'PURCHASE_INVOICE' | 'PURCHASE_ORDER' | 'SALES_ORDER';
+export type OcrDocumentType =
+  'PURCHASE_INVOICE' | 'PURCHASE_ORDER' | 'PURCHASE_DELIVERY_NOTE' | 'SALES_ORDER';
 
 /** Giá trị đọc từ chứng từ; số tiền, số lượng là chuỗi thập phân. */
 export interface OcrValue {
@@ -47,6 +48,9 @@ export interface OcrLine {
   discountPercent: OcrValue;
   printedAmount: OcrValue;
   amountCheck: AmountCheck;
+  /** Số lô, hạn dùng in trên phiếu xuất kho của nhà cung cấp; trống với chứng từ khác. */
+  lotNo: OcrValue;
+  expiryDate: OcrValue;
 }
 
 export interface OcrTotals {

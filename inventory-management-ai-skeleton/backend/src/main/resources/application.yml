@@ -71,6 +71,11 @@ erp:
     # ví dụ file:/opt/erp/license.lic. Không có cấu hình tắt kiểm tra license.
     import-location: ${ERP_LICENSE_FILE:}
     refresh-interval: PT1H
+  branding:
+    # Logo theo khách hàng (D-72): thư mục chứa file logo trên máy chủ, ngoài thư mục web. Tên file đặt bằng SQL ở
+    # sys_app_settings.branding.logo-file. Chỉ PNG, JPEG, WebP; file lớn hơn logo-max-size bị bỏ qua (dùng logo mặc định).
+    directory: ${ERP_BRANDING_DIR:${user.home}/.erp/branding}
+    logo-max-size: 512KB
   calendar:
     # Múi giờ nghiệp vụ (D-15): xác định "hôm nay", ngày chứng từ, chu kỳ số chứng từ. Thời điểm vẫn lưu UTC.
     time-zone: Asia/Ho_Chi_Minh

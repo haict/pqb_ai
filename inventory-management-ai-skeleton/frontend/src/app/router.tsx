@@ -58,6 +58,7 @@ import { RolesPage } from '../modules/system/pages/RolesPage';
 import { UsersPage } from '../modules/system/pages/UsersPage';
 import { RequireAuth, RequirePermission } from '../shared/auth/RouteGuards';
 import { AppLayout } from './AppLayout';
+import { UiFeaturesProvider } from './UiFeaturesProvider';
 import { HomePage } from './pages/HomePage';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { LicensePage } from '../modules/system/pages/LicensePage';
@@ -85,7 +86,9 @@ export const router = createBrowserRouter([
     path: '/',
     element: (
       <RequireAuth>
-        <AppLayout />
+        <UiFeaturesProvider>
+          <AppLayout />
+        </UiFeaturesProvider>
       </RequireAuth>
     ),
     children: [

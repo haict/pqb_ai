@@ -25,6 +25,7 @@ import type { DocumentFormValues } from './documentFormValues';
 import { DecimalInput } from '../../../shared/components/DecimalInput';
 import { LineGrid, LineGridRow, NotApplicable } from '../../../shared/components/LineGrid';
 import { lineCellStyle, type LineGridColumn } from '../../../shared/components/lineGridStyles';
+import { DATE_INPUT_FORMAT } from '../../../shared/dateInput';
 
 const QUALITY_OPTIONS = (Object.keys(QUALITY_STATUSES) as QualityStatus[]).map((value) => ({
   value,
@@ -207,14 +208,14 @@ function LineFields({
               <Input maxLength={50} />
             </Form.Item>
             <Form.Item name={[name, 'manufactureDate']} style={lineCellStyle}>
-              <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} />
+              <DatePicker format={DATE_INPUT_FORMAT} style={{ width: '100%' }} />
             </Form.Item>
             <Form.Item
               name={[name, 'expiryDate']}
               style={lineCellStyle}
               rules={[{ required: product.expiryTracked, message: 'Nhập hạn dùng' }]}
             >
-              <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} />
+              <DatePicker format={DATE_INPUT_FORMAT} style={{ width: '100%' }} />
             </Form.Item>
           </>
         ) : (
@@ -349,12 +350,12 @@ export function DocumentFormFields({
         </Col>
         <Col xs={12} md={8}>
           <Form.Item name="documentDate" label="Ngày chứng từ" rules={[{ required: true }]}>
-            <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} />
+            <DatePicker format={DATE_INPUT_FORMAT} style={{ width: '100%' }} />
           </Form.Item>
         </Col>
         <Col xs={12} md={8}>
           <Form.Item name="postingDate" label="Ngày hạch toán" extra="Để trống: bằng ngày chứng từ.">
-            <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} />
+            <DatePicker format={DATE_INPUT_FORMAT} style={{ width: '100%' }} />
           </Form.Item>
         </Col>
         <Col xs={24} md={8}>
@@ -441,7 +442,7 @@ export function DocumentFormFields({
       </Row>
       <Form.List name="lines">
         {(fields, { add, remove }) => (
-          <LineGrid columns={layout.columns} minWidth={layout.minWidth} onAdd={() => add({})}>
+          <LineGrid columns={layout.columns} minWidth={layout.minWidth} onAdd={() => add({ unitCost: 0 })}>
             {fields.map((field) => (
               <LineFields
                 key={field.key}

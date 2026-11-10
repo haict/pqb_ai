@@ -25,6 +25,7 @@ import {
 } from '../labels';
 import { DocumentStatusTag, ItemConditionTag, QualityTag } from '../components/StatusTags';
 import type { InventoryDocument, InventoryLine, InventoryTransaction, ItemCondition } from '../types';
+import { UiAction } from '../../../shared/ui/UiAction';
 
 function editValues(document: InventoryDocument): Partial<DocumentFormValues> {
   return {
@@ -219,9 +220,11 @@ export function InventoryDocumentDetailPage() {
             </Button>
           )}
           {opening && (
-            <Button icon={<FileExcelOutlined />} loading={exporting} onClick={() => void exportExcel()}>
-              Xuất Excel
-            </Button>
+            <UiAction id="excel-export">
+              <Button icon={<FileExcelOutlined />} loading={exporting} onClick={() => void exportExcel()}>
+                Xuất Excel
+              </Button>
+            </UiAction>
           )}
           <DocumentActions actions={document.allowedActions} onAction={act} />
         </Space>

@@ -8,6 +8,7 @@ class DocumentType(str, Enum):
     PURCHASE_ORDER = "PURCHASE_ORDER"
     PURCHASE_INVOICE = "PURCHASE_INVOICE"
     SALES_ORDER = "SALES_ORDER"
+    PURCHASE_DELIVERY_NOTE = "PURCHASE_DELIVERY_NOTE"
 
 
 class FieldSource(str, Enum):

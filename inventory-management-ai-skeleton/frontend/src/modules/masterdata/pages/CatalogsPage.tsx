@@ -38,6 +38,7 @@ import {
 import { COMPLIANCE_OWNERS, PRODUCT_TYPES, REFERENCE_CATEGORIES, toOptions } from '../labels';
 import { useCompanyId, useCountries } from '../lookups';
 import type { ComplianceDocumentType, ReferenceCategory } from '../types';
+import { DATE_INPUT_FORMAT } from '../../../shared/dateInput';
 
 const CODE_RULES = [
   { required: true, message: 'Nhập mã' },
@@ -306,10 +307,10 @@ function TaxRatesTab() {
           </Form.Item>
           <Space>
             <Form.Item name="validFrom" label="Từ ngày" rules={[{ required: true, message: 'Chọn ngày' }]}>
-              <DatePicker format="DD/MM/YYYY" />
+              <DatePicker format={DATE_INPUT_FORMAT} />
             </Form.Item>
             <Form.Item name="validTo" label="Đến ngày">
-              <DatePicker format="DD/MM/YYYY" />
+              <DatePicker format={DATE_INPUT_FORMAT} />
             </Form.Item>
           </Space>
         </>

@@ -7,6 +7,7 @@ import com.company.erp.ai.application.dto.OcrValue;
 import com.company.erp.ai.application.dto.PurchaseOcrResponse;
 import com.company.erp.ai.application.dto.PurchaseOcrResponse.Header;
 import com.company.erp.ai.domain.OcrDocumentType;
+import com.company.erp.masterdata.application.MasterDataQueryService.PartnerInfo;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -41,8 +42,10 @@ public class PurchaseOcrMappingService {
     private Header header(Long companyId, OcrDocumentType type, ExtractedDocument document, OcrCatalogMatcher matcher,
                           List<String> warnings) {
         Field taxCode = document.header("partnerTaxCode");
-        CatalogMatch supplier = matcher.supplier(taxCode, document.header("partnerName"),
-                mapper.partners(companyId, taxCode, OcrCatalogMatcher.SUPPLIER_ROLE));
+        List<PartnerInfo> partners = mapper.partners(companyId, taxCode, OcrCatalogMatcher.SUPPLIER_ROLE);
+        CatalogMatch supplier = type == OcrDocumentType.PURCHASE_DELIVERY_NOTE
+                ? matcher.supplierByName(taxCode, document.header("partnerName"), partners)
+                : matcher.supplier(taxCode, document.header("partnerName"), partners);
         OcrValue number = OcrValue.of(document.header("documentNo"));
         OcrValue date = OcrValue.of(document.header("documentDate"));
         OcrValue currency = mapper.currency(document, FORM_NAME, warnings);
@@ -50,8 +53,10 @@ public class PurchaseOcrMappingService {
             return new Header(supplier, OcrValue.of(document.header("invoiceSeries")), number, date, OcrValue.UNKNOWN,
                     OcrValue.UNKNOWN, currency);
         }
-        OcrValue description = number.present()
-                ? number.withValue("Theo đơn đặt hàng số " + number.value()) : OcrValue.UNKNOWN;
+        // Số phiếu xuất kho của nhà cung cấp không phải số hóa đơn: đưa vào diễn giải, không điền số hóa đơn.
+        String reference = type == OcrDocumentType.PURCHASE_DELIVERY_NOTE
+                ? "Theo phiếu xuất kho của nhà cung cấp số " : "Theo đơn đặt hàng số ";
+        OcrValue description = number.present() ? number.withValue(reference + number.value()) : OcrValue.UNKNOWN;
         return new Header(supplier, OcrValue.UNKNOWN, OcrValue.UNKNOWN, OcrValue.UNKNOWN, date, description, currency);
     }
 }

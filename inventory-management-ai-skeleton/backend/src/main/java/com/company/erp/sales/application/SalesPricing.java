@@ -15,6 +15,7 @@ import com.company.erp.sales.domain.SalesPricedLine;
 import com.company.erp.sales.domain.SalesPricedLine.PricedValues;
 import com.company.erp.system.application.CurrentUser;
 import com.company.erp.system.application.ParameterService;
+import com.company.erp.system.application.PostingModeService;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -37,9 +38,11 @@ class SalesPricing {
     private final PriceQueryService prices;
     private final DebtExposureService debtExposure;
     private final ParameterService parameters;
+    private final PostingModeService postingMode;
 
     SalesPricing(SalesAccess access, PriceQueryService prices, DebtExposureService debtExposure,
-                 ParameterService parameters) {
+                 ParameterService parameters, PostingModeService postingMode) {
+        this.postingMode = postingMode;
         this.access = access;
         this.prices = prices;
         this.debtExposure = debtExposure;
@@ -67,7 +70,10 @@ class SalesPricing {
         SalesPrice price = prices.salesPrice(companyId, customer.id(), line.productId(), line.unitId(),
                 line.quantity(), date);
         boolean promotional = Boolean.TRUE.equals(line.promotional());
-        BigDecimal unitPrice = line.unitPrice() != null ? line.unitPrice() : price.unitPrice();
+        // D-73: chế độ chỉ quản lý kho không lấy giá bảng giá; đơn giá trống = 0.
+        boolean financial = postingMode.financialPostingEnabled();
+        BigDecimal unitPrice = line.unitPrice() != null ? line.unitPrice()
+                : financial ? price.unitPrice() : BigDecimal.ZERO;
         if (unitPrice == null && !promotional) {
             throw BusinessException.invalidField(field + ".unitPrice", "Hàng " + product.code()
                     + " chưa có giá trong bảng giá áp dụng; nhập đơn giá.");
@@ -84,6 +90,9 @@ class SalesPricing {
 
     /** Lý do cần thẩm quyền giá (BR-SAL-03): dưới giá sàn, chiết khấu dòng vượt ngưỡng tham số. */
     List<String> priceReasons(Long companyId, List<? extends SalesPricedLine> lines) {
+        if (!postingMode.financialPostingEnabled()) {
+            return List.of(); // D-73: chế độ chỉ quản lý kho không kiểm soát giá.
+        }
         BigDecimal threshold = parameters.decimalValue(companyId, DISCOUNT_THRESHOLD);
         List<String> reasons = new ArrayList<>();
         for (SalesPricedLine line : lines) {
@@ -101,6 +110,9 @@ class SalesPricing {
 
     /** Lý do cần thẩm quyền tín dụng (BR-SAL-14, D-22): công nợ hiện tại + giá trị đơn vượt hạn mức, hoặc có nợ quá hạn. */
     List<String> creditReasons(Long companyId, CustomerProfile customer, BigDecimal orderTotal, LocalDate today) {
+        if (!postingMode.financialPostingEnabled()) {
+            return List.of(); // D-73: không có công nợ nên không kiểm tra tín dụng.
+        }
         Exposure exposure = debtExposure.exposure(companyId, InvoiceSide.RECEIVABLE, customer.id(), today);
         List<String> reasons = new ArrayList<>();
         if (customer.creditLimit() != null

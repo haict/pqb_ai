@@ -35,6 +35,7 @@ import { DEBT_PARTNER_ROLE, DEBT_TYPES, FINANCE_STATUSES, OFFSET_TYPES } from '.
 import type { DebtOffset, DebtOffsetLine, DebtType, FinanceDocumentStatus, OffsetType } from '../types';
 import { BranchCol } from '../../../shared/components/BranchCol';
 import { BRANCH_VISIBLE } from '../../../shared/branch';
+import { DATE_INPUT_FORMAT } from '../../../shared/dateInput';
 
 interface OffsetForm {
   branchId: number;
@@ -345,12 +346,12 @@ function OffsetFields({
             label="Ngày chứng từ"
             rules={[{ required: true, message: 'Chọn ngày' }]}
           >
-            <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} />
+            <DatePicker format={DATE_INPUT_FORMAT} style={{ width: '100%' }} />
           </Form.Item>
         </Col>
         <Col xs={12} md={3}>
           <Form.Item name="postingDate" label="Ngày hạch toán">
-            <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} />
+            <DatePicker format={DATE_INPUT_FORMAT} style={{ width: '100%' }} />
           </Form.Item>
         </Col>
         <Col xs={24} md={12}>

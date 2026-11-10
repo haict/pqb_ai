@@ -65,6 +65,7 @@ import { BranchCol } from '../../../shared/components/BranchCol';
 import { SalesLineImportButton } from '../components/SalesLineImportButton';
 import { SalesOcrButton } from '../components/SalesOcrButton';
 import { OcrNotes } from '../../ai/components/OcrHints';
+import { DATE_INPUT_FORMAT } from '../../../shared/dateInput';
 
 interface TermForm {
   percent?: number;
@@ -206,7 +207,7 @@ export function SalesOrdersPage() {
         : {
             branchId: branches.defaultId,
             documentDate: dayjs(),
-            lines: [{ quantity: 1 }],
+            lines: [{ quantity: 1, unitPrice: 0 }],
             paymentTerms: [],
           };
 
@@ -610,7 +611,7 @@ function OrderFields({
         </Col>
         <Col xs={12} md={4}>
           <Form.Item name="documentDate" label="Ngày đơn" rules={[{ required: true, message: 'Chọn ngày' }]}>
-            <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} />
+            <DatePicker format={DATE_INPUT_FORMAT} style={{ width: '100%' }} />
           </Form.Item>
         </Col>
         <Col xs={12} md={4}>
@@ -619,7 +620,7 @@ function OrderFields({
             label="Ngày hạch toán"
             tooltip="Ngày xuất kho, ghi doanh thu; trống: ngày đơn"
           >
-            <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} />
+            <DatePicker format={DATE_INPUT_FORMAT} style={{ width: '100%' }} />
           </Form.Item>
         </Col>
         <Col xs={12} md={3}>
@@ -629,7 +630,7 @@ function OrderFields({
         </Col>
         <Col xs={12} md={4}>
           <Form.Item name="expectedDate" label="Giao dự kiến">
-            <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} />
+            <DatePicker format={DATE_INPUT_FORMAT} style={{ width: '100%' }} />
           </Form.Item>
         </Col>
         <Col xs={12} md={4}>

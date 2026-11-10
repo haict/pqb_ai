@@ -31,6 +31,7 @@ import { formatDate, formatNumber, statusLabel } from '../labels';
 import { DocumentStatusTag } from '../components/StatusTags';
 import type { Lot, Recall, RecallCustomer, RecallStatus, Serial } from '../types';
 import { BRANCH_VISIBLE } from '../../../shared/branch';
+import { DATE_INPUT_FORMAT } from '../../../shared/dateInput';
 
 const STATUSES: RecallStatus[] = ['DRAFT', 'ACTIVE', 'CLOSED', 'CANCELLED'];
 
@@ -136,7 +137,7 @@ function RecallFormFields({ companyId }: { companyId: number }) {
         <Select options={branches.options} />
       </Form.Item>
       <Form.Item name="recallDate" label="Ngày thu hồi" rules={[{ required: true }]}>
-        <DatePicker format="DD/MM/YYYY" />
+        <DatePicker format={DATE_INPUT_FORMAT} />
       </Form.Item>
       <Form.Item name="productId" label="Hàng hóa" rules={[{ required: true, message: 'Chọn hàng' }]}>
         <ProductSelect />

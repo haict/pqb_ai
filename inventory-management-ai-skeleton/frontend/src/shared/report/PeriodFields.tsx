@@ -1,6 +1,7 @@
 import { Col, DatePicker, Form, Select } from 'antd';
 import dayjs from 'dayjs';
 import { PERIOD_PRESETS, periodRange, type PeriodPreset, type PeriodValues } from '../reportPeriod';
+import { DATE_INPUT_FORMAT } from '../dateInput';
 
 /** Hai ô "Kỳ báo cáo" và "Từ ngày - Đến ngày" (như màn hình tham số hiện trạng); chọn ngày tay chuyển sang Tùy chọn. */
 export function PeriodFields() {
@@ -27,7 +28,7 @@ export function PeriodFields() {
           rules={[{ required: true, message: 'Chọn khoảng ngày' }]}
         >
           <DatePicker.RangePicker
-            format="DD/MM/YYYY"
+            format={DATE_INPUT_FORMAT}
             allowClear={false}
             style={{ width: '100%' }}
             onChange={() => form.setFieldValue('preset', 'CUSTOM')}

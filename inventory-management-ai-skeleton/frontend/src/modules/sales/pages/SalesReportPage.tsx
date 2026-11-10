@@ -21,6 +21,7 @@ import { salesReportApi } from '../api';
 import { GROUPINGS, RETURN_TYPES } from '../labels';
 import type { SalesReportGrouping, SalesReturnType, SalesSourceDocument, SalesSummaryRow } from '../types';
 import { BRANCH_VISIBLE } from '../../../shared/branch';
+import { DATE_INPUT_FORMAT } from '../../../shared/dateInput';
 
 const SOURCE_LABELS: Record<string, string> = { DBH: 'Đơn bán', ...RETURN_TYPES };
 
@@ -107,7 +108,7 @@ export function SalesReportPage() {
           />
         )}
         <DatePicker.RangePicker
-          format="DD/MM/YYYY"
+          format={DATE_INPUT_FORMAT}
           value={range}
           allowClear={false}
           onChange={(value) => value && value[0] && value[1] && setRange([value[0], value[1]])}

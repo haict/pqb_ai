@@ -29,6 +29,8 @@ import { DecimalInput } from '../../../shared/components/DecimalInput';
 import { LineGrid, LineGridRow } from '../../../shared/components/LineGrid';
 import { lineCellStyle, type LineGridColumn } from '../../../shared/components/lineGridStyles';
 import { OcrLineHints } from '../../ai/components/OcrHints';
+import { useFinancialPosting } from '../../../shared/ui/postingMode';
+import { DATE_INPUT_FORMAT } from '../../../shared/dateInput';
 
 /**
  * Danh sách dòng đơn bán trong form (tên trường {@code lines}): giá, chiết khấu, thuế, lô / serial chỉ định. F8 trên
@@ -52,7 +54,7 @@ export function SalesLinesEditor<T extends { lines?: SalesLineForm[]; customerId
         <LineGrid
           columns={columns}
           minWidth={withExpectedDate ? 1830 : 1700}
-          onAdd={() => add({ quantity: 1 })}
+          onAdd={() => add({ quantity: 1, unitPrice: 0 })}
           actions={actions}
         >
           {fields.map((field) => (
@@ -120,6 +122,7 @@ function SalesLineFields({
 }) {
   const { message } = App.useApp();
   const taxRates = useTaxRates();
+  const financial = useFinancialPosting();
   const productId = Form.useWatch(['lines', name, 'productId'], form) as number | undefined;
   const hint = Form.useWatch(['lines', name, 'priceHint'], form) as string | undefined;
   const receiptNo = Form.useWatch(['lines', name, 'receiptNo'], form) as string | undefined;
@@ -179,10 +182,8 @@ function SalesLineFields({
         unitId: line.unitId,
         quantity: line.quantity,
       });
-      if (
-        price.unitPrice !== null &&
-        (overwrite || line.unitPrice === undefined || line.unitPrice === null)
-      ) {
+      // D-73: chế độ chỉ quản lý kho không lấy giá bảng giá, đơn giá trống = 0.
+      if (financial && price.unitPrice !== null && (overwrite || !line.unitPrice)) {
         form.setFieldValue(['lines', name, 'unitPrice'], price.unitPrice);
       }
       if (price.defaultDiscountPercent !== null && line.discountPercent === undefined) {
@@ -199,7 +200,7 @@ function SalesLineFields({
           : 'Chưa có bảng giá',
         price.floorPrice !== null ? `giá sàn ${formatMoney(price.floorPrice)}` : null,
       ].filter(Boolean);
-      form.setFieldValue(['lines', name, 'priceHint'], parts.join(', '));
+      form.setFieldValue(['lines', name, 'priceHint'], financial ? parts.join(', ') : undefined);
     } catch {
       form.setFieldValue(['lines', name, 'priceHint'], undefined);
     }
@@ -275,7 +276,7 @@ function SalesLineFields({
             clearReceipt();
             if (product) {
               form.setFieldValue(['lines', name, 'unitId'], product.baseUnitId);
-              form.setFieldValue(['lines', name, 'unitPrice'], undefined);
+              form.setFieldValue(['lines', name, 'unitPrice'], 0);
               form.setFieldValue(['lines', name, 'taxRateId'], product.defaultTaxRateId ?? undefined);
               void suggest(true);
             }
@@ -297,7 +298,7 @@ function SalesLineFields({
         <DecimalInput min={0.001} onBlur={() => void suggest(false)} />
       </Form.Item>
       <Form.Item name={[name, 'unitPrice']} style={lineCellStyle}>
-        <InputNumber<number> min={0} placeholder="Theo bảng giá" {...moneyInputProps} />
+        <InputNumber<number> min={0} placeholder={financial ? 'Theo bảng giá' : '0'} {...moneyInputProps} />
       </Form.Item>
       <Form.Item name={[name, 'discountPercent']} style={lineCellStyle}>
         <DecimalInput min={0} max={100} fractionDigits={2} />
@@ -314,7 +315,7 @@ function SalesLineFields({
       </Form.Item>
       {withExpectedDate && (
         <Form.Item name={[name, 'expectedDate']} style={lineCellStyle}>
-          <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} />
+          <DatePicker format={DATE_INPUT_FORMAT} style={{ width: '100%' }} />
         </Form.Item>
       )}
       <Form.Item name={[name, 'lotNo']} style={lineCellStyle}>

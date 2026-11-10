@@ -26,6 +26,7 @@ import { IssuedOrdersModal, type IssuedOrdersTarget } from '../components/Issued
 import { TRANSACTION_TYPES, formatDate, formatNumber } from '../labels';
 import { ItemConditionTag, QualityTag } from '../components/StatusTags';
 import type { InventoryTransaction, ItemCondition, StockAlert, StockBalance, StockSummary } from '../types';
+import { DATE_INPUT_FORMAT } from '../../../shared/dateInput';
 
 interface Filters {
   warehouseId?: number;
@@ -134,7 +135,7 @@ function SummaryTab({ filters }: { filters: Filters }) {
         <Space style={{ marginBottom: 12 }}>
           <Typography.Text>Kỳ xuất bán (theo ngày hạch toán):</Typography.Text>
           <DatePicker.RangePicker
-            format="DD/MM/YYYY"
+            format={DATE_INPUT_FORMAT}
             allowClear={false}
             value={period}
             onChange={(range) => {
@@ -271,7 +272,7 @@ function LedgerTab({ filters }: { filters: Filters }) {
   return (
     <>
       <DatePicker.RangePicker
-        format="DD/MM/YYYY"
+        format={DATE_INPUT_FORMAT}
         value={range}
         onChange={setRange}
         style={{ marginBottom: 12 }}

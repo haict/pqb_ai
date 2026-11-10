@@ -668,6 +668,37 @@ erDiagram
 - Gửi lại cùng `Idempotency-Key`: key lưu ở `idempotency_records` trỏ tới câu hỏi đã lưu, không tạo câu hỏi trùng (AT-13).
 - Chưa lưu tên công cụ tra cứu (`tool_names` trong docs/14 mục 7): thêm bằng migration mới ở AI-4.
 
+### 4.26 `sys_ui_features`, `sys_app_settings` (V43, D-72, module `system`)
+Tùy biến giao diện theo khách hàng. **Chỉ sửa bằng SQL** tại khách; ứng dụng chỉ đọc (entity `@Immutable`), không audit qua ứng dụng.
+
+`sys_ui_features`
+
+| Cột | Kiểu | Ghi chú |
+|---|---|---|
+| `feature_key` | VARCHAR(150) PK | `group:<nhóm menu>` (`group:sales`), `menu:<đường dẫn>` (`menu:/sales/orders`), `action:<mã nút>` (`action:excel-import`) |
+| `feature_type` | VARCHAR(20) | `MENU_GROUP` / `MENU_ITEM` / `ACTION` (CHECK) |
+| `module`, `name` | VARCHAR(30), VARCHAR(200) | Mô tả cho người sửa DB |
+| `enabled` | BOOLEAN, mặc định TRUE | FALSE = ẩn. Khóa không có dòng = bật |
+| `custom_label` | VARCHAR(150) NULL | Tên thay thế cho nhóm / mục menu; NULL hoặc trống = tên mặc định. Không áp dụng cho nút |
+| `sort_order` | INT | Thứ tự liệt kê (không đổi thứ tự menu) |
+| `updated_at` | DATETIME(3) | Tự cập nhật khi sửa |
+
+Khóa `posting.mode` (V44, D-73): `FULL` / `INVENTORY_ONLY`, xem docs/08 mục 4.3.
+
+Migration nạp sẵn mọi nhóm / mục menu ẩn được và 5 nút (`action:ai-assistant`, `action:purchase-order.ocr`, `action:sales-order.ocr`, `action:excel-import`, `action:excel-export`), tất cả `enabled = TRUE`.
+
+`sys_app_settings`
+
+| Cột | Kiểu | Ghi chú |
+|---|---|---|
+| `setting_key` | VARCHAR(80) PK | `branding.app-name`, `branding.logo-file` |
+| `setting_value` | VARCHAR(500) NULL | NULL / trống = mặc định của ứng dụng. Tên ứng dụng tối đa 150 ký tự (dài hơn bị cắt). Logo: chỉ tên file trong `erp.branding.directory`, không đường dẫn |
+| `description` | VARCHAR(500) | |
+| `updated_at` | DATETIME(3) | |
+
+### 4.27 `financial_posted` trên `purchase_orders`, `sales_orders` (V44, D-73)
+BOOLEAN NOT NULL, mặc định TRUE (dữ liệu trước D-73). Lần ghi sổ hiện hành của đơn có ghi công nợ + bút toán hay không (theo `posting.mode` lúc ghi sổ). Bỏ ghi sổ, đảo, trả hàng / giảm giá theo đơn chỉ gỡ / ghi công nợ, bút toán khi cờ này TRUE.
+
 ## 5. Index chính
 | Truy vấn | Index |
 |---|---|

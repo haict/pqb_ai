@@ -85,6 +85,55 @@ Múi giờ nghiệp vụ `erp.calendar.time-zone` (mặc định `Asia/Ho_Chi_Mi
 | `TAX_CODE_LOOKUP_API_KEY` / `erp.tax-code-lookup.api-key` | `api-key` đi cùng `client-id` (secret, không commit); trống thì không gửi header | trống |
 | `erp.tax-code-lookup.connect-timeout`, `erp.tax-code-lookup.read-timeout` | Chờ kết nối; chờ phản hồi | `3s`, `8s` |
 
+### 4.2 Tùy biến giao diện theo khách hàng (D-72)
+| Biến môi trường / khóa | Ý nghĩa | Mặc định |
+|---|---|---|
+| `ERP_BRANDING_DIR` / `erp.branding.directory` | Thư mục chứa file logo trên máy chủ (ngoài thư mục web, tài khoản chạy Tomcat đọc được) | `~/.erp/branding` |
+| `erp.branding.logo-max-size` | Logo lớn hơn bị bỏ qua (dùng logo mặc định, ghi WARN) | `512KB` |
+
+Cấu hình bằng SQL trên database của khách (không có màn hình). Người dùng tải lại trang (F5) để thấy thay đổi.
+
+```sql
+-- Xem danh sách khóa có thể ẩn / đổi tên
+SELECT feature_key, name, enabled, custom_label FROM sys_ui_features ORDER BY sort_order;
+
+-- Ẩn cả nhóm menu Kế toán; ẩn một mục; đổi tên một mục
+UPDATE sys_ui_features SET enabled = FALSE WHERE feature_key = 'group:accounting';
+UPDATE sys_ui_features SET enabled = FALSE WHERE feature_key = 'menu:/inventory/recalls';
+UPDATE sys_ui_features SET custom_label = 'Phiếu đặt hàng' WHERE feature_key = 'menu:/sales/orders';
+
+-- Ẩn nút Nhập từ Excel ở mọi màn hình
+UPDATE sys_ui_features SET enabled = FALSE WHERE feature_key = 'action:excel-import';
+
+-- Tên ứng dụng và logo (file đặt sẵn trong ERP_BRANDING_DIR, ví dụ ~/.erp/branding/logo.png)
+UPDATE sys_app_settings SET setting_value = 'Công ty ABC' WHERE setting_key = 'branding.app-name';
+UPDATE sys_app_settings SET setting_value = 'logo.png' WHERE setting_key = 'branding.logo-file';
+
+-- Trả về mặc định
+UPDATE sys_ui_features SET enabled = TRUE, custom_label = NULL;
+UPDATE sys_app_settings SET setting_value = NULL;
+```
+
+- Ẩn **chỉ trên giao diện**: người có quyền vẫn gọi được API. Muốn chặn hẳn thì bỏ quyền ở màn hình Vai trò.
+- Không ẩn được nhóm Quản trị hệ thống và màn hình Công ty, Chi nhánh, Người dùng, Vai trò, Bản quyền (frontend bỏ qua dòng tương ứng nếu có).
+- Logo: PNG, JPEG hoặc WebP (kiểm tra chữ ký file, không nhận SVG); tên file chỉ gồm chữ không dấu, số, `. _ -`. File sai, thiếu, quá dung lượng: dùng logo mặc định, ghi WARN vào log backend.
+- Màn hình / menu thêm sau D-72 không có dòng trong bảng vẫn hiện; muốn ẩn thì `INSERT` dòng với khóa `menu:<đường dẫn>`.
+
+### 4.3 Chế độ hạch toán (D-73)
+Khách không dùng công nợ, kế toán, thu chi: đặt bằng SQL trên database của khách, có hiệu lực từ lần ghi sổ kế tiếp (người dùng F5 để giao diện ẩn menu).
+
+```sql
+UPDATE inventory_db.sys_app_settings SET setting_value = 'INVENTORY_ONLY' WHERE setting_key = 'posting.mode';
+-- Quay lại đầy đủ
+UPDATE inventory_db.sys_app_settings SET setting_value = 'FULL' WHERE setting_key = 'posting.mode';
+```
+
+- `INVENTORY_ONLY`: ghi sổ đơn mua / đơn bán chỉ nhập / xuất kho; đơn giá trống = 0; không kiểm tra giá sàn, hạn mức tín dụng; menu Công nợ quỹ, Kế toán và báo cáo theo tiền tự ẩn.
+- Giá trị sai hoặc trống: hệ thống dùng `FULL` và ghi WARN.
+- Đơn đã ghi sổ giữ nguyên phạm vi lúc ghi (cột `financial_posted`); bỏ ghi sổ / đảo sau khi đổi chế độ vẫn gỡ đúng.
+- Chuyển `INVENTORY_ONLY` → `FULL`: nhập công nợ tồn qua màn hình Công nợ đầu kỳ; hàng đã nhập giá 0 có giá vốn 0.
+- Đổi tên schema `inventory_db` theo cấu hình của khách.
+
 ## 5. Thiết lập máy phát triển
 ### 5.1 MySQL local
 Chạy bằng tài khoản quản trị MySQL (một lần):

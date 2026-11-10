@@ -10,7 +10,8 @@ import { useAuth, useCan } from '../../shared/auth/authContext';
 import { ServerStatusBadge } from '../../shared/components/ServerStatusBadge';
 import { DashboardPanel } from '../../modules/reporting/components/DashboardPanel';
 import { GROUP_ICONS, ITEM_ICONS } from '../navIcons';
-import { visibleNavGroups } from '../navigation';
+import { isPathHidden, menuFeatureKey, visibleNavGroups } from '../navigation';
+import { useUiFeatures } from '../../shared/ui/uiFeatures';
 import { BRAND } from '../theme';
 
 /**
@@ -21,7 +22,8 @@ export function HomePage() {
   const { user } = useAuth();
   const can = useCan();
   const navigate = useNavigate();
-  const groups = visibleNavGroups(can);
+  const features = useUiFeatures();
+  const groups = visibleNavGroups(can, features);
   // Lối tắt trên banner: chỉ hiện chức năng người dùng có quyền xem.
   const shortcuts = [
     {
@@ -42,7 +44,12 @@ export function HomePage() {
       icon: <ShoppingOutlined />,
       permission: 'purchase-order:view',
     },
-  ].filter((shortcut) => can(shortcut.permission));
+  ]
+    .filter((shortcut) => can(shortcut.permission) && !isPathHidden(shortcut.path, features))
+    .map((shortcut) => ({
+      ...shortcut,
+      label: features.label(menuFeatureKey(shortcut.path), shortcut.label),
+    }));
   return (
     <>
       <Card

@@ -47,9 +47,11 @@ public class InventoryReservationService {
     private final StockLedgerJdbc ledger;
     private final BusinessCalendar calendar;
     private final Clock clock;
+    private final StockItemLabels labels;
 
     public InventoryReservationService(InventoryReservationRepository reservationRepository, StockLedgerJdbc ledger,
-                                       BusinessCalendar calendar, Clock clock) {
+                                       BusinessCalendar calendar, Clock clock, StockItemLabels labels) {
+        this.labels = labels;
         this.reservationRepository = reservationRepository;
         this.ledger = ledger;
         this.calendar = calendar;
@@ -208,8 +210,8 @@ public class InventoryReservationService {
         BigDecimal available = ledger.sellableQuantity(productId, warehouseId, calendar.today())
                 .subtract(summary.reserved());
         if (quantity.compareTo(available) > 0) {
-            throw new BusinessException(ErrorCode.INSUFFICIENT_STOCK, "Tồn khả dụng của hàng #" + productId
-                    + " không đủ để giữ chỗ (khả dụng " + available.max(BigDecimal.ZERO).stripTrailingZeros()
+            throw new BusinessException(ErrorCode.INSUFFICIENT_STOCK, "Tồn khả dụng của hàng "
+                    + labels.product(productId) + " tại kho " + labels.warehouse(warehouseId) + " không đủ để giữ chỗ (khả dụng " + available.max(BigDecimal.ZERO).stripTrailingZeros()
                     .toPlainString() + ", cần " + quantity.stripTrailingZeros().toPlainString() + ").");
         }
     }

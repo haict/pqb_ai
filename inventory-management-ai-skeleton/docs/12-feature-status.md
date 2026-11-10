@@ -335,6 +335,19 @@ Hạn chế: chưa có test bỏ ghi sổ khi kỳ gốc đã khóa (dùng chung
 
 Hạn chế: nút "Xóa" vẫn hiện trên đơn nháp đã từng ghi sổ (response chưa có `everPosted`); server chặn 409 và hiện lý do. Tài liệu hướng dẫn `13-huong-dan-su-dung.docx` còn mô tả "Hủy đơn": trợ lý AI có thể trả lời theo cách cũ cho đến khi cập nhật tài liệu và lập chỉ mục lại.
 
+## D-73 - Chế độ chỉ quản lý kho (2026-11-06, V44)
+| Hạng mục | Mã | Trạng thái | Test chứng minh | Hạn chế đã biết |
+|---|---|---|---|---|
+| `posting.mode` + `PostingModeService`, `GET /posting-mode`; ghi sổ đơn mua / đơn bán chỉ kho; `financial_posted`; bỏ ghi sổ / đảo / trả hàng theo cờ; đơn giá trống = 0; bỏ kiểm tra giá, tín dụng; phân bổ chi phí 422 | D-73 | Hoàn thành | `SalesInventoryOnlyIntegrationTest` (2 test: chỉ kho, đổi chế độ giữa chừng), `PurchaseInventoryOnlyIntegrationTest` (1 test) | Chưa có test tự động cho trả hàng / giảm giá và phân bổ chi phí ở `INVENTORY_ONLY`; không chặn API công nợ / kế toán / thu chi (theo yêu cầu, chỉ ẩn menu); chưa có đánh giá lại giá trị tồn khi chuyển sang `FULL` |
+| Frontend: tự ẩn menu tài chính, chỉ tiêu tiền trên dashboard; nhập - xuất - tồn chỉ số lượng; đơn giá không bắt buộc, không lấy bảng giá | D-73 | Hoàn thành, chưa thử trên trình duyệt | `postingMode.test.ts` (2), `inventoryReports.test.ts` (1 test D-73) | Màn hình chứng từ kho vẫn hiện đơn giá vốn (0) |
+
+## D-72 - Tùy biến giao diện theo khách hàng (2026-11-06, V43)
+| Hạng mục | Mã | Trạng thái | Test chứng minh | Hạn chế đã biết |
+|---|---|---|---|---|
+| Bảng `sys_ui_features`, `sys_app_settings` (mặc định bật hết, sửa bằng SQL); `GET /ui-features`; `GET /public/branding`, `/public/branding/logo` | D-72 | Hoàn thành | `UiCustomizationIntegrationTest` (4 test), `UiCustomizationServiceTest` (5 test: kiểu ảnh thật, quá dung lượng, chặn đường dẫn) | Không có màn hình quản trị (theo yêu cầu); không audit thay đổi vì sửa trực tiếp DB |
+| Menu, trang chủ, trang theo đường dẫn: ẩn / đổi tên theo cấu hình; nút Trợ lý, Nhận dạng chứng từ, Nhập từ Excel (7 màn hình), lựa chọn Excel trong Tải về và Xuất Excel tồn đầu kỳ | D-72 | Hoàn thành, chưa thử trên trình duyệt | `navigation.test.ts` (4 test D-72), `UiAction.test.tsx` (2), `branding.test.ts` (2) | Ẩn chỉ trên giao diện, API vẫn theo quyền. Tên đổi áp dụng cho menu, tiêu đề trang, lối tắt trang chủ; nhãn nút giữ nguyên. Chưa có test tự động kiểm tra migration khai báo đủ mục menu (thêm menu mới phải nhớ thêm dòng, nếu không mục đó luôn hiện) |
+| Tên, logo theo khách hàng (đăng nhập, menu bên, tiêu đề tab) | D-72 | Hoàn thành, chưa thử trên trình duyệt | `UiCustomizationServiceTest`, `branding.test.ts` | Không đổi màu giao diện; câu "ERP Thiết bị - Vật tư y tế" trên trang đăng nhập giữ nguyên |
+
 ## D-70 - Máy mới / máy cũ (2026-11-02)
 | Chức năng | Mã | Trạng thái | Test | Ghi chú |
 |---|---|---|---|---|
@@ -394,6 +407,14 @@ Hạn chế: Xinvoice không trả số điện thoại. Tài liệu Xinvoice gh
 | `POST /ocr/recognitions` thêm `documentType=SALES_ORDER`: quyền form đích theo loại chứng từ (`sales-order:create`); khách hàng theo MST đúng vai trò `CUSTOMER`; hàng, ĐVT, thuế, kiểm tra số học dùng chung với đơn mua (`OcrDocumentMapper`); số PO của khách vào diễn giải; địa chỉ giao chỉ để đối chiếu | BR-AI-04..07, AT-10 | Hoàn thành | `OcrRecognitionIntegrationTest.recognizesCustomerOrder`, `requiresTargetFormPermission`; `OcrCatalogMatcherTest.customerByTaxCode` | Không thêm migration (V39 đã gán `ocr:use` cho vai trò lập đơn bán) |
 | Chứng từ không in MST: đối tác (nhà cung cấp / khách) chỉ trả ứng viên theo tên, không tự gán (docs/14 mục 4.6; trước đây trả `UNKNOWN`) | BR-AI-06 | Hoàn thành | `OcrCatalogMatcherTest.partnerWithoutTaxCodeOnlyCandidates`; thử tay SO04 | Thêm API đọc `CatalogMatchingQueryService.activePartnersWithRole` (masterdata) |
 | Frontend: nút "Nhận dạng chứng từ" cạnh "Nhập dòng từ Excel" trên form đơn bán; chỉ điền ô trống (khách, ngày, diễn giải), nối dòng hàng, cảnh báo theo dòng; địa chỉ giao chỉ ghi chú; phần điền chung chuyển sang `modules/ai` (`ocrFill.ts`, `OcrHints.tsx`) | BR-AI-04, BR-AI-09, BR-UI-09 | Hoàn thành, chưa thử trên trình duyệt | `salesOcrFill.test.ts` (3); thử tay API với AI Service thật: SO01–SO04 khớp đáp án bộ giả lập | |
+
+## OCR phiếu xuất kho của nhà cung cấp trên form đơn mua (2026-11-09, người dùng chốt)
+| Chức năng | Mã | Trạng thái | Test | Ghi chú |
+|---|---|---|---|---|
+| AI Service: loại `PURCHASE_DELIVERY_NOTE`; NCC là dòng "Công ty ..." đầu trang (không dùng MST người mua in trên phiếu); ngày phiếu tìm sau tiêu đề (bỏ ngày ban hành mẫu theo Thông tư); số phiếu có / không có nhãn "Số:"; bảng có hoặc không có cột STT; bỏ cột "Đơn giá sau thuế", "SL quy đổi", "Từ"; đọc cột số lô, hạn dùng in sẵn; mã hàng trong ngoặc vuông đầu tên; chữ viết tay trong cột số không vào tên hàng; số "4.800.00" hiểu là 4800,00 | BR-AI-05, BR-AI-07 | Hoàn thành | pytest `test_delivery_note.py` (3, token OCR thật của 3 phiếu đã ẩn danh), `test_normalize.py`; toàn bộ 95 đạt, 3 bỏ qua (cần model thật) | Ảnh gốc của khách chỉ lưu ngoài repo (`~/.erp/ai-samples/delivery-notes`) |
+| Backend: `OcrDocumentType.PURCHASE_DELIVERY_NOTE` (quyền `purchase-order:create`); NCC theo tên khớp chính xác duy nhất thì gán, luôn `reviewRequired` (chỉ loại chứng từ này); số phiếu vào diễn giải, không điền số hóa đơn; dòng có `lotNo`, `expiryDate` (thêm trường, tương thích ngược) | BR-AI-04, BR-AI-06 | Hoàn thành | `OcrRecognitionIntegrationTest.recognizesSupplierDeliveryNote` (chạy với `AI_ENABLED=true`, xem hạn chế) | `application-test.yml` đang để `ai.enabled: false` (commit `eaf90af`): mọi test OCR / trợ lý trả 503 nếu không bật lại |
+| Triển khai OCR trên máy khách Windows (chỉ OCR, không Ollama): `docs/10-deployment.md` mục 5 (cài ngoại tuyến, cấu hình, kiểm tra, xử lý sự cố); `ai-service/deploy/windows/install-ai-service-task.ps1` + `run-ai-service.cmd` (Task Scheduler, `[Đề xuất]` thay công cụ dịch vụ ngoài) | D-64 | Đang làm | Đã chạy `run-ai-service.cmd` trên máy dev (OCR sẵn sàng, ghi log); chưa thử đăng ký Task Scheduler, tài khoản LOCALSERVICE, cài trên máy sạch | docs/10 mục 1–4 (WAR, frontend, Tomcat, Flyway) chưa viết |
+| Frontend: lựa chọn "Phiếu xuất kho / giao hàng của nhà cung cấp"; ghi chú khi NCC gán theo tên; điền số lô, hạn dùng; dòng hàng không quản lý lô tự bỏ lô / hạn dùng (áp dụng cả nhập Excel) | BR-AI-06, BR-INV-01 | Hoàn thành, chưa thử trên trình duyệt | `purchaseOcrFill.test.ts` | Mã hàng NCC thường khác mã ERP: dòng hàng phần lớn chỉ có ứng viên theo tên |
 
 ## AI-3 - Trợ lý hỏi đáp cách dùng ERP (L1, 2026-10-28, D-64, V40)
 | Chức năng | Mã | Trạng thái | Test | Ghi chú |

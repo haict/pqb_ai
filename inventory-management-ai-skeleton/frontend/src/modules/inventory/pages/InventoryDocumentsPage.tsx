@@ -30,6 +30,8 @@ import type {
   OpeningStockImportResult,
 } from '../types';
 import { ImportModal } from '../../masterdata/components/ImportModal';
+import { UiAction } from '../../../shared/ui/UiAction';
+import { DATE_INPUT_FORMAT } from '../../../shared/dateInput';
 
 /**
  * Danh sách chứng từ kho, lọc ở server; lập chứng từ mới theo loại người dùng có quyền.
@@ -146,11 +148,13 @@ export function InventoryDocumentsPage({ opening = false }: { opening?: boolean 
               onChange={setWarehouseId}
               options={warehouses.options}
             />
-            <DatePicker.RangePicker format="DD/MM/YYYY" value={range} onChange={setRange} />
+            <DatePicker.RangePicker format={DATE_INPUT_FORMAT} value={range} onChange={setRange} />
             {opening && creatable.length > 0 && (
-              <Button icon={<UploadOutlined />} onClick={() => setImporting(true)}>
-                Nhập Excel
-              </Button>
+              <UiAction id="excel-import">
+                <Button icon={<UploadOutlined />} onClick={() => setImporting(true)}>
+                  Nhập Excel
+                </Button>
+              </UiAction>
             )}
           </>
         }
@@ -165,7 +169,7 @@ export function InventoryDocumentsPage({ opening = false }: { opening?: boolean 
           documentType: creatable[0],
           subType: opening ? OPENING_SUB_TYPE : undefined,
           documentDate: dayjs(),
-          lines: [{}] as never,
+          lines: [{ unitCost: 0 }] as never,
         }}
         fieldNames={DOCUMENT_FIELDS}
         onSubmit={create}
@@ -193,7 +197,7 @@ export function InventoryDocumentsPage({ opening = false }: { opening?: boolean 
             style={{ marginBottom: 0 }}
           >
             <DatePicker
-              format="DD/MM/YYYY"
+              format={DATE_INPUT_FORMAT}
               allowClear={false}
               value={importDate}
               onChange={(value) => value && setImportDate(value)}

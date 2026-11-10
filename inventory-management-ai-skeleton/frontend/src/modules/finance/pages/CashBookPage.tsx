@@ -23,6 +23,7 @@ import { CASH_ACCOUNT_TYPES, CASH_PURPOSES } from '../labels';
 import { useCashAccounts } from '../lookups';
 import type { CashAccountType, CashBookLine, CashFlowAccountRow, CashPurpose } from '../types';
 import { whenBranchVisible } from '../../../shared/branch';
+import { DATE_INPUT_FORMAT } from '../../../shared/dateInput';
 
 type Range = [Dayjs, Dayjs];
 
@@ -93,7 +94,7 @@ function CashBookTab() {
           options={cashAccounts.options}
         />
         <DatePicker.RangePicker
-          format="DD/MM/YYYY"
+          format={DATE_INPUT_FORMAT}
           allowClear={false}
           value={range}
           onChange={(value) => value?.[0] && value[1] && setRange([value[0], value[1]])}
@@ -178,7 +179,7 @@ function CashFlowTab() {
           options={branches.options}
         />
         <DatePicker.RangePicker
-          format="DD/MM/YYYY"
+          format={DATE_INPUT_FORMAT}
           allowClear={false}
           value={range}
           onChange={(value) => value?.[0] && value[1] && setRange([value[0], value[1]])}

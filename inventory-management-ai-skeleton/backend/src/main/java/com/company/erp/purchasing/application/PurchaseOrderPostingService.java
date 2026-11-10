@@ -25,6 +25,7 @@ import com.company.erp.purchasing.domain.PurchaseOrder;
 import com.company.erp.purchasing.domain.PurchaseOrderLine;
 import com.company.erp.system.application.CurrentUser;
 import com.company.erp.system.application.ParameterService;
+import com.company.erp.system.application.PostingModeService;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
@@ -66,6 +67,7 @@ public class PurchaseOrderPostingService {
     private final DebtPostingService debtPosting;
     private final JournalPostingService journalPosting;
     private final ParameterService parameters;
+    private final PostingModeService postingMode;
     private final BusinessCalendar calendar;
     private final Clock clock;
 
@@ -73,7 +75,9 @@ public class PurchaseOrderPostingService {
     public PurchaseOrderPostingService(PurchaseOrderService orders, PurchaseOrderEffects effects,
                                        PurchaseDocumentFlow flow, PurchasingAccess access, StockInService stockIn,
                                        DebtPostingService debtPosting, JournalPostingService journalPosting,
-                                       ParameterService parameters, BusinessCalendar calendar, Clock clock) {
+                                       ParameterService parameters, PostingModeService postingMode,
+                                       BusinessCalendar calendar, Clock clock) {
+        this.postingMode = postingMode;
         this.orders = orders;
         this.effects = effects;
         this.flow = flow;
@@ -104,7 +108,9 @@ public class PurchaseOrderPostingService {
                     if (hadIncoming) {
                         effects.released(order);
                     }
-                    if (order.getTotalAmount().signum() > 0) {
+                    // D-73: chế độ chỉ quản lý kho không ghi công nợ, bút toán.
+                    boolean financial = postingMode.financialPostingEnabled();
+                    if (financial && order.getTotalAmount().signum() > 0) {
                         debtPosting.recordInvoice(new InvoiceDebtCommand(order.getCompanyId(), order.getBranchId(),
                                 InvoiceSide.PAYABLE, order.getSupplierId(), PurchaseOrder.TYPE_CODE, order.getId(),
                                 order.getDocumentNo(), order.invoiceLabel(),
@@ -115,7 +121,7 @@ public class PurchaseOrderPostingService {
                                 order.getPostingDate(), PurchaseOrder.TYPE_CODE, order.getId(),
                                 order.getDocumentNo(), description(order), actor.id(), journalLines(order)));
                     }
-                    order.markPosted(inventoryId, actor.id(), Instant.now(clock));
+                    order.markPosted(inventoryId, financial, actor.id(), Instant.now(clock));
                     log.info("Ghi sổ đơn mua {} ({})", order.getDocumentNo(), order.invoiceLabel());
                     return flow.act(actor, order, "POST", authorityNote, orders.spec());
                 });
@@ -177,13 +183,16 @@ public class PurchaseOrderPostingService {
                 });
     }
 
-    /** Dòng ngược cho phiếu nhập kho, công nợ, bút toán của lần ghi sổ hiện hành (BR-GEN-21). */
+    /**
+     * Dòng ngược cho phiếu nhập kho, công nợ, bút toán của lần ghi sổ hiện hành (BR-GEN-21); công nợ, bút toán chỉ khi
+     * lần ghi sổ đó có ghi (D-73), không theo chế độ hiện tại.
+     */
     private void undoLedgers(CurrentUser actor, PurchaseOrder order, Long inventoryId, LocalDate date, String action,
                              String reason) {
         if (inventoryId != null) {
             stockIn.reverse(actor, inventoryId, date, reason);
         }
-        if (order.getTotalAmount().signum() > 0) {
+        if (order.isFinancialPosted() && order.getTotalAmount().signum() > 0) {
             debtPosting.reverse(new DebtReversalCommand(order.getCompanyId(), order.getBranchId(),
                     PurchaseOrder.TYPE_CODE, order.getId(), date, order.getDocumentNo(), actor.id()));
             journalPosting.reverse(new ReversalRequest(order.getCompanyId(), PurchaseOrder.TYPE_CODE,

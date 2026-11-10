@@ -3,6 +3,8 @@ import { App, Button, Form, Tooltip, type FormInstance } from 'antd';
 import type { Dayjs } from 'dayjs';
 import { useState } from 'react';
 import { useCan } from '../../../shared/auth/authContext';
+import { useUiAction } from '../../../shared/ui/uiFeatures';
+import { useFinancialPosting } from '../../../shared/ui/postingMode';
 import { aiApi, useAiHealth } from '../../ai/api';
 import { OcrRecognizeModal } from '../../ai/components/OcrRecognizeModal';
 import type { OcrLineValues } from '../../ai/ocrFill';
@@ -14,15 +16,18 @@ const DOCUMENT_TYPES = [{ value: 'SALES_ORDER' as const, label: 'Phiếu / đơn
 
 /**
  * Nút "Nhận dạng chứng từ" trên form đơn bán (AI-2, D-64): ẩn khi thiếu quyền ocr:use, sales-order:create hoặc AI
- * không khả dụng (BR-AI-09). Điền ô còn trống, nối dòng hàng sau các dòng đã chọn hàng; không lưu.
+ * không khả dụng (BR-AI-09); tắt được theo cấu hình khách hàng (D-72). Điền ô còn trống, nối dòng hàng sau các dòng đã chọn hàng; không lưu.
  */
 export function SalesOcrButton({ form, onNotes }: { form: FormInstance; onNotes(notes: string[]): void }) {
   const can = useCan();
   const { message } = App.useApp();
   const companyId = useCompanyId();
-  const allowed = can('ocr:use') && can('sales-order:create');
+  const enabled = useUiAction('sales-order.ocr');
+  const allowed = enabled && can('ocr:use') && can('sales-order:create');
   const health = useAiHealth(allowed);
   const [open, setOpen] = useState(false);
+  // D-73: chế độ chỉ quản lý kho không lấy đơn giá trên chứng từ.
+  const financial = useFinancialPosting();
   const branchId = Form.useWatch('branchId', form) as number | undefined;
   const documentDate = Form.useWatch('documentDate', form) as Dayjs | undefined;
   if (!allowed || !health.ocrAvailable) {
@@ -30,7 +35,7 @@ export function SalesOcrButton({ form, onNotes }: { form: FormInstance; onNotes(
   }
 
   const apply = (result: SalesOcrResult) => {
-    const fill = salesOcrFill(form.getFieldsValue(true) as SalesOcrHeaderValues, result);
+    const fill = salesOcrFill(form.getFieldsValue(true) as SalesOcrHeaderValues, result, financial);
     const kept = ((form.getFieldValue('lines') as OcrLineValues[] | undefined) ?? []).filter(
       (line) => line.productId,
     );

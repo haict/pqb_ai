@@ -216,11 +216,23 @@ public class StockLedgerJdbc {
                 key.qualityStatus().name(), quantity, Timestamp.from(now));
     }
 
-    /** Tổng tồn của một serial trên toàn bộ kho (BR-INV-02: một serial không tồn ở hai nơi). */
-    public BigDecimal serialOnHand(Long serialId) {
-        return jdbc.queryForObject(
-                "SELECT COALESCE(SUM(on_hand_quantity), 0) FROM inventory_balances WHERE serial_id = ?",
-                BigDecimal.class, serialId);
+    /** Nơi serial đang tồn và chứng từ nhập gần nhất vào kho đó; chứng từ có thể trống. */
+    public record SerialHolding(Long warehouseId, String referenceType, Long referenceId, String referenceNo) {
+    }
+
+    /** Các nơi một serial đang tồn trên toàn bộ kho (BR-INV-02: một serial không tồn ở hai nơi). */
+    public List<SerialHolding> serialHoldings(Long serialId) {
+        return jdbc.query("""
+                SELECT b.warehouse_id, t.reference_type, t.reference_id, t.reference_no
+                FROM inventory_balances b
+                LEFT JOIN inventory_transactions t ON t.id = (
+                    SELECT t2.id FROM inventory_transactions t2
+                    WHERE t2.serial_id = b.serial_id AND t2.warehouse_id = b.warehouse_id AND t2.direction = 'IN'
+                    ORDER BY t2.posted_at DESC, t2.id DESC LIMIT 1)
+                WHERE b.serial_id = ? AND b.on_hand_quantity > 0
+                ORDER BY b.warehouse_id
+                """, (rs, row) -> new SerialHolding(rs.getLong("warehouse_id"), rs.getString("reference_type"),
+                rs.getObject("reference_id", Long.class), rs.getString("reference_no")), serialId);
     }
 
     /** Khóa ghi các serial theo id tăng dần trước khi đổi tồn của serial. */

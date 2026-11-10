@@ -42,6 +42,7 @@ import type {
   PurchaseDocumentStatus,
 } from '../types';
 import { BranchCol } from '../../../shared/components/BranchCol';
+import { DATE_INPUT_FORMAT } from '../../../shared/dateInput';
 
 interface AllocationForm {
   branchId: number;
@@ -305,12 +306,12 @@ function AllocationFields({
             label="Ngày chứng từ"
             rules={[{ required: true, message: 'Chọn ngày' }]}
           >
-            <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} />
+            <DatePicker format={DATE_INPUT_FORMAT} style={{ width: '100%' }} />
           </Form.Item>
         </Col>
         <Col xs={12} md={5}>
           <Form.Item name="postingDate" label="Ngày hạch toán">
-            <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} />
+            <DatePicker format={DATE_INPUT_FORMAT} style={{ width: '100%' }} />
           </Form.Item>
         </Col>
         <Col xs={24} md={8}>

@@ -1,5 +1,6 @@
 import { BRANCH_VISIBLE } from '../shared/branch';
-import { visibleNavGroups } from './navigation';
+import { toUiFeatures } from '../shared/ui/uiFeatures';
+import { isPathHidden, visibleNavGroups } from './navigation';
 
 describe('visibleNavGroups', () => {
   it('chỉ hiện mục người dùng có quyền xem', () => {
@@ -172,5 +173,57 @@ describe('visibleNavGroups', () => {
       'Tồn so với đặt hàng chưa giao',
     ]);
     expect(labels('cash-forecast:view')).toEqual(['Dòng tiền dự kiến']);
+  });
+
+  describe('cấu hình ẩn / đổi tên theo khách hàng (D-72)', () => {
+    const all = () => true;
+
+    it('ẩn mục menu, đổi tên mục và nhóm', () => {
+      const features = toUiFeatures([
+        { key: 'menu:/sales/returns', enabled: false, customLabel: null },
+        { key: 'menu:/sales/orders', enabled: true, customLabel: 'Phiếu đặt hàng' },
+        { key: 'group:sales', enabled: true, customLabel: 'Kinh doanh' },
+      ]);
+      const sales = visibleNavGroups(all, features).find((group) => group.key === 'sales');
+
+      expect(sales?.label).toBe('Kinh doanh');
+      expect(sales?.items.map((item) => item.label)).toEqual([
+        'Phiếu đặt hàng',
+        'Hàng lỗi khách báo',
+        'Báo cáo doanh số',
+        'Sổ chi tiết bán hàng',
+      ]);
+    });
+
+    it('tắt nhóm thì ẩn cả nhóm và mọi màn hình con, kể cả trang chi tiết', () => {
+      const features = toUiFeatures([{ key: 'group:finance', enabled: false, customLabel: null }]);
+
+      expect(visibleNavGroups(all, features).map((group) => group.key)).not.toContain('finance');
+      expect(isPathHidden('/finance/cash-documents/12', features)).toBe(true);
+      expect(isPathHidden('/sales/orders', features)).toBe(false);
+      expect(isPathHidden('/', features)).toBe(false);
+    });
+
+    it('không có cấu hình hoặc tên trống thì giữ mặc định', () => {
+      const features = toUiFeatures([{ key: 'menu:/sales/orders', enabled: true, customLabel: '   ' }]);
+
+      expect(visibleNavGroups(all, features)).toEqual(visibleNavGroups(all));
+    });
+
+    it('không ẩn được nhóm Quản trị hệ thống và màn hình người dùng, vai trò, bản quyền', () => {
+      const features = toUiFeatures(
+        ['group:system', 'menu:/system/users', 'menu:/system/roles', 'menu:/system/license'].map((key) => ({
+          key,
+          enabled: false,
+          customLabel: null,
+        })),
+      );
+      const system = visibleNavGroups(all, features).find((group) => group.key === 'system');
+
+      expect(system?.items.map((item) => item.path)).toEqual(
+        expect.arrayContaining(['/system/users', '/system/roles', '/system/license']),
+      );
+      expect(isPathHidden('/system/users', features)).toBe(false);
+    });
   });
 });

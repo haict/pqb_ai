@@ -150,6 +150,40 @@ class OcrRecognitionIntegrationTest {
     }
 
     @Test
+    @DisplayName("Phiếu xuất kho NCC: NCC theo tên (cần xác nhận), số phiếu vào diễn giải, số lô / hạn dùng theo dòng")
+    void recognizesSupplierDeliveryNote() throws Exception {
+        long orders = count("purchase_orders");
+        String noTaxCode = invoiceJson().replace("\"partnerTaxCode\":" + ok("0300000001") + ",", "");
+        stub.reply(200, noTaxCode.replace("\"code\":" + ok("TT_GLU_01") + ",",
+                "\"code\":" + ok("TT_GLU_01") + ",\"lotNo\":" + ok("L2601") + ",\"expiryDate\":" + ok("2028-03-13")
+                        + ","));
+
+        recognize(buyer, "PURCHASE_DELIVERY_NOTE", 1, file(PDF))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.documentType").value("PURCHASE_DELIVERY_NOTE"))
+                .andExpect(jsonPath("$.data.header.supplier.status").value("MATCHED"))
+                .andExpect(jsonPath("$.data.header.supplier.matchedBy").value("NAME"))
+                .andExpect(jsonPath("$.data.header.supplier.reviewRequired").value(true))
+                .andExpect(jsonPath("$.data.header.supplier.code").value("NCC_01"))
+                .andExpect(jsonPath("$.data.header.description.value")
+                        .value("Theo phiếu xuất kho của nhà cung cấp số 0000131"))
+                .andExpect(jsonPath("$.data.header.invoiceNo.value").doesNotExist())
+                .andExpect(jsonPath("$.data.header.documentDate.value").value("2026-10-18"))
+                .andExpect(jsonPath("$.data.lines[0].lotNo.value").value("L2601"))
+                .andExpect(jsonPath("$.data.lines[0].expiryDate.value").value("2028-03-13"))
+                .andExpect(jsonPath("$.data.lines[1].lotNo.value").doesNotExist());
+        assertThat(count("purchase_orders")).isEqualTo(orders);
+        assertThat(stub.received().get(0).body()).contains("PURCHASE_DELIVERY_NOTE");
+
+        // Tên không khớp chính xác: chỉ ứng viên, không tự gán (BR-AI-06).
+        stub.reply(200, noTaxCode.replace(text("Nhà phân phi thit b mu"), text("Nhà phân phi thit b mu mi")));
+        recognize(buyer, "PURCHASE_DELIVERY_NOTE", 1, file(PDF)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.header.supplier.status").value("AMBIGUOUS"))
+                .andExpect(jsonPath("$.data.header.supplier.id").doesNotExist())
+                .andExpect(jsonPath("$.data.header.supplier.candidates[0].code").value("NCC_01"));
+    }
+
+    @Test
     @DisplayName("AI-2, BR-AI-04: phiếu đặt hàng của khách -> gợi ý form đơn bán, khách theo MST; không tạo đơn bán")
     void recognizesCustomerOrder() throws Exception {
         long orders = count("sales_orders");

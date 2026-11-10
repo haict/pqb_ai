@@ -12,6 +12,8 @@ from app.ocr.normalize import find_tax_code, is_integer, match_key, parse_date, 
     ("5%", "5"),
     ("10 %", "10"),
     ("16,5", "16.5"),
+    ("4.800.00", "4800"),  # OCR đọc dấu thập phân "," thành "."
+    ("1.552.381.00", "1552381"),
     ("16.5", "16.5"),
     ("0012", "12"),
     ("1.101", "1101"),

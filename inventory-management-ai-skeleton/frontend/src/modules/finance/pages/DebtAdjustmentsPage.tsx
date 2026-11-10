@@ -43,6 +43,7 @@ import type {
 } from '../types';
 import { BranchCol } from '../../../shared/components/BranchCol';
 import { BRANCH_VISIBLE } from '../../../shared/branch';
+import { DATE_INPUT_FORMAT } from '../../../shared/dateInput';
 
 interface LineForm {
   direction: AdjustmentDirection;
@@ -365,12 +366,12 @@ function AdjustmentFields({
             label="Ngày chứng từ"
             rules={[{ required: true, message: 'Chọn ngày' }]}
           >
-            <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} />
+            <DatePicker format={DATE_INPUT_FORMAT} style={{ width: '100%' }} />
           </Form.Item>
         </Col>
         <Col xs={12} md={3}>
           <Form.Item name="postingDate" label="Ngày hạch toán">
-            <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} />
+            <DatePicker format={DATE_INPUT_FORMAT} style={{ width: '100%' }} />
           </Form.Item>
         </Col>
         <Col xs={24} md={advance ? 12 : 6}>
@@ -433,7 +434,7 @@ function AdjustmentFields({
                       </Col>
                       <Col xs={12} md={3}>
                         <Form.Item name={[field.name, 'dueDate']} label="Hạn">
-                          <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} />
+                          <DatePicker format={DATE_INPUT_FORMAT} style={{ width: '100%' }} />
                         </Form.Item>
                       </Col>
                     </>

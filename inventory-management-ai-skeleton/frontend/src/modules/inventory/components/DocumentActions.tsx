@@ -21,6 +21,7 @@ import { newIdempotencyKey } from '../../../shared/api/httpClient';
 import { ApiError } from '../../../shared/api/apiError';
 import { validated } from '../../../shared/forms';
 import { ACTION_LABELS, REASON_ACTIONS } from '../labels';
+import { DATE_INPUT_FORMAT } from '../../../shared/dateInput';
 
 interface Props {
   actions: string[];
@@ -167,7 +168,7 @@ export function DocumentActions({ actions, order = DEFAULT_ORDER, onAction, icon
           )}
           {pending && DATE_ACTIONS.has(pending.action) && (
             <Form.Item name="postingDate" label="Ngày hạch toán" extra="Để trống: ngày hiện tại.">
-              <DatePicker format="DD/MM/YYYY" />
+              <DatePicker format={DATE_INPUT_FORMAT} />
             </Form.Item>
           )}
           {pending && !REASON_ACTIONS.has(pending.action) && !DATE_ACTIONS.has(pending.action) && (

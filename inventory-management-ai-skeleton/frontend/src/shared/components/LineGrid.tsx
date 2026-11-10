@@ -1,11 +1,13 @@
 import { PlusOutlined, QuestionCircleOutlined } from '@ant-design/icons';
 import { Button, Space, Tooltip, Typography } from 'antd';
-import type { KeyboardEventHandler, ReactNode } from 'react';
+import { useRef, type KeyboardEventHandler, type ReactNode } from 'react';
+import { focusLastRow } from './lineGridFocus';
 import { lineGridStyle, type LineGridColumn } from './lineGridStyles';
 
 /**
  * Bảng dòng chứng từ trong form: tiêu đề "Hàng hóa" + nút thêm dòng (chỉ biểu tượng) và các nút bên phải trên một
- * hàng; tên cột hiện một lần; mỗi dòng một hàng, cuộn ngang khi màn hình hẹp hơn {@code minWidth}.
+ * hàng; tên cột hiện một lần; mỗi dòng một hàng, cuộn ngang khi màn hình hẹp hơn {@code minWidth}. Thêm dòng thì
+ * cuộn về cột đầu, đưa dòng mới vào tầm nhìn và đặt con trỏ vào ô đầu tiên để nhập ngay.
  */
 export function LineGrid({
   columns,
@@ -20,6 +22,15 @@ export function LineGrid({
   actions?: ReactNode;
   children: ReactNode;
 }) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
+
+  const add = () => {
+    onAdd();
+    // Đợi Form.List vẽ dòng mới rồi mới cuộn / đặt con trỏ.
+    window.setTimeout(() => focusLastRow(scrollRef.current, bodyRef.current), 0);
+  };
+
   return (
     <>
       <div
@@ -34,13 +45,13 @@ export function LineGrid({
         <Space>
           <Typography.Text strong>Hàng hóa</Typography.Text>
           <Tooltip title="Thêm dòng">
-            <Button size="small" icon={<PlusOutlined />} aria-label="Thêm dòng" onClick={onAdd} />
+            <Button size="small" icon={<PlusOutlined />} aria-label="Thêm dòng" onClick={add} />
           </Tooltip>
         </Space>
         {actions}
       </div>
-      <div style={{ overflowX: 'auto' }}>
-        <div style={{ minWidth }}>
+      <div ref={scrollRef} style={{ overflowX: 'auto' }}>
+        <div ref={bodyRef} style={{ minWidth }}>
           <div
             style={{
               ...lineGridStyle(columns),

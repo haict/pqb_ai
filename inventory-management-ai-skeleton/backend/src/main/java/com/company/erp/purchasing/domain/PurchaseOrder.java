@@ -108,6 +108,10 @@ public class PurchaseOrder extends PurchaseDocument {
     @Column(name = "ever_posted", nullable = false)
     private boolean everPosted;
 
+    /** Lần ghi sổ hiện hành có ghi công nợ + bút toán (D-73); bỏ ghi sổ / đảo / trả hàng gỡ theo cờ này. */
+    @Column(name = "financial_posted", nullable = false)
+    private boolean financialPosted = true;
+
     @Column(name = "reversed_by")
     private Long reversedBy;
 
@@ -189,11 +193,15 @@ public class PurchaseOrder extends PurchaseDocument {
         }
     }
 
-    /** Ghi sổ (từ DRAFT, hoặc APPROVED trước D-61); {@code inventoryDocumentId} trống khi đơn chỉ có dịch vụ. */
-    public void markPosted(Long inventoryDocumentId, Long actorId, Instant now) {
+    /**
+     * Ghi sổ (từ DRAFT, hoặc APPROVED trước D-61); {@code inventoryDocumentId} trống khi đơn chỉ có dịch vụ;
+     * {@code financial}: lần ghi sổ này có công nợ + bút toán (D-73).
+     */
+    public void markPosted(Long inventoryDocumentId, boolean financial, Long actorId, Instant now) {
         requireStatus(POSTABLE, "ghi sổ");
         setStatus(PurchaseDocumentStatus.POSTED);
         this.inventoryDocumentId = inventoryDocumentId;
+        this.financialPosted = financial;
         this.postedBy = actorId;
         this.postedAt = now;
         this.everPosted = true;
@@ -344,6 +352,10 @@ public class PurchaseOrder extends PurchaseDocument {
 
     public BigDecimal getTotalAmount() {
         return totalAmount;
+    }
+
+    public boolean isFinancialPosted() {
+        return financialPosted;
     }
 
     public Long getInventoryDocumentId() {

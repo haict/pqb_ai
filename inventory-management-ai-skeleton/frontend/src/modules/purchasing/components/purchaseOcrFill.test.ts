@@ -34,6 +34,8 @@ function line(partial: Partial<OcrLine>): OcrLine {
     unitPrice: none,
     discountPercent: none,
     printedAmount: none,
+    lotNo: none,
+    expiryDate: none,
     amountCheck: { status: 'UNKNOWN', calculated: null, printed: null, warnings: [] },
     ...partial,
   };
@@ -116,7 +118,14 @@ describe('purchaseOcrFill (D-64)', () => {
             unitPrice: value('356000'),
           }),
           line({
-            product: match({ matchedBy: 'NAME', reviewRequired: true, id: 2, code: 'VT1', name: 'Ống', rawText: 'ng' }),
+            product: match({
+              matchedBy: 'NAME',
+              reviewRequired: true,
+              id: 2,
+              code: 'VT1',
+              name: 'Ống',
+              rawText: 'ng',
+            }),
             taxRate: match({ status: 'NOT_FOUND', matchedBy: null, rawText: '8%' }),
             unit: match({ status: 'NOT_FOUND', matchedBy: null, rawText: 'Khay' }),
             quantity: value('2', 'LOW_CONFIDENCE'),
@@ -169,5 +178,74 @@ describe('purchaseOcrFill (D-64)', () => {
       }),
     );
     expect(fill.notes).toEqual(['Chứng từ ghi loại tiền USD.', 'Tổng lệch.']);
+  });
+
+  it('chế độ chỉ quản lý kho (D-73): đơn giá 0, bỏ chiết khấu và cảnh báo giá / thành tiền / tổng tiền', () => {
+    const fill = purchaseOcrFill(
+      {},
+      result({
+        lines: [
+          line({
+            product: match({ id: 7, code: 'VT001', name: 'Găng tay' }),
+            quantity: value('2'),
+            unitPrice: value('356000', 'LOW_CONFIDENCE'),
+            discountPercent: value('5'),
+            amountCheck: { status: 'MISMATCH', calculated: '100000', printed: '150000', warnings: ['Lệch.'] },
+          }),
+        ],
+        totals: {
+          ...result().totals,
+          check: { status: 'MISMATCH', calculated: null, printed: null, warnings: ['Tổng lệch.'] },
+        },
+      }),
+      false,
+    );
+    expect(fill.lines[0]).toMatchObject({ productId: 7, quantity: 2, unitPrice: 0, ocrLevel: 'warning' });
+    expect(fill.lines[0]?.discountPercent).toBeUndefined();
+    expect(fill.lines[0]?.ocrHints).toEqual([]);
+    expect(fill.notes).toEqual([]);
+  });
+
+  it('phiếu xuất kho NCC: nhà cung cấp gán theo tên thì nhắc kiểm tra; điền số lô, hạn dùng', () => {
+    const fill = purchaseOcrFill(
+      {},
+      result({
+        documentType: 'PURCHASE_DELIVERY_NOTE',
+        header: {
+          ...result().header,
+          supplier: match({
+            matchedBy: 'NAME',
+            reviewRequired: true,
+            id: 7,
+            code: 'NCC_01',
+            name: 'Công ty mẫu',
+            rawText: 'CÔNG TY MU',
+          }),
+          invoiceSeries: none,
+          invoiceNo: none,
+          invoiceDate: none,
+          description: value('Theo phiếu xuất kho của nhà cung cấp số PX-01'),
+        },
+        lines: [
+          line({
+            product: match({ id: 3, code: 'VT001', name: 'Bơm tiêm' }),
+            quantity: value('6000'),
+            lotNo: value('0526'),
+            expiryDate: value('2031-08-14', 'LOW_CONFIDENCE'),
+          }),
+          line({ product: match({ id: 4, code: 'VT002', name: 'Kim' }), quantity: value('1') }),
+        ],
+      }),
+    );
+    expect(fill.header.supplierId).toBe(7);
+    expect(fill.header.invoiceNo).toBeUndefined();
+    expect(fill.notes).toEqual([
+      'Nhà cung cấp gán theo tên trên chứng từ "CÔNG TY MU": kiểm tra đúng nhà cung cấp.',
+    ]);
+    expect(fill.lines[0]).toMatchObject({ productId: 3, quantity: 6000, lotNo: '0526' });
+    expect(fill.lines[0]?.expiryDate?.format('YYYY-MM-DD')).toBe('2031-08-14');
+    expect(fill.lines[0]?.ocrHints).toEqual(['Số lô / hạn dùng đọc chưa chắc chắn: kiểm tra lại.']);
+    expect(fill.lines[1]?.lotNo).toBeUndefined();
+    expect(fill.lines[1]?.expiryDate).toBeUndefined();
   });
 });

@@ -35,6 +35,7 @@ Kết quả kiểm tra mã nguồn ngày 2026-10-27:
 |---|---|---|---|
 | Đơn đặt hàng mua | Đơn mua (DMH) | `PurchaseOrdersPage.tsx`, `PurchaseDocumentDrawer.tsx`, `PurchaseOrderRequest` | **Trong phạm vi** (AI-1): đầu đơn + dòng hàng |
 | Hóa đơn mua hàng | Không có form riêng (D-54 bỏ hóa đơn mua riêng). Hóa đơn NCC là phần đầu của đơn mua: `invoiceSeries`, `invoiceNo`, `invoiceDate` | `PurchaseOrderRequest` | **Trong phạm vi** (AI-1): OCR hóa đơn NCC điền vào form đơn mua (đầu, hóa đơn, dòng) |
+| Phiếu xuất kho / giao hàng **của nhà cung cấp** (bổ sung 2026-11-09, người dùng chốt) | Đơn mua (DMH): phiếu NCC giao kèm hàng thay cho đơn đặt hàng / hóa đơn | `PurchaseOcrButton.tsx`, `purchase_delivery_note.py` | **Trong phạm vi** (`PURCHASE_DELIVERY_NOTE`): NCC theo tên, ngày phiếu, số phiếu vào diễn giải, dòng hàng kèm số lô / hạn dùng in sẵn |
 | Phiếu nhập kho | (a) PNK nguồn DMH sinh tự động khi ghi sổ đơn mua, không có form nhập liệu. (b) PNK lập tay ở Chứng từ kho | `InventoryDocumentsPage.tsx`, `CREATABLE_TYPES` trong `inventory/labels.ts` | (a) Không áp dụng. (b) **Giai đoạn sau** (AI-5), chỉ dòng hàng |
 | Đơn đặt hàng bán | Đơn bán (DBH) (PO của khách gửi tới) | `SalesOrdersPage.tsx`, `SalesDocumentDrawer.tsx`, `SalesOrderRequest` | **Trong phạm vi** (AI-2): khách hàng, địa chỉ giao, dòng hàng |
 | Hóa đơn bán hàng | Không có form. P1 phát hành hóa đơn điện tử tại MISA (BR mục 3.2); đơn bán chỉ lưu số hóa đơn qua `EinvoiceReferenceRequest` (ký hiệu, số, ngày, mã CQT) | `EinvoiceReferenceRequest` | **Ngoài phạm vi** P1 (Q-03): hóa đơn bán do chính doanh nghiệp phát hành, dữ liệu đã có trong đơn |
@@ -266,11 +267,13 @@ Mọi tra cứu lọc theo công ty của người dùng và phạm vi dữ li�
 | Đối tượng | Quy tắc | Kết quả |
 |---|---|---|
 | Nhà cung cấp / khách hàng | Khớp **chính xác** MST (bỏ khoảng trắng, `-`) trong công ty, đúng vai trò đối tác | 1 kết quả: `CATALOG` + `OK`. 0: `NOT_FOUND`. ≥ 2: `AMBIGUOUS` + danh sách. Không có MST: tìm theo tên trả ứng viên, **không tự gán** |
+| Nhà cung cấp trên phiếu xuất kho NCC (`PURCHASE_DELIVERY_NOTE`, người dùng chốt 2026-11-09) | Phiếu thường không in MST bên bán; MST in trên phiếu là của người mua nên không dùng. Tên NCC là dòng "Công ty ..." đầu trang, trước tiêu đề phiếu | Có MST: như dòng trên. Không có MST: tên khớp **chính xác duy nhất** sau chuẩn hóa `matchKey` thì gán (`matchedBy` = `NAME`, luôn `reviewRequired`), như quy tắc tên hàng của BR-AI-06; còn lại chỉ ứng viên. Các loại chứng từ khác giữ quy tắc dòng trên |
 | Hàng hóa | Khớp chính xác mã hàng trong công ty, hàng đang hoạt động | 1 kết quả: gán. Còn lại: tìm theo tên (tối đa `ai.ocr.max-candidates`), trả `AMBIGUOUS` / `NOT_FOUND` |
 | Đơn vị tính | Khớp mã / tên đơn vị **và** đơn vị đó thuộc đơn vị / quy đổi của hàng đã chọn | Không thuộc hàng: `MISMATCH`, để người dùng chọn |
 | Thuế suất | Khớp chính xác tỷ lệ với thuế suất đang hiệu lực | Không khớp: `NOT_FOUND`; server dùng thuế mặc định của hàng như hiện tại |
 | Kiểm tra dòng | `SL × đơn giá × (1 − CK%)` so với thành tiền OCR, sai số `ai.ocr.amount-tolerance` | Lệch: `MISMATCH` |
 | Kiểm tra tổng | Tổng dòng, tiền thuế, tổng thanh toán | Lệch: cảnh báo đầu form |
+| Số lô, hạn dùng (phiếu xuất kho NCC) | Chỉ đọc cột in sẵn ("Số lô / sê-ri", "Mã lô", "Hạn dùng", "Hạn SD"); chữ viết tay trong cột khác bị bỏ | Form đơn mua điền vào dòng; hàng không quản lý lô thì form tự bỏ (BR-INV-01). Độ tin cậy thấp: nhắc kiểm tra |
 | Hóa đơn NCC trùng | Kiểm tra (MST, ký hiệu, số) đã có trong công ty | Cảnh báo sớm; chốt chặn vẫn là `duplicate_key` khi lưu |
 
 Phép tính dùng `BigDecimal`, `compareTo`, làm tròn tường minh. Đây chỉ là **cảnh báo**; khi lưu, server tính lại tiền như nhập tay.
@@ -375,7 +378,7 @@ Không có công cụ ghi. Không có công cụ nhận SQL, tên bảng, tên c
 | Phương thức, đường dẫn | Mô tả | Quyền đề xuất | `Idempotency-Key` |
 |---|---|---|---|
 | `GET /ai/health` | Trạng thái OCR / chat (để ẩn / hiện nút) | Đăng nhập | - |
-| `POST /ocr/recognitions` | Multipart: `file`, `documentType` (`PURCHASE_ORDER`, `PURCHASE_INVOICE`, `SALES_ORDER`), `companyId`, `branchId`. Trả gợi ý, **không lưu chứng từ** | `ocr:use` (Q-10) **và** quyền lập form đích (`purchase-order:create` / `sales-order:create`) | Không bắt buộc: không tạo dữ liệu nghiệp vụ (Q-06) |
+| `POST /ocr/recognitions` | Multipart: `file`, `documentType` (`PURCHASE_ORDER`, `PURCHASE_INVOICE`, `PURCHASE_DELIVERY_NOTE`, `SALES_ORDER`), `companyId`, `branchId`. Trả gợi ý, **không lưu chứng từ** | `ocr:use` (Q-10) **và** quyền lập form đích (`purchase-order:create` / `sales-order:create`) | Không bắt buộc: không tạo dữ liệu nghiệp vụ (Q-06) |
 | `GET /assistant/conversations` | Danh sách hội thoại của chính người dùng (phân trang) | `assistant:use` | - |
 | `POST /assistant/conversations` | Tạo hội thoại | `assistant:use` | Bắt buộc |
 | `GET /assistant/conversations/{id}/messages` | Tin nhắn (phân trang) | `assistant:use` + chủ sở hữu | - |
@@ -435,7 +438,7 @@ Thông báo tiếng Việt; không chứa stack trace, tên model, đường d�
 - Không bật Swagger UI của FastAPI ở `uat`, `prod` (`AI_SERVICE_ENABLE_DOCS=false`).
 
 Hợp đồng `POST /internal/v1/ocr/extract` (AI-1a, 2026-10-27):
-- Request `multipart/form-data`: `file` (JPG / PNG / PDF), `documentType` (`PURCHASE_ORDER`, `PURCHASE_INVOICE`, `SALES_ORDER`).
+- Request `multipart/form-data`: `file` (JPG / PNG / PDF), `documentType` (`PURCHASE_ORDER`, `PURCHASE_INVOICE`, `PURCHASE_DELIVERY_NOTE`, `SALES_ORDER`). Dòng hàng có thêm `lotNo`, `expiryDate` (ISO) khi chứng từ in cột số lô / hạn dùng.
 - Response 200:
   - `documentType`, `pageCount`, `durationMs`, `warnings` (ví dụ `TABLE_NOT_FOUND`).
   - `header`: `documentNo`, `documentDate`, `partnerName`, `partnerTaxCode`, `partnerAddress`, `currency`; thêm `invoiceSeries` (hóa đơn NCC), `deliveryAddress` (phiếu đặt hàng của khách).

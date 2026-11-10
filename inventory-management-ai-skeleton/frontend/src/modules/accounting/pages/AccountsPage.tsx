@@ -25,6 +25,7 @@ import { useCompanyId } from '../../masterdata/lookups';
 import { accountApi } from '../api';
 import { BALANCE_SIDES } from '../labels';
 import type { Account, BalanceSide } from '../types';
+import { UiAction } from '../../../shared/ui/UiAction';
 
 interface TreeRow extends Account {
   children?: TreeRow[];
@@ -184,9 +185,11 @@ export function AccountsPage() {
         </Typography.Title>
         {canManage && (
           <Space>
-            <Button icon={<UploadOutlined />} onClick={() => setImporting(true)}>
-              Nhập từ Excel
-            </Button>
+            <UiAction id="excel-import">
+              <Button icon={<UploadOutlined />} onClick={() => setImporting(true)}>
+                Nhập từ Excel
+              </Button>
+            </UiAction>
             <Button type="primary" onClick={() => setEditing({ mode: 'new', parent: null })}>
               Thêm tài khoản cấp 1
             </Button>

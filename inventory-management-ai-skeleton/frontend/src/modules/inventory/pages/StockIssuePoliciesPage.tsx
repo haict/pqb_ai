@@ -30,6 +30,7 @@ import { formatDate, formatNumber, statusLabel } from '../labels';
 import { DocumentStatusTag } from '../components/StatusTags';
 import type { PolicyStatus, StockIssuePolicy } from '../types';
 import { DecimalInput } from '../../../shared/components/DecimalInput';
+import { DATE_INPUT_FORMAT } from '../../../shared/dateInput';
 
 const STATUSES: PolicyStatus[] = ['DRAFT', 'APPROVED', 'CANCELLED'];
 
@@ -196,7 +197,7 @@ export function StockIssuePoliciesPage() {
           <DecimalInput min={0.001} />
         </Form.Item>
         <Form.Item name="validRange" label="Thời hạn" rules={[{ required: true }]}>
-          <DatePicker.RangePicker format="DD/MM/YYYY" />
+          <DatePicker.RangePicker format={DATE_INPUT_FORMAT} />
         </Form.Item>
         <Form.Item
           name="reason"

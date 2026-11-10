@@ -57,6 +57,8 @@ public enum ErrorCode {
     CREDIT_LIMIT_EXCEEDED(HttpStatus.UNPROCESSABLE_ENTITY, "Vượt hạn mức tín dụng."),
     AUTHORITY_LIMIT_EXCEEDED(HttpStatus.UNPROCESSABLE_ENTITY, "Giá trị chứng từ vượt ngưỡng thẩm quyền của bạn."),
     PRICE_BELOW_FLOOR(HttpStatus.UNPROCESSABLE_ENTITY, "Giá thấp hơn giá sàn."),
+    FINANCIAL_POSTING_DISABLED(HttpStatus.UNPROCESSABLE_ENTITY,
+            "Hệ thống đang ở chế độ chỉ quản lý kho, không ghi sổ chứng từ tài chính."),
     OVER_ALLOCATION(HttpStatus.UNPROCESSABLE_ENTITY, "Số phân bổ vượt số còn lại."),
     SOURCE_QUANTITY_EXCEEDED(HttpStatus.UNPROCESSABLE_ENTITY, "Vượt số lượng còn lại của chứng từ nguồn."),
     CASH_BALANCE_NEGATIVE(HttpStatus.UNPROCESSABLE_ENTITY, "Số dư quỹ không đủ."),

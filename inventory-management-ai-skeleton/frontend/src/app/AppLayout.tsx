@@ -6,7 +6,7 @@ import {
   LogoutOutlined,
   UserOutlined,
 } from '@ant-design/icons';
-import { Avatar, Button, Dropdown, Layout, Menu, Select, Space, Typography } from 'antd';
+import { Avatar, Button, Dropdown, Layout, Menu, Result, Select, Space, Typography } from 'antd';
 import type { MenuProps } from 'antd';
 import { useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
@@ -14,12 +14,14 @@ import { useAuth, useCan } from '../shared/auth/authContext';
 import { ServerStatusBadge } from '../shared/components/ServerStatusBadge';
 import { BrandLogo } from './BrandLogo';
 import { GROUP_ICONS, ITEM_ICONS } from './navIcons';
-import { visibleNavGroups } from './navigation';
+import { isPathHidden, visibleNavGroups } from './navigation';
 import { NotificationBell } from './NotificationBell';
 import { AssistantButton } from '../modules/ai/components/AssistantDrawer';
 import { BRAND } from './theme';
 import { BRANCH_VISIBLE } from '../shared/branch';
 import { LicenseBanner } from './LicenseBanner';
+import { UiAction } from '../shared/ui/UiAction';
+import { useUiFeatures } from '../shared/ui/uiFeatures';
 
 const { Header, Sider, Content } = Layout;
 
@@ -30,7 +32,8 @@ export function AppLayout() {
   const { user, workingBranchId, selectWorkingBranch, logout } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
 
-  const groups = visibleNavGroups(can);
+  const features = useUiFeatures();
+  const groups = visibleNavGroups(can, features);
   const activeGroup = groups.find((group) => group.items.some((item) => item.path === location.pathname));
   // Trang chi tiết (ví dụ /inventory/documents/12) thuộc mục menu có đường dẫn là tiền tố.
   const current = groups
@@ -152,7 +155,9 @@ export function AppLayout() {
             <span className="app-status-pill">
               <ServerStatusBadge />
             </span>
-            <AssistantButton />
+            <UiAction id="ai-assistant">
+              <AssistantButton />
+            </UiAction>
             <NotificationBell />
             <span style={{ width: 1, height: 28, background: BRAND.border }} />
             <Dropdown menu={{ items: userMenu, onClick: onUserMenu }} trigger={['click']}>
@@ -175,7 +180,20 @@ export function AppLayout() {
         </Header>
         <Content style={{ padding: 24 }}>
           <LicenseBanner />
-          <Outlet />
+          {isPathHidden(location.pathname, features) ? (
+            <Result
+              status="404"
+              title="Chức năng không được sử dụng"
+              subTitle="Chức năng này đã được tắt trong cấu hình của đơn vị. Liên hệ quản trị hệ thống nếu cần."
+              extra={
+                <Button type="primary" onClick={() => navigate('/')}>
+                  Về trang chủ
+                </Button>
+              }
+            />
+          ) : (
+            <Outlet />
+          )}
         </Content>
       </Layout>
     </Layout>

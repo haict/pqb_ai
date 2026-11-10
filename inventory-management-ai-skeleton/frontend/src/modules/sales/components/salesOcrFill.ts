@@ -30,7 +30,11 @@ export interface SalesOcrFill {
  * giao không tự điền vì chữ có dấu có thể mất khi nhận dạng; chỉ ghi chú để người dùng đối chiếu. Đơn giá trống thì
  * server lấy theo bảng giá khi lưu. Không lưu.
  */
-export function salesOcrFill(current: SalesOcrHeaderValues, result: SalesOcrResult): SalesOcrFill {
+export function salesOcrFill(
+  current: SalesOcrHeaderValues,
+  result: SalesOcrResult,
+  prices = true,
+): SalesOcrFill {
   const header: SalesOcrHeaderValues = {};
   const notes: string[] = [...result.warnings];
   const { customer, deliveryAddress } = result.header;
@@ -52,6 +56,12 @@ export function salesOcrFill(current: SalesOcrHeaderValues, result: SalesOcrResu
         'Kiểm tra ô Địa chỉ giao.',
     );
   }
-  notes.push(...result.totals.check.warnings);
-  return { header, lines: result.lines.map(ocrLineValues), notes: notes.filter((note) => note !== '') };
+  if (prices) {
+    notes.push(...result.totals.check.warnings);
+  }
+  return {
+    header,
+    lines: result.lines.map((line) => ocrLineValues(line, prices)),
+    notes: notes.filter((note) => note !== ''),
+  };
 }

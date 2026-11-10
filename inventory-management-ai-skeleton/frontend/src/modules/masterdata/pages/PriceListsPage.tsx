@@ -31,6 +31,7 @@ import { PartnerSelect, ProductSelect } from '../components/EntitySelects';
 import { PRICE_TARGETS, PRICE_TYPES, toOptions } from '../labels';
 import { useCatalog, useCompanyId } from '../lookups';
 import type { PriceList, PriceListItem, PriceTargetType, PriceType, Product } from '../types';
+import { DATE_INPUT_FORMAT } from '../../../shared/dateInput';
 
 const FIELDS = [
   'code',
@@ -120,7 +121,7 @@ function ItemsDrawer({ priceList, onClose }: { priceList: PriceList; onClose(): 
           <Form.Item name="minQuantity">
             <InputNumber placeholder="Từ SL" min={0} style={{ width: 100 }} />
           </Form.Item>
-          <Form.Item name="unitPrice" rules={[{ required: true, message: 'Nhập giá' }]}>
+          <Form.Item name="unitPrice" initialValue={0} rules={[{ required: true, message: 'Nhập giá' }]}>
             <InputNumber placeholder="Đơn giá" min={0} style={{ width: 150 }} />
           </Form.Item>
           <Button type="primary" onClick={upsert}>
@@ -367,10 +368,10 @@ export function PriceListsPage() {
                 label="Hiệu lực từ"
                 rules={[{ required: true, message: 'Chọn ngày' }]}
               >
-                <DatePicker format="DD/MM/YYYY" />
+                <DatePicker format={DATE_INPUT_FORMAT} />
               </Form.Item>
               <Form.Item name="validTo" label="Đến">
-                <DatePicker format="DD/MM/YYYY" />
+                <DatePicker format={DATE_INPUT_FORMAT} />
               </Form.Item>
             </Space>
           </>

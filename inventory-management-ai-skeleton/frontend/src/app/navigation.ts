@@ -1,4 +1,5 @@
 import { whenBranchVisible } from '../shared/branch';
+import { ALL_ENABLED, type UiFeatures } from '../shared/ui/uiFeatures';
 
 /** Mục menu và quyền xem tương ứng. Chỉ liệt kê chức năng đã triển khai (frontend.md mục 4). */
 export interface NavItem {
@@ -166,10 +167,57 @@ export const NAV_GROUPS: NavGroup[] = [
   },
 ];
 
-/** Nhóm menu người dùng được thấy; nhóm không còn mục nào thì ẩn. */
-export function visibleNavGroups(can: (permission: string) => boolean): NavGroup[] {
-  return NAV_GROUPS.map((group) => ({
-    ...group,
-    items: group.items.filter((item) => !item.permission || can(item.permission)),
-  })).filter((group) => group.items.length > 0);
+/**
+ * Nhóm và màn hình không cho ẩn bằng cấu hình (D-72) để quản trị không tự khóa mình khỏi hệ thống; bỏ qua dòng
+ * tương ứng nếu có trong sys_ui_features.
+ */
+const UNHIDEABLE_GROUPS = new Set(['system']);
+const UNHIDEABLE_PATHS = new Set([
+  '/system/companies',
+  '/system/branches',
+  '/system/users',
+  '/system/roles',
+  '/system/license',
+]);
+
+export const groupFeatureKey = (groupKey: string) => `group:${groupKey}`;
+export const menuFeatureKey = (path: string) => `menu:${path}`;
+
+function groupEnabled(group: NavGroup, features: UiFeatures): boolean {
+  return UNHIDEABLE_GROUPS.has(group.key) || features.isEnabled(groupFeatureKey(group.key));
+}
+
+function itemEnabled(item: NavItem, features: UiFeatures): boolean {
+  return UNHIDEABLE_PATHS.has(item.path) || features.isEnabled(menuFeatureKey(item.path));
+}
+
+/**
+ * Nhóm menu người dùng được thấy: theo quyền, rồi theo cấu hình ẩn / đổi tên của khách hàng (D-72); nhóm không còn
+ * mục nào thì ẩn.
+ */
+export function visibleNavGroups(
+  can: (permission: string) => boolean,
+  features: UiFeatures = ALL_ENABLED,
+): NavGroup[] {
+  return NAV_GROUPS.filter((group) => groupEnabled(group, features))
+    .map((group) => ({
+      ...group,
+      label: features.label(groupFeatureKey(group.key), group.label),
+      items: group.items
+        .filter((item) => !item.permission || can(item.permission))
+        .filter((item) => itemEnabled(item, features))
+        .map((item) => ({ ...item, label: features.label(menuFeatureKey(item.path), item.label) })),
+    }))
+    .filter((group) => group.items.length > 0);
+}
+
+/**
+ * Màn hình (kể cả trang chi tiết có đường dẫn con) bị ẩn theo cấu hình (D-72): mục menu có đường dẫn là tiền tố dài
+ * nhất của {@code pathname} bị tắt, hoặc nhóm chứa nó bị tắt. Đường dẫn không thuộc menu: không bị ẩn.
+ */
+export function isPathHidden(pathname: string, features: UiFeatures): boolean {
+  const match = NAV_GROUPS.flatMap((group) => group.items.map((item) => ({ group, item })))
+    .filter(({ item }) => pathname === item.path || pathname.startsWith(`${item.path}/`))
+    .sort((a, b) => b.item.path.length - a.item.path.length)[0];
+  return !!match && (!groupEnabled(match.group, features) || !itemEnabled(match.item, features));
 }

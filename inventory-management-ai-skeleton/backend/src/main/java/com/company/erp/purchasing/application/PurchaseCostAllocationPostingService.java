@@ -18,6 +18,7 @@ import com.company.erp.purchasing.domain.PurchaseOrder;
 import com.company.erp.purchasing.infrastructure.persistence.PurchaseCostEntryRepository;
 import com.company.erp.purchasing.infrastructure.persistence.PurchaseOrderRepository;
 import com.company.erp.system.application.CurrentUser;
+import com.company.erp.system.application.PostingModeService;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
@@ -52,6 +53,7 @@ public class PurchaseCostAllocationPostingService {
     private final PurchaseDocumentFlow flow;
     private final PurchasingAccess access;
     private final JournalPostingService journalPosting;
+    private final PostingModeService postingMode;
     private final BusinessCalendar calendar;
     private final Clock clock;
 
@@ -60,7 +62,9 @@ public class PurchaseCostAllocationPostingService {
                                                 PurchaseOrderRepository orderRepository,
                                                 PurchaseCostEntryRepository costRepository, PurchaseDocumentFlow flow,
                                                 PurchasingAccess access, JournalPostingService journalPosting,
-                                                BusinessCalendar calendar, Clock clock) {
+                                                PostingModeService postingMode, BusinessCalendar calendar,
+                                                Clock clock) {
+        this.postingMode = postingMode;
         this.allocations = allocations;
         this.orderRepository = orderRepository;
         this.costRepository = costRepository;
@@ -71,11 +75,16 @@ public class PurchaseCostAllocationPostingService {
         this.clock = clock;
     }
 
+    /** Chế độ chỉ quản lý kho (D-73): không ghi sổ phân bổ chi phí (có bút toán), 422 FINANCIAL_POSTING_DISABLED. */
     @Transactional(isolation = Isolation.READ_COMMITTED)
     public PurchaseCostAllocationResponse post(CurrentUser actor, Long id, String key) {
         return flow.idempotent(actor, key, "POST " + PurchaseCostAllocationService.PATH + "/" + id + "/post", id,
                 PurchaseCostAllocationResponse.class, () -> {
                     access.requirePermission(actor, POST);
+                    if (!postingMode.financialPostingEnabled()) {
+                        throw new BusinessException(ErrorCode.FINANCIAL_POSTING_DISABLED, "Hệ thống đang ở chế độ "
+                                + "chỉ quản lý kho, không ghi sổ phân bổ chi phí mua.");
+                    }
                     PurchaseCostAllocation document = flow.lock(actor, id, allocations.spec());
                     if (!PurchaseDocument.POSTABLE.contains(document.getStatus())) {
                         throw new BusinessException(ErrorCode.INVALID_DOCUMENT_STATE, "Chứng từ "

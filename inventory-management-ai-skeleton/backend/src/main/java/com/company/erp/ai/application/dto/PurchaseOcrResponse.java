@@ -16,10 +16,10 @@ public record PurchaseOcrResponse(OcrDocumentType documentType, int pageCount, H
     }
 
     /**
-     * @param supplier     nhà cung cấp theo MST
+     * @param supplier     nhà cung cấp theo MST; phiếu xuất kho NCC không in MST thì theo tên (luôn cần xác nhận)
      * @param invoiceNo    số hóa đơn (chỉ khi là hóa đơn NCC)
-     * @param documentDate ngày đơn (chỉ khi là đơn đặt hàng gửi NCC)
-     * @param description  "Theo đơn đặt hàng số ..." (chỉ khi là đơn đặt hàng gửi NCC)
+     * @param documentDate ngày đơn / ngày phiếu (đơn đặt hàng gửi NCC, phiếu xuất kho NCC)
+     * @param description  "Theo đơn đặt hàng số ..." hoặc "Theo phiếu xuất kho của nhà cung cấp số ..." 
      */
     public record Header(CatalogMatch supplier, OcrValue invoiceSeries, OcrValue invoiceNo, OcrValue invoiceDate,
                          OcrValue documentDate, OcrValue description, OcrValue currencyCode) {

@@ -7,6 +7,7 @@ import { useCompanyId } from '../../masterdata/lookups';
 import { salesOrderApi } from '../api';
 import type { ImportedSalesLine, SalesLineImportResult } from '../types';
 import type { SalesLineForm } from './salesLines';
+import { UiAction } from '../../../shared/ui/UiAction';
 
 /**
  * Nút "Nhập dòng từ Excel" trong form đơn bán: server chỉ đọc file và trả dòng, dòng được nối sau các dòng đã chọn
@@ -34,9 +35,11 @@ export function SalesLineImportButton<T extends { lines?: SalesLineForm[]; docum
     <>
       <Space>
         {extra}
-        <Button icon={<UploadOutlined />} onClick={() => setOpen(true)}>
-          Nhập dòng từ Excel
-        </Button>
+        <UiAction id="excel-import">
+          <Button icon={<UploadOutlined />} onClick={() => setOpen(true)}>
+            Nhập dòng từ Excel
+          </Button>
+        </UiAction>
       </Space>
       <ImportModal<SalesLineImportResult>
         open={open}

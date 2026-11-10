@@ -19,6 +19,7 @@ import com.company.erp.inventory.infrastructure.persistence.StockIssuePolicyRepo
 import com.company.erp.inventory.infrastructure.persistence.StockLedgerJdbc;
 import com.company.erp.inventory.infrastructure.persistence.StockLedgerJdbc.LockedBalance;
 import com.company.erp.inventory.infrastructure.persistence.StockLedgerJdbc.LockedSummary;
+import com.company.erp.inventory.infrastructure.persistence.StockLedgerJdbc.SerialHolding;
 import com.company.erp.masterdata.application.MasterDataQueryService;
 import com.company.erp.masterdata.application.MasterDataQueryService.WarehouseInfo;
 import com.company.erp.system.application.PeriodGuard;
@@ -70,11 +71,13 @@ public class InventoryPostingService {
     private final MasterDataQueryService masterData;
     private final PeriodGuard periodGuard;
     private final Clock clock;
+    private final StockItemLabels labels;
 
     public InventoryPostingService(StockLedgerJdbc ledger, InventoryTransactionRepository transactionRepository,
                                    InventorySerialRepository serialRepository,
                                    StockIssuePolicyRepository policyRepository, MasterDataQueryService masterData,
-                                   PeriodGuard periodGuard, Clock clock) {
+                                   PeriodGuard periodGuard, Clock clock, StockItemLabels labels) {
+        this.labels = labels;
         this.ledger = ledger;
         this.transactionRepository = transactionRepository;
         this.serialRepository = serialRepository;
@@ -256,8 +259,8 @@ public class InventoryPostingService {
                         "Lô / serial không ở trạng thái ĐẠT hoặc đang bị khóa (BR-INV-23).");
             }
         }
-        return new BusinessException(ErrorCode.INSUFFICIENT_STOCK, "Tồn của hàng #" + movement.productId()
-                + " tại kho #" + movement.warehouseId() + " không đủ (còn " + plain(found) + ", cần "
+        return new BusinessException(ErrorCode.INSUFFICIENT_STOCK, "Tồn của hàng " + labels.product(movement.productId())
+                + " tại kho " + labels.warehouse(movement.warehouseId()) + " không đủ (còn " + plain(found) + ", cần "
                 + plain(movement.quantity()) + ").");
     }
 
@@ -281,8 +284,9 @@ public class InventoryPostingService {
                 continue;
             }
             if (command.issuePolicyId() == null) {
-                throw new BusinessException(ErrorCode.INSUFFICIENT_STOCK, "Tồn khả dụng của hàng #"
-                        + key.productId() + " không đủ (khả dụng " + plain(available.max(BigDecimal.ZERO)) + ", cần "
+                throw new BusinessException(ErrorCode.INSUFFICIENT_STOCK, "Tồn khả dụng của hàng "
+                        + labels.product(key.productId()) + " tại kho " + labels.warehouse(key.warehouseId())
+                        + " không đủ (khả dụng " + plain(available.max(BigDecimal.ZERO)) + ", cần "
                         + plain(entry.getValue()) + "); phần còn lại đang giữ chỗ cho chứng từ khác.");
             }
             StockIssuePolicy policy = policyRepository.findByIdForUpdate(command.issuePolicyId())
@@ -320,14 +324,37 @@ public class InventoryPostingService {
                 allocation.quantity());
     }
 
+    /** BR-INV-02: serial nhập đúng 1 và chưa tồn ở đâu; thông báo nêu rõ nơi đang tồn và chứng từ đã nhập. */
+    private void requireSerialReceivable(Long serialId, StockMovement movement, PostingCommand command) {
+        String subject = "Serial " + serial(serialId).getSerialNo() + " của hàng " + labels.product(movement.productId());
+        if (movement.quantity().compareTo(BigDecimal.ONE) != 0) {
+            throw new BusinessException(ErrorCode.SERIAL_UNAVAILABLE, subject + " phải nhập đúng số lượng 1 (đang là "
+                    + plain(movement.quantity()) + ") (BR-INV-02).");
+        }
+        List<SerialHolding> holdings = ledger.serialHoldings(serialId);
+        if (holdings.isEmpty()) {
+            return;
+        }
+        boolean sameDocument = holdings.stream().anyMatch(holding ->
+                command.referenceType().equals(holding.referenceType())
+                        && command.referenceId().equals(holding.referenceId()));
+        if (sameDocument) {
+            throw new BusinessException(ErrorCode.SERIAL_UNAVAILABLE, subject
+                    + " bị nhập trùng trong chứng từ này (BR-INV-02).");
+        }
+        String places = holdings.stream()
+                .map(holding -> "kho " + labels.warehouse(holding.warehouseId())
+                        + (holding.referenceNo() == null ? "" : " (nhập bởi " + holding.referenceNo() + ")"))
+                .collect(Collectors.joining("; "));
+        throw new BusinessException(ErrorCode.SERIAL_UNAVAILABLE, subject + " đang tồn tại " + places
+                + "; phải xuất hoặc đảo chứng từ đã nhập trước khi nhập lại (BR-INV-02).");
+    }
+
     private PostedMovement applyIn(StockMovement movement, PostingCommand command,
                                    Map<Long, WarehouseInfo> warehouses, Instant now) {
         StockKey key = inKey(movement);
         if (key.serialId() != null) {
-            if (movement.quantity().compareTo(BigDecimal.ONE) != 0 || ledger.serialOnHand(key.serialId()).signum() > 0) {
-                throw new BusinessException(ErrorCode.SERIAL_UNAVAILABLE, "Serial "
-                        + serial(key.serialId()).getSerialNo() + " đang tồn ở nơi khác hoặc số lượng khác 1 (BR-INV-02).");
-            }
+            requireSerialReceivable(key.serialId(), movement, command);
         }
         ledger.increment(command.companyId(), key, movement.quantity(), now);
         InventorySerial serial = key.serialId() == null ? null : serial(key.serialId());

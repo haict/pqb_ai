@@ -17,6 +17,8 @@ def match_key(text: str) -> str:
 
 
 _VN_THOUSANDS = re.compile(r"^\d{1,3}(\.\d{3})+$")
+# OCR đọc dấu thập phân "," thành "." ("4.800,00" -> "4.800.00"): nhóm cuối 2 chữ số không thể là nhóm nghìn.
+_VN_THOUSANDS_DOT_DECIMAL = re.compile(r"^\d{1,3}(\.\d{3})+\.\d{2}$")
 _NUMBER = re.compile(r"^-?\d+(\.\d+)?$")
 
 
@@ -31,6 +33,9 @@ def parse_number(raw: str) -> str | None:
         text = text.replace(",", ".")
     elif _VN_THOUSANDS.match(text):
         text = text.replace(".", "")
+    elif _VN_THOUSANDS_DOT_DECIMAL.match(text):
+        integer, _, fraction = text.rpartition(".")
+        text = integer.replace(".", "") + "." + fraction
     if not _NUMBER.match(text):
         return None
     integer, _, fraction = text.partition(".")

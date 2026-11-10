@@ -11,6 +11,7 @@ import { productApi } from '../../masterdata/api';
 import { useCategories, useCompanyId, useWarehouses } from '../../masterdata/lookups';
 import { inventoryReportApi } from '../api';
 import { movementReport } from '../inventoryReports';
+import { useFinancialPosting } from '../../../shared/ui/postingMode';
 
 /** Giới hạn của server (StockLedgerReportService.MAX_PRODUCTS). */
 const MAX_PRODUCTS = 200;
@@ -35,7 +36,11 @@ export function InventoryMovementPage() {
     queryFn: () => inventoryReportApi.movement(applied as Params),
     enabled: applied !== null,
   });
-  const report = useMemo(() => (movement.data ? movementReport(movement.data) : null), [movement.data]);
+  const financial = useFinancialPosting();
+  const report = useMemo(
+    () => (movement.data ? movementReport(movement.data, !financial) : null),
+    [movement.data, financial],
+  );
 
   return (
     <Card>

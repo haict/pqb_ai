@@ -60,6 +60,27 @@ public class OcrCatalogMatcher {
         return partner(SUPPLIER_ROLE, taxCode, name, partners);
     }
 
+    /**
+     * Nhà cung cấp trên phiếu xuất kho của nhà cung cấp: phiếu thường không in MST bên bán nên tra theo tên (người dùng
+     * chốt 2026-11-09). Tên khớp chính xác duy nhất sau chuẩn hóa {@link OcrTextKey} thì gán nhưng luôn cần xác nhận,
+     * như quy tắc tên hàng của BR-AI-06; còn lại chỉ trả ứng viên. Có MST thì tra theo MST như hóa đơn.
+     */
+    public CatalogMatch supplierByName(Field taxCode, Field name, List<PartnerInfo> partners) {
+        if (taxCode.present() || !name.present()) {
+            return supplier(taxCode, name, partners);
+        }
+        String key = OcrTextKey.of(name.value());
+        List<PartnerInfo> exact = partners.stream()
+                .filter(p -> p.active() && p.roleCodes().contains(SUPPLIER_ROLE))
+                .filter(p -> OcrTextKey.of(p.name()).equals(key))
+                .toList();
+        if (exact.size() == 1) {
+            PartnerInfo partner = exact.get(0);
+            return CatalogMatch.matched("NAME", true, partner.id(), partner.code(), partner.name(), name.value());
+        }
+        return supplier(taxCode, name, partners);
+    }
+
     /** Khách hàng đang hoạt động có MST trên phiếu đặt hàng của khách (AI-2). */
     public CatalogMatch customer(Field taxCode, Field name, List<PartnerInfo> partners) {
         return partner(CUSTOMER_ROLE, taxCode, name, partners);

@@ -30,6 +30,7 @@ import { DocumentActions } from '../components/DocumentActions';
 import { formatDate, formatNumber, statusLabel } from '../labels';
 import { DocumentStatusTag, QualityTag } from '../components/StatusTags';
 import type { StockCount, StockCountLine, StockCountStatus } from '../types';
+import { DATE_INPUT_FORMAT } from '../../../shared/dateInput';
 
 const STATUSES: StockCountStatus[] = ['DRAFT', 'COUNTING', 'POSTED', 'CANCELLED'];
 
@@ -249,7 +250,7 @@ export function StockCountsPage() {
           <Select showSearch optionFilterProp="label" options={warehouses.options} />
         </Form.Item>
         <Form.Item name="countDate" label="Ngày kiểm kê" rules={[{ required: true }]}>
-          <DatePicker format="DD/MM/YYYY" />
+          <DatePicker format={DATE_INPUT_FORMAT} />
         </Form.Item>
         <Form.Item name="note" label="Ghi chú">
           <Input.TextArea rows={2} maxLength={1000} />

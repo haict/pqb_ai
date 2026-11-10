@@ -5,6 +5,7 @@ import { useServerTable } from '../../../shared/api/useServerTable';
 import { formatDateTime } from '../../../shared/format';
 import { loginLogApi } from '../api';
 import type { LoginEvent, LoginLog } from '../types';
+import { DATE_INPUT_FORMAT } from '../../../shared/dateInput';
 
 const EVENTS: Record<LoginEvent, { label: string; color: string }> = {
   LOGIN_SUCCESS: { label: 'Đăng nhập', color: 'green' },
@@ -62,7 +63,11 @@ export function LoginLogsPage() {
           style={{ width: 220 }}
           options={Object.entries(EVENTS).map(([value, { label }]) => ({ value, label }))}
         />
-        <DatePicker.RangePicker format="DD/MM/YYYY" value={range} onChange={(value) => setRange(value)} />
+        <DatePicker.RangePicker
+          format={DATE_INPUT_FORMAT}
+          value={range}
+          onChange={(value) => setRange(value)}
+        />
       </Space>
       <Table<LoginLog> {...tableProps} columns={columns} scroll={{ x: 900 }} />
     </Card>

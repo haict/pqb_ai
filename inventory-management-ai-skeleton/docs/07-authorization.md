@@ -26,6 +26,8 @@
 | `POST /api/v1/auth/logout` | Công khai (cookie) | Thu hồi phiên, xóa cookie |
 | `GET /api/v1/auth/me` | Đã đăng nhập | Quyền, chi nhánh được làm việc, `mustChangePassword` |
 | `POST /api/v1/auth/change-password` | Đã đăng nhập | Thu hồi mọi phiên khác, trả phiên mới |
+| `GET /api/v1/public/branding`, `GET /api/v1/public/branding/logo` | Công khai (D-72) | Chỉ tên ứng dụng và file logo cho trang đăng nhập; không dữ liệu nghiệp vụ |
+| `GET /api/v1/ui-features` | Đã đăng nhập (D-72) | Cấu hình ẩn / đổi tên menu, nút. Ẩn chỉ phục vụ giao diện, **không** thay quyền: API vẫn kiểm tra quyền như cũ |
 
 ### 1.2 Chính sách tài khoản (BR-SYS-23, tham số `erp.auth.*`)
 - **Mật khẩu:**

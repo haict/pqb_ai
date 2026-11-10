@@ -29,6 +29,7 @@ public class SecurityConfig {
     private static final String[] API_DOCS_PATHS = {"/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html"};
     private static final String[] PUBLIC_AUTH_PATHS = {
             "/api/v1/auth/login", "/api/v1/auth/refresh", "/api/v1/auth/logout"};
+    private static final String[] PUBLIC_READ_PATHS = {"/api/v1/public/branding", "/api/v1/public/branding/logo"};
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http,
@@ -57,6 +58,8 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> {
                     auth.requestMatchers("/actuator/health", "/actuator/health/**").permitAll();
                     auth.requestMatchers(HttpMethod.POST, PUBLIC_AUTH_PATHS).permitAll();
+                    // Tên, logo cho trang đăng nhập (D-72): chỉ dữ liệu công khai, chỉ đọc.
+                    auth.requestMatchers(HttpMethod.GET, PUBLIC_READ_PATHS).permitAll();
                     if (properties.publicApiDocs()) {
                         auth.requestMatchers(API_DOCS_PATHS).permitAll();
                     }

@@ -159,6 +159,10 @@ public class SalesOrder extends SalesDocument {
     @Column(name = "ever_posted", nullable = false)
     private boolean everPosted;
 
+    /** Lần ghi sổ hiện hành có ghi công nợ + bút toán (D-73); bỏ ghi sổ / đảo / trả hàng gỡ theo cờ này. */
+    @Column(name = "financial_posted", nullable = false)
+    private boolean financialPosted = true;
+
     @Column(name = "reversed_by")
     private Long reversedBy;
 
@@ -303,13 +307,14 @@ public class SalesOrder extends SalesDocument {
 
     /**
      * Ghi sổ đơn (từ nháp, hoặc đã duyệt trước D-61): phiếu xuất kho, hàng thực xuất theo dòng ({@code issued} theo
-     * id dòng), hạn thanh toán = ngày hạch toán + số ngày nợ.
+     * id dòng), hạn thanh toán = ngày hạch toán + số ngày nợ; {@code financial}: có công nợ + bút toán (D-73).
      */
-    public void markPosted(Long inventoryDocumentId, Map<Long, List<SalesOrderItem>> issued, Long actorId,
-                           Instant now) {
+    public void markPosted(Long inventoryDocumentId, Map<Long, List<SalesOrderItem>> issued, boolean financial,
+                           Long actorId, Instant now) {
         requireStatus(POSTABLE, "ghi sổ");
         setStatus(SalesDocumentStatus.POSTED);
         this.inventoryDocumentId = inventoryDocumentId;
+        this.financialPosted = financial;
         this.dueDate = postingDate.plusDays(paymentTermDays == null ? 0 : paymentTermDays);
         this.postedBy = actorId;
         this.postedAt = now;
@@ -534,6 +539,10 @@ public class SalesOrder extends SalesDocument {
 
     public String getEinvoiceKey() {
         return einvoiceKey;
+    }
+
+    public boolean isFinancialPosted() {
+        return financialPosted;
     }
 
     public Long getInventoryDocumentId() {

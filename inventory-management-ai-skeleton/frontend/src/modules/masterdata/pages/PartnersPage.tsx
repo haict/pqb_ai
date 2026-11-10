@@ -18,6 +18,7 @@ import { PARTNER_FIELDS, partnerPayload } from '../components/partnerFields';
 import { PARTNER_ROLES, toOptions } from '../labels';
 import { useCompanyId } from '../lookups';
 import type { Partner, PartnerRole } from '../types';
+import { UiAction } from '../../../shared/ui/UiAction';
 
 /** Đối tác nhiều vai trò (BR-MD-30..35), nhập Excel (BR-UX-05). */
 export function PartnersPage() {
@@ -131,9 +132,11 @@ export function PartnersPage() {
               style={{ width: 180 }}
             />
             {canManage && (
-              <Button icon={<UploadOutlined />} onClick={() => setImporting(true)}>
-                Nhập Excel
-              </Button>
+              <UiAction id="excel-import">
+                <Button icon={<UploadOutlined />} onClick={() => setImporting(true)}>
+                  Nhập Excel
+                </Button>
+              </UiAction>
             )}
           </>
         }

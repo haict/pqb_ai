@@ -38,6 +38,7 @@ import { COMPLAINT_STATUSES, DECISIONS } from '../labels';
 import type { ComplaintDecision, ComplaintStatus, SalesComplaint } from '../types';
 import { DecimalInput } from '../../../shared/components/DecimalInput';
 import { BranchCol } from '../../../shared/components/BranchCol';
+import { DATE_INPUT_FORMAT } from '../../../shared/dateInput';
 
 interface ComplaintForm {
   branchId: number;
@@ -244,7 +245,7 @@ export function SalesComplaintsPage() {
               label="Ngày nhận"
               rules={[{ required: true, message: 'Chọn ngày' }]}
             >
-              <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} />
+              <DatePicker format={DATE_INPUT_FORMAT} style={{ width: '100%' }} />
             </Form.Item>
           </Col>
           <Col xs={24} md={10}>

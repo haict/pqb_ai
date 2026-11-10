@@ -93,7 +93,8 @@ public class SalesReturnPostingService {
                     SalesOrder order = lockOrder(document);
                     applySources(document, order, BigDecimal.ONE);
                     Long inventoryId = document.isGoodsReturn() ? receive(actor, document).documentId() : null;
-                    if (document.getTotalAmount().signum() > 0) {
+                    // D-73: công nợ, bút toán theo lần ghi sổ của đơn gốc, không theo chế độ hiện tại.
+                    if (order.isFinancialPosted() && document.getTotalAmount().signum() > 0) {
                         debtPosting.reduceInvoice(new InvoiceCreditCommand(document.getCompanyId(),
                                 document.getBranchId(), InvoiceSide.RECEIVABLE, document.getCustomerId(),
                                 SalesOrder.TYPE_CODE, order.getId(), document.typeCode(), document.getId(),
@@ -123,11 +124,12 @@ public class SalesReturnPostingService {
                     }
                     LocalDate date = request.postingDate() != null ? request.postingDate() : calendar.today();
                     String reason = request.reason().trim();
-                    applySources(document, lockOrder(document), BigDecimal.ONE.negate());
+                    SalesOrder order = lockOrder(document);
+                    applySources(document, order, BigDecimal.ONE.negate());
                     if (document.getInventoryDocumentId() != null) {
                         stockIn.reverse(actor, document.getInventoryDocumentId(), date, reason);
                     }
-                    if (document.getTotalAmount().signum() > 0) {
+                    if (order.isFinancialPosted() && document.getTotalAmount().signum() > 0) {
                         debtPosting.reverseReduction(new DebtReversalCommand(document.getCompanyId(),
                                 document.getBranchId(), document.typeCode(), document.getId(), date,
                                 document.getDocumentNo(), actor.id()));

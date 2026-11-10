@@ -2,6 +2,7 @@ import { DownloadOutlined, FileExcelOutlined, FilePdfOutlined } from '@ant-desig
 import { App, Button, Dropdown, type MenuProps } from 'antd';
 import { useState } from 'react';
 import { saveBlob } from '../inventorySlip/slipContent';
+import { useUiAction } from '../ui/uiFeatures';
 
 export type ReportFormat = 'xlsx' | 'pdf';
 
@@ -12,7 +13,7 @@ const ITEMS: MenuProps['items'] = [
 
 /**
  * Tải báo cáo / sổ về máy dạng Excel, PDF; {@code build} nên import động thư viện dựng file (exceljs, pdfmake khá
- * nặng) để chỉ tải khi người dùng bấm.
+ * nặng) để chỉ tải khi người dùng bấm. Lựa chọn Excel ẩn được theo cấu hình khách hàng (D-72).
  */
 export function ReportDownloadButton({
   build,
@@ -23,6 +24,7 @@ export function ReportDownloadButton({
 }) {
   const { message } = App.useApp();
   const [busy, setBusy] = useState(false);
+  const items = useUiAction('excel-export') ? ITEMS : ITEMS?.filter((item) => item?.key !== 'xlsx');
 
   const download: MenuProps['onClick'] = async ({ key }) => {
     const format = key as ReportFormat;
@@ -37,7 +39,7 @@ export function ReportDownloadButton({
   };
 
   return (
-    <Dropdown menu={{ items: ITEMS, onClick: download }} trigger={['click']} disabled={busy}>
+    <Dropdown menu={{ items, onClick: download }} trigger={['click']} disabled={busy}>
       <Button icon={<DownloadOutlined />} loading={busy}>
         Tải về
       </Button>

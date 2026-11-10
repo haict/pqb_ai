@@ -7,16 +7,21 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from '../shared/auth/AuthProvider';
 import { createQueryClient } from './queryClient';
 import { APP_THEME } from './theme';
+import { BrandingProvider } from './BrandingProvider';
+import { useEnterAsTab } from '../shared/enterAsTab';
 
 dayjs.locale('vi');
 
 export function AppProviders({ children }: { children: ReactNode }) {
   const [queryClient] = useState(createQueryClient);
+  useEnterAsTab();
   return (
     <QueryClientProvider client={queryClient}>
       <ConfigProvider locale={viVN} theme={APP_THEME} modal={{ classNames: { body: 'app-modal-body' } }}>
         <AntApp>
-          <AuthProvider>{children}</AuthProvider>
+          <BrandingProvider>
+            <AuthProvider>{children}</AuthProvider>
+          </BrandingProvider>
         </AntApp>
       </ConfigProvider>
     </QueryClientProvider>

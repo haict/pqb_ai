@@ -30,6 +30,7 @@ import { useDocumentTypes } from '../../system/lookups';
 import { postingRuleApi } from '../api';
 import { usePostableAccounts } from '../lookups';
 import type { PostingRule } from '../types';
+import { DATE_INPUT_FORMAT } from '../../../shared/dateInput';
 
 interface RuleForm {
   documentType: string;
@@ -268,10 +269,10 @@ export function PostingRulesPage() {
         </Space>
         <Space style={{ width: '100%' }} styles={{ item: { flex: 1 } }}>
           <Form.Item name="validFrom" label="Hiệu lực từ" rules={[{ required: true, message: 'Chọn ngày' }]}>
-            <DatePicker disabled={!isNew} format="DD/MM/YYYY" style={{ width: '100%' }} />
+            <DatePicker disabled={!isNew} format={DATE_INPUT_FORMAT} style={{ width: '100%' }} />
           </Form.Item>
           <Form.Item name="validTo" label="Đến ngày">
-            <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} />
+            <DatePicker format={DATE_INPUT_FORMAT} style={{ width: '100%' }} />
           </Form.Item>
         </Space>
         <Form.Item name="description" label="Diễn giải">

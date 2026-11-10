@@ -1,13 +1,14 @@
-import logo from '../assets/pqb-logo.svg';
+import { useBranding } from '../shared/ui/branding';
 import { BRAND } from './theme';
 
-/** Nhận diện ứng dụng: logo PQB + tên; {@code compact} chỉ hiện logo (menu thu gọn). */
+/** Nhận diện ứng dụng: logo + tên theo cấu hình khách hàng (D-72); {@code compact} chỉ hiện logo (menu thu gọn). */
 export function BrandLogo({ compact = false, inverse = false }: { compact?: boolean; inverse?: boolean }) {
+  const branding = useBranding();
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10, overflow: 'hidden' }}>
       <img
-        src={logo}
-        alt="PQB Medical Device"
+        src={branding.logoUrl}
+        alt={branding.appName}
         style={{
           flex: 'none',
           // Menu thu gọn chỉ rộng 64px nên giữ cỡ nhỏ.
@@ -28,7 +29,7 @@ export function BrandLogo({ compact = false, inverse = false }: { compact?: bool
             color: inverse ? '#fff' : BRAND.text,
           }}
         >
-          Công nghệ y tế &amp; giáo dục PQP
+          {branding.appName}
         </span>
       )}
     </div>

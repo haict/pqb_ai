@@ -20,7 +20,7 @@ import {
   type TableColumnsType,
 } from 'antd';
 import dayjs, { type Dayjs } from 'dayjs';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useServerTable } from '../../../shared/api/useServerTable';
 import { useCan } from '../../../shared/auth/authContext';
@@ -57,6 +57,9 @@ import type {
 import { BranchCol } from '../../../shared/components/BranchCol';
 import { BRANCH_VISIBLE } from '../../../shared/branch';
 import { ImportModal } from '../../masterdata/components/ImportModal';
+import { UiAction } from '../../../shared/ui/UiAction';
+import { useFinancialPosting } from '../../../shared/ui/postingMode';
+import { DATE_INPUT_FORMAT } from '../../../shared/dateInput';
 
 interface LineForm {
   productId?: number;
@@ -222,7 +225,7 @@ export function PurchaseOrdersPage() {
       ? orderForm(editing)
       : copySource
         ? copyForm(copySource)
-        : { branchId: branches.defaultId, documentDate: dayjs(), lines: [{}] };
+        : { branchId: branches.defaultId, documentDate: dayjs(), lines: [{ unitPrice: 0 }] };
 
   const columns: TableColumnsType<PurchaseOrder> = [
     {
@@ -567,17 +570,17 @@ function OrderFields({
         </Col>
         <Col xs={12} md={4}>
           <Form.Item name="documentDate" label="Ngày đơn" rules={[{ required: true, message: 'Chọn ngày' }]}>
-            <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} />
+            <DatePicker format={DATE_INPUT_FORMAT} style={{ width: '100%' }} />
           </Form.Item>
         </Col>
         <Col xs={12} md={4}>
           <Form.Item name="postingDate" label="Ngày hạch toán" tooltip="Trống: bằng ngày đơn">
-            <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} />
+            <DatePicker format={DATE_INPUT_FORMAT} style={{ width: '100%' }} />
           </Form.Item>
         </Col>
         <Col xs={12} md={4}>
           <Form.Item name="expectedDate" label="Ngày giao dự kiến">
-            <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} />
+            <DatePicker format={DATE_INPUT_FORMAT} style={{ width: '100%' }} />
           </Form.Item>
         </Col>
         <Col xs={12} md={4}>
@@ -587,7 +590,7 @@ function OrderFields({
         </Col>
         <Col xs={12} md={4}>
           <Form.Item name="dueDate" label="Hạn thanh toán" tooltip="Trống: ngày hóa đơn + số ngày nợ">
-            <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} />
+            <DatePicker format={DATE_INPUT_FORMAT} style={{ width: '100%' }} />
           </Form.Item>
         </Col>
         <Col xs={12} md={4}>
@@ -602,7 +605,7 @@ function OrderFields({
         </Col>
         <Col xs={12} md={4}>
           <Form.Item name="invoiceDate" label="Ngày hóa đơn">
-            <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} />
+            <DatePicker format={DATE_INPUT_FORMAT} style={{ width: '100%' }} />
           </Form.Item>
         </Col>
         <Col xs={24} md={8}>
@@ -633,13 +636,15 @@ function OrderFields({
             <LineGrid
               columns={LINE_COLUMNS}
               minWidth={LINE_GRID_MIN_WIDTH}
-              onAdd={() => add({})}
+              onAdd={() => add({ unitPrice: 0 })}
               actions={
                 <Space>
                   <PurchaseOcrButton form={form} companyId={companyId} onNotes={setOcrNotes} />
-                  <Button icon={<UploadOutlined />} onClick={() => setImporting(true)}>
-                    Nhập dòng từ Excel
-                  </Button>
+                  <UiAction id="excel-import">
+                    <Button icon={<UploadOutlined />} onClick={() => setImporting(true)}>
+                      Nhập dòng từ Excel
+                    </Button>
+                  </UiAction>
                 </Space>
               }
             >
@@ -687,11 +692,23 @@ function OrderLineFields({
   onRemove(): void;
 }) {
   const taxRates = useTaxRates();
+  const financial = useFinancialPosting();
   const productId = Form.useWatch(['lines', name, 'productId'], form) as number | undefined;
   const service = Form.useWatch(['lines', name, 'serviceLine'], form) as boolean | undefined;
   const { product, options } = useProductUnits(productId);
   const lotTracked = !service && product?.lotTracked;
   const serialTracked = !service && product?.serialTracked;
+  useEffect(() => {
+    // Lô / hạn dùng điền sẵn (OCR phiếu xuất kho NCC, nhập Excel) cho hàng không quản lý lô: ô bị ẩn nên bỏ giá trị,
+    // tránh server từ chối khi lưu (BR-INV-01).
+    if (product && !lotTracked) {
+      for (const field of ['lotNo', 'manufactureDate', 'expiryDate'] as const) {
+        if (form.getFieldValue(['lines', name, field]) !== undefined) {
+          form.setFieldValue(['lines', name, field], undefined);
+        }
+      }
+    }
+  }, [form, name, product, lotTracked]);
   return (
     <LineGridRow
       columns={LINE_COLUMNS}
@@ -744,9 +761,9 @@ function OrderLineFields({
       <Form.Item
         name={[name, 'unitPrice']}
         style={lineCellStyle}
-        rules={[{ required: true, message: 'Nhập đơn giá' }]}
+        rules={financial ? [{ required: true, message: 'Nhập đơn giá' }] : []}
       >
-        <InputNumber<number> min={0} {...moneyInputProps} />
+        <InputNumber<number> min={0} placeholder={financial ? undefined : '0'} {...moneyInputProps} />
       </Form.Item>
       <Form.Item name={[name, 'discountPercent']} style={lineCellStyle}>
         <DecimalInput min={0} max={100} fractionDigits={4} />
@@ -764,14 +781,14 @@ function OrderLineFields({
             <Input maxLength={50} />
           </Form.Item>
           <Form.Item name={[name, 'manufactureDate']} style={lineCellStyle}>
-            <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} />
+            <DatePicker format={DATE_INPUT_FORMAT} style={{ width: '100%' }} />
           </Form.Item>
           <Form.Item
             name={[name, 'expiryDate']}
             style={lineCellStyle}
             rules={[{ required: product.expiryTracked, message: 'Nhập hạn dùng' }]}
           >
-            <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} />
+            <DatePicker format={DATE_INPUT_FORMAT} style={{ width: '100%' }} />
           </Form.Item>
         </>
       ) : (

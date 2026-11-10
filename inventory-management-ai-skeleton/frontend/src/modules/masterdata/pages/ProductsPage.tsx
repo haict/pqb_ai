@@ -46,6 +46,8 @@ import {
 import { PRODUCT_TYPES, toOptions } from '../labels';
 import { useCatalog, useCategories, useCompanyId, useWarehouses } from '../lookups';
 import type { Product, ProductType } from '../types';
+import { UiAction } from '../../../shared/ui/UiAction';
+import { DATE_INPUT_FORMAT } from '../../../shared/dateInput';
 
 function ProductDetail({ productId, onClose }: { productId: number; onClose(): void }) {
   const can = useCan();
@@ -133,7 +135,7 @@ function ProductDetail({ productId, onClose }: { productId: number; onClose(): v
                   <InputNumber placeholder="Hệ số" min={0.000001} style={{ width: 120 }} />
                 </Form.Item>
                 <Form.Item name="effectiveFrom" rules={[{ required: true, message: 'Chọn ngày' }]}>
-                  <DatePicker placeholder="Hiệu lực từ" format="DD/MM/YYYY" />
+                  <DatePicker placeholder="Hiệu lực từ" format={DATE_INPUT_FORMAT} />
                 </Form.Item>
                 <Button onClick={addUnit}>Thêm</Button>
               </Form>
@@ -310,9 +312,11 @@ export function ProductsPage() {
               style={{ width: 200 }}
             />
             {canManage && (
-              <Button icon={<UploadOutlined />} onClick={() => setImporting(true)}>
-                Nhập Excel
-              </Button>
+              <UiAction id="excel-import">
+                <Button icon={<UploadOutlined />} onClick={() => setImporting(true)}>
+                  Nhập Excel
+                </Button>
+              </UiAction>
             )}
           </>
         }

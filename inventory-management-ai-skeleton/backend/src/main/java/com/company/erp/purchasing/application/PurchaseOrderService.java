@@ -224,8 +224,10 @@ public class PurchaseOrderService {
             requireTracking(product, line, field);
         }
         List<String> serials = service ? List.of() : serials(product, line, base, field);
+        // D-73: đơn giá không bắt buộc, trống = 0.
+        BigDecimal unitPrice = line.unitPrice() == null ? BigDecimal.ZERO : line.unitPrice();
         return new PurchaseOrderLine(index + 1, new PurchaseOrderLine.Values(line.productId(), line.unitId(), factor,
-                line.quantity(), base, line.unitPrice(), line.discountPercent(), tax == null ? null : tax.id(),
+                line.quantity(), base, unitPrice, line.discountPercent(), tax == null ? null : tax.id(),
                 tax == null ? null : tax.rate(), service, service ? null : line.locationId(),
                 service ? null : PurchasingAccess.trim(line.lotNo()), service ? null : line.manufactureDate(),
                 service ? null : line.expiryDate(), serials, PurchasingAccess.trim(line.note())));
