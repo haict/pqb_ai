@@ -44,6 +44,10 @@ export interface PurchaseOrderLine {
   taxRate: number | null;
   taxAmount: number;
   serviceLine: boolean;
+  /** Kho nhận của dòng hàng hóa (D-76); null với dòng dịch vụ. */
+  warehouseId: number | null;
+  warehouseCode: string | null;
+  warehouseName: string | null;
   locationId: number | null;
   lotNo: string | null;
   manufactureDate: string | null;
@@ -68,9 +72,9 @@ export interface PurchaseOrder extends PurchaseDocumentBase {
   supplierId: number;
   supplierCode: string | null;
   supplierName: string | null;
-  warehouseId: number;
-  warehouseCode: string | null;
-  warehouseName: string | null;
+  /** Các kho nhận theo dòng (D-76); tên nối bằng dấu phẩy. */
+  warehouseIds: number[];
+  warehouseNames: string | null;
   expectedDate: string | null;
   paymentTermDays: number | null;
   currencyCode: string;
@@ -121,7 +125,6 @@ export interface PurchaseReturn extends PurchaseDocumentBase {
   purchaseOrderId: number;
   purchaseOrderNo: string | null;
   invoiceLabel: string | null;
-  warehouseId: number | null;
   inventoryDocumentId: number | null;
   inventoryDocumentNo: string | null;
   amount: number;
@@ -195,6 +198,8 @@ export interface StockInSlipLine {
   lineNo: number;
   productCode: string | null;
   productName: string | null;
+  /** Kho nhận của dòng (D-76). */
+  warehouseCode: string | null;
   lotNo: string | null;
   expiryDate: string | null;
   unitId: number;

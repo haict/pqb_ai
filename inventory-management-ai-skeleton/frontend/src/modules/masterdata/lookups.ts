@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../shared/auth/authContext';
 import {
   ALL_ACTIVE,
@@ -99,4 +99,32 @@ export function useCountries() {
     items,
     options: items.map((country) => ({ value: country.code, label: `${country.code} - ${country.name}` })),
   };
+}
+
+/** Kho gợi ý cho hàng tại chi nhánh theo tên nhóm hàng (D-76); {@code null} khi không có kho duy nhất. */
+export function useSuggestedWarehouse(branchId: number | undefined, productId: number | undefined) {
+  const query = useQuery({
+    queryKey: suggestionKey(branchId, productId),
+    queryFn: () => warehouseApi.suggestions(branchId as number, [productId as number]),
+    enabled: typeof branchId === 'number' && typeof productId === 'number',
+    staleTime: STALE,
+  });
+  return query.data?.[0]?.warehouseId ?? null;
+}
+
+const suggestionKey = (branchId: number | undefined, productId: number | undefined) =>
+  ['warehouses', 'suggestion', branchId, productId] as const;
+
+/**
+ * Kho cho dòng vừa đổi hàng: kho gợi ý đã tải xong của hàng mới, chưa có thì trống (khi tải xong
+ * {@link useSuggestedWarehouse} tự điền). Dùng trong onProduct (gọi sau khi tải hàng, bất đồng bộ): gợi ý về trước
+ * onProduct thì không bị xóa mất.
+ */
+export function useCachedSuggestedWarehouse() {
+  const queryClient = useQueryClient();
+  return (branchId: number | undefined, productId: number | undefined): number | undefined =>
+    branchId === undefined || productId === undefined
+      ? undefined
+      : (queryClient.getQueryData<{ warehouseId: number | null }[]>(suggestionKey(branchId, productId))?.[0]
+          ?.warehouseId ?? undefined);
 }

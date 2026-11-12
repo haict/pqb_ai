@@ -14,6 +14,8 @@ export interface SalesLineForm {
   discountPercent?: number;
   taxRateId?: number;
   promotional?: boolean;
+  /** Kho xuất của dòng (D-76): tự gợi ý theo nhóm hàng khi trống. */
+  warehouseId?: number;
   expectedDate?: Dayjs;
   lotNo?: string;
   /** Hạn dùng của lô (chỉ hiển thị, không gửi server): từ chứng từ nhập F8 hoặc tra theo lô trong kho. */
@@ -67,6 +69,7 @@ export function linesFromReceipts(
       discountPercent: current.discountPercent,
       taxRateId: current.taxRateId,
       promotional: current.promotional,
+      warehouseId: current.warehouseId,
       expectedDate: current.expectedDate,
       lotNo: first.lotNo ?? undefined,
       expiryDate: first.expiryDate ?? undefined,
@@ -89,6 +92,7 @@ export function toLineForm(line: SalesLine): SalesLineForm {
     discountPercent: line.discountPercent,
     taxRateId: line.taxRateId ?? undefined,
     promotional: line.promotional,
+    warehouseId: line.warehouseId ?? undefined,
     lotNo: line.lotNo ?? undefined,
     expiryDate: line.expiryDate ?? undefined,
     lotOverrideReason: line.lotOverrideReason ?? undefined,
@@ -108,6 +112,7 @@ export function toLineInput(line: SalesLineForm) {
     discountPercent: line.discountPercent ?? null,
     taxRateId: line.taxRateId ?? null,
     promotional: !!line.promotional,
+    warehouseId: line.warehouseId ?? null,
     expectedDate: line.expectedDate ? line.expectedDate.format('YYYY-MM-DD') : null,
     lotNo: line.lotNo || null,
     lotOverrideReason: line.lotOverrideReason || null,

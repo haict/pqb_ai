@@ -1,10 +1,13 @@
 import { downloadFile, getOne, getPage, postWithKey, putJson, uploadFile } from '../../shared/api/rest';
 import type { ListParams } from '../../shared/api/useServerTable';
+import type { PrintCompany } from '../../shared/components/CompanyPrintButton';
+import type { ReceiptSource } from '../sales/types';
 import type {
   FefoAllocation,
   InventoryDocument,
   InventoryDocumentInput,
   InventoryDocumentSummary,
+  InventorySlip,
   InventoryTransaction,
   Lot,
   OpeningStockImportResult,
@@ -35,6 +38,9 @@ export const documentApi = {
   update: (id: number, input: InventoryDocumentInput) =>
     putJson<InventoryDocument>(`/inventory-documents/${id}`, input),
   act: action<InventoryDocument>('/inventory-documents'),
+  slip: (id: number, companyId?: number) =>
+    getOne<InventorySlip>(`/inventory-documents/${id}/slip`, { companyId }),
+  printCompanies: () => getOne<PrintCompany[]>('/inventory-documents/print-companies'),
   downloadOpeningTemplate: () =>
     downloadFile('/inventory-documents/opening-import-template', 'mau-ton-kho-dau-ky.xlsx'),
   importOpening: (file: File, companyId: number, documentDate: string, key: string) =>
@@ -55,6 +61,9 @@ export const stockApi = {
     getPage<InventoryTransaction>('/inventory/transactions', params),
   lots: <F extends object>(params: ListParams & F) => getPage<Lot>('/inventory/lots', params),
   serials: <F extends object>(params: ListParams & F) => getPage<Serial>('/inventory/serials', params),
+  /** Chứng từ nhập còn tồn của hàng tại kho, cho F8 trên phiếu xuất kho (D-79). */
+  receiptSources: (warehouseId: number, productId: number) =>
+    getOne<ReceiptSource[]>('/inventory/receipt-sources', { warehouseId, productId }),
   fefo: (warehouseId: number, productId: number, quantity: number) =>
     getOne<FefoAllocation[]>('/inventory/fefo-suggestions', { warehouseId, productId, quantity }),
   machineCategories: (companyId: number) => getOne<number[]>('/inventory/machine-categories', { companyId }),

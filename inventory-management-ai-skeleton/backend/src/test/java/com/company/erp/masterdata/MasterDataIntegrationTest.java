@@ -205,6 +205,44 @@ class MasterDataIntegrationTest {
     }
 
     @Test
+    @DisplayName("D-76: gợi ý kho theo tên nhóm hàng gần đúng, thử nhóm cha, không khớp thì để trống, ngoài phạm vi không gợi ý")
+    void warehouseSuggestions() throws Exception {
+        Session admin = login(mockMvc, "admin");
+        String tag = unique("T");
+        long box = id("SELECT id FROM units WHERE company_id = 1 AND code = 'HOP'");
+        Integer parent = json(send(admin, post("/api/v1/product-categories"), "{\"companyId\":1,\"code\":\""
+                + unique("C") + "\",\"name\":\"Đông máu " + tag + "\"}", newKey())
+                .andExpect(status().isCreated()).andReturn(), "$.data.id");
+        Integer child = json(send(admin, post("/api/v1/product-categories"), "{\"companyId\":1,\"code\":\""
+                + unique("C") + "\",\"name\":\"Thuốc thử\",\"parentId\":" + parent + "}", newKey())
+                .andExpect(status().isCreated()).andReturn(), "$.data.id");
+        Integer other = createCategory(admin, unique("C"), null);
+        Integer warehouse = json(send(admin, post("/api/v1/warehouses"), "{\"branchId\":1,\"code\":\"" + unique("W")
+                + "\",\"name\":\"KHO ĐÔNG MÁU " + tag + "\",\"warehouseType\":\"NORMAL\"}", newKey())
+                .andExpect(status().isCreated()).andReturn(), "$.data.id");
+        Integer matched = json(send(admin, post("/api/v1/products"), product(unique("P"), "REAGENT", child, box, false,
+                false, false), newKey()).andExpect(status().isCreated()).andReturn(), "$.data.id");
+        Integer unmatched = json(send(admin, post("/api/v1/products"), product(unique("P"), "REAGENT", other, box,
+                false, false, false), newKey()).andExpect(status().isCreated()).andReturn(), "$.data.id");
+
+        mockMvc.perform(as(admin, get("/api/v1/warehouses/suggestions")).param("branchId", "1")
+                        .param("productIds", matched + "," + unmatched))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].productId").value(matched))
+                .andExpect(jsonPath("$.data[0].warehouseId").value(warehouse))
+                .andExpect(jsonPath("$.data[1].productId").value(unmatched))
+                .andExpect(jsonPath("$.data[1].warehouseId").doesNotExist());
+        // Kho của chi nhánh khác / ngoài phạm vi người dùng: không gợi ý
+        mockMvc.perform(as(admin, get("/api/v1/warehouses/suggestions")).param("branchId", "2")
+                        .param("productIds", String.valueOf(matched)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data[0].warehouseId").doesNotExist());
+        Session warehouseStaff = login(mockMvc, "kho.hcm");
+        mockMvc.perform(as(warehouseStaff, get("/api/v1/warehouses/suggestions")).param("branchId", "1")
+                        .param("productIds", String.valueOf(matched)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data[0].warehouseId").doesNotExist());
+    }
+
+    @Test
     @DisplayName("BR-SYS-04, BR-SYS-06: kho theo phạm vi chi nhánh / kho được gán; vị trí mặc định không ngừng được")
     void warehouseScope() throws Exception {
         Session warehouseStaff = login(mockMvc, "kho.hcm");

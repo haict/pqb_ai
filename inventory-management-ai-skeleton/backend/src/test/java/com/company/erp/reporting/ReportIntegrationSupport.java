@@ -9,6 +9,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.company.erp.common.application.IdempotentCommand;
+import com.company.erp.support.ApiTestSupport;
 import com.company.erp.support.ApiTestSupport.Session;
 import com.jayway.jsonpath.JsonPath;
 import org.junit.jupiter.api.BeforeEach;
@@ -141,9 +142,9 @@ abstract class ReportIntegrationSupport {
     long draftPurchase(long supplier, long product, String quantity, String price, String lot)
             throws Exception {
         String body = "{\"branchId\":1,\"documentDate\":\"" + DATE + "\",\"supplierId\":" + supplier
-                + ",\"warehouseId\":" + warehouse() + ",\"expectedDate\":\"2026-10-15\",\"invoiceSeries\":\""
-                + unique("C26T") + "\",\"invoiceNo\":\"1\",\"invoiceDate\":\"" + DATE + "\",\"lines\":[{\"productId\":"
-                + product + ",\"unitId\":" + unit() + ",\"quantity\":" + quantity + ",\"unitPrice\":" + price
+                + ",\"expectedDate\":\"2026-10-15\",\"invoiceSeries\":\""
+                + unique("C26T") + "\",\"invoiceNo\":\"1\",\"invoiceDate\":\"" + DATE + "\",\"lines\":[{\"warehouseId\":"
+                + warehouse() + ",\"productId\":" + product + ",\"unitId\":" + unit() + ",\"quantity\":" + quantity + ",\"unitPrice\":" + price
                 + ",\"lotNo\":\"" + lot + "\",\"expiryDate\":\"2028-01-31\"}]}";
         return jsonId(send(buyer, post(PURCHASES), body).andExpect(status().isCreated()).andReturn());
     }
@@ -155,7 +156,7 @@ abstract class ReportIntegrationSupport {
 
     ResultActions send(Session session, MockHttpServletRequestBuilder request, String body) throws Exception {
         return mockMvc.perform(as(session, request).header(IdempotentCommand.HEADER, newKey())
-                .contentType(MediaType.APPLICATION_JSON).content(body));
+                .contentType(MediaType.APPLICATION_JSON).content(ApiTestSupport.lineWarehouse(body)));
     }
 
     static MockHttpServletRequestBuilder as(Session session, MockHttpServletRequestBuilder request) {

@@ -17,7 +17,6 @@ import java.util.List;
 public record SalesOrderRequest(
         @NotNull Long branchId,
         @NotNull Long customerId,
-        @NotNull Long warehouseId,
         @NotNull LocalDate documentDate,
         LocalDate postingDate,
         @Size(max = 200) String contactName,

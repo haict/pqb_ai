@@ -45,7 +45,7 @@ export function StockInSlipDownload({ orderId, companyId }: { orderId: number; c
 
 function toView(slip: StockInSlip, unitName: (id: number | null) => string): InventorySlipView {
   const invoice = slip.invoiceNo
-    ? `${slip.invoiceNo} ngày ${formatDate(slip.invoiceDate)} của ${slip.supplierName ?? ''}`
+    ? `${slip.invoiceNo}${slip.invoiceDate ? ` ngày ${formatDate(slip.invoiceDate)}` : ''} của ${slip.supplierName ?? ''}`
     : '';
   return {
     title: 'PHIẾU NHẬP KHO',
@@ -69,7 +69,7 @@ function toView(slip: StockInSlip, unitName: (id: number | null) => string): Inv
       productName: line.productName,
       lots: line.lotNo ? [line.lotNo] : [],
       expiries: line.expiryDate ? [formatDate(line.expiryDate)] : [],
-      warehouseCode: slip.warehouseCode,
+      warehouseCode: line.warehouseCode ?? slip.warehouseCode,
       unitName: unitName(line.unitId),
       quantity: line.quantity,
       unitPrice: line.unitPrice,

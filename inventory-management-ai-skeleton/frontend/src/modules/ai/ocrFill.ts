@@ -108,6 +108,11 @@ export function ocrLineValues(line: OcrLine, prices = true): OcrLineValues {
   }
   if (unit.status === 'MATCHED' && unit.id !== null) {
     values.unitId = unit.id;
+  } else if (unit.rawText && values.productId !== undefined) {
+    // Form điền ĐVT cơ sở của hàng khi ĐVT trống: nhắc kiểm tra vì số lượng có thể theo ĐVT khác.
+    hints.push(
+      `ĐVT trên chứng từ "${unit.rawText}" không có trong đơn vị của hàng: đã điền ĐVT cơ sở, kiểm tra ĐVT và số lượng.`,
+    );
   } else if (unit.rawText) {
     hints.push(`ĐVT trên chứng từ "${unit.rawText}" chưa xác định: chọn ĐVT.`);
   }

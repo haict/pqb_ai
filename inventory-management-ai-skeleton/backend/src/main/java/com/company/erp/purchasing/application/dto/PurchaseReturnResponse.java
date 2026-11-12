@@ -23,7 +23,6 @@ public record PurchaseReturnResponse(
         Long purchaseOrderId,
         String purchaseOrderNo,
         String invoiceLabel,
-        Long warehouseId,
         Long inventoryDocumentId,
         String inventoryDocumentNo,
         String description,

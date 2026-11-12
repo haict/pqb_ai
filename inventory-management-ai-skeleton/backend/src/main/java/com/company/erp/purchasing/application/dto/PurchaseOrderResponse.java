@@ -9,7 +9,8 @@ import java.util.List;
 
 /**
  * Đơn mua hàng (D-54); {@code inventoryDocumentNo}: phiếu nhập kho sinh khi ghi sổ. {@code supplierTaxCode},
- * {@code supplierAddress}: MST, địa chỉ hiện tại của nhà cung cấp trong danh mục (chỉ đọc). {@code lines}, {@code approvals}
+ * {@code supplierAddress}: MST, địa chỉ hiện tại của nhà cung cấp trong danh mục (chỉ đọc). {@code warehouseIds},
+ * {@code warehouseNames}: các kho nhận theo dòng (D-76), tên nối bằng dấu phẩy. {@code lines}, {@code approvals}
  * chỉ có ở API chi tiết.
  */
 public record PurchaseOrderResponse(
@@ -22,9 +23,8 @@ public record PurchaseOrderResponse(
         Long supplierId,
         String supplierCode,
         String supplierName,
-        Long warehouseId,
-        String warehouseCode,
-        String warehouseName,
+        List<Long> warehouseIds,
+        String warehouseNames,
         LocalDate expectedDate,
         Integer paymentTermDays,
         String currencyCode,

@@ -150,9 +150,12 @@ abstract class PurchasingIntegrationSupport {
                 ",\"lotNo\":\"" + lot + "\",\"expiryDate\":\"" + EXPIRY + "\"}");
     }
 
+    /** Đơn mua; dòng chưa khai báo kho nhận thì nhận vào {@code warehouse} (kho theo dòng, D-76). */
     static String order(long supplier, long warehouse, List<String> lines) {
-        return "{\"branchId\":1,\"documentDate\":\"" + DATE + "\",\"supplierId\":" + supplier + ",\"warehouseId\":"
-                + warehouse + ",\"expectedDate\":\"2026-10-15\",\"lines\":[" + String.join(",", lines) + "]}";
+        List<String> withWarehouse = lines.stream().map(line -> line.contains("\"warehouseId\"") ? line
+                : line.replaceFirst("^\\{", "{\"warehouseId\":" + warehouse + ",")).toList();
+        return "{\"branchId\":1,\"documentDate\":\"" + DATE + "\",\"supplierId\":" + supplier
+                + ",\"expectedDate\":\"2026-10-15\",\"lines\":[" + String.join(",", withWarehouse) + "]}";
     }
 
     /** Đơn mua kèm hóa đơn của nhà cung cấp (ký hiệu, số, ngày). */

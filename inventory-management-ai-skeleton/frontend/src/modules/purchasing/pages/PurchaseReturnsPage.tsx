@@ -38,7 +38,7 @@ import { useMyBranches } from '../../system/lookups';
 import { purchaseOrderApi, purchaseReturnApi } from '../api';
 import { PurchaseDocumentDrawer } from '../components/PurchaseDocumentDrawer';
 import { SourceJournal } from '../components/SourceJournal';
-import { postingActions, PURCHASE_STATUSES, RETURN_TYPES } from '../labels';
+import { invoiceLabel, postingActions, PURCHASE_STATUSES, RETURN_TYPES } from '../labels';
 import type {
   PurchaseDocumentStatus,
   PurchaseReturn,
@@ -439,7 +439,7 @@ function ReturnFields({
               onChange={resetLines}
               options={(orders.data?.items ?? []).map((order) => ({
                 value: order.id,
-                label: `${order.documentNo}${order.invoiceNo ? ` (${order.invoiceSeries}-${order.invoiceNo})` : ''}`,
+                label: `${order.documentNo}${order.invoiceNo ? ` (${invoiceLabel(order.invoiceSeries, order.invoiceNo)})` : ''}`,
               }))}
             />
           </Form.Item>
@@ -540,7 +540,7 @@ function ReturnLineFields({
       ? [...options, { value: current, label: `Dòng nguồn ${current}` }]
       : options;
   return (
-    <LineGridRow columns={columns}>
+    <LineGridRow columns={columns} lineNo={name + 1}>
       <Form.Item
         name={[name, 'sourceKey']}
         style={lineCellStyle}

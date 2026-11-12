@@ -15,7 +15,6 @@ import java.util.Objects;
  * @param lineId       dòng chứng từ nguồn
  * @param unitCost     đơn giá nhập (chiều nhập); giá xuất do tính giá vốn (Giai đoạn 4)
  * @param reversalOfId dòng sổ nhật ký gốc khi đây là dòng đảo
- * @param lotChoiceJustified đã ghi lý do khi chỉ định lô khác lô FEFO đề xuất (BR-INV-21)
  * @param itemCondition máy mới / cũ của dòng nhập (BR-INV-43); trống: giữ tình trạng serial đã có
  */
 public record StockMovement(
@@ -32,7 +31,6 @@ public record StockMovement(
         BigDecimal unitCost,
         OutRule outRule,
         Long reversalOfId,
-        boolean lotChoiceJustified,
         ItemCondition itemCondition) {
 
     /** Điều kiện của tồn được xuất. */
@@ -48,10 +46,9 @@ public record StockMovement(
     /** Biến động không đổi tình trạng máy (xuất, chuyển kho, chuyển trạng thái chất lượng). */
     public StockMovement(Long lineId, MovementDirection direction, TransactionType type, Long productId,
                          Long warehouseId, Long locationId, Long lotId, Long serialId, QualityStatus qualityStatus,
-                         BigDecimal quantity, BigDecimal unitCost, OutRule outRule, Long reversalOfId,
-                         boolean lotChoiceJustified) {
+                         BigDecimal quantity, BigDecimal unitCost, OutRule outRule, Long reversalOfId) {
         this(lineId, direction, type, productId, warehouseId, locationId, lotId, serialId, qualityStatus, quantity,
-                unitCost, outRule, reversalOfId, lotChoiceJustified, null);
+                unitCost, outRule, reversalOfId, null);
     }
 
     public StockMovement {

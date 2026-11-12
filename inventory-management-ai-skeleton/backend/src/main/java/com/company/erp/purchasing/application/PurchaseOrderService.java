@@ -20,6 +20,12 @@ import com.company.erp.purchasing.infrastructure.persistence.PurchaseOrderReposi
 import com.company.erp.system.application.ApprovalService;
 import com.company.erp.system.application.CurrentUser;
 import com.company.erp.system.application.OrganizationQueryService.BranchRef;
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.CriteriaQuery;
+import jakarta.persistence.criteria.Join;
+import jakarta.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.Root;
+import jakarta.persistence.criteria.Subquery;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -76,16 +82,26 @@ public class PurchaseOrderService {
                         filter.supplierId() == null ? cb.conjunction()
                                 : cb.equal(root.get("supplierId"), filter.supplierId()),
                         filter.warehouseId() == null ? cb.conjunction()
-                                : cb.equal(root.get("warehouseId"), filter.warehouseId()))),
+                                : hasLineWarehouse(root, query, cb, filter.warehouseId()))),
                 pageable);
         Map<Long, PartnerInfo> suppliers = access.partners(page.getContent().stream()
                 .map(PurchaseOrder::getSupplierId).toList());
         Map<Long, WarehouseInfo> warehouses = access.warehouses(page.getContent().stream()
-                .map(PurchaseOrder::getWarehouseId).toList());
+                .flatMap(document -> document.warehouseIds().stream()).distinct().toList());
         Map<Long, String> inventoryNumbers = inventoryNumbers(page.getContent());
-        return page.map(document -> toResponse(document, suppliers.get(document.getSupplierId()),
-                warehouses.get(document.getWarehouseId()), inventoryNumbers.get(document.getInventoryDocumentId()),
-                false));
+        return page.map(document -> toResponse(document, suppliers.get(document.getSupplierId()), warehouses,
+                inventoryNumbers.get(document.getInventoryDocumentId()), false));
+    }
+
+    /** Đơn có dòng nhận vào kho (kho theo dòng, D-76). */
+    private static Predicate hasLineWarehouse(Root<PurchaseOrder> root, CriteriaQuery<?> query, CriteriaBuilder cb,
+                                              Long warehouseId) {
+        Subquery<Long> lines = query.subquery(Long.class);
+        Root<PurchaseOrder> order = lines.from(PurchaseOrder.class);
+        Join<PurchaseOrder, PurchaseOrderLine> line = order.join("lines");
+        lines.select(order.get("id")).where(cb.equal(order.get("id"), root.get("id")),
+                cb.equal(line.get("warehouseId"), warehouseId));
+        return cb.exists(lines);
     }
 
     @Transactional(readOnly = true)
@@ -164,7 +180,6 @@ public class PurchaseOrderService {
     private void fill(PurchaseOrder document, PurchaseOrderRequest request) {
         Long companyId = document.getCompanyId();
         PartnerInfo supplier = access.supplier(companyId, request.supplierId(), "supplierId");
-        access.receivingWarehouse(document.getBranchId(), request.warehouseId(), "warehouseId");
         String currency = request.currencyCode() == null ? DOMESTIC_CURRENCY : request.currencyCode();
         if (!DOMESTIC_CURRENCY.equals(currency)) {
             throw BusinessException.invalidField("currencyCode", "Giai đoạn này chỉ hỗ trợ đơn mua bằng VND (D-24).");
@@ -173,35 +188,35 @@ public class PurchaseOrderService {
                 : supplier.supplierPaymentTermDays();
         LocalDate postingDate = request.postingDate() != null ? request.postingDate() : request.documentDate();
         PurchaseOrder.Invoice invoice = invoice(supplier, request);
-        if (invoice != null) {
+        if (invoice != null && invoice.number() != null) {
             // Kiểm tra trước khi đổi entity: truy vấn sau khi đổi sẽ tự flush và vướng ràng buộc unique.
             requireUniqueInvoice(companyId, PurchaseOrder.duplicateKey(invoice.sellerTaxCode(), invoice.series(),
-                    invoice.number()), document.getId(), invoice.series().trim() + "-" + invoice.number().trim());
+                    invoice.number()), document.getId(), PurchaseOrder.invoiceLabel(invoice.series(), invoice.number()));
         }
         LocalDate dueDate = request.dueDate() != null ? request.dueDate()
-                : (invoice != null ? invoice.date() : postingDate).plusDays(paymentTerm == null ? 0 : paymentTerm);
+                : (invoice != null && invoice.date() != null ? invoice.date() : postingDate)
+                        .plusDays(paymentTerm == null ? 0 : paymentTerm);
         List<PurchaseOrderLine> lines = new ArrayList<>();
         for (int i = 0; i < request.lines().size(); i++) {
             lines.add(line(document, request, request.lines().get(i), i));
         }
         document.replaceContent(new PurchaseOrder.Header(request.documentDate(), postingDate, supplier.id(),
-                request.warehouseId(), request.expectedDate(), paymentTerm, currency, BigDecimal.ONE, invoice, dueDate,
+                request.expectedDate(), paymentTerm, currency, BigDecimal.ONE, invoice, dueDate,
                 PurchasingAccess.trim(request.description())), lines);
     }
 
-    /** Hóa đơn của nhà cung cấp: đủ ký hiệu, số, ngày hoặc để trống cả ba; MST người bán theo danh mục nhà cung cấp. */
+    /**
+     * Hóa đơn của nhà cung cấp: ký hiệu, số, ngày đều không bắt buộc, nhập trường nào lưu trường đó (D-75). Có số hóa
+     * đơn thì cần MST người bán (theo danh mục nhà cung cấp) để kiểm tra trùng.
+     */
     private static PurchaseOrder.Invoice invoice(PartnerInfo supplier, PurchaseOrderRequest request) {
         String series = PurchasingAccess.trim(request.invoiceSeries());
         String number = PurchasingAccess.trim(request.invoiceNo());
         if (series == null && number == null && request.invoiceDate() == null) {
             return null;
         }
-        if (series == null || number == null || request.invoiceDate() == null) {
-            throw BusinessException.invalidField(series == null ? "invoiceSeries" : number == null ? "invoiceNo"
-                    : "invoiceDate", "Hóa đơn của nhà cung cấp phải có đủ ký hiệu, số và ngày.");
-        }
         String taxCode = PurchasingAccess.trim(supplier.taxCode());
-        if (taxCode == null) {
+        if (taxCode == null && number != null) {
             throw BusinessException.invalidField("supplierId", "Nhà cung cấp " + supplier.code()
                     + " chưa có mã số thuế; bổ sung trong danh mục đối tác.");
         }
@@ -223,14 +238,23 @@ public class PurchaseOrderService {
         if (!service) {
             requireTracking(product, line, field);
         }
+        Long warehouseId = service ? null : receivingWarehouse(document, line, field);
         List<String> serials = service ? List.of() : serials(product, line, base, field);
         // D-73: đơn giá không bắt buộc, trống = 0.
         BigDecimal unitPrice = line.unitPrice() == null ? BigDecimal.ZERO : line.unitPrice();
         return new PurchaseOrderLine(index + 1, new PurchaseOrderLine.Values(line.productId(), line.unitId(), factor,
                 line.quantity(), base, unitPrice, line.discountPercent(), tax == null ? null : tax.id(),
-                tax == null ? null : tax.rate(), service, service ? null : line.locationId(),
+                tax == null ? null : tax.rate(), service, warehouseId, service ? null : line.locationId(),
                 service ? null : PurchasingAccess.trim(line.lotNo()), service ? null : line.manufactureDate(),
                 service ? null : line.expiryDate(), serials, PurchasingAccess.trim(line.note())));
+    }
+
+    /** Kho nhận của dòng hàng hóa (D-76): bắt buộc, kho vật lý đang hoạt động của chi nhánh đơn. */
+    private Long receivingWarehouse(PurchaseOrder document, PurchaseOrderLineRequest line, String field) {
+        if (line.warehouseId() == null) {
+            throw BusinessException.invalidField(field + ".warehouseId", "Phải chọn kho nhận cho dòng hàng.");
+        }
+        return access.receivingWarehouse(document.getBranchId(), line.warehouseId(), field + ".warehouseId").id();
     }
 
     /**
@@ -286,24 +310,25 @@ public class PurchaseOrderService {
 
     PurchaseOrderResponse toResponse(PurchaseOrder document, boolean detailed) {
         return toResponse(document, access.partners(List.of(document.getSupplierId())).get(document.getSupplierId()),
-                access.warehouses(List.of(document.getWarehouseId())).get(document.getWarehouseId()),
+                access.warehouses(document.warehouseIds()),
                 inventoryNumbers(List.of(document)).get(document.getInventoryDocumentId()), detailed);
     }
 
-    private PurchaseOrderResponse toResponse(PurchaseOrder document, PartnerInfo supplier, WarehouseInfo warehouse,
-                                             String inventoryNo, boolean detailed) {
+    private PurchaseOrderResponse toResponse(PurchaseOrder document, PartnerInfo supplier,
+                                             Map<Long, WarehouseInfo> warehouses, String inventoryNo,
+                                             boolean detailed) {
         List<PurchaseOrderLineResponse> lines = List.of();
         if (detailed) {
             Map<Long, ProductInfo> products = access.products(document.getLines().stream()
                     .map(PurchaseOrderLine::getProductId).toList());
-            lines = document.getLines().stream().map(line -> toResponse(line, products.get(line.getProductId())))
-                    .toList();
+            lines = document.getLines().stream().map(line -> toResponse(line, products.get(line.getProductId()),
+                    line.getWarehouseId() == null ? null : warehouses.get(line.getWarehouseId()))).toList();
         }
         return new PurchaseOrderResponse(document.getId(), document.getCompanyId(), document.getBranchId(),
                 document.getDocumentNo(), document.getDocumentDate(), document.getPostingDate(),
                 document.getSupplierId(), supplier == null ? null : supplier.code(),
-                supplier == null ? null : supplier.name(), document.getWarehouseId(),
-                warehouse == null ? null : warehouse.code(), warehouse == null ? null : warehouse.name(),
+                supplier == null ? null : supplier.name(), document.warehouseIds(),
+                PurchasingAccess.warehouseNames(document.warehouseIds(), warehouses),
                 document.getExpectedDate(), document.getPaymentTermDays(), document.getCurrencyCode(),
                 document.getExchangeRate(), supplier == null ? null : supplier.taxCode(),
                 supplier == null ? null : supplier.address(), document.getInvoiceSeries(),
@@ -315,13 +340,15 @@ public class PurchaseOrderService {
                 detailed ? approvalService.history(PurchaseOrder.TYPE_CODE, document.getId()) : List.of());
     }
 
-    private static PurchaseOrderLineResponse toResponse(PurchaseOrderLine line, ProductInfo product) {
+    private static PurchaseOrderLineResponse toResponse(PurchaseOrderLine line, ProductInfo product,
+                                                        WarehouseInfo warehouse) {
         return new PurchaseOrderLineResponse(line.getId(), line.getLineNo(), line.getProductId(),
                 product == null ? null : product.code(), product == null ? null : product.name(), line.getUnitId(),
                 product == null ? null : product.baseUnitId(), line.getConversionFactor(), line.getQuantity(),
                 line.getBaseQuantity(), line.getUnitPrice(), line.getDiscountPercent(), line.getDiscountAmount(),
                 line.getAmount(), line.getTaxRateId(), line.getTaxRate(), line.getTaxAmount(), line.isServiceLine(),
-                line.getLocationId(), line.getLotNo(), line.getManufactureDate(), line.getExpiryDate(),
+                line.getWarehouseId(), warehouse == null ? null : warehouse.code(),
+                warehouse == null ? null : warehouse.name(), line.getLocationId(), line.getLotNo(), line.getManufactureDate(), line.getExpiryDate(),
                 List.copyOf(line.getSerialNumbers()), line.getReturnedQuantity(), line.getAdjustedAmount(),
                 line.getAllocatedAmount(), line.returnableQuantity(), line.remainingAmount(), line.getNote());
     }

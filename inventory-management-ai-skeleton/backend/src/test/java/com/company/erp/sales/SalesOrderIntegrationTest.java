@@ -15,6 +15,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.company.erp.common.application.IdempotentCommand;
+import com.company.erp.support.ApiTestSupport;
 import com.company.erp.support.ApiTestSupport.Session;
 import com.company.erp.support.MySqlIntegrationTest;
 import java.io.ByteArrayOutputStream;
@@ -114,7 +115,7 @@ class SalesOrderIntegrationTest extends SalesIntegrationSupport {
         long version = id("SELECT version FROM sales_orders WHERE id = " + reserving);
         String revised = order(partner("KH_BV01"), store, true, List.of(line(tube, box, "3", null, null)))
                 .replaceFirst("}$", ",\"version\":" + version + "}");
-        mockMvc.perform(as(manager, put(ORDERS + "/" + reserving)).contentType("application/json").content(revised))
+        mockMvc.perform(as(manager, put(ORDERS + "/" + reserving)).contentType("application/json").content(ApiTestSupport.lineWarehouse(revised)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.data.lines[0].reservedQuantity").value(300));
         assertThat(reserved(tube, store).subtract(before)).isEqualByComparingTo("300");
         act(manager, ORDERS, reserving, "release", null).andExpect(status().isOk());
@@ -340,4 +341,45 @@ class SalesOrderIntegrationTest extends SalesIntegrationSupport {
         return mockMvc.perform(as(manager, post(ORDERS + "/" + order + "/post"))
                 .header(IdempotentCommand.HEADER, key));
     }
+
+    @Test
+    @DisplayName("D-76: đơn bán xuất nhiều kho theo dòng: giữ hàng theo kho dòng, một phiếu xuất, mỗi dòng trừ đúng kho")
+    void multiWarehouseOrder() throws Exception {
+        long item = newProduct(false, false);
+        long piece = unit("CAI");
+        long main = warehouse("HH");
+        long second = jsonId(send(admin, post("/api/v1/warehouses"), "{\"branchId\":1,\"code\":\"" + unique("W")
+                + "\",\"name\":\"Kho phụ bán\",\"warehouseType\":\"NORMAL\"}", newKey())
+                .andExpect(status().isCreated()).andReturn());
+        stockIn(item, "5", null, null, null);
+        long receipt = jsonId(send(keeper, post("/api/v1/inventory-documents"), "{\"documentType\":\"PNK\","
+                + "\"documentDate\":\"" + DATE + "\",\"warehouseId\":" + second + ",\"lines\":[{\"productId\":"
+                + item + ",\"unitId\":" + piece + ",\"quantity\":7,\"unitCost\":50000}]}", newKey())
+                .andExpect(status().isCreated()).andReturn());
+        act(keeper, "/api/v1/inventory-documents", receipt, "post", null)
+                .andExpect(jsonPath("$.data.status").value("POSTED"));
+
+        String body = order(partner("KH_BV01"), main, true, List.of(line(item, piece, "3", "100000", null),
+                line(item, piece, "4", "100000", null).replaceFirst("^\\{", "{\"warehouseId\":" + second + ",")));
+        long order = jsonId(send(manager, post(ORDERS), body, newKey()).andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.warehouseIds.length()").value(2))
+                .andExpect(jsonPath("$.data.lines[1].warehouseId").value(second))
+                .andReturn());
+        assertThat(reserved(item, main)).isEqualByComparingTo("3");
+        assertThat(reserved(item, second)).isEqualByComparingTo("4");
+
+        postWithAuthority(keeper, order).andExpect(jsonPath("$.data.status").value("POSTED"));
+        assertThat(id("SELECT COUNT(*) FROM inventory_documents WHERE source_type = 'DBH' AND source_id = " + order))
+                .isEqualTo(1);
+        assertThat(onHand(item, main)).isEqualByComparingTo("2");
+        assertThat(onHand(item, second)).isEqualByComparingTo("3");
+        assertThat(reserved(item, main)).isEqualByComparingTo("0");
+        assertThat(reserved(item, second)).isEqualByComparingTo("0");
+    }
+
+    private BigDecimal onHand(long productId, long warehouseId) {
+        return jdbc.queryForObject("SELECT COALESCE(SUM(on_hand_quantity), 0) FROM inventory_stock_summaries "
+                + "WHERE product_id = ? AND warehouse_id = ?", BigDecimal.class, productId, warehouseId);
+    }
+
 }

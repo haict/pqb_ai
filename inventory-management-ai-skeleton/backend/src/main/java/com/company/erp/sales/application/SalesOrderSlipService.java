@@ -84,8 +84,7 @@ public class SalesOrderSlipService {
         List<SalesOrderLine> goods = order.getLines().stream().filter(line -> !line.isServiceLine()).toList();
         CompanyRef company = printCompany(actor, order, printCompanyId);
         PartnerInfo customer = access.partners(List.of(order.getCustomerId())).get(order.getCustomerId());
-        WarehouseInfo warehouse = order.getWarehouseId() == null ? null
-                : access.warehouses(List.of(order.getWarehouseId())).get(order.getWarehouseId());
+        Map<Long, WarehouseInfo> warehouses = access.warehouses(order.warehouseIds());
         List<String> debitAccounts = List.of();
         List<String> creditAccounts = List.of();
         if (!draft) {
@@ -97,7 +96,7 @@ public class SalesOrderSlipService {
         String slipNo = draft || order.getInventoryDocumentId() == null ? null
                 : stockOut.documentNumbers(Set.of(order.getInventoryDocumentId())).get(order.getInventoryDocumentId());
         LocalDate slipDate = order.getPostingDate() != null ? order.getPostingDate() : order.getDocumentDate();
-        List<StockOutSlipResponse.Line> lines = lines(goods, draft);
+        List<StockOutSlipResponse.Line> lines = lines(goods, draft, warehouses);
         BigDecimal total = lines.stream().map(StockOutSlipResponse.Line::amount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal tax = goods.stream().map(SalesOrderLine::getTaxAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
@@ -110,7 +109,9 @@ public class SalesOrderSlipService {
                 order.getDocumentDate(), slipNo, slipDate, debitAccounts, creditAccounts, customer == null ? null : customer.name(), address,
                 customer == null ? null : customer.taxCode(), order.getReceiverName(), description(order, customer),
                 order.getEinvoiceSeries(), order.getEinvoiceNo(), order.getEinvoiceDate(),
-                warehouse == null ? null : warehouse.code(), warehouse == null ? null : warehouse.name(), lines, total,
+                order.warehouseIds().stream().map(warehouses::get).filter(Objects::nonNull)
+                        .map(WarehouseInfo::code).collect(Collectors.joining(", ")),
+                SalesAccess.warehouseNames(order.warehouseIds(), warehouses), lines, total,
                 taxRates, tax, total.add(tax), draft);
     }
 
@@ -129,7 +130,8 @@ public class SalesOrderSlipService {
         return company;
     }
 
-    private List<StockOutSlipResponse.Line> lines(List<SalesOrderLine> goods, boolean draft) {
+    private List<StockOutSlipResponse.Line> lines(List<SalesOrderLine> goods, boolean draft,
+                                                  Map<Long, WarehouseInfo> warehouses) {
         Map<Long, ProductInfo> products = access.products(goods.stream().map(SalesOrderLine::getProductId).toList());
         Map<Long, LocalDate> expiries = draft ? receiptSources.expiryDates(goods) : Map.of();
         List<StockOutSlipResponse.Line> lines = new ArrayList<>();
@@ -140,8 +142,10 @@ public class SalesOrderSlipService {
                     .map(item -> new StockOutSlipResponse.Item(item.getLotNo(), item.getExpiryDate(),
                             item.getSerialNo(), item.getBaseQuantity()))
                     .toList();
+            WarehouseInfo warehouse = warehouses.get(line.getWarehouseId());
             lines.add(new StockOutSlipResponse.Line(lines.size() + 1, product == null ? null : product.code(),
-                    product == null ? null : product.name(), line.getUnitId(), line.getQuantity(),
+                    product == null ? null : product.name(), warehouse == null ? null : warehouse.code(),
+                    line.getUnitId(), line.getQuantity(),
                     line.netUnitPrice(), line.getAmount(), items));
         }
         return lines;

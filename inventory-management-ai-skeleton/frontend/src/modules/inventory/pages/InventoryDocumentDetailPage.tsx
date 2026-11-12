@@ -6,11 +6,13 @@ import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { formatDateTime } from '../../../shared/format';
 import { saveBlob } from '../../../shared/inventorySlip/slipContent';
+import { CompanyPrintButton } from '../../../shared/components/CompanyPrintButton';
 import { FormModal } from '../../../shared/components/FormModal';
 import { useCatalog, useWarehouses } from '../../masterdata/lookups';
 import { ApprovalHistory } from '../../system/components/ApprovalHistory';
 import { documentApi } from '../api';
 import { DocumentActions } from '../components/DocumentActions';
+import { InventorySlipDownload, InventorySlipPrint } from '../components/InventorySlipPrint';
 import { openingStockToExcel } from '../components/openingStockExcel';
 import { DocumentFormFields } from '../components/DocumentForm';
 import { DOCUMENT_FIELDS, toDocumentInput, type DocumentFormValues } from '../components/documentFormValues';
@@ -27,12 +29,16 @@ import { DocumentStatusTag, ItemConditionTag, QualityTag } from '../components/S
 import type { InventoryDocument, InventoryLine, InventoryTransaction, ItemCondition } from '../types';
 import { UiAction } from '../../../shared/ui/UiAction';
 
+/** Loại chứng từ in được phiếu nhập / xuất kho (D-78). */
+const PRINTABLE_TYPES: InventoryDocument['documentType'][] = ['PNK', 'PXK', 'PXH'];
+
 function editValues(document: InventoryDocument): Partial<DocumentFormValues> {
   return {
     documentType: document.documentType,
     subType: document.subType ?? undefined,
     documentDate: dayjs(document.documentDate),
     postingDate: dayjs(document.postingDate),
+    branchId: document.branchId,
     warehouseId: document.warehouseId,
     destinationWarehouseId: document.destinationWarehouseId ?? undefined,
     partnerId: document.partnerId ?? undefined,
@@ -44,6 +50,7 @@ function editValues(document: InventoryDocument): Partial<DocumentFormValues> {
       return {
         productId: line.productId,
         unitId: line.unitId,
+        warehouseId: line.warehouseId,
         quantity: line.quantity,
         direction: line.direction ?? undefined,
         locationId: line.locationId ?? undefined,
@@ -125,8 +132,12 @@ export function InventoryDocumentDetailPage() {
     }
   };
 
+  const multiWarehouse = document.lines.some((line) => line.warehouseId !== document.warehouseId);
   const lineColumns = [
     { title: '#', dataIndex: 'lineNo', width: 50 },
+    ...(multiWarehouse
+      ? [{ title: 'Kho', dataIndex: 'warehouseId', render: (v: number) => warehouses.codeOf(v) || `#${v}` }]
+      : []),
     {
       title: 'Hàng hóa',
       render: (_: unknown, line: InventoryLine) => `${line.productCode ?? ''} - ${line.productName ?? ''}`,
@@ -226,6 +237,19 @@ export function InventoryDocumentDetailPage() {
               </Button>
             </UiAction>
           )}
+          {document.status === 'POSTED' && PRINTABLE_TYPES.includes(document.documentType) && (
+            <CompanyPrintButton
+              label={document.documentType === 'PNK' ? 'In phiếu nhập kho' : 'In phiếu xuất kho'}
+              queryKey="inventory-documents"
+              fetchCompanies={documentApi.printCompanies}
+              defaultCompanyId={document.companyId}
+              extra={(printCompanyId) => (
+                <InventorySlipDownload documentId={document.id} companyId={printCompanyId} />
+              )}
+            >
+              {(printCompanyId) => <InventorySlipPrint documentId={document.id} companyId={printCompanyId} />}
+            </CompanyPrintButton>
+          )}
           <DocumentActions actions={document.allowedActions} onAction={act} />
         </Space>
       </Space>
@@ -235,7 +259,9 @@ export function InventoryDocumentDetailPage() {
         )}
         <Descriptions.Item label="Ngày chứng từ">{formatDate(document.documentDate)}</Descriptions.Item>
         <Descriptions.Item label="Ngày hạch toán">{formatDate(document.postingDate)}</Descriptions.Item>
-        <Descriptions.Item label="Kho">{warehouseName(document.warehouseId)}</Descriptions.Item>
+        <Descriptions.Item label="Kho">
+          {multiWarehouse ? 'Nhiều kho (xem từng dòng)' : warehouseName(document.warehouseId)}
+        </Descriptions.Item>
         {document.destinationWarehouseId && (
           <Descriptions.Item label="Kho nhận">
             {warehouseName(document.destinationWarehouseId)}

@@ -15,6 +15,7 @@ import com.company.erp.purchasing.domain.PurchaseCostEntry;
 import com.company.erp.purchasing.domain.PurchaseDocument;
 import com.company.erp.purchasing.domain.PurchaseDocumentStatus;
 import com.company.erp.purchasing.domain.PurchaseOrder;
+import com.company.erp.purchasing.domain.PurchaseOrderLine;
 import com.company.erp.purchasing.infrastructure.persistence.PurchaseCostEntryRepository;
 import com.company.erp.purchasing.infrastructure.persistence.PurchaseOrderRepository;
 import com.company.erp.system.application.CurrentUser;
@@ -159,8 +160,9 @@ public class PurchaseCostAllocationPostingService {
             if (target.getAllocatedAmount().signum() == 0) {
                 continue;
             }
-            entries.add(new PurchaseCostEntry(document.getCompanyId(), order.line(target.getOrderLineId(),
-                    "targets"), order.getWarehouseId(), PurchaseCostEntry.EntryType.LANDED_COST,
+            PurchaseOrderLine orderLine = order.line(target.getOrderLineId(), "targets");
+            entries.add(new PurchaseCostEntry(document.getCompanyId(), orderLine, orderLine.getWarehouseId(),
+                    PurchaseCostEntry.EntryType.LANDED_COST,
                     document.getPostingDate(), target.getAllocatedAmount(), new PurchaseCostEntry.Reference(
                     PurchaseCostAllocation.TYPE_CODE, document.getId(), target.getId(), document.getDocumentNo()),
                     actor.id(), now));

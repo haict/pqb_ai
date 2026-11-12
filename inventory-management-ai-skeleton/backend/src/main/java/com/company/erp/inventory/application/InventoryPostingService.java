@@ -175,7 +175,6 @@ public class InventoryPostingService {
     }
 
     private List<Allocation> allocate(StockMovement movement, PostingCommand command) {
-        requireFefoOrReason(movement, command.postingDate());
         Set<QualityStatus> statuses = switch (movement.outRule()) {
             case SELLABLE -> Set.of(QualityStatus.PASSED);
             case DISPOSABLE -> Set.of();
@@ -199,25 +198,6 @@ public class InventoryPostingService {
             throw shortage(movement, command, movement.quantity().subtract(remaining));
         }
         return allocations;
-    }
-
-    /** Chỉ định lô khác lô hết hạn sớm nhất có thể xuất thì phải có lý do (BR-INV-21). */
-    private void requireFefoOrReason(StockMovement movement, LocalDate postingDate) {
-        if (movement.outRule() != StockMovement.OutRule.SELLABLE || movement.lotId() == null
-                || movement.lotChoiceJustified()) {
-            return;
-        }
-        Long firstLot = ledger.lockCandidates(movement.productId(), movement.warehouseId(), null, null, null,
-                        Set.of(QualityStatus.PASSED)).stream()
-                .filter(balance -> isSellable(balance, postingDate))
-                .map(balance -> balance.key().lotId())
-                .filter(Objects::nonNull)
-                .findFirst()
-                .orElse(null);
-        if (firstLot != null && !firstLot.equals(movement.lotId())) {
-            throw BusinessException.invalidField("lotOverrideReason",
-                    "Lô đã chọn khác lô hết hạn sớm nhất (FEFO); phải ghi lý do chọn lô khác (BR-INV-21).");
-        }
     }
 
     private boolean matchesRule(LockedBalance balance, StockMovement.OutRule rule, LocalDate postingDate) {

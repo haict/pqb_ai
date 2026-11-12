@@ -121,7 +121,7 @@ public class SalesReturnService {
             ProductInfo product = products.get(line.getProductId());
             for (LotShare share : lots(line, line.returnableQuantity())) {
                 rows.add(new ReturnableSalesLineResponse(order.getId(), order.getDocumentNo(), order.getPostingDate(),
-                        order.invoiceLabel(), order.getWarehouseId(), line.getId(), line.isServiceLine(),
+                        order.invoiceLabel(), line.getWarehouseId(), line.getId(), line.isServiceLine(),
                         line.getProductId(), product == null ? null : product.code(),
                         product == null ? null : product.name(), line.getUnitId(), share.lotNo(), share.expiry(),
                         share.quantity().divide(line.getConversionFactor(), 3, RoundingMode.DOWN),
@@ -140,8 +140,7 @@ public class SalesReturnService {
             SalesOrder order = postedOrder(branch, customer.id(), request.salesOrderId());
             SalesReturn document = new SalesReturn(branch.companyId(), branch.id(), access.nextNumber(
                     branch.companyId(), branch.id(), request.documentType().name(), request.documentDate()),
-                    request.documentType(), customer.id(), order.getId(),
-                    request.documentType() == SalesReturnType.TLB ? order.getWarehouseId() : null);
+                    request.documentType(), customer.id(), order.getId());
             fill(document, order, request);
             document.assignSalesUser(order.getSalesUserId() != null ? order.getSalesUserId()
                     : customer.salesUserId());
@@ -195,10 +194,10 @@ public class SalesReturnService {
                         lines.add(new SalesLineRequest(line.getProductId(), line.getUnitId(), quantity,
                                 line.getUnitPrice(), line.getDiscountPercent(), line.getTaxRateId(),
                                 line.isPromotional(), null, null, null, List.of(),
-                                "Đổi hàng theo " + document.getDocumentNo(), null));
+                                "Đổi hàng theo " + document.getDocumentNo(), null, line.getWarehouseId()));
                     });
                     SalesOrder order = orders.createDocument(actor, new SalesOrderRequest(document.getBranchId(),
-                            document.getCustomerId(), document.getWarehouseId(), document.getPostingDate(), null,
+                            document.getCustomerId(), document.getPostingDate(), null,
                             source.getContactName(), source.getDeliveryAddress(), source.getReceiverName(),
                             source.getReceiverPhone(), null, source.getPaymentTermDays(), false,
                             "Đổi hàng theo " + document.getDocumentNo(), lines, List.of(), null), document.getId());
@@ -360,18 +359,25 @@ public class SalesReturnService {
                 detailed);
     }
 
+    /** Kho của dòng đơn bán gốc (D-76): trả hàng nhập lại kho này. */
+    private static Long orderLineWarehouse(SalesOrder order, Long orderLineId) {
+        return order == null ? null : order.getLines().stream().filter(line -> line.getId().equals(orderLineId))
+                .map(SalesOrderLine::getWarehouseId).findFirst().orElse(null);
+    }
+
     private SalesReturnResponse toResponse(SalesReturn document, PartnerInfo customer, boolean detailed) {
         List<SalesReturnLineResponse> lines = List.of();
         SalesOrder order = null;
         String inventoryNo = null;
         if (detailed) {
             order = orderRepository.findById(document.getSalesOrderId()).orElse(null);
+            SalesOrder source = order;
             Map<Long, ProductInfo> products = access.products(document.getLines().stream()
                     .map(SalesReturnLine::getProductId).toList());
             lines = document.getLines().stream().map(line -> {
                 ProductInfo product = products.get(line.getProductId());
                 return new SalesReturnLineResponse(line.getId(), line.getLineNo(), line.getOrderLineId(),
-                        line.getProductId(), product == null ? null : product.code(),
+                        orderLineWarehouse(source, line.getOrderLineId()), line.getProductId(), product == null ? null : product.code(),
                         product == null ? null : product.name(), line.getUnitId(), line.getQuantity(),
                         line.getBaseQuantity(), line.getLotNo(), line.getExpiryDate(), line.getQualityStatus(),
                         line.getUnitPrice(), line.getAmount(), line.getTaxRate(), line.getTaxAmount(),
@@ -387,7 +393,7 @@ public class SalesReturnService {
                 document.getPostingDate(), document.getCustomerId(), customer == null ? null : customer.code(),
                 customer == null ? null : customer.name(), document.getSalesOrderId(),
                 order == null ? null : order.getDocumentNo(), order == null ? null : order.invoiceLabel(),
-                document.getWarehouseId(), document.getInventoryDocumentId(), inventoryNo, document.getDescription(),
+                document.getInventoryDocumentId(), inventoryNo, document.getDescription(),
                 document.getAmount(), document.getTaxAmount(), document.getTotalAmount(), document.getStatus(),
                 document.getSubmittedAt(), document.getApprovedAt(), document.getPostedAt(), document.getReversedAt(),
                 document.getReverseDate(), document.getReason(), document.getCreatedBy(), document.getVersion(), lines,

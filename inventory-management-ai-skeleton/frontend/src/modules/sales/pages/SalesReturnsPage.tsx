@@ -547,7 +547,7 @@ function ReturnLineFields({
       ? [...options, { value: current, label: `Dòng nguồn ${current}` }]
       : options;
   return (
-    <LineGridRow columns={columns}>
+    <LineGridRow columns={columns} lineNo={name + 1}>
       <Form.Item
         name={[name, 'sourceKey']}
         style={lineCellStyle}

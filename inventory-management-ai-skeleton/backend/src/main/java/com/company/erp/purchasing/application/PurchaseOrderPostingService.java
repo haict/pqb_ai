@@ -114,7 +114,7 @@ public class PurchaseOrderPostingService {
                         debtPosting.recordInvoice(new InvoiceDebtCommand(order.getCompanyId(), order.getBranchId(),
                                 InvoiceSide.PAYABLE, order.getSupplierId(), PurchaseOrder.TYPE_CODE, order.getId(),
                                 order.getDocumentNo(), order.invoiceLabel(),
-                                order.hasInvoice() ? order.getInvoiceDate() : order.getPostingDate(),
+                                order.getInvoiceDate() != null ? order.getInvoiceDate() : order.getPostingDate(),
                                 order.getDueDate(), order.getTotalAmount(), order.getPostingDate(), null,
                                 description(order), actor.id()));
                         journalPosting.post(new PostingRequest(order.getCompanyId(), order.getBranchId(),
@@ -208,14 +208,14 @@ public class PurchaseOrderPostingService {
             return null;
         }
         StockInResult result = stockIn.receive(actor, new StockInCommand(PurchaseOrder.TYPE_CODE, order.getId(),
-                order.getDocumentNo(), order.getWarehouseId(), order.getSupplierId(), order.getPostingDate(),
+                order.getDocumentNo(), order.getSupplierId(), order.getPostingDate(),
                 order.getPostingDate(), "Nhập theo " + order.getDocumentNo(), lines));
         log.info("Đơn mua {} nhập kho {}", order.getDocumentNo(), result.documentNo());
         return result.documentId();
     }
 
     private static StockInLine toStockLine(PurchaseOrderLine line) {
-        return new StockInLine(line.getId(), line.getProductId(), line.getUnitId(), line.getQuantity(),
+        return new StockInLine(line.getId(), line.getWarehouseId(), line.getProductId(), line.getUnitId(), line.getQuantity(),
                 line.getLocationId(), line.getLotNo(), line.getManufactureDate(), line.getExpiryDate(), null,
                 line.netUnitPrice(), line.getNote(), List.copyOf(line.getSerialNumbers()));
     }
@@ -232,7 +232,7 @@ public class PurchaseOrderPostingService {
             ProductInfo product = products.get(line.getProductId());
             lines.add(new PostingLine(PURCHASE, line.netAmount(), product == null ? null : product.productTypeCode(),
                     SUPPLIER_ROLE, null, null, order.getSupplierId(), line.getProductId(),
-                    line.isServiceLine() ? null : order.getWarehouseId(), null, null, line.getId(), line.getNote()));
+                    line.getWarehouseId(), null, null, line.getId(), line.getNote()));
         }
         if (order.getTaxAmount().signum() > 0) {
             lines.add(new PostingLine(PURCHASE_VAT, order.getTaxAmount(), null, SUPPLIER_ROLE, null, null,

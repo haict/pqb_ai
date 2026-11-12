@@ -22,7 +22,7 @@ import java.util.List;
 /**
  * Dòng đơn mua (BR-PUR-04, D-54): {@code amount} = số lượng × đơn giá, chiết khấu theo %, thuế tính trên tiền sau chiết
  * khấu; tiền làm tròn đến đồng (D-05). Dòng hàng hóa mang lô / hạn dùng / serial để nhập kho khi ghi sổ; dòng dịch vụ
- * không qua kho (BR-PUR-16). Sau ghi sổ theo dõi số đã trả, giá trị đã giảm, chi phí đã phân bổ (BR-PUR-12, 14).
+ * không qua kho (BR-PUR-16). Kho nhận theo từng dòng hàng hóa (D-76), dòng dịch vụ không có kho. Sau ghi sổ theo dõi số đã trả, giá trị đã giảm, chi phí đã phân bổ (BR-PUR-12, 14).
  */
 @Entity
 @Table(name = "purchase_order_lines")
@@ -76,6 +76,9 @@ public class PurchaseOrderLine {
     @Column(name = "service_line", nullable = false)
     private boolean serviceLine;
 
+    @Column(name = "warehouse_id")
+    private Long warehouseId;
+
     @Column(name = "location_id")
     private Long locationId;
 
@@ -112,7 +115,7 @@ public class PurchaseOrderLine {
     /** Giá trị dòng; tiền tính lại từ số lượng, đơn giá, chiết khấu, thuế suất (không nhận tiền từ client). */
     public record Values(Long productId, Long unitId, BigDecimal conversionFactor, BigDecimal quantity,
                          BigDecimal baseQuantity, BigDecimal unitPrice, BigDecimal discountPercent, Long taxRateId,
-                         BigDecimal taxRate, boolean serviceLine, Long locationId, String lotNo,
+                         BigDecimal taxRate, boolean serviceLine, Long warehouseId, Long locationId, String lotNo,
                          LocalDate manufactureDate, LocalDate expiryDate, List<String> serialNumbers, String note) {
     }
 
@@ -132,6 +135,7 @@ public class PurchaseOrderLine {
         this.taxRateId = values.taxRateId();
         this.taxRate = values.taxRate();
         this.serviceLine = values.serviceLine();
+        this.warehouseId = values.warehouseId();
         this.locationId = values.locationId();
         this.lotNo = values.lotNo();
         this.manufactureDate = values.manufactureDate();
@@ -148,7 +152,7 @@ public class PurchaseOrderLine {
     void copyFrom(PurchaseOrderLine other) {
         apply(new Values(other.productId, other.unitId, other.conversionFactor, other.quantity, other.baseQuantity,
                 other.unitPrice, other.discountPercent, other.taxRateId, other.taxRate, other.serviceLine,
-                other.locationId, other.lotNo, other.manufactureDate, other.expiryDate,
+                other.warehouseId, other.locationId, other.lotNo, other.manufactureDate, other.expiryDate,
                 new ArrayList<>(other.serialNumbers), other.note));
     }
 
@@ -253,6 +257,11 @@ public class PurchaseOrderLine {
 
     public BigDecimal getAmount() {
         return amount;
+    }
+
+    /** Kho nhận của dòng hàng hóa (D-76); {@code null} với dòng dịch vụ. */
+    public Long getWarehouseId() {
+        return warehouseId;
     }
 
     public Long getTaxRateId() {

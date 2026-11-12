@@ -16,7 +16,8 @@ final class SalesLineMapper {
     }
 
     static SalesLineResponse toResponse(SalesOrderLine line, ProductInfo product, ProductDocumentInfo document,
-                                        BigDecimal available, BigDecimal reserved, LocalDate expiryDate) {
+                                        String warehouseCode, BigDecimal available, BigDecimal reserved,
+                                        LocalDate expiryDate) {
         List<DeliveryItemResponse> items = line.getItems().stream()
                 .map(item -> new DeliveryItemResponse(item.getLotNo(), item.getExpiryDate(), item.getSerialNo(),
                         item.getQualityStatus(), item.getBaseQuantity()))
@@ -27,7 +28,7 @@ final class SalesLineMapper {
                 line.getBaseQuantity(), line.getListPrice(), line.getFloorPrice(), line.getPriceSource(),
                 line.getUnitPrice(), line.getDiscountPercent(), line.getDiscountAmount(), line.getAmount(),
                 line.getTaxRateId(), line.getTaxRate(), line.getTaxAmount(), line.isPromotional(),
-                line.isServiceLine(), line.getExpectedDate(), line.getLotNo(), expiryDate, line.getLotOverrideReason(),
+                line.isServiceLine(), line.getWarehouseId(), warehouseCode, line.getExpectedDate(), line.getLotNo(), expiryDate, line.getLotOverrideReason(),
                 List.copyOf(line.getSerialNumbers()), line.getReceiptTransactionId(), line.getReceiptNo(), items,
                 document == null ? null : document.originCountryCode(),
                 document == null ? null : document.model(), document == null ? null : document.registrationNo(),

@@ -22,7 +22,9 @@ import java.time.LocalDate;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
@@ -152,6 +154,13 @@ class SalesAccess {
         return masterData.product(productId)
                 .filter(found -> actor.dataScope().canAccessCompany(found.companyId()) && found.active())
                 .orElseThrow(() -> BusinessException.invalidField("productId", "Hàng hóa không tồn tại hoặc đã ngừng."));
+    }
+
+    /** Tên các kho theo thứ tự, nối bằng dấu phẩy (kho theo dòng, D-76); không có kho thì {@code null}. */
+    static String warehouseNames(List<Long> warehouseIds, Map<Long, WarehouseInfo> warehouses) {
+        String names = warehouseIds.stream().map(warehouses::get).filter(Objects::nonNull)
+                .map(WarehouseInfo::name).collect(Collectors.joining(", "));
+        return names.isEmpty() ? null : names;
     }
 
     static String trim(String value) {

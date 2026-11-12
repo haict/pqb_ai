@@ -4,6 +4,7 @@ import static com.company.erp.support.ApiTestSupport.login;
 import static com.company.erp.support.ApiTestSupport.newKey;
 import static com.company.erp.support.ApiTestSupport.unique;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasItems;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -282,6 +283,46 @@ class PurchaseOrderIntegrationTest extends PurchasingIntegrationSupport {
     }
 
     @Test
+    @DisplayName("D-76: đơn mua nhận nhiều kho theo dòng: một phiếu nhập kho, mỗi dòng vào đúng kho; đảo gỡ đúng kho")
+    void multiWarehouseOrder() throws Exception {
+        long tube = product("VT_ONG_01");
+        long box = unit("HOP");
+        long main = warehouse("HH");
+        Session admin = login(mockMvc, "admin");
+        long second = ((Number) json(send(admin, post("/api/v1/warehouses"), "{\"branchId\":1,\"code\":\""
+                + unique("W") + "\",\"name\":\"Kho phụ\",\"warehouseType\":\"NORMAL\"}", newKey())
+                .andExpect(status().isCreated()).andReturn(), "$.data.id")).longValue();
+        BigDecimal mainOnHand = onHand(tube, main);
+        String body = order(partner("NCC_01"), main, List.of(
+                lotLine(tube, box, "2", "1000", null, unique("L")),
+                lotLine(tube, box, "3", "1000", null, unique("L")).replaceFirst("^\\{",
+                        "{\"warehouseId\":" + second + ",")));
+        long order = jsonId(send(buyer, post(ORDERS), body, newKey()).andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.warehouseIds.length()").value(2))
+                .andExpect(jsonPath("$.data.lines[0].warehouseId").value(main))
+                .andExpect(jsonPath("$.data.lines[1].warehouseId").value(second))
+                .andReturn());
+        mockMvc.perform(as(buyer, get(ORDERS)).param("companyId", "1").param("warehouseId", String.valueOf(second)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.items[*].id", hasItem((int) order)));
+
+        act(keeper, ORDERS, order, "post", null).andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("POSTED"));
+        assertThat(id("SELECT COUNT(*) FROM inventory_documents WHERE source_type = 'DMH' AND source_id = " + order))
+                .isEqualTo(1);
+        // Tồn theo đơn vị cơ sở (1 hộp = 100 cái).
+        assertThat(onHand(tube, main)).isEqualByComparingTo(mainOnHand.add(new BigDecimal("200")));
+        assertThat(onHand(tube, second)).isEqualByComparingTo("300");
+        assertLedgerConsistent(tube, main);
+        assertLedgerConsistent(tube, second);
+        mockMvc.perform(as(buyer, get(ORDERS + "/" + order + "/stock-in-slip"))).andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.lines[1].warehouseCode").isNotEmpty());
+
+        act(keeper, ORDERS, order, "reverse", "{\"reason\":\"Nhập nhầm\"}").andExpect(status().isOk());
+        assertThat(onHand(tube, main)).isEqualByComparingTo(mainOnHand);
+        assertThat(onHand(tube, second)).isEqualByComparingTo("0");
+    }
+
+    @Test
     @DisplayName("BR-PUR-04, 08, 09: nhà cung cấp, kho cùng chi nhánh, VND, phạm vi chi nhánh, lô / hạn dùng, serial, hóa đơn đủ thông tin")
     void validation() throws Exception {
         long tube = product("VT_ONG_01");
@@ -292,7 +333,12 @@ class PurchaseOrderIntegrationTest extends PurchasingIntegrationSupport {
         send(buyer, post(ORDERS), order(partner("KH_BV01"), warehouse, List.of(line)), newKey())
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("$.errors[0].field").value("supplierId"));
         send(buyer, post(ORDERS), order(supplier, warehouse("SH"), List.of(line)), newKey())
-                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.errors[0].field").value("warehouseId"));
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[0].field").value("lines[0].warehouseId"));
+        send(buyer, post(ORDERS), order(supplier, warehouse, List.of(line.replaceFirst("^\\{",
+                        "{\"warehouseId\":null,"))), newKey())
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[0].field").value("lines[0].warehouseId"));
         send(buyer, post(ORDERS), order(supplier, warehouse, List.of(line))
                 .replace("\"lines\"", "\"currencyCode\":\"USD\",\"lines\""), newKey())
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("$.errors[0].field").value("currencyCode"));
@@ -314,9 +360,18 @@ class PurchaseOrderIntegrationTest extends PurchasingIntegrationSupport {
                 ",\"serialNumbers\":[\"" + unique("SN") + "\"]}"))), newKey())
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errors[0].field").value("lines[0].serialNumbers"));
+        // D-75: hóa đơn nhà cung cấp không bắt buộc đủ ký hiệu, số, ngày
+        String invoiceNo = unique("HD");
+        send(buyer, post(ORDERS), order(supplier, warehouse, List.of(line))
+                .replace("\"lines\"", "\"invoiceNo\":\"" + invoiceNo + "\",\"lines\""), newKey())
+                .andExpect(status().isCreated()).andExpect(jsonPath("$.data.invoiceNo").value(invoiceNo))
+                .andExpect(jsonPath("$.data.invoiceSeries").doesNotExist());
+        send(buyer, post(ORDERS), order(supplier, warehouse, List.of(line))
+                .replace("\"lines\"", "\"invoiceNo\":\"" + invoiceNo + "\",\"lines\""), newKey())
+                .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("DUPLICATE_DOCUMENT"));
         send(buyer, post(ORDERS), order(supplier, warehouse, List.of(line))
                 .replace("\"lines\"", "\"invoiceSeries\":\"C26TAA\",\"lines\""), newKey())
-                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.errors[0].field").value("invoiceNo"));
+                .andExpect(status().isCreated());
     }
 
     @Test

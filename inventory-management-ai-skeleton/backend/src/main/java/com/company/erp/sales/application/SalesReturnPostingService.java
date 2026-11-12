@@ -92,7 +92,7 @@ public class SalesReturnPostingService {
                     }
                     SalesOrder order = lockOrder(document);
                     applySources(document, order, BigDecimal.ONE);
-                    Long inventoryId = document.isGoodsReturn() ? receive(actor, document).documentId() : null;
+                    Long inventoryId = document.isGoodsReturn() ? receive(actor, document, order).documentId() : null;
                     // D-73: công nợ, bút toán theo lần ghi sổ của đơn gốc, không theo chế độ hiện tại.
                     if (order.isFinancialPosted() && document.getTotalAmount().signum() > 0) {
                         debtPosting.reduceInvoice(new InvoiceCreditCommand(document.getCompanyId(),
@@ -160,15 +160,19 @@ public class SalesReturnPostingService {
         orderRepository.save(order);
     }
 
-    /** Nhập lại kho đúng lô, hạn dùng, serial; trạng thái theo dòng (mặc định CÁCH LY, BR-SAL-32). */
-    private StockInResult receive(CurrentUser actor, SalesReturn document) {
+    /**
+     * Nhập lại kho của dòng đơn bán gốc (D-76) đúng lô, hạn dùng, serial; trạng thái theo dòng (mặc định CÁCH LY,
+     * BR-SAL-32).
+     */
+    private StockInResult receive(CurrentUser actor, SalesReturn document, SalesOrder order) {
         List<StockInLine> lines = document.getLines().stream()
-                .map(line -> new StockInLine(line.getId(), line.getProductId(), line.getUnitId(), line.getQuantity(),
+                .map(line -> new StockInLine(line.getId(), order.line(line.getOrderLineId(), "lines").getWarehouseId(),
+                        line.getProductId(), line.getUnitId(), line.getQuantity(),
                         null, line.getLotNo(), null, line.getExpiryDate(), line.getQualityStatus(), BigDecimal.ZERO,
                         line.getDescription(), line.getSerialNumbers()))
                 .toList();
         StockInResult result = stockIn.receive(actor, new StockInCommand(document.typeCode(), document.getId(),
-                document.getDocumentNo(), document.getWarehouseId(), document.getCustomerId(),
+                document.getDocumentNo(), document.getCustomerId(),
                 document.getPostingDate(), document.getPostingDate(), "Hàng bán bị trả lại " + document.getDocumentNo(),
                 lines, StockInService.SALES_RETURN));
         log.info("Trả hàng bán {} nhập kho {}", document.getDocumentNo(), result.documentNo());

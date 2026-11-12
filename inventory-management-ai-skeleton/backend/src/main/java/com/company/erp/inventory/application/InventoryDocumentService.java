@@ -12,17 +12,24 @@ import com.company.erp.inventory.application.dto.InventoryDocumentSummary;
 import com.company.erp.inventory.application.dto.ReasonRequest;
 import com.company.erp.inventory.application.dto.ReverseRequest;
 import com.company.erp.inventory.domain.InventoryDocument;
+import com.company.erp.inventory.domain.InventoryDocumentLine;
 import com.company.erp.inventory.domain.InventoryDocumentStatus;
 import com.company.erp.inventory.domain.InventoryDocumentType;
 import com.company.erp.inventory.infrastructure.persistence.InventoryDocumentRepository;
 import com.company.erp.system.application.ApprovalService;
 import com.company.erp.system.application.CurrentUser;
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.CriteriaQuery;
+import jakarta.persistence.criteria.Join;
 import jakarta.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.Root;
+import jakarta.persistence.criteria.Subquery;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import org.springframework.data.domain.Page;
@@ -90,7 +97,7 @@ public class InventoryDocumentService {
             predicates.add(root.get("documentType").in(types));
             if (warehouses != null) {
                 predicates.add(cb.or(root.get("warehouseId").in(warehouses),
-                        root.get("destinationWarehouseId").in(warehouses)));
+                        root.get("destinationWarehouseId").in(warehouses), lineWarehouseIn(root, query, cb, warehouses)));
             }
             if (filter.subType() != null && !filter.subType().isBlank()) {
                 predicates.add(cb.equal(root.get("subType"), filter.subType().trim()));
@@ -100,7 +107,8 @@ public class InventoryDocumentService {
             }
             if (filter.warehouseId() != null) {
                 predicates.add(cb.or(cb.equal(root.get("warehouseId"), filter.warehouseId()),
-                        cb.equal(root.get("destinationWarehouseId"), filter.warehouseId())));
+                        cb.equal(root.get("destinationWarehouseId"), filter.warehouseId()),
+                        lineWarehouseIn(root, query, cb, List.of(filter.warehouseId()))));
             }
             if (filter.keyword() != null && !filter.keyword().isBlank()) {
                 predicates.add(cb.like(cb.lower(root.get("documentNo")),
@@ -244,6 +252,17 @@ public class InventoryDocumentService {
         return response;
     }
 
+    /** Phiếu có dòng thuộc một trong các kho (kho theo dòng, D-76). */
+    private static Predicate lineWarehouseIn(Root<InventoryDocument> root, CriteriaQuery<?> query, CriteriaBuilder cb,
+                                             Collection<Long> warehouseIds) {
+        Subquery<Long> lines = query.subquery(Long.class);
+        Root<InventoryDocument> document = lines.from(InventoryDocument.class);
+        Join<InventoryDocument, InventoryDocumentLine> line = document.join("lines");
+        lines.select(document.get("id")).where(cb.equal(document.get("id"), root.get("id")),
+                line.get("warehouseId").in(warehouseIds));
+        return cb.exists(lines);
+    }
+
     InventoryDocument lockVisible(CurrentUser actor, Long id) {
         InventoryDocument document = documentRepository.findByIdForUpdate(id).orElseThrow(BusinessException::notFound);
         requireVisible(actor, document);
@@ -251,8 +270,7 @@ public class InventoryDocumentService {
     }
 
     void requireVisible(CurrentUser actor, InventoryDocument document) {
-        boolean inScope = access.canAccessWarehouse(actor, document.getWarehouseId())
-                || access.canAccessWarehouse(actor, document.getDestinationWarehouseId());
+        boolean inScope = document.warehouseIds().stream().anyMatch(id -> access.canAccessWarehouse(actor, id));
         if (!inScope || !actor.dataScope().canAccessCompany(document.getCompanyId())) {
             throw BusinessException.notFound();
         }

@@ -47,3 +47,8 @@ export const ALLOCATION_METHODS: Record<CostAllocationMethod, string> = {
   VALUE: 'Theo giá trị nhập',
   QUANTITY: 'Theo số lượng',
 };
+
+/** Ký hiệu - số hóa đơn nhà cung cấp; từng phần có thể trống (D-75). */
+export function invoiceLabel(series: string | null, invoiceNo: string | null): string {
+  return [series, invoiceNo].filter(Boolean).join('-');
+}

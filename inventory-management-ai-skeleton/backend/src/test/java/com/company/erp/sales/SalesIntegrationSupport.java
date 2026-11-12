@@ -9,6 +9,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.company.erp.common.application.IdempotentCommand;
+import com.company.erp.support.ApiTestSupport;
 import com.company.erp.support.ApiTestSupport.Session;
 import com.jayway.jsonpath.JsonPath;
 import java.math.BigDecimal;
@@ -191,7 +192,7 @@ abstract class SalesIntegrationSupport {
     ResultActions send(Session session, MockHttpServletRequestBuilder request, String body, String key)
             throws Exception {
         return mockMvc.perform(as(session, request).header(IdempotentCommand.HEADER, key)
-                .contentType(MediaType.APPLICATION_JSON).content(body));
+                .contentType(MediaType.APPLICATION_JSON).content(ApiTestSupport.lineWarehouse(body)));
     }
 
     static MockHttpServletRequestBuilder as(Session session, MockHttpServletRequestBuilder request) {

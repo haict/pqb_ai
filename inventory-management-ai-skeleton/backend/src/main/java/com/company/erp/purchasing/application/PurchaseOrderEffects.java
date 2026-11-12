@@ -23,7 +23,7 @@ class PurchaseOrderEffects {
     /** Hủy hoặc ghi sổ đơn đã duyệt trước D-61: trừ hàng đang về đã cộng lúc duyệt. */
     void released(PurchaseOrder order) {
         List<IncomingChange> changes = order.getLines().stream().filter(line -> !line.isServiceLine())
-                .map(line -> new IncomingChange(line.getProductId(), order.getWarehouseId(),
+                .map(line -> new IncomingChange(line.getProductId(), line.getWarehouseId(),
                         line.getBaseQuantity().negate()))
                 .toList();
         if (!changes.isEmpty()) {

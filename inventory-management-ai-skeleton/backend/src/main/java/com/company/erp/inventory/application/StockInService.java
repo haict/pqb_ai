@@ -31,21 +31,24 @@ public class StockInService {
 
     private static final Logger log = LoggerFactory.getLogger(StockInService.class);
 
-    /** Dòng nhập; {@code qualityStatus} trống thì ĐẠT (D-56). */
-    public record StockInLine(Long sourceLineId, Long productId, Long unitId, BigDecimal quantity, Long locationId,
+    /** Dòng nhập vào kho {@code warehouseId} (kho theo dòng, D-76); {@code qualityStatus} trống thì ĐẠT (D-56). */
+    public record StockInLine(Long sourceLineId, Long warehouseId, Long productId, Long unitId, BigDecimal quantity, Long locationId,
                               String lotNo, LocalDate manufactureDate, LocalDate expiryDate,
                               QualityStatus qualityStatus, BigDecimal unitCost, String note,
                               List<String> serialNumbers) {
     }
 
-    /** {@code subType}: {@code null} (nhập mua) hoặc {@link #SALES_RETURN} (hàng bán bị trả lại). */
-    public record StockInCommand(String sourceType, Long sourceId, String sourceNo, Long warehouseId, Long partnerId,
+    /**
+     * {@code subType}: {@code null} (nhập mua) hoặc {@link #SALES_RETURN} (hàng bán bị trả lại). Một phiếu cho cả
+     * chứng từ nguồn; kho ở đầu phiếu là kho của dòng đầu tiên.
+     */
+    public record StockInCommand(String sourceType, Long sourceId, String sourceNo, Long partnerId,
                                  LocalDate documentDate, LocalDate postingDate, String note, List<StockInLine> lines,
                                  String subType) {
 
-        public StockInCommand(String sourceType, Long sourceId, String sourceNo, Long warehouseId, Long partnerId,
+        public StockInCommand(String sourceType, Long sourceId, String sourceNo, Long partnerId,
                               LocalDate documentDate, LocalDate postingDate, String note, List<StockInLine> lines) {
-            this(sourceType, sourceId, sourceNo, warehouseId, partnerId, documentDate, postingDate, note, lines, null);
+            this(sourceType, sourceId, sourceNo, partnerId, documentDate, postingDate, note, lines, null);
         }
     }
 
@@ -80,9 +83,9 @@ public class StockInService {
     @Transactional(propagation = Propagation.MANDATORY)
     public StockInResult receive(CurrentUser actor, StockInCommand command) {
         InventoryDocumentRequest request = new InventoryDocumentRequest(InventoryDocumentType.PNK, null,
-                command.documentDate(), command.postingDate(), command.warehouseId(), null, command.partnerId(), null,
-                null, command.note(), null, null, command.lines().stream().map(StockInService::toRequest).toList(),
-                null);
+                command.documentDate(), command.postingDate(), command.lines().get(0).warehouseId(), null,
+                command.partnerId(), null, null, command.note(), null, null,
+                command.lines().stream().map(StockInService::toRequest).toList(), null);
         InventoryDocumentBuilder.Built built = builder.build(actor, request, null);
         InventoryDocument document = new InventoryDocument(built.companyId(), built.branchId(),
                 InventoryDocumentType.PNK, numbering.next(built.companyId(), built.branchId(),
@@ -109,7 +112,7 @@ public class StockInService {
     public StockInResult reverse(CurrentUser actor, Long documentId, LocalDate postingDate, String reason) {
         InventoryDocument original = documentRepository.findByIdForUpdate(documentId)
                 .orElseThrow(BusinessException::notFound);
-        if (!access.canAccessWarehouse(actor, original.getWarehouseId())) {
+        if (!original.warehouseIds().stream().allMatch(id -> access.canAccessWarehouse(actor, id))) {
             throw BusinessException.notFound();
         }
         original.requireReversible();
@@ -138,6 +141,6 @@ public class StockInService {
     private static InventoryLineRequest toRequest(StockInLine line) {
         return new InventoryLineRequest(line.productId(), line.unitId(), line.quantity(), null, line.locationId(), null,
                 null, line.lotNo(), line.manufactureDate(), line.expiryDate(), line.qualityStatus(), null,
-                line.unitCost(), null, line.note(), line.serialNumbers());
+                line.unitCost(), null, line.note(), line.serialNumbers(), null, line.warehouseId());
     }
 }

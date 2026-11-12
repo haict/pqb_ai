@@ -6,6 +6,7 @@ import com.company.erp.common.domain.QualityStatus;
 import com.company.erp.inventory.application.InventoryQueryService;
 import com.company.erp.inventory.application.LotSerialBlockService;
 import com.company.erp.inventory.application.MachineProducts;
+import com.company.erp.inventory.application.ReceiptSourceService;
 import com.company.erp.inventory.application.dto.FefoAllocationResponse;
 import com.company.erp.inventory.application.dto.InventoryTransactionResponse;
 import com.company.erp.inventory.application.dto.LotResponse;
@@ -50,12 +51,25 @@ public class StockController {
     private final InventoryQueryService queryService;
     private final LotSerialBlockService blockService;
     private final MachineProducts machineProducts;
+    private final ReceiptSourceService receiptSources;
 
     public StockController(InventoryQueryService queryService, LotSerialBlockService blockService,
-                           MachineProducts machineProducts) {
+                           MachineProducts machineProducts, ReceiptSourceService receiptSources) {
         this.queryService = queryService;
         this.blockService = blockService;
         this.machineProducts = machineProducts;
+        this.receiptSources = receiptSources;
+    }
+
+    @Operation(summary = "Chứng từ nhập còn tồn (F8) cho phiếu xuất kho",
+            description = "D-79: dòng nhập theo lô / serial còn tồn ĐẠT của hàng tại kho (FEFO), để phiếu xuất kho lập "
+                    + "tay chọn lô / serial đích danh; số lượng theo đơn vị cơ sở. Quyền inventory-issue:create; kho "
+                    + "ngoài phạm vi: 400 tại warehouseId. Hàng không quản lý lô / serial: danh sách rỗng.")
+    @GetMapping("/receipt-sources")
+    @PreAuthorize("hasAuthority('inventory-issue:create')")
+    public ApiResponse<List<ReceiptSourceService.ReceiptSource>> receiptSources(
+            @AuthenticationPrincipal CurrentUser user, @RequestParam Long warehouseId, @RequestParam Long productId) {
+        return ApiResponse.ok(receiptSources.availableForIssue(user, warehouseId, productId));
     }
 
     @Operation(summary = "Nhóm hàng máy", description = "ID nhóm hàng theo tham số inventory.machine-category-code và "

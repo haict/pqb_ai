@@ -99,7 +99,7 @@ public class PurchaseReturnPostingService {
                     applySources(document, order, BigDecimal.ONE);
                     Long inventoryId = null;
                     if (document.isGoodsReturn()) {
-                        inventoryId = issue(actor, document).documentId();
+                        inventoryId = issue(actor, document, order).documentId();
                     } else {
                         recordDiscountCosts(actor, document, order);
                     }
@@ -114,7 +114,7 @@ public class PurchaseReturnPostingService {
                         journalPosting.post(new PostingRequest(document.getCompanyId(), document.getBranchId(),
                                 document.getPostingDate(), document.typeCode(), document.getId(),
                                 document.getDocumentNo(), description(document), actor.id(),
-                                journalLines(document)));
+                                journalLines(document, order)));
                     }
                     document.markPosted(inventoryId, actor.id(), Instant.now(clock));
                     log.info("Ghi sổ {} {}", document.typeCode(), document.getDocumentNo());
@@ -175,16 +175,17 @@ public class PurchaseReturnPostingService {
         orderRepository.save(order);
     }
 
-    /** Phiếu xuất trả nhà cung cấp đúng lô, serial, trạng thái của dòng (BR-PUR-14). */
-    private StockOutResult issue(CurrentUser actor, PurchaseReturn document) {
+    /** Phiếu xuất trả nhà cung cấp đúng lô, serial, trạng thái của dòng, từ kho nhận của dòng đơn mua (BR-PUR-14). */
+    private StockOutResult issue(CurrentUser actor, PurchaseReturn document, PurchaseOrder order) {
         List<StockOutLine> lines = document.getLines().stream()
-                .map(line -> new StockOutLine(line.getId(), line.getProductId(), line.getUnitId(), line.getQuantity(),
+                .map(line -> new StockOutLine(line.getId(), order.line(line.getOrderLineId(), "lines").getWarehouseId(),
+                        line.getProductId(), line.getUnitId(), line.getQuantity(),
                         line.getLotNo(), line.getQualityStatus(), "Trả đúng lô của đơn mua", line.getDescription(),
                         line.getSerialNumbers()))
                 .toList();
         StockOutResult result = stockOut.issue(actor, new StockOutCommand(document.typeCode(), document.getId(),
-                document.getDocumentNo(), StockOutService.PURCHASE_RETURN, document.getWarehouseId(),
-                document.getSupplierId(), document.getPostingDate(), document.getPostingDate(),
+                document.getDocumentNo(), StockOutService.PURCHASE_RETURN, document.getSupplierId(),
+                document.getPostingDate(), document.getPostingDate(),
                 "Trả hàng theo " + document.getDocumentNo(), lines, null, null, List.of()));
         log.info("Trả hàng {} xuất kho {}", document.getDocumentNo(), result.documentNo());
         return result;
@@ -199,7 +200,7 @@ public class PurchaseReturnPostingService {
             if (orderLine.isServiceLine() || line.getAmount().signum() == 0) {
                 continue;
             }
-            entries.add(new PurchaseCostEntry(document.getCompanyId(), orderLine, order.getWarehouseId(),
+            entries.add(new PurchaseCostEntry(document.getCompanyId(), orderLine, orderLine.getWarehouseId(),
                     PurchaseCostEntry.EntryType.DISCOUNT, document.getPostingDate(), line.getAmount().negate(),
                     new PurchaseCostEntry.Reference(document.typeCode(), document.getId(), line.getId(),
                             document.getDocumentNo()), actor.id(), now));
@@ -211,7 +212,7 @@ public class PurchaseReturnPostingService {
      * Bút toán theo quy tắc hạch toán của loại chứng từ: giá trị từng dòng theo loại hàng (trả hàng: PURCHASE_RETURN;
      * giảm giá: PURCHASE_DISCOUNT), thuế GTGT gộp một dòng (_VAT).
      */
-    private List<PostingLine> journalLines(PurchaseReturn document) {
+    private List<PostingLine> journalLines(PurchaseReturn document, PurchaseOrder order) {
         String code = document.isGoodsReturn() ? "PURCHASE_RETURN" : "PURCHASE_DISCOUNT";
         Map<Long, ProductInfo> products = access.products(document.getLines().stream()
                 .map(PurchaseReturnLine::getProductId).toList());
@@ -223,7 +224,8 @@ public class PurchaseReturnPostingService {
             ProductInfo product = products.get(line.getProductId());
             lines.add(new PostingLine(code, line.getAmount(), product == null ? null : product.productTypeCode(),
                     SUPPLIER_ROLE, null, null, document.getSupplierId(), line.getProductId(),
-                    document.getWarehouseId(), null, null, line.getId(), line.getDescription()));
+                    order.line(line.getOrderLineId(), "lines").getWarehouseId(), null, null, line.getId(),
+                    line.getDescription()));
         }
         if (document.getTaxAmount().signum() > 0) {
             lines.add(new PostingLine(code + "_VAT", document.getTaxAmount(), null, SUPPLIER_ROLE, null, null,

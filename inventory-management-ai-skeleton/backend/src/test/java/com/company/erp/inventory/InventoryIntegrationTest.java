@@ -57,7 +57,7 @@ class InventoryIntegrationTest extends InventoryIntegrationSupport {
     }
 
     @Test
-    @DisplayName("AT-02, AT-03, BR-INV-21: nhập theo lô / hạn dùng / serial, xuất theo FEFO, chọn lô khác phải có lý do")
+    @DisplayName("AT-02, AT-03, BR-INV-21: nhập theo lô / hạn dùng / serial, xuất theo FEFO, chọn lô khác không cần lý do")
     void lotsSerialsAndFefo() throws Exception {
         long warehouse = warehouse(1);
         long product = product(true, true, false);
@@ -75,17 +75,16 @@ class InventoryIntegrationTest extends InventoryIntegrationSupport {
         List<String> lots = json(fefo, "$.data[*].lotNo");
         assertThat(lots).containsExactly("LB" + product, "LA" + product);
 
-        long override = create(manager, "PXK", warehouse, List.of(issueLine(product, 2, lateLot, null)));
-        action(manager, override, "post", null).andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.errors[0].field").value("lotOverrideReason"));
+        long override = createAndPost(manager, "PXK", warehouse, List.of(issueLine(product, 2, lateLot, null)));
+        assertThat(docStatus(override)).isEqualTo("POSTED");
 
-        long issue = createAndPost(manager, "PXK", warehouse, List.of(issueLine(product, 7, null, null)));
+        long issue = createAndPost(manager, "PXK", warehouse, List.of(issueLine(product, 6, null, null)));
         MvcResult detail = mockMvc.perform(as(manager, get(DOCS + "/" + issue))).andExpect(status().isOk()).andReturn();
         List<Object> earlyLot = json(detail, "$.data.transactions[?(@.lotNo == 'LB" + product + "')].quantity");
         List<Object> lateLotIssued = json(detail, "$.data.transactions[?(@.lotNo == 'LA" + product + "')].quantity");
         assertThat(new BigDecimal(earlyLot.get(0).toString())).isEqualByComparingTo("5");
-        assertThat(new BigDecimal(lateLotIssued.get(0).toString())).isEqualByComparingTo("2");
-        assertThat(onHand(product, warehouse)).isEqualByComparingTo("3");
+        assertThat(new BigDecimal(lateLotIssued.get(0).toString())).isEqualByComparingTo("1");
+        assertThat(onHand(product, warehouse)).isEqualByComparingTo("2");
 
         long sameLotOtherExpiry = create(manager, "PNK", warehouse,
                 List.of(receiptLine(product, 1, "LA" + product, "2028-01-01", null)));
@@ -339,5 +338,111 @@ class InventoryIntegrationTest extends InventoryIntegrationSupport {
         send(manager, post("/api/v1/stock-issue-policies/" + policy + "/cancel"), "{\"reason\":\"Thử hủy\"}",
                 newKey()).andExpect(status().isConflict());
         assertLedgerConsistent(product);
+    }
+
+    @Test
+    @DisplayName("D-77: chứng từ kho lập tay chọn kho theo dòng; phiếu chuyển kho giữ kho đầu phiếu")
+    void lineWarehouses() throws Exception {
+        long first = warehouse(1);
+        long second = warehouse(1);
+        long otherBranch = warehouse(2);
+        long product = product(false, false, false);
+        String receipt = "{\"documentType\":\"PNK\",\"documentDate\":\"2026-10-05\",\"lines\":["
+                + atWarehouse(receiptLine(product, 4, null, null, null), first) + ","
+                + atWarehouse(receiptLine(product, 6, null, null, null), second) + "]}";
+        long received = createDocument(manager, receipt);
+        mockMvc.perform(as(manager, get(DOCS + "/" + received))).andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.warehouseId").value(first))
+                .andExpect(jsonPath("$.data.lines[1].warehouseId").value(second));
+        postDocument(manager, received);
+        assertThat(onHand(product, first)).isEqualByComparingTo("4");
+        assertThat(onHand(product, second)).isEqualByComparingTo("6");
+
+        long issued = createDocument(manager, "{\"documentType\":\"PXK\",\"documentDate\":\"2026-10-05\","
+                + "\"lines\":[" + atWarehouse(issueLine(product, 5, null, null), second) + "]}");
+        postDocument(manager, issued);
+        assertThat(onHand(product, first)).isEqualByComparingTo("4");
+        assertThat(onHand(product, second)).isEqualByComparingTo("1");
+
+        // Dòng thiếu kho, kho khác chi nhánh, phiếu chuyển kho gửi kho theo dòng: lỗi đúng trường.
+        String noWarehouse = "{\"documentType\":\"PXK\",\"documentDate\":\"2026-10-05\",\"lines\":["
+                + atWarehouse(issueLine(product, 1, null, null), first) + "," + issueLine(product, 1, null, null) + "]}";
+        send(manager, post(DOCS), noWarehouse, newKey()).andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[0].field").value("lines[1].warehouseId"));
+        String mixedBranch = "{\"documentType\":\"PXK\",\"documentDate\":\"2026-10-05\",\"lines\":["
+                + atWarehouse(issueLine(product, 1, null, null), first) + ","
+                + atWarehouse(issueLine(product, 1, null, null), otherBranch) + "]}";
+        send(manager, post(DOCS), mixedBranch, newKey()).andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[0].field").value("lines[1].warehouseId"));
+        String transfer = withHeader(document("PCK", first,
+                List.of(atWarehouse(issueLine(product, 1, null, null), second)), "2026-10-05"),
+                "\"destinationWarehouseId\":" + second);
+        send(manager, post(DOCS), transfer, newKey()).andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[0].field").value("lines[0].warehouseId"));
+
+        reverse(received);
+        assertLedgerConsistent(product);
+    }
+
+    @Test
+    @DisplayName("D-78: in phiếu nhập / xuất kho của chứng từ kho đã ghi sổ; nháp hoặc loại khác trả 409")
+    void printSlip() throws Exception {
+        long warehouse = warehouse(1);
+        long product = product(true, true, false);
+        long receipt = create(manager, "PNK", warehouse, List.of(receiptLine(product, 5, "LS1", "2027-12-31", null)));
+        mockMvc.perform(as(manager, get(DOCS + "/" + receipt + "/slip"))).andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("INVALID_DOCUMENT_STATE"));
+        postDocument(manager, receipt);
+        mockMvc.perform(as(manager, get(DOCS + "/" + receipt + "/slip"))).andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.documentType").value("PNK"))
+                .andExpect(jsonPath("$.data.companyName").isNotEmpty())
+                .andExpect(jsonPath("$.data.lines[0].items[0].lotNo").value("LS1"))
+                .andExpect(jsonPath("$.data.totalAmount").value(5000));
+
+        long issue = createAndPost(manager, "PXK", warehouse, List.of(issueLine(product, 2, null, null)));
+        mockMvc.perform(as(manager, get(DOCS + "/" + issue + "/slip"))).andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.documentType").value("PXK"))
+                .andExpect(jsonPath("$.data.lines[0].quantity").value(2))
+                .andExpect(jsonPath("$.data.lines[0].items[0].lotNo").value("LS1"));
+        mockMvc.perform(as(manager, get(DOCS + "/print-companies"))).andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].id").isNumber());
+
+        long adjust = createAndPost(manager, "PDC", warehouse,
+                List.of(issueLine(product, 1, null, null).replace("}", ",\"direction\":\"OUT\"}")));
+        mockMvc.perform(as(manager, get(DOCS + "/" + adjust + "/slip"))).andExpect(status().isConflict());
+        mockMvc.perform(get(DOCS + "/" + issue + "/slip")).andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("D-79: F8 trên phiếu xuất kho trả chứng từ nhập còn tồn kèm lotId để xuất đích danh")
+    void receiptSourcesForIssue() throws Exception {
+        long warehouse = warehouse(1);
+        long product = product(true, true, false);
+        createAndPost(manager, "PNK", warehouse, List.of(receiptLine(product, 3, "F8A", "2027-06-30", null)));
+        createAndPost(manager, "PNK", warehouse, List.of(receiptLine(product, 4, "F8B", "2027-12-31", null)));
+        MvcResult sources = mockMvc.perform(as(manager, get("/api/v1/inventory/receipt-sources")
+                        .param("warehouseId", String.valueOf(warehouse)).param("productId", String.valueOf(product))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.length()").value(2))
+                .andExpect(jsonPath("$.data[0].lotNo").value("F8A"))
+                .andExpect(jsonPath("$.data[1].availableQuantity").value(4))
+                .andReturn();
+        long lateLot = jsonValue(sources, "$.data[1].lotId", Integer.class);
+        long issue = createAndPost(manager, "PXK", warehouse, List.of(issueLine(product, 2, lateLot, null)));
+        assertThat(jdbc.queryForObject("SELECT l.lot_no FROM inventory_transactions t JOIN inventory_lots l "
+                + "ON l.id = t.lot_id WHERE t.reference_type = 'PXK' AND t.reference_id = ?", String.class, issue))
+                .isEqualTo("F8B");
+
+        long plain = product(false, false, false);
+        mockMvc.perform(as(manager, get("/api/v1/inventory/receipt-sources")
+                        .param("warehouseId", String.valueOf(warehouse)).param("productId", String.valueOf(plain))))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.length()").value(0));
+        mockMvc.perform(get("/api/v1/inventory/receipt-sources").param("warehouseId", String.valueOf(warehouse))
+                .param("productId", String.valueOf(product))).andExpect(status().isUnauthorized());
+        assertLedgerConsistent(product);
+    }
+
+    private static String atWarehouse(String line, long warehouse) {
+        return line.substring(0, line.length() - 1) + ",\"warehouseId\":" + warehouse + "}";
     }
 }

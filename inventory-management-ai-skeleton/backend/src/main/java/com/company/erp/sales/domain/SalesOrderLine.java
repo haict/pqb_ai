@@ -21,7 +21,7 @@ import java.util.List;
  * Dòng đơn bán (D-54): giá (BR-SAL-02, 03, 35), lô chỉ định (trống: FEFO, BR-SAL-21; khác lô FEFO phải ghi lý do,
  * BR-INV-21), serial chỉ định với hàng quản lý serial. Khi ghi sổ lưu hàng thực xuất (lô, hạn dùng, serial). Sau ghi
  * sổ theo dõi số khách trả lại (đơn vị cơ sở) và giá trị đã giảm (trả hàng + giảm giá, trước thuế, BR-SAL-32, 36). Dòng
- * dịch vụ không qua kho.
+ * dịch vụ không qua kho. Kho xuất theo từng dòng hàng hóa (D-76).
  */
 @Entity
 @Table(name = "sales_order_lines")
@@ -29,6 +29,9 @@ public class SalesOrderLine extends SalesPricedLine {
 
     @Column(name = "service_line", nullable = false)
     private boolean serviceLine;
+
+    @Column(name = "warehouse_id")
+    private Long warehouseId;
 
     @Column(name = "expected_date")
     private LocalDate expectedDate;
@@ -71,7 +74,8 @@ public class SalesOrderLine extends SalesPricedLine {
      * xuất đích danh (D-63), có thể trống.
      */
     public record Values(PricedValues price, boolean serviceLine, LocalDate expectedDate, String lotNo,
-                         String lotOverrideReason, List<String> serialNumbers, ReceiptSource receipt) {
+                         String lotOverrideReason, List<String> serialNumbers, ReceiptSource receipt,
+                         Long warehouseId) {
     }
 
     /** Dòng nhập kho được chọn (id dòng sổ nhật ký kho, số chứng từ nhập). */
@@ -86,6 +90,7 @@ public class SalesOrderLine extends SalesPricedLine {
     private void apply(Values values) {
         applyPrice(values.price());
         this.serviceLine = values.serviceLine();
+        this.warehouseId = values.warehouseId();
         this.expectedDate = values.expectedDate();
         this.lotNo = values.lotNo();
         this.lotOverrideReason = values.lotOverrideReason();
@@ -99,7 +104,7 @@ public class SalesOrderLine extends SalesPricedLine {
         apply(new Values(other.priceValues(), other.serviceLine, other.expectedDate, other.lotNo,
                 other.lotOverrideReason, new ArrayList<>(other.serialNumbers),
                 other.receiptTransactionId == null ? null
-                        : new ReceiptSource(other.receiptTransactionId, other.receiptNo)));
+                        : new ReceiptSource(other.receiptTransactionId, other.receiptNo), other.warehouseId));
     }
 
     /** Ghi hàng thực xuất khi ghi sổ (giữ lại sau đảo để truy vết). */
@@ -144,6 +149,11 @@ public class SalesOrderLine extends SalesPricedLine {
 
     private static String plain(BigDecimal value) {
         return value.stripTrailingZeros().toPlainString();
+    }
+
+    /** Kho xuất của dòng hàng hóa (D-76); {@code null} với dòng dịch vụ. */
+    public Long getWarehouseId() {
+        return warehouseId;
     }
 
     public boolean isServiceLine() {

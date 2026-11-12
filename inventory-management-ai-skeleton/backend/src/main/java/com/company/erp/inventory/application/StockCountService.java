@@ -255,7 +255,7 @@ public class StockCountService {
                     line.getProductId(), products.get(line.getProductId()).baseUnitId(), BigDecimal.ONE, quantity,
                     quantity, line.difference().signum() > 0 ? MovementDirection.IN : MovementDirection.OUT,
                     line.getLocationId(), null, line.getLotId(), null, null, null, line.getQualityStatus(), null,
-                    null, null, line.getNote(), serial == null ? List.of() : List.of(serial.getSerialNo()), null)));
+                    null, null, line.getNote(), serial == null ? List.of() : List.of(serial.getSerialNo()), null, null)));
         }
         InventoryDocument adjustment = new InventoryDocument(count.getCompanyId(), count.getBranchId(),
                 InventoryDocumentType.PDC, numbering.next(count.getCompanyId(), count.getBranchId(),

@@ -33,7 +33,7 @@ import { formatMoney } from '../../accounting/labels';
 import { DocumentStatusTag } from '../../inventory/components/StatusTags';
 import { formatDate, statusLabel } from '../../inventory/labels';
 import { PartnerSelect } from '../../masterdata/components/EntitySelects';
-import { useCatalog, useCompanyId, useWarehouses } from '../../masterdata/lookups';
+import { useCatalog, useCompanyId } from '../../masterdata/lookups';
 import { SourceJournal } from '../../purchasing/components/SourceJournal';
 import { useMyBranches } from '../../system/lookups';
 import { salesOrderApi } from '../api';
@@ -78,7 +78,6 @@ interface OrderForm {
   branchId: number;
   customerId?: number;
   customerLabel?: string;
-  warehouseId?: number;
   documentDate: Dayjs;
   postingDate?: Dayjs;
   contactName?: string;
@@ -96,7 +95,6 @@ interface OrderForm {
 const FIELDS = [
   'branchId',
   'customerId',
-  'warehouseId',
   'documentDate',
   'postingDate',
   'contactName',
@@ -173,7 +171,6 @@ export function SalesOrdersPage() {
     const input = {
       branchId: values.branchId,
       customerId: values.customerId,
-      warehouseId: values.warehouseId,
       documentDate: values.documentDate.format('YYYY-MM-DD'),
       postingDate: dateValue(values.postingDate),
       contactName: values.contactName,
@@ -388,9 +385,7 @@ export function SalesOrdersPage() {
                 <Descriptions.Item label="Khách hàng">
                   {`${document.customerCode ?? ''} - ${document.customerName ?? ''}`}
                 </Descriptions.Item>
-                <Descriptions.Item label="Kho xuất">{`${document.warehouseCode ?? ''} - ${
-                  document.warehouseName ?? ''
-                }`}</Descriptions.Item>
+                <Descriptions.Item label="Kho xuất">{document.warehouseNames}</Descriptions.Item>
                 <Descriptions.Item label="Nhân viên">{document.salesUserName}</Descriptions.Item>
                 <Descriptions.Item label="Ngày đơn">{formatDate(document.documentDate)}</Descriptions.Item>
                 <Descriptions.Item label="Ngày hạch toán">
@@ -518,7 +513,6 @@ function orderForm(document: SalesOrder): Partial<OrderForm> {
     branchId: document.branchId,
     customerId: document.customerId,
     customerLabel: `${document.customerCode ?? ''} - ${document.customerName ?? ''}`,
-    warehouseId: document.warehouseId,
     documentDate: dayjs(document.documentDate),
     postingDate: dayjs(document.postingDate),
     contactName: document.contactName ?? undefined,
@@ -572,8 +566,6 @@ function OrderFields({
   isNew: boolean;
   branchOptions: { value: number; label: string }[];
 }) {
-  const warehouses = useWarehouses();
-  const branchId = Form.useWatch('branchId', form) as number | undefined;
   const [ocrNotes, setOcrNotes] = useState<string[]>([]);
   return (
     <>
@@ -584,7 +576,19 @@ function OrderFields({
             label="Chi nhánh"
             rules={[{ required: true, message: 'Chọn chi nhánh' }]}
           >
-            <Select disabled={!isNew} options={branchOptions} />
+            <Select
+              disabled={!isNew}
+              options={branchOptions}
+              onChange={() =>
+                form.setFieldValue(
+                  'lines',
+                  ((form.getFieldValue('lines') as SalesLineForm[] | undefined) ?? []).map((line) => ({
+                    ...line,
+                    warehouseId: undefined,
+                  })),
+                )
+              }
+            />
           </Form.Item>
         </BranchCol>
         <Col xs={24} md={7}>
@@ -594,18 +598,6 @@ function OrderFields({
               creatable
               disabled={!isNew}
               selectedLabel={form.getFieldValue('customerLabel')}
-            />
-          </Form.Item>
-        </Col>
-        <Col xs={24} md={5}>
-          <Form.Item name="warehouseId" label="Kho xuất" rules={[{ required: true, message: 'Chọn kho' }]}>
-            <Select
-              options={warehouses.items
-                .filter((warehouse) => warehouse.branchId === branchId)
-                .map((warehouse) => ({
-                  value: warehouse.id,
-                  label: `${warehouse.code} - ${warehouse.name}`,
-                }))}
             />
           </Form.Item>
         </Col>

@@ -47,6 +47,8 @@ export interface InventoryLineInput {
   note?: string;
   serialNumbers?: string[];
   itemCondition?: ItemCondition;
+  /** Kho của dòng (D-77); phiếu chuyển kho không gửi. */
+  warehouseId?: number;
 }
 
 export interface InventoryDocumentInput {
@@ -54,7 +56,8 @@ export interface InventoryDocumentInput {
   subType?: string;
   documentDate: string;
   postingDate?: string;
-  warehouseId: number;
+  /** Bắt buộc với phiếu chuyển kho (kho xuất); loại khác chọn kho theo dòng (D-77). */
+  warehouseId?: number;
   destinationWarehouseId?: number;
   partnerId?: number;
   reasonText?: string;
@@ -89,6 +92,8 @@ export interface InventoryLine {
   note: string | null;
   serialNumbers: string[];
   itemCondition: ItemCondition | null;
+  /** Kho của dòng (D-76): kho riêng của dòng khi phiếu sinh từ đơn nhiều kho, không có thì kho đầu phiếu. */
+  warehouseId: number;
 }
 
 export interface InventoryTransaction {
@@ -346,4 +351,43 @@ export interface OpeningStockImportResult {
   created: number;
   documentIds: number[];
   documentNos: string[];
+}
+
+/** Lô / serial thực nhập / xuất của dòng phiếu in (theo sổ kho, đơn vị cơ sở). */
+export interface InventorySlipItem {
+  lotNo: string | null;
+  expiryDate: string | null;
+  serialNo: string | null;
+  baseQuantity: number;
+}
+
+export interface InventorySlipLine {
+  lineNo: number;
+  productCode: string | null;
+  productName: string | null;
+  warehouseCode: string | null;
+  unitId: number;
+  quantity: number;
+  unitPrice: number;
+  amount: number;
+  items: InventorySlipItem[];
+}
+
+/** Dữ liệu in phiếu nhập / xuất kho của chứng từ kho đã ghi sổ (`GET /inventory-documents/{id}/slip`, D-78). */
+export interface InventorySlip {
+  companyName: string | null;
+  companyAddress: string | null;
+  documentId: number;
+  documentType: InventoryDocumentType;
+  documentNo: string;
+  slipDate: string;
+  partnerName: string | null;
+  partnerAddress: string | null;
+  partnerTaxCode: string | null;
+  description: string;
+  sourceNo: string | null;
+  warehouseCode: string | null;
+  warehouseName: string | null;
+  lines: InventorySlipLine[];
+  totalAmount: number;
 }

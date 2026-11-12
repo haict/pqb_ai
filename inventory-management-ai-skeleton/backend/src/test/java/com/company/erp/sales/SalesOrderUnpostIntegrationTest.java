@@ -9,6 +9,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.company.erp.support.ApiTestSupport;
 import com.company.erp.support.MySqlIntegrationTest;
 import java.math.BigDecimal;
 import java.util.List;
@@ -75,7 +76,7 @@ class SalesOrderUnpostIntegrationTest extends SalesIntegrationSupport {
         long version = id("SELECT version FROM sales_orders WHERE id = " + order);
         String revised = order(partner("KH_BV01"), store, false, List.of(line(item, piece, "4", "100000", null)))
                 .replaceFirst("}$", ",\"version\":" + version + "}");
-        mockMvc.perform(as(manager, put(ORDERS + "/" + order)).contentType("application/json").content(revised))
+        mockMvc.perform(as(manager, put(ORDERS + "/" + order)).contentType("application/json").content(ApiTestSupport.lineWarehouse(revised)))
                 .andExpect(status().isOk());
         postWithAuthority(keeper, order).andExpect(jsonPath("$.data.status").value("POSTED"))
                 .andExpect(jsonPath("$.data.documentNo").value(documentNo));

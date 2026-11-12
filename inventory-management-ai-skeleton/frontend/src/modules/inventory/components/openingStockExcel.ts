@@ -31,9 +31,8 @@ type Cell = string | number | null;
 
 /** Dòng dữ liệu theo {@link OPENING_EXPORT_HEADERS}; ngày dạng dd/mm/yyyy như file mẫu. */
 export function openingStockRows(document: InventoryDocument, codes: OpeningExportCodes): Cell[][] {
-  const warehouse = codes.warehouseCode(document.warehouseId);
   return document.lines.map((line) => [
-    warehouse,
+    codes.warehouseCode(line.warehouseId ?? document.warehouseId),
     line.productCode,
     codes.unitCode(line.unitId),
     line.quantity,

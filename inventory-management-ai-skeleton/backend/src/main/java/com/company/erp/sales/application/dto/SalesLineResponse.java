@@ -33,6 +33,8 @@ public record SalesLineResponse(
         BigDecimal taxAmount,
         boolean promotional,
         boolean serviceLine,
+        Long warehouseId,
+        String warehouseCode,
         LocalDate expectedDate,
         String lotNo,
         LocalDate expiryDate,

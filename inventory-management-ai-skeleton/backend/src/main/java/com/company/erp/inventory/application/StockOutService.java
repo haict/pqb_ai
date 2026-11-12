@@ -23,7 +23,6 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Collection;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -53,18 +52,21 @@ public class StockOutService {
     private static final Logger log = LoggerFactory.getLogger(StockOutService.class);
 
     /**
-     * Dòng xuất theo đơn vị giao dịch. {@code lotNo} trống: FEFO; chỉ định lô khác lô FEFO khi xuất bán phải có
-     * {@code lotOverrideReason} (BR-INV-21). {@code qualityStatus} trống = ĐẠT.
+     * Dòng xuất khỏi kho {@code warehouseId} (kho theo dòng, D-76) theo đơn vị giao dịch. {@code lotNo} trống: FEFO;
+     * {@code lotOverrideReason} ghi lý do chọn lô khác FEFO, không bắt buộc (BR-INV-21, D-74). {@code qualityStatus}
+     * trống = ĐẠT.
      */
-    public record StockOutLine(Long sourceLineId, Long productId, Long unitId, BigDecimal quantity, String lotNo,
+    public record StockOutLine(Long sourceLineId, Long warehouseId, Long productId, Long unitId, BigDecimal quantity, String lotNo,
                                QualityStatus qualityStatus, String lotOverrideReason, String note,
                                List<String> serialNumbers) {
     }
 
     /**
+     * Một phiếu cho cả chứng từ nguồn; kho ở đầu phiếu là kho của dòng đầu tiên.
+     *
      * @param reservationSourceType chứng từ đã giữ chỗ (đơn bán) và phần giữ chỗ được dùng; trống nếu không có
      */
-    public record StockOutCommand(String sourceType, Long sourceId, String sourceNo, String subType, Long warehouseId,
+    public record StockOutCommand(String sourceType, Long sourceId, String sourceNo, String subType,
                                   Long partnerId, LocalDate documentDate, LocalDate postingDate, String note,
                                   List<StockOutLine> lines, String reservationSourceType, Long reservationSourceId,
                                   List<ReservationUse> reservationUses) {
@@ -116,8 +118,8 @@ public class StockOutService {
     @Transactional(propagation = Propagation.MANDATORY)
     public StockOutResult issue(CurrentUser actor, StockOutCommand command) {
         InventoryDocumentRequest request = new InventoryDocumentRequest(InventoryDocumentType.PXK, null,
-                command.documentDate(), command.postingDate(), command.warehouseId(), null, command.partnerId(), null,
-                null, command.note(), null, null, command.lines().stream()
+                command.documentDate(), command.postingDate(), command.lines().get(0).warehouseId(), null,
+                command.partnerId(), null, null, command.note(), null, null, command.lines().stream()
                 .map(line -> toRequest(line, lotId(line))).toList(), null);
         InventoryDocumentBuilder.Built built = builder.build(actor, request, null);
         if (command.reservationUses() != null && !command.reservationUses().isEmpty()) {
@@ -187,9 +189,9 @@ public class StockOutService {
     /** Khóa mọi tổng (hàng, kho) của phiếu theo thứ tự trước khi đổi giữ chỗ, cùng thứ tự với ghi sổ kho. */
     private void lockSummaries(Long companyId, StockOutCommand command) {
         Instant now = Instant.now(clock);
-        new TreeSet<>(command.lines().stream().map(StockOutLine::productId).toList()).stream()
-                .sorted(Comparator.naturalOrder())
-                .forEach(productId -> ledger.lockSummary(companyId, productId, command.warehouseId(), now));
+        new TreeSet<>(command.lines().stream()
+                .map(line -> new PostingCommand.ProductWarehouse(line.productId(), line.warehouseId())).toList())
+                .forEach(key -> ledger.lockSummary(companyId, key.productId(), key.warehouseId(), now));
     }
 
     private Long lotId(StockOutLine line) {
@@ -204,6 +206,6 @@ public class StockOutService {
     private static InventoryLineRequest toRequest(StockOutLine line, Long lotId) {
         return new InventoryLineRequest(line.productId(), line.unitId(), line.quantity(), null, null, null, lotId, null,
                 null, null, line.qualityStatus(), null, null, line.lotOverrideReason(), line.note(),
-                line.serialNumbers());
+                line.serialNumbers(), null, line.warehouseId());
     }
 }

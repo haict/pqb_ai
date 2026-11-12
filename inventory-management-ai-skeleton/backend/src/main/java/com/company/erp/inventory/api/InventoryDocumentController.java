@@ -5,10 +5,13 @@ import com.company.erp.common.api.PageResponse;
 import com.company.erp.common.application.IdempotentCommand;
 import com.company.erp.inventory.application.InventoryDocumentPostingService;
 import com.company.erp.inventory.application.InventoryDocumentService;
+import com.company.erp.inventory.application.InventorySlipService;
 import com.company.erp.inventory.application.OpeningStockImportService;
 import com.company.erp.inventory.application.dto.InventoryDocumentRequest;
 import com.company.erp.inventory.application.dto.InventoryDocumentResponse;
 import com.company.erp.inventory.application.dto.InventoryDocumentSummary;
+import com.company.erp.inventory.application.dto.InventoryPrintCompanyResponse;
+import com.company.erp.inventory.application.dto.InventorySlipResponse;
 import com.company.erp.inventory.application.dto.OpeningStockImportResponse;
 import com.company.erp.inventory.application.dto.ReasonRequest;
 import com.company.erp.inventory.application.dto.ReceiveRequest;
@@ -20,6 +23,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.function.Function;
 import org.springframework.data.domain.Pageable;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -60,13 +64,32 @@ public class InventoryDocumentController {
     private final InventoryDocumentService documentService;
     private final InventoryDocumentPostingService postingService;
     private final OpeningStockImportService openingImportService;
+    private final InventorySlipService slipService;
 
     public InventoryDocumentController(InventoryDocumentService documentService,
                                        InventoryDocumentPostingService postingService,
-                                       OpeningStockImportService openingImportService) {
+                                       OpeningStockImportService openingImportService,
+                                       InventorySlipService slipService) {
         this.documentService = documentService;
         this.postingService = postingService;
         this.openingImportService = openingImportService;
+        this.slipService = slipService;
+    }
+
+    @Operation(summary = "Công ty in đầu phiếu",
+            description = "Công ty đang hoạt động trong phạm vi người dùng, để chọn tên / địa chỉ in trên phiếu kho.")
+    @GetMapping("/print-companies")
+    public ApiResponse<List<InventoryPrintCompanyResponse>> printCompanies(@AuthenticationPrincipal CurrentUser user) {
+        return ApiResponse.ok(slipService.printCompanies(user));
+    }
+
+    @Operation(summary = "In phiếu nhập / xuất kho",
+            description = "Dữ liệu mẫu in phiếu nhập kho (PNK), phiếu xuất kho (PXK, PXH) đã ghi sổ (D-78); loại khác, "
+                    + "chưa ghi sổ hoặc đã đảo: 409 INVALID_DOCUMENT_STATE. Quyền xem theo loại chứng từ.")
+    @GetMapping("/{id}/slip")
+    public ApiResponse<InventorySlipResponse> slip(@AuthenticationPrincipal CurrentUser user, @PathVariable Long id,
+                                                   @RequestParam(required = false) Long companyId) {
+        return ApiResponse.ok(slipService.slip(user, id, companyId));
     }
 
     @Operation(summary = "Tải file mẫu nhập tồn kho đầu kỳ (.xlsx)")

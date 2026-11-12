@@ -10,6 +10,7 @@ import { FormModal } from '../../../shared/components/FormModal';
 import { ListToolbar } from '../../../shared/components/ListToolbar';
 import { useCompanyId, useWarehouses } from '../../masterdata/lookups';
 import { documentApi } from '../api';
+import { useMyBranches } from '../../system/lookups';
 import { DocumentFormFields } from '../components/DocumentForm';
 import { DOCUMENT_FIELDS, toDocumentInput, type DocumentFormValues } from '../components/documentFormValues';
 import {
@@ -43,6 +44,7 @@ export function InventoryDocumentsPage({ opening = false }: { opening?: boolean 
   const navigate = useNavigate();
   const companyId = useCompanyId();
   const warehouses = useWarehouses();
+  const branches = useMyBranches();
   const [keyword, setKeyword] = useState<string>();
   const [documentType, setDocumentType] = useState<InventoryDocumentType>();
   const [status, setStatus] = useState<InventoryDocumentStatus>();
@@ -169,6 +171,7 @@ export function InventoryDocumentsPage({ opening = false }: { opening?: boolean 
           documentType: creatable[0],
           subType: opening ? OPENING_SUB_TYPE : undefined,
           documentDate: dayjs(),
+          branchId: branches.defaultId,
           lines: [{ unitCost: 0 }] as never,
         }}
         fieldNames={DOCUMENT_FIELDS}

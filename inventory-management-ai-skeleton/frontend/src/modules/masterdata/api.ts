@@ -106,6 +106,12 @@ export const warehouseApi = {
   changeStatus: (item: Warehouse, status: RecordStatus, reason: string) =>
     patchStatus<Warehouse>(`/warehouses/${item.id}`, status, item.version, reason),
   locations: (id: number) => getOne<WarehouseLocation[]>(`/warehouses/${id}/locations`),
+  /** Kho gợi ý theo tên nhóm hàng (D-76); warehouseId null khi không có kho duy nhất. */
+  suggestions: (branchId: number, productIds: number[]) =>
+    getOne<{ productId: number; warehouseId: number | null }[]>('/warehouses/suggestions', {
+      branchId,
+      productIds: productIds.join(','),
+    }),
   addLocation: (id: number, input: object, key: string) =>
     postWithKey<WarehouseLocation>(`/warehouses/${id}/locations`, input, key),
   updateLocation: (id: number, input: object) =>

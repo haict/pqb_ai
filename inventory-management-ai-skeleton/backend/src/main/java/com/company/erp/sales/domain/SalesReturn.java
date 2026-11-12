@@ -44,9 +44,6 @@ public class SalesReturn extends SalesDocument {
     @Column(name = "sales_order_id", nullable = false, updatable = false)
     private Long salesOrderId;
 
-    @Column(name = "warehouse_id", updatable = false)
-    private Long warehouseId;
-
     @Column(name = "inventory_document_id")
     private Long inventoryDocumentId;
 
@@ -83,12 +80,11 @@ public class SalesReturn extends SalesDocument {
     }
 
     public SalesReturn(Long companyId, Long branchId, String documentNo, SalesReturnType documentType,
-                          Long customerId, Long salesOrderId, Long warehouseId) {
+                          Long customerId, Long salesOrderId) {
         super(companyId, branchId, documentNo);
         this.documentType = documentType;
         this.customerId = customerId;
         this.salesOrderId = salesOrderId;
-        this.warehouseId = warehouseId;
     }
 
     @Override
@@ -158,10 +154,6 @@ public class SalesReturn extends SalesDocument {
 
     public Long getSalesOrderId() {
         return salesOrderId;
-    }
-
-    public Long getWarehouseId() {
-        return warehouseId;
     }
 
     public Long getInventoryDocumentId() {

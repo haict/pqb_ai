@@ -2,6 +2,9 @@ package com.company.erp.support;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.jayway.jsonpath.JsonPath;
 import jakarta.servlet.http.Cookie;
 import java.util.UUID;
@@ -80,5 +83,30 @@ public final class ApiTestSupport {
         jdbc.update("INSERT INTO sys_user_data_scopes (user_id, scope_type, scope_id) VALUES (?, ?, ?)",
                 id, scopeType, scopeId);
         return id;
+    }
+
+    private static final ObjectMapper JSON = new ObjectMapper();
+
+    /**
+     * Đơn mua / đơn bán viết theo mẫu cũ có kho ở đầu đơn: chuyển kho xuống các dòng chưa khai báo kho (kho theo dòng,
+     * D-76). Chứng từ khác (có {@code documentType}, không có {@code lines}) giữ nguyên.
+     */
+    public static String lineWarehouse(String body) {
+        try {
+            JsonNode root = JSON.readTree(body);
+            if (!(root instanceof ObjectNode order) || !order.has("warehouseId") || !order.has("lines")
+                    || order.has("documentType")) {
+                return body;
+            }
+            JsonNode warehouse = order.remove("warehouseId");
+            for (JsonNode line : order.get("lines")) {
+                if (line instanceof ObjectNode node && !node.has("warehouseId")) {
+                    node.set("warehouseId", warehouse);
+                }
+            }
+            return JSON.writeValueAsString(order);
+        } catch (Exception e) {
+            return body;
+        }
     }
 }

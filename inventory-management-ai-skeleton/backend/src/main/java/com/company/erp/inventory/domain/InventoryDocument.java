@@ -20,6 +20,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.EnumSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -346,6 +347,22 @@ public class InventoryDocument extends AuditableEntity {
 
     public Long getWarehouseId() {
         return warehouseId;
+    }
+
+    /** Kho của dòng: kho riêng của dòng (phiếu sinh từ đơn nhiều kho, D-76), không có thì kho ở đầu phiếu. */
+    public Long warehouseOf(InventoryDocumentLine line) {
+        return line.getWarehouseId() != null ? line.getWarehouseId() : warehouseId;
+    }
+
+    /** Mọi kho của phiếu: kho đầu phiếu, kho đích, kho của các dòng. */
+    public Set<Long> warehouseIds() {
+        Set<Long> ids = new LinkedHashSet<>();
+        ids.add(warehouseId);
+        if (destinationWarehouseId != null) {
+            ids.add(destinationWarehouseId);
+        }
+        lines.forEach(line -> ids.add(warehouseOf(line)));
+        return ids;
     }
 
     public Long getDestinationWarehouseId() {

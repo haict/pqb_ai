@@ -36,7 +36,14 @@ import { DocumentStatusTag } from '../../inventory/components/StatusTags';
 import { formatDate, formatNumber, statusLabel } from '../../inventory/labels';
 import { partnerApi } from '../../masterdata/api';
 import { PartnerSelect, ProductSelect } from '../../masterdata/components/EntitySelects';
-import { useCatalog, useCompanyId, useTaxRates, useWarehouses } from '../../masterdata/lookups';
+import {
+  useCatalog,
+  useCompanyId,
+  useCachedSuggestedWarehouse,
+  useSuggestedWarehouse,
+  useTaxRates,
+  useWarehouses,
+} from '../../masterdata/lookups';
 import { useMyBranches } from '../../system/lookups';
 import { purchaseOrderApi } from '../api';
 import { PurchaseDocumentDrawer } from '../components/PurchaseDocumentDrawer';
@@ -46,7 +53,7 @@ import { SourceJournal } from '../components/SourceJournal';
 import { useProductUnits } from '../components/productUnits';
 import { OcrLineHints, OcrNotes } from '../../ai/components/OcrHints';
 import { PurchaseOcrButton } from '../components/PurchaseOcrButton';
-import { ORDER_STATUSES, orderActions } from '../labels';
+import { invoiceLabel, ORDER_STATUSES, orderActions } from '../labels';
 import type {
   ImportedOrderLine,
   OrderLineImportResult,
@@ -70,6 +77,8 @@ interface LineForm {
   unitPrice?: number;
   discountPercent?: number;
   taxRateId?: number;
+  /** Kho nhận của dòng (D-76): tự gợi ý theo nhóm hàng khi trống. */
+  warehouseId?: number;
   lotNo?: string;
   manufactureDate?: Dayjs;
   expiryDate?: Dayjs;
@@ -86,7 +95,6 @@ interface OrderForm {
   postingDate?: Dayjs;
   supplierId?: number;
   supplierLabel?: string;
-  warehouseId?: number;
   expectedDate?: Dayjs;
   paymentTermDays?: number;
   invoiceSeries?: string;
@@ -102,7 +110,6 @@ const FIELDS = [
   'documentDate',
   'postingDate',
   'supplierId',
-  'warehouseId',
   'expectedDate',
   'paymentTermDays',
   'invoiceSeries',
@@ -130,6 +137,7 @@ function lineColumns(unitName: (id: number | null) => string): TableColumnsType<
       render: (_, row) =>
         `${row.productCode ?? ''} - ${row.productName ?? ''}${row.serviceLine ? ' (dịch vụ)' : ''}`,
     },
+    { title: 'Kho nhận', dataIndex: 'warehouseCode', width: 110 },
     {
       title: 'Số lượng',
       width: 120,
@@ -186,7 +194,6 @@ export function PurchaseOrdersPage() {
       documentDate: date(values.documentDate),
       postingDate: date(values.postingDate),
       supplierId: values.supplierId,
-      warehouseId: values.warehouseId,
       expectedDate: date(values.expectedDate),
       paymentTermDays: values.paymentTermDays ?? null,
       invoiceSeries: values.invoiceSeries || null,
@@ -201,6 +208,7 @@ export function PurchaseOrdersPage() {
         unitPrice: line.unitPrice,
         discountPercent: line.discountPercent ?? 0,
         taxRateId: line.taxRateId ?? null,
+        warehouseId: line.serviceLine ? null : (line.warehouseId ?? null),
         lotNo: line.lotNo || null,
         manufactureDate: date(line.manufactureDate),
         expiryDate: date(line.expiryDate),
@@ -240,9 +248,9 @@ export function PurchaseOrdersPage() {
     {
       title: 'Hóa đơn',
       width: 160,
-      render: (_, row) => (row.invoiceNo ? `${row.invoiceSeries}-${row.invoiceNo}` : ''),
+      render: (_, row) => invoiceLabel(row.invoiceSeries, row.invoiceNo),
     },
-    { title: 'Kho nhận', dataIndex: 'warehouseName', width: 170 },
+    { title: 'Kho nhận', dataIndex: 'warehouseNames', width: 170 },
     { title: 'Phiếu nhập kho', dataIndex: 'inventoryDocumentNo', width: 170 },
     { title: 'Tổng tiền', dataIndex: 'totalAmount', width: 150, align: 'right', render: formatMoney },
     {
@@ -360,7 +368,7 @@ export function PurchaseOrdersPage() {
                 <Descriptions.Item label="Nhà cung cấp">
                   {`${document.supplierCode ?? ''} - ${document.supplierName ?? ''}`}
                 </Descriptions.Item>
-                <Descriptions.Item label="Kho nhận">{document.warehouseName}</Descriptions.Item>
+                <Descriptions.Item label="Kho nhận">{document.warehouseNames}</Descriptions.Item>
                 {BRANCH_VISIBLE && (
                   <Descriptions.Item label="Chi nhánh">
                     {branches.nameOf(document.branchId)}
@@ -374,8 +382,13 @@ export function PurchaseOrdersPage() {
                   {formatDate(document.expectedDate)}
                 </Descriptions.Item>
                 <Descriptions.Item label="Hóa đơn NCC">
-                  {document.invoiceNo
-                    ? `${document.invoiceSeries}-${document.invoiceNo} ngày ${formatDate(document.invoiceDate)}`
+                  {document.invoiceSeries || document.invoiceNo || document.invoiceDate
+                    ? [
+                        invoiceLabel(document.invoiceSeries, document.invoiceNo),
+                        document.invoiceDate ? `ngày ${formatDate(document.invoiceDate)}` : '',
+                      ]
+                        .filter(Boolean)
+                        .join(' ')
                     : 'Không có hóa đơn'}
                 </Descriptions.Item>
                 <Descriptions.Item label="MST người bán">{document.supplierTaxCode}</Descriptions.Item>
@@ -445,7 +458,6 @@ function orderForm(document: PurchaseOrder): Partial<OrderForm> {
     postingDate: dayjs(document.postingDate),
     supplierId: document.supplierId,
     supplierLabel: `${document.supplierCode ?? ''} - ${document.supplierName ?? ''}`,
-    warehouseId: document.warehouseId,
     expectedDate: document.expectedDate ? dayjs(document.expectedDate) : undefined,
     paymentTermDays: document.paymentTermDays ?? undefined,
     invoiceSeries: document.invoiceSeries ?? undefined,
@@ -462,6 +474,7 @@ function orderForm(document: PurchaseOrder): Partial<OrderForm> {
       unitPrice: line.unitPrice,
       discountPercent: line.discountPercent,
       taxRateId: line.taxRateId ?? undefined,
+      warehouseId: line.warehouseId ?? undefined,
       lotNo: line.lotNo ?? undefined,
       manufactureDate: line.manufactureDate ? dayjs(line.manufactureDate) : undefined,
       expiryDate: line.expiryDate ? dayjs(line.expiryDate) : undefined,
@@ -505,11 +518,9 @@ function OrderFields({
   isNew: boolean;
   branchOptions: { value: number; label: string }[];
 }) {
-  const warehouses = useWarehouses();
   const companyId = useCompanyId();
   const [importing, setImporting] = useState(false);
   const [ocrNotes, setOcrNotes] = useState<string[]>([]);
-  const branchId = Form.useWatch('branchId', form) as number | undefined;
   const supplierId = Form.useWatch('supplierId', form) as number | undefined;
   const documentDate = Form.useWatch('documentDate', form) as Dayjs | undefined;
   // Dòng nhập từ Excel nối sau các dòng đã chọn hàng; dòng trống bị bỏ.
@@ -525,9 +536,6 @@ function OrderFields({
     queryFn: () => partnerApi.get(supplierId as number),
     enabled: typeof supplierId === 'number',
   }).data;
-  const warehouseOptions = warehouses.items
-    .filter((warehouse) => warehouse.branchId === branchId && warehouse.warehouseType === 'NORMAL')
-    .map((warehouse) => ({ value: warehouse.id, label: `${warehouse.code} - ${warehouse.name}` }));
   return (
     <>
       <Row gutter={12}>
@@ -540,7 +548,15 @@ function OrderFields({
             <Select
               disabled={!isNew}
               options={branchOptions}
-              onChange={() => form.setFieldsValue({ warehouseId: undefined })}
+              onChange={() =>
+                form.setFieldValue(
+                  'lines',
+                  ((form.getFieldValue('lines') as LineForm[] | undefined) ?? []).map((line) => ({
+                    ...line,
+                    warehouseId: undefined,
+                  })),
+                )
+              }
             />
           </Form.Item>
         </BranchCol>
@@ -561,11 +577,6 @@ function OrderFields({
         <Col xs={24} md={6}>
           <Form.Item label="Địa chỉ người bán" tooltip="Theo danh mục nhà cung cấp">
             <Input readOnly value={supplier?.address ?? ''} />
-          </Form.Item>
-        </Col>
-        <Col xs={24} md={6}>
-          <Form.Item name="warehouseId" label="Kho nhận" rules={[{ required: true, message: 'Chọn kho' }]}>
-            <Select options={warehouseOptions} />
           </Form.Item>
         </Col>
         <Col xs={12} md={4}>
@@ -615,8 +626,8 @@ function OrderFields({
         </Col>
       </Row>
       <Typography.Text type="secondary">
-        Hóa đơn của nhà cung cấp không bắt buộc; nhập thì đủ ký hiệu, số, ngày. Hàng nhiều lô: mỗi lô một
-        dòng.
+        Hóa đơn của nhà cung cấp không bắt buộc; ký hiệu, số, ngày nhập trường nào lưu trường đó. Hàng nhiều
+        lô: mỗi lô một dòng. Kho nhận theo từng dòng, tự gợi ý theo tên nhóm hàng.
       </Typography.Text>
       <OcrNotes notes={ocrNotes} onClose={() => setOcrNotes([])} />
       <ImportModal<OrderLineImportResult>
@@ -667,6 +678,7 @@ function OrderFields({
 
 const LINE_COLUMNS: LineGridColumn[] = [
   { title: 'Hàng hóa', width: '260px' },
+  { title: 'Kho nhận', width: '170px', tooltip: 'Tự gợi ý theo tên nhóm hàng; sửa được' },
   { title: 'Đơn vị', width: '100px' },
   { title: 'Số lượng', width: '100px' },
   { title: 'Đơn giá', width: '130px' },
@@ -678,7 +690,7 @@ const LINE_COLUMNS: LineGridColumn[] = [
   { title: 'Serial', width: '180px', tooltip: 'Gõ serial rồi Enter; số serial = số lượng theo đơn vị cơ sở' },
   { title: 'Ghi chú', width: 'minmax(140px, 1fr)' },
 ];
-const LINE_GRID_MIN_WIDTH = 1500;
+const LINE_GRID_MIN_WIDTH = 1670;
 
 function OrderLineFields({
   form,
@@ -696,6 +708,25 @@ function OrderLineFields({
   const productId = Form.useWatch(['lines', name, 'productId'], form) as number | undefined;
   const service = Form.useWatch(['lines', name, 'serviceLine'], form) as boolean | undefined;
   const { product, options } = useProductUnits(productId);
+  const branchId = Form.useWatch('branchId', form) as number | undefined;
+  const warehouses = useWarehouses();
+  const suggested = useSuggestedWarehouse(service ? undefined : branchId, productId);
+  const cachedSuggestion = useCachedSuggestedWarehouse();
+  const warehouseOptions = warehouses.items
+    .filter((warehouse) => warehouse.branchId === branchId && warehouse.warehouseType === 'NORMAL')
+    .map((warehouse) => ({ value: warehouse.id, label: `${warehouse.code} - ${warehouse.name}` }));
+  useEffect(() => {
+    // D-76: kho trống thì điền kho gợi ý theo nhóm hàng (nhập tay, Excel, nhận dạng chứng từ); không đè kho đã chọn.
+    if (suggested && !form.getFieldValue(['lines', name, 'warehouseId'])) {
+      form.setFieldValue(['lines', name, 'warehouseId'], suggested);
+    }
+  }, [form, name, productId, suggested]);
+  useEffect(() => {
+    // ĐVT trống khi đã có hàng (nhận dạng chứng từ không đọc / không khớp ĐVT, nhập Excel): điền ĐVT cơ sở của hàng.
+    if (product && product.id === productId && !form.getFieldValue(['lines', name, 'unitId'])) {
+      form.setFieldValue(['lines', name, 'unitId'], product.baseUnitId);
+    }
+  }, [form, name, product, productId]);
   const lotTracked = !service && product?.lotTracked;
   const serialTracked = !service && product?.serialTracked;
   useEffect(() => {
@@ -712,6 +743,7 @@ function OrderLineFields({
   return (
     <LineGridRow
       columns={LINE_COLUMNS}
+      lineNo={name + 1}
       below={
         <>
           <Form.Item name={[name, 'serviceLine']} hidden>
@@ -736,6 +768,11 @@ function OrderLineFields({
             form.setFieldValue(['lines', name, 'manufactureDate'], undefined);
             form.setFieldValue(['lines', name, 'expiryDate'], undefined);
             form.setFieldValue(['lines', name, 'serialNumbers'], []);
+            // Đổi hàng: kho theo gợi ý của hàng mới (không có gợi ý thì để người dùng chọn).
+            form.setFieldValue(
+              ['lines', name, 'warehouseId'],
+              product && product.productType !== 'SERVICE' ? cachedSuggestion(branchId, product.id) : undefined,
+            );
             if (product) {
               form.setFieldValue(['lines', name, 'unitId'], product.baseUnitId);
               form.setFieldValue(['lines', name, 'taxRateId'], product.defaultTaxRateId ?? undefined);
@@ -744,6 +781,17 @@ function OrderLineFields({
           }}
         />
       </Form.Item>
+      {service ? (
+        <NotApplicable />
+      ) : (
+        <Form.Item
+          name={[name, 'warehouseId']}
+          style={lineCellStyle}
+          rules={[{ required: true, message: 'Chọn kho' }]}
+        >
+          <Select showSearch optionFilterProp="label" options={warehouseOptions} />
+        </Form.Item>
+      )}
       <Form.Item
         name={[name, 'unitId']}
         style={lineCellStyle}

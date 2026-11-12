@@ -45,6 +45,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.stream.Collectors;
 import java.util.Set;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -126,10 +127,10 @@ public class SalesOrderService {
                 .map(SalesOrder::getCustomerId).toList());
         Map<Long, UserRef> users = access.users(page.getContent().stream().map(SalesOrder::getSalesUserId).toList());
         Map<Long, WarehouseInfo> warehouses = access.warehouses(page.getContent().stream()
-                .map(SalesOrder::getWarehouseId).toList());
+                .flatMap(document -> document.warehouseIds().stream()).toList());
         Map<Long, String> inventoryNumbers = inventoryNumbers(page.getContent());
         return page.map(document -> toResponse(document, customers.get(document.getCustomerId()),
-                users.get(document.getSalesUserId()), warehouses.get(document.getWarehouseId()),
+                users.get(document.getSalesUserId()), warehouses,
                 inventoryNumbers.get(document.getInventoryDocumentId()), false));
     }
 
@@ -275,10 +276,10 @@ public class SalesOrderService {
         document.markReserved(null);
     }
 
-    /** Giữ hàng cho dòng hàng hóa tại kho của đơn, hết hạn sau {@code sales.reservation-days}. */
+    /** Giữ hàng cho dòng hàng hóa tại kho của dòng (D-76), hết hạn sau {@code sales.reservation-days}. */
     private void reserveGoods(SalesOrder document) {
         List<ReservationLine> lines = document.goodsLines().stream()
-                .map(line -> new ReservationLine(line.getId(), line.getProductId(), document.getWarehouseId(),
+                .map(line -> new ReservationLine(line.getId(), line.getProductId(), line.getWarehouseId(),
                         line.getBaseQuantity()))
                 .toList();
         if (lines.isEmpty()) {
@@ -304,8 +305,6 @@ public class SalesOrderService {
     }
 
     private void fill(SalesOrder document, CustomerProfile customer, SalesOrderRequest request) {
-        WarehouseInfo warehouse = access.issuingWarehouse(document.getBranchId(), request.warehouseId(),
-                "warehouseId");
         List<SalesOrderLine> lines = new ArrayList<>();
         Map<Long, ProductInfo> products = access.products(request.lines().stream().map(SalesLineRequest::productId)
                 .toList());
@@ -317,10 +316,11 @@ public class SalesOrderService {
             boolean service = product != null && !product.stockTracked();
             String lotNo = service ? null : SalesAccess.trim(line.lotNo());
             List<String> serials = service ? List.of() : serials(product, line, values.baseQuantity(), field);
+            Long warehouseId = service ? null : issuingWarehouse(document, line, field);
             lines.add(new SalesOrderLine(i + 1, new SalesOrderLine.Values(values, service, line.expectedDate(),
                     lotNo, service ? null : SalesAccess.trim(line.lotOverrideReason()), serials,
-                    service ? null : receiptSources.resolve(document.getCompanyId(), warehouse.id(), line, lotNo,
-                            serials, field))));
+                    service ? null : receiptSources.resolve(document.getCompanyId(), warehouseId, line, lotNo,
+                            serials, field), warehouseId)));
         }
         List<SalesOrder.PaymentTermValues> terms = request.paymentTerms() == null ? List.of()
                 : request.paymentTerms().stream().map(SalesOrderService::term).toList();
@@ -331,12 +331,20 @@ public class SalesOrderService {
                 request.expectedDate(),
                 request.paymentTermDays() != null ? request.paymentTermDays() : customer.paymentTermDays(),
                 Boolean.TRUE.equals(request.reserveStock()), SalesAccess.trim(request.description())),
-                warehouse.id(), lines, terms);
+                lines, terms);
         // Lý do cần thẩm quyền ghi nhận ngay khi lưu nháp để người lập thấy trước; tín dụng tính lại khi ghi sổ.
         List<String> reasons = new ArrayList<>(pricing.priceReasons(document.getCompanyId(), document.getLines()));
         reasons.addAll(pricing.creditReasons(document.getCompanyId(), customer, document.getTotalAmount(),
                 calendar.today()));
         document.recordApprovalReasons(reasons);
+    }
+
+    /** Kho xuất của dòng hàng hóa (D-76): bắt buộc, kho vật lý đang hoạt động của chi nhánh đơn. */
+    private Long issuingWarehouse(SalesOrder document, SalesLineRequest line, String field) {
+        if (line.warehouseId() == null) {
+            throw BusinessException.invalidField(field + ".warehouseId", "Phải chọn kho xuất cho dòng hàng.");
+        }
+        return access.issuingWarehouse(document.getBranchId(), line.warehouseId(), field + ".warehouseId").id();
     }
 
     /** Serial chỉ định: chỉ hàng quản lý serial, không trùng, đủ số lượng theo đơn vị cơ sở (BR-INV-02). */
@@ -382,13 +390,14 @@ public class SalesOrderService {
         return toResponse(document, access.partners(List.of(document.getCustomerId())).get(document.getCustomerId()),
                 document.getSalesUserId() == null ? null
                         : access.users(List.of(document.getSalesUserId())).get(document.getSalesUserId()),
-                access.warehouses(List.of(document.getWarehouseId())).get(document.getWarehouseId()),
+                access.warehouses(document.warehouseIds()),
                 inventoryNumbers(List.of(document)).get(document.getInventoryDocumentId()), detailed);
     }
 
     @SuppressWarnings("java:S107")
     private SalesOrderResponse toResponse(SalesOrder document, PartnerInfo customer, UserRef salesUser,
-                                          WarehouseInfo warehouse, String inventoryNo, boolean detailed) {
+                                          Map<Long, WarehouseInfo> warehouses, String inventoryNo,
+                                          boolean detailed) {
         List<SalesLineResponse> lines = List.of();
         List<String> warnings = List.of();
         if (detailed) {
@@ -396,23 +405,24 @@ public class SalesOrderService {
             Map<Long, ProductInfo> products = access.products(productIds);
             Map<Long, ProductDocumentInfo> documents = access.productDocuments(productIds);
             boolean open = NOT_POSTED.contains(document.getStatus());
-            Map<Long, Availability> stock = open ? stockAvailability.availability(document.getWarehouseId(),
-                    document.goodsLines().stream().map(SalesOrderLine::getProductId).distinct().toList()) : Map.of();
+            Map<Long, BigDecimal> available = open ? availableByLine(document) : Map.of();
             Map<Long, BigDecimal> reserved = reservedByLine(document);
             Map<Long, LocalDate> expiries = receiptSources.expiryDates(document.getLines());
             lines = document.getLines().stream().map(line -> SalesLineMapper.toResponse(line,
                     products.get(line.getProductId()), documents.get(line.getProductId()),
-                    stock.containsKey(line.getProductId()) ? stock.get(line.getProductId()).available() : null,
-                    reserved.getOrDefault(line.getId(), BigDecimal.ZERO), expiries.get(line.getId()))).toList();
-            warnings = open ? availabilityWarnings(document, products, stock, reserved) : List.of();
+                    line.getWarehouseId() == null || !warehouses.containsKey(line.getWarehouseId()) ? null
+                            : warehouses.get(line.getWarehouseId()).code(),
+                    available.get(line.getId()), reserved.getOrDefault(line.getId(), BigDecimal.ZERO),
+                    expiries.get(line.getId()))).toList();
+            warnings = open ? availabilityWarnings(document, products, available, reserved) : List.of();
         }
         return new SalesOrderResponse(document.getId(), document.getCompanyId(), document.getBranchId(),
                 document.getDocumentNo(), document.getDocumentDate(), document.getPostingDate(),
                 document.getCustomerId(), customer == null ? null : customer.code(),
                 customer == null ? null : customer.name(), customer == null ? null : customer.taxCode(),
                 document.getContactName(), document.getDeliveryAddress(), document.getReceiverName(),
-                document.getReceiverPhone(), document.getWarehouseId(), warehouse == null ? null : warehouse.code(),
-                warehouse == null ? null : warehouse.name(), document.getExpectedDate(), document.getPaymentTermDays(),
+                document.getReceiverPhone(), document.warehouseIds(),
+                SalesAccess.warehouseNames(document.warehouseIds(), warehouses), document.getExpectedDate(), document.getPaymentTermDays(),
                 document.getDueDate(), document.isReserveStock(), document.getReservedUntil(),
                 document.getSalesUserId(), salesUser == null ? null : salesUser.fullName(),
                 document.getSourceReturnId(), document.getCurrencyCode(), document.getDescription(),
@@ -429,13 +439,31 @@ public class SalesOrderService {
                 detailed ? approvalService.history(SalesOrder.TYPE_CODE, document.getId()) : List.of());
     }
 
+    /** Tồn khả dụng theo dòng hàng hóa tại kho của dòng (D-76), đơn vị cơ sở. */
+    private Map<Long, BigDecimal> availableByLine(SalesOrder document) {
+        Map<Long, List<SalesOrderLine>> byWarehouse = document.goodsLines().stream()
+                .filter(line -> line.getWarehouseId() != null)
+                .collect(Collectors.groupingBy(SalesOrderLine::getWarehouseId));
+        Map<Long, BigDecimal> available = new HashMap<>();
+        byWarehouse.forEach((warehouseId, lines) -> {
+            Map<Long, Availability> stock = stockAvailability.availability(warehouseId,
+                    lines.stream().map(SalesOrderLine::getProductId).distinct().toList());
+            lines.forEach(line -> {
+                Availability availability = stock.get(line.getProductId());
+                if (availability != null) {
+                    available.put(line.getId(), availability.available());
+                }
+            });
+        });
+        return available;
+    }
+
     /** Cảnh báo tồn khả dụng (BR-SAL-12): dòng hàng hóa vượt khả dụng + đang giữ cho đơn (đơn chưa ghi sổ). */
     private static List<String> availabilityWarnings(SalesOrder document, Map<Long, ProductInfo> products,
-                                                     Map<Long, Availability> stock, Map<Long, BigDecimal> reserved) {
+                                                     Map<Long, BigDecimal> available, Map<Long, BigDecimal> reserved) {
         List<String> warnings = new ArrayList<>();
         for (SalesOrderLine line : document.goodsLines()) {
-            Availability availability = stock.get(line.getProductId());
-            BigDecimal covered = (availability == null ? BigDecimal.ZERO : availability.available())
+            BigDecimal covered = available.getOrDefault(line.getId(), BigDecimal.ZERO)
                     .add(reserved.getOrDefault(line.getId(), BigDecimal.ZERO));
             if (line.getBaseQuantity().compareTo(covered) > 0) {
                 ProductInfo product = products.get(line.getProductId());

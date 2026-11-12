@@ -43,6 +43,7 @@ public record StockOutSlipResponse(
             int lineNo,
             String productCode,
             String productName,
+            String warehouseCode,
             Long unitId,
             BigDecimal quantity,
             BigDecimal unitPrice,

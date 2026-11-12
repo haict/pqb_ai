@@ -125,8 +125,7 @@ public class PurchaseReturnService {
             PurchaseOrder order = postedOrder(branch, supplier.id(), request.purchaseOrderId());
             PurchaseReturn document = new PurchaseReturn(branch.companyId(), branch.id(),
                     access.nextNumber(branch.companyId(), branch.id(), request.documentType().name(),
-                            request.documentDate()), request.documentType(), supplier.id(), order.getId(),
-                    request.documentType() == PurchaseReturnType.THN ? order.getWarehouseId() : null);
+                            request.documentDate()), request.documentType(), supplier.id(), order.getId());
             fill(document, order, request);
             document = repository.saveAndFlush(document);
             return flow.act(actor, document, "CREATE", null, spec);
@@ -251,9 +250,14 @@ public class PurchaseReturnService {
                         + "chi nhánh / nhà cung cấp hoặc chưa ghi sổ."));
     }
 
+    private static PurchaseOrderLine orderLine(PurchaseOrder order, Long orderLineId) {
+        return order == null ? null : order.getLines().stream().filter(line -> line.getId().equals(orderLineId))
+                .findFirst().orElse(null);
+    }
+
     private static ReturnableLineResponse row(PurchaseOrder order, PurchaseOrderLine line, ProductInfo product) {
         return new ReturnableLineResponse(order.getId(), order.getDocumentNo(), order.getPostingDate(),
-                order.invoiceLabel(), line.getId(), order.getWarehouseId(), line.isServiceLine(),
+                order.invoiceLabel(), line.getId(), line.getWarehouseId(), line.isServiceLine(),
                 line.getProductId(), product == null ? null : product.code(), product == null ? null : product.name(),
                 line.getUnitId(), line.getLotNo(), line.getExpiryDate(),
                 line.isServiceLine() ? null : QualityStatus.PASSED,
@@ -272,12 +276,14 @@ public class PurchaseReturnService {
         String inventoryNo = null;
         if (detailed) {
             order = orderRepository.findById(document.getPurchaseOrderId()).orElse(null);
+            PurchaseOrder finalOrder = order;
             Map<Long, ProductInfo> products = access.products(document.getLines().stream()
                     .map(PurchaseReturnLine::getProductId).toList());
             lines = document.getLines().stream().map(line -> {
                 ProductInfo product = products.get(line.getProductId());
+                PurchaseOrderLine orderLine = orderLine(finalOrder, line.getOrderLineId());
                 return new PurchaseReturnLineResponse(line.getId(), line.getLineNo(), line.getOrderLineId(),
-                        line.getProductId(), product == null ? null : product.code(),
+                        orderLine == null ? null : orderLine.getWarehouseId(), line.getProductId(), product == null ? null : product.code(),
                         product == null ? null : product.name(), line.getUnitId(), line.getQuantity(),
                         line.getBaseQuantity(), line.getLotNo(), line.getQualityStatus(), line.getUnitPrice(),
                         line.getAmount(), line.getTaxRate(), line.getTaxAmount(), line.getDescription(),
@@ -293,7 +299,7 @@ public class PurchaseReturnService {
                 document.getPostingDate(), document.getSupplierId(), supplier == null ? null : supplier.code(),
                 supplier == null ? null : supplier.name(), document.getPurchaseOrderId(),
                 order == null ? null : order.getDocumentNo(), order == null ? null : order.invoiceLabel(),
-                document.getWarehouseId(), document.getInventoryDocumentId(), inventoryNo, document.getDescription(),
+                document.getInventoryDocumentId(), inventoryNo, document.getDescription(),
                 document.getAmount(), document.getTaxAmount(), document.getTotalAmount(), document.getStatus(),
                 document.getSubmittedAt(), document.getApprovedAt(), document.getPostedAt(), document.getReversedAt(),
                 document.getReverseDate(), document.getReason(), document.getCreatedBy(), document.getVersion(), lines,

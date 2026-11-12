@@ -246,11 +246,11 @@ public class SalesOrderPostingService {
             return new Issue(null, Map.of());
         }
         List<ReservationUse> uses = goods.stream()
-                .map(line -> new ReservationUse(line.getId(), line.getProductId(), order.getWarehouseId(),
+                .map(line -> new ReservationUse(line.getId(), line.getProductId(), line.getWarehouseId(),
                         line.getBaseQuantity()))
                 .toList();
         StockOutResult result = stockOut.issue(actor, new StockOutCommand(SalesOrder.TYPE_CODE, order.getId(),
-                order.getDocumentNo(), StockOutService.SALE, order.getWarehouseId(), order.getCustomerId(),
+                order.getDocumentNo(), StockOutService.SALE, order.getCustomerId(),
                 order.getPostingDate(), order.getPostingDate(), "Xuất bán theo " + order.getDocumentNo(),
                 goods.stream().map(SalesOrderPostingService::toStockLine).toList(), SalesOrder.TYPE_CODE,
                 order.getId(), uses));
@@ -282,7 +282,7 @@ public class SalesOrderPostingService {
     }
 
     private static StockOutLine toStockLine(SalesOrderLine line) {
-        return new StockOutLine(line.getId(), line.getProductId(), line.getUnitId(), line.getQuantity(),
+        return new StockOutLine(line.getId(), line.getWarehouseId(), line.getProductId(), line.getUnitId(), line.getQuantity(),
                 line.getLotNo(), null, line.getLotOverrideReason(), line.getDescription(),
                 List.copyOf(line.getSerialNumbers()));
     }

@@ -156,7 +156,7 @@ describe('purchaseOcrFill (D-64)', () => {
     expect(second.ocrLevel).toBe('error');
     expect(second.ocrHints).toEqual([
       'Hàng gán theo tên trên chứng từ "ng": kiểm tra đúng mã hàng.',
-      'ĐVT trên chứng từ "Khay" chưa xác định: chọn ĐVT.',
+      'ĐVT trên chứng từ "Khay" không có trong đơn vị của hàng: đã điền ĐVT cơ sở, kiểm tra ĐVT và số lượng.',
       'Thuế suất 8% không có hoặc trùng trong danh mục: chọn thuế suất.',
       'Số lượng đọc chưa chắc chắn: kiểm tra lại.',
       'Lệch.',

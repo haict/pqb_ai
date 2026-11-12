@@ -7,6 +7,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
+/** Dòng chứng từ kho; {@code warehouseId} là kho của dòng (kho riêng của dòng, D-76, hoặc kho ở đầu phiếu). */
 public record InventoryLineResponse(
         Long id,
         int lineNo,
@@ -31,5 +32,6 @@ public record InventoryLineResponse(
         String lotOverrideReason,
         String note,
         List<String> serialNumbers,
-        ItemCondition itemCondition) {
+        ItemCondition itemCondition,
+        Long warehouseId) {
 }

@@ -21,6 +21,7 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -69,9 +70,6 @@ public class SalesOrder extends SalesDocument {
 
     @Column(name = "receiver_phone")
     private String receiverPhone;
-
-    @Column(name = "warehouse_id", nullable = false)
-    private Long warehouseId;
 
     @Column(name = "expected_date")
     private LocalDate expectedDate;
@@ -201,8 +199,7 @@ public class SalesOrder extends SalesDocument {
         return TYPE_CODE;
     }
 
-    public void replaceContent(Header header, Long warehouseId, List<SalesOrderLine> newLines,
-                               List<PaymentTermValues> terms) {
+    public void replaceContent(Header header, List<SalesOrderLine> newLines, List<PaymentTermValues> terms) {
         if (newLines.isEmpty()) {
             throw BusinessException.invalidField("lines", "Đơn bán phải có ít nhất một dòng.");
         }
@@ -218,7 +215,6 @@ public class SalesOrder extends SalesDocument {
         this.expectedDate = header.expectedDate();
         this.paymentTermDays = header.paymentTermDays();
         this.reserveStock = header.reserveStock();
-        this.warehouseId = warehouseId;
         for (int i = 0; i < newLines.size(); i++) {
             if (i < lines.size()) {
                 lines.get(i).copyFrom(newLines.get(i));
@@ -469,8 +465,9 @@ public class SalesOrder extends SalesDocument {
         return receiverPhone;
     }
 
-    public Long getWarehouseId() {
-        return warehouseId;
+    /** Các kho xuất của đơn theo thứ tự dòng (D-76). */
+    public List<Long> warehouseIds() {
+        return lines.stream().map(SalesOrderLine::getWarehouseId).filter(Objects::nonNull).distinct().toList();
     }
 
     public LocalDate getExpectedDate() {

@@ -17,6 +17,7 @@ export function SalesLinesTable({ lines, posted }: { lines: SalesLine[]; posted:
       width: 240,
       render: (_, row) => `${row.productCode ?? ''} - ${row.productName ?? ''}`,
     },
+    { title: 'Kho xuất', dataIndex: 'warehouseCode', width: 100 },
     {
       title: 'Số lượng',
       width: 110,

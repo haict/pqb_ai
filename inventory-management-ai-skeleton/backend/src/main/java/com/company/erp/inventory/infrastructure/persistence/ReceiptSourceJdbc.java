@@ -21,7 +21,8 @@ public class ReceiptSourceJdbc {
     /** Dòng nhập còn tồn. Số lượng theo đơn vị cơ sở. */
     public record ReceiptRow(Long transactionId, String referenceType, Long referenceId, String referenceNo,
                              LocalDate postingDate, String lotNo, LocalDate expiryDate, String serialNo,
-                             BigDecimal receivedQuantity, BigDecimal unitCost, BigDecimal availableQuantity) {
+                             BigDecimal receivedQuantity, BigDecimal unitCost, BigDecimal availableQuantity,
+                             Long lotId) {
     }
 
     /** Thông tin dòng nhập để kiểm tra liên kết; {@code usable}: chiều nhập, không phải dòng đảo, chưa bị đảo. */
@@ -46,7 +47,7 @@ public class ReceiptSourceJdbc {
         return jdbc.query("""
                 SELECT * FROM (
                     SELECT t.id, t.reference_type, t.reference_id, t.reference_no, t.posting_date, l.lot_no,
-                           l.expiry_date, s.serial_no, t.quantity, t.unit_cost,
+                           t.lot_id, l.expiry_date, s.serial_no, t.quantity, t.unit_cost,
                     """ + AVAILABLE + """
                            AS available_quantity
                     FROM inventory_transactions t
@@ -84,6 +85,7 @@ public class ReceiptSourceJdbc {
         return new ReceiptRow(rs.getLong("id"), rs.getString("reference_type"), rs.getLong("reference_id"),
                 rs.getString("reference_no"), rs.getDate("posting_date").toLocalDate(), rs.getString("lot_no"),
                 expiry == null ? null : expiry.toLocalDate(), rs.getString("serial_no"), rs.getBigDecimal("quantity"),
-                rs.getBigDecimal("unit_cost"), rs.getBigDecimal("available_quantity"));
+                rs.getBigDecimal("unit_cost"), rs.getBigDecimal("available_quantity"),
+                rs.getObject("lot_id", Long.class));
     }
 }

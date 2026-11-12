@@ -1,6 +1,7 @@
-import { DeleteOutlined } from '@ant-design/icons';
+import { DeleteOutlined, FileSearchOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import {
+  App,
   Button,
   Checkbox,
   Col,
@@ -9,6 +10,7 @@ import {
   Input,
   Row,
   Select,
+  Space,
   Tooltip,
   type FormInstance,
 } from 'antd';
@@ -16,12 +18,22 @@ import { productApi } from '../../masterdata/api';
 import { PartnerSelect, ProductSelect } from '../../masterdata/components/EntitySelects';
 import { RemoteSelect } from '../../masterdata/components/RemoteSelect';
 import { QUALITY_STATUSES } from '../../masterdata/labels';
-import { useCatalog, useCompanyId, useWarehouses } from '../../masterdata/lookups';
+import {
+  useCachedSuggestedWarehouse,
+  useCatalog,
+  useCompanyId,
+  useSuggestedWarehouse,
+  useWarehouses,
+} from '../../masterdata/lookups';
+import { useMyBranches } from '../../system/lookups';
 import type { QualityStatus } from '../../masterdata/types';
 import { policyApi, stockApi } from '../api';
 import { CREATABLE_TYPES, DOCUMENT_TYPES, OPENING_SUB_TYPE, RECEIPT_SUB_TYPES } from '../labels';
 import type { InventoryDocumentType, Lot, StockIssuePolicy } from '../types';
-import type { DocumentFormValues } from './documentFormValues';
+import { hasLineWarehouse, type DocumentFormValues } from './documentFormValues';
+import { useEffect, useState } from 'react';
+import { ReceiptSourcePicker } from '../../sales/components/ReceiptSourcePicker';
+import { issueLinesFromReceipts } from './receiptPicks';
 import { DecimalInput } from '../../../shared/components/DecimalInput';
 import { LineGrid, LineGridRow, NotApplicable } from '../../../shared/components/LineGrid';
 import { lineCellStyle, type LineGridColumn } from '../../../shared/components/lineGridStyles';
@@ -52,6 +64,9 @@ function lineLayout(type: InventoryDocumentType, openingStock: boolean): LineLay
   const showQuality = type === 'PCL' || type === 'PCK' || type === 'PDC' || openingStock;
   const columns: LineGridColumn[] = [
     { title: 'Hàng hóa', width: '260px' },
+    ...(hasLineWarehouse(type)
+      ? [{ title: 'Kho', width: '170px', tooltip: 'Tự gợi ý theo tên nhóm hàng; sửa được' }]
+      : []),
     { title: 'Đơn vị', width: '100px' },
     { title: 'Số lượng', width: '100px' },
     ...(type === 'PDC' ? [{ title: 'Tăng / giảm', width: '110px' }] : []),
@@ -74,7 +89,10 @@ function lineLayout(type: InventoryDocumentType, openingStock: boolean): LineLay
           {
             title: 'Lô xuất',
             width: '180px',
-            tooltip: 'Để trống: hệ thống chọn lô hết hạn sớm nhất (FEFO).',
+            tooltip:
+              type === 'PXK'
+                ? 'Để trống: hệ thống chọn lô hết hạn sớm nhất (FEFO). F8: chọn theo chứng từ nhập'
+                : 'Để trống: hệ thống chọn lô hết hạn sớm nhất (FEFO).',
           },
           { title: 'Lý do chọn lô khác FEFO', width: '180px' },
         ]
@@ -117,7 +135,21 @@ function LineFields({
   onRemove(): void;
 }) {
   const units = useCatalog('units');
+  const warehouses = useWarehouses();
   const productId = Form.useWatch(['lines', name, 'productId'], form);
+  const branchId = Form.useWatch('branchId', form);
+  const lineWarehouse = hasLineWarehouse(type);
+  const suggested = useSuggestedWarehouse(lineWarehouse ? branchId : undefined, productId);
+  const cachedSuggestion = useCachedSuggestedWarehouse();
+  useEffect(() => {
+    // D-77: kho trống thì điền kho gợi ý theo nhóm hàng; không đè kho đã chọn.
+    if (suggested && !form.getFieldValue(['lines', name, 'warehouseId'])) {
+      form.setFieldValue(['lines', name, 'warehouseId'], suggested);
+    }
+  }, [form, name, productId, suggested]);
+  const warehouseOptions = warehouses.items
+    .filter((warehouse) => warehouse.branchId === branchId)
+    .map((warehouse) => ({ value: warehouse.id, label: `${warehouse.code} - ${warehouse.name}` }));
   const direction = Form.useWatch(['lines', name, 'direction'], form);
   const product = useQuery({
     queryKey: ['products', productId],
@@ -136,9 +168,61 @@ function LineFields({
   const receiveLot = product?.lotTracked && inbound;
   const machine = product !== undefined && machineCategories.has(product.categoryId);
   const issueLot = product?.lotTracked && !inbound && (type !== 'PDC' || direction === 'OUT');
+  const { message } = App.useApp();
+  const [picker, setPicker] = useState<number | null>(null);
+  /** F8 trên phiếu xuất kho (D-79): chọn chứng từ nhập còn tồn của hàng tại kho của dòng. */
+  const openPicker = () => {
+    const warehouseId = form.getFieldValue(['lines', name, 'warehouseId']) as number | undefined;
+    if (type !== 'PXK') {
+      return;
+    }
+    if (!product) {
+      message.info('Chọn hàng trước khi nhấn F8.');
+    } else if (!warehouseId) {
+      message.info('Chọn kho của dòng trước khi nhấn F8.');
+    } else if (!product.lotTracked && !product.serialTracked) {
+      message.info('Hàng không quản lý lô / serial: kho xuất theo FEFO khi ghi sổ.');
+    } else {
+      setPicker(warehouseId);
+    }
+  };
 
   return (
-    <LineGridRow columns={layout.columns}>
+    <LineGridRow
+      columns={layout.columns}
+      lineNo={name + 1}
+      onKeyDown={(event) => {
+        if (event.key === 'F8' && type === 'PXK') {
+          event.preventDefault();
+          openPicker();
+        }
+      }}
+      below={
+        picker !== null &&
+        product && (
+          <ReceiptSourcePicker
+            warehouseId={picker}
+            productId={product.id}
+            productLabel={`${product.code} - ${product.name}`}
+            baseUnitName={units.nameOf(product.baseUnitId) || ''}
+            targetLabel="phiếu xuất"
+            fetchSources={() => stockApi.receiptSources(picker, product.id)}
+            onCancel={() => setPicker(null)}
+            onPick={(picks, reason) => {
+              const lines = [
+                ...((form.getFieldValue('lines') as DocumentFormValues['lines'] | undefined) ?? []),
+              ];
+              const current = lines[name];
+              if (current) {
+                lines.splice(name, 1, ...issueLinesFromReceipts(current, picks, product.baseUnitId, reason));
+                form.setFieldValue('lines', lines);
+              }
+              setPicker(null);
+            }}
+          />
+        )
+      }
+    >
       <Form.Item
         name={[name, 'productId']}
         style={lineCellStyle}
@@ -149,6 +233,11 @@ function LineFields({
             if (selected) {
               form.setFieldValue(['lines', name, 'unitId'], selected.baseUnitId);
             }
+            // Đổi hàng: kho theo gợi ý của hàng mới (không có gợi ý thì người dùng chọn).
+            form.setFieldValue(
+              ['lines', name, 'warehouseId'],
+              selected && lineWarehouse ? cachedSuggestion(branchId, selected.id) : undefined,
+            );
             // Hàng nhóm máy mặc định máy mới (BR-INV-43); hàng khác không gửi tình trạng
             form.setFieldValue(
               ['lines', name, 'itemCondition'],
@@ -157,6 +246,15 @@ function LineFields({
           }}
         />
       </Form.Item>
+      {lineWarehouse && (
+        <Form.Item
+          name={[name, 'warehouseId']}
+          style={lineCellStyle}
+          rules={[{ required: true, message: 'Chọn kho' }]}
+        >
+          <Select showSearch optionFilterProp="label" options={warehouseOptions} />
+        </Form.Item>
+      )}
       <Form.Item
         name={[name, 'unitId']}
         style={lineCellStyle}
@@ -242,26 +340,38 @@ function LineFields({
       {layout.canIssue &&
         (issueLot ? (
           <>
-            <Form.Item name={[name, 'lotId']} style={lineCellStyle}>
-              <RemoteSelect<Lot>
-                allowClear
-                placeholder="FEFO"
-                queryKey={`lots-${product.id}`}
-                fetch={(keyword) =>
-                  stockApi.lots({
-                    page: 0,
-                    size: 30,
-                    companyId: product.companyId,
-                    productId: product.id,
-                    keyword,
-                  })
-                }
-                toOption={(lot) => ({
-                  value: lot.id,
-                  label: `${lot.lotNo}${lot.expiryDate ? ` - HD ${lot.expiryDate}` : ''}`,
-                })}
-              />
-            </Form.Item>
+            <Space.Compact style={{ ...lineCellStyle, display: 'flex' }}>
+              <Form.Item name={[name, 'lotId']} noStyle>
+                <RemoteSelect<Lot>
+                  allowClear
+                  placeholder="FEFO"
+                  style={{ flex: 1, minWidth: 0 }}
+                  queryKey={`lots-${product.id}`}
+                  fetch={(keyword) =>
+                    stockApi.lots({
+                      page: 0,
+                      size: 30,
+                      companyId: product.companyId,
+                      productId: product.id,
+                      keyword,
+                    })
+                  }
+                  toOption={(lot) => ({
+                    value: lot.id,
+                    label: `${lot.lotNo}${lot.expiryDate ? ` - HD ${lot.expiryDate}` : ''}`,
+                  })}
+                />
+              </Form.Item>
+              {type === 'PXK' && (
+                <Tooltip title="Chọn chứng từ nhập (F8)">
+                  <Button
+                    icon={<FileSearchOutlined />}
+                    aria-label="Chọn chứng từ nhập"
+                    onClick={openPicker}
+                  />
+                </Tooltip>
+              )}
+            </Space.Compact>
             <Form.Item name={[name, 'lotOverrideReason']} style={lineCellStyle}>
               <Input maxLength={500} />
             </Form.Item>
@@ -328,6 +438,7 @@ export function DocumentFormFields({
   opening?: boolean;
 }) {
   const warehouses = useWarehouses();
+  const branches = useMyBranches();
   const companyId = useCompanyId();
   const type = (Form.useWatch('documentType', form) ?? 'PNK') as InventoryDocumentType;
   const subType = Form.useWatch('subType', form) as string | undefined;
@@ -358,15 +469,36 @@ export function DocumentFormFields({
             <DatePicker format={DATE_INPUT_FORMAT} style={{ width: '100%' }} />
           </Form.Item>
         </Col>
-        <Col xs={24} md={8}>
-          <Form.Item
-            name="warehouseId"
-            label={type === 'PCK' ? 'Kho xuất' : 'Kho'}
-            rules={[{ required: true, message: 'Chọn kho' }]}
-          >
-            <Select showSearch optionFilterProp="label" options={warehouses.options} />
-          </Form.Item>
-        </Col>
+        {hasLineWarehouse(type) ? (
+          <Col xs={24} md={8}>
+            <Form.Item
+              name="branchId"
+              label="Chi nhánh"
+              rules={[{ required: true, message: 'Chọn chi nhánh' }]}
+              extra="Kho chọn theo từng dòng hàng."
+            >
+              <Select
+                disabled={editing}
+                options={branches.options}
+                onChange={() =>
+                  form.setFieldValue(
+                    'lines',
+                    (form.getFieldValue('lines') as DocumentFormValues['lines'] | undefined)?.map((line) => ({
+                      ...line,
+                      warehouseId: undefined,
+                    })) ?? [],
+                  )
+                }
+              />
+            </Form.Item>
+          </Col>
+        ) : (
+          <Col xs={24} md={8}>
+            <Form.Item name="warehouseId" label="Kho xuất" rules={[{ required: true, message: 'Chọn kho' }]}>
+              <Select showSearch optionFilterProp="label" options={warehouses.options} />
+            </Form.Item>
+          </Col>
+        )}
         {type === 'PCK' && (
           <Col xs={24} md={8}>
             <Form.Item

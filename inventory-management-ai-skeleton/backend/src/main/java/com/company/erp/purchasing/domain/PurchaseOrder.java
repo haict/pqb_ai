@@ -17,6 +17,7 @@ import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -34,12 +35,12 @@ public class PurchaseOrder extends PurchaseDocument {
     private static final Set<PurchaseDocumentStatus> DELETABLE = EnumSet.of(PurchaseDocumentStatus.DRAFT,
             PurchaseDocumentStatus.REJECTED, PurchaseDocumentStatus.SUBMITTED, PurchaseDocumentStatus.APPROVED);
 
-    /** Hóa đơn của nhà cung cấp gắn trên đơn mua. */
+    /** Hóa đơn của nhà cung cấp gắn trên đơn mua; từng trường có thể trống (D-75). */
     public record Invoice(String sellerTaxCode, String series, String number, LocalDate date) {
     }
 
-    /** Header gửi khi lập / sửa; {@code invoice} {@code null} khi mua không có hóa đơn. */
-    public record Header(LocalDate documentDate, LocalDate postingDate, Long supplierId, Long warehouseId,
+    /** Header gửi khi lập / sửa; {@code invoice} {@code null} khi mua không có hóa đơn. Kho nhận theo dòng (D-76). */
+    public record Header(LocalDate documentDate, LocalDate postingDate, Long supplierId,
                          LocalDate expectedDate, Integer paymentTermDays, String currencyCode, BigDecimal exchangeRate,
                          Invoice invoice, LocalDate dueDate, String description) {
     }
@@ -49,9 +50,6 @@ public class PurchaseOrder extends PurchaseDocument {
 
     @Column(name = "supplier_id", nullable = false)
     private Long supplierId;
-
-    @Column(name = "warehouse_id", nullable = false)
-    private Long warehouseId;
 
     @Column(name = "expected_date")
     private LocalDate expectedDate;
@@ -135,7 +133,17 @@ public class PurchaseOrder extends PurchaseDocument {
 
     /** Khóa chống trùng hóa đơn: MST, ký hiệu, số không phân biệt hoa thường, bỏ khoảng trắng hai đầu. */
     public static String duplicateKey(String sellerTaxCode, String invoiceSeries, String invoiceNo) {
-        return (sellerTaxCode.trim() + "|" + invoiceSeries.trim() + "|" + invoiceNo.trim()).toUpperCase(Locale.ROOT);
+        String series = invoiceSeries == null ? "" : invoiceSeries.trim();
+        return (sellerTaxCode.trim() + "|" + series + "|" + invoiceNo.trim()).toUpperCase(Locale.ROOT);
+    }
+
+    /** Ký hiệu - số hóa đơn; chỉ số khi không có ký hiệu. */
+    public static String invoiceLabel(String series, String number) {
+        return series == null || series.isBlank() ? number.trim() : series.trim() + "-" + number.trim();
+    }
+
+    private static String trimToNull(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
     }
 
     @Override
@@ -155,18 +163,17 @@ public class PurchaseOrder extends PurchaseDocument {
         replaceHeader(header.documentDate(), header.description());
         this.postingDate = header.postingDate();
         this.supplierId = header.supplierId();
-        this.warehouseId = header.warehouseId();
         this.expectedDate = header.expectedDate();
         this.paymentTermDays = header.paymentTermDays();
         this.currencyCode = header.currencyCode();
         this.exchangeRate = header.exchangeRate();
         this.dueDate = header.dueDate();
         Invoice invoice = header.invoice();
-        this.sellerTaxCode = invoice == null ? null : invoice.sellerTaxCode().trim();
-        this.invoiceSeries = invoice == null ? null : invoice.series().trim();
-        this.invoiceNo = invoice == null ? null : invoice.number().trim();
+        this.sellerTaxCode = invoice == null ? null : trimToNull(invoice.sellerTaxCode());
+        this.invoiceSeries = invoice == null ? null : trimToNull(invoice.series());
+        this.invoiceNo = invoice == null ? null : trimToNull(invoice.number());
         this.invoiceDate = invoice == null ? null : invoice.date();
-        this.duplicateKey = invoice == null ? null : duplicateKey(sellerTaxCode, invoiceSeries, invoiceNo);
+        this.duplicateKey = invoiceNo == null ? null : duplicateKey(sellerTaxCode, invoiceSeries, invoiceNo);
         for (int i = 0; i < newLines.size(); i++) {
             if (i < lines.size()) {
                 lines.get(i).copyFrom(newLines.get(i));
@@ -279,7 +286,7 @@ public class PurchaseOrder extends PurchaseDocument {
 
     /** Hiển thị trên công nợ: ký hiệu và số hóa đơn, hoặc số đơn mua khi không có hóa đơn. */
     public String invoiceLabel() {
-        return hasInvoice() ? invoiceSeries + "-" + invoiceNo : getDocumentNo();
+        return hasInvoice() ? invoiceLabel(invoiceSeries, invoiceNo) : getDocumentNo();
     }
 
     public boolean hasGoods() {
@@ -294,8 +301,9 @@ public class PurchaseOrder extends PurchaseDocument {
         return supplierId;
     }
 
-    public Long getWarehouseId() {
-        return warehouseId;
+    /** Các kho nhận của đơn theo thứ tự dòng (D-76). */
+    public List<Long> warehouseIds() {
+        return lines.stream().map(PurchaseOrderLine::getWarehouseId).filter(Objects::nonNull).distinct().toList();
     }
 
     public LocalDate getExpectedDate() {

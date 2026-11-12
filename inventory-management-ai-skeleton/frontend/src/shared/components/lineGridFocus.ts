@@ -9,5 +9,6 @@ export function focusLastRow(scroller: HTMLElement | null, body: HTMLElement | n
   }
   row.querySelector<HTMLElement>(FIRST_FIELD)?.focus({ preventScroll: true });
   scroller.scrollLeft = 0;
+  // 'nearest' + scroll-margin-bottom của dòng: dòng mới nằm ngay trên thanh "Thêm dòng", không bị che.
   row.scrollIntoView?.({ block: 'nearest' });
 }

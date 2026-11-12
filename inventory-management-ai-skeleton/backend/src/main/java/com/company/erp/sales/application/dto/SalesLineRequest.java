@@ -17,7 +17,7 @@ import java.util.List;
  * tặng kèm, giá trị 0. {@code lotNo} trống: kho chọn theo FEFO khi ghi sổ; chỉ định lô khác lô FEFO phải ghi
  * {@code lotOverrideReason} (BR-INV-21). {@code serialNumbers}: serial chỉ định (hàng quản lý serial; trống: kho chọn).
  * {@code receiptTransactionId}: dòng nhập kho chọn xuất đích danh (D-63, F8): phải cùng hàng, kho của đơn, chưa đảo;
- * lô / serial của dòng phải khớp chứng từ nhập.
+ * lô / serial của dòng phải khớp chứng từ nhập. {@code warehouseId}: kho xuất của dòng hàng hóa, bắt buộc (D-76).
  */
 public record SalesLineRequest(
         @NotNull Long productId,
@@ -32,5 +32,6 @@ public record SalesLineRequest(
         @Size(max = 500) String lotOverrideReason,
         @Size(max = 1000) List<@NotBlank @Size(max = 100) String> serialNumbers,
         @Size(max = 500) String description,
-        Long receiptTransactionId) {
+        Long receiptTransactionId,
+        Long warehouseId) {
 }

@@ -9,7 +9,8 @@ import java.util.List;
  * {@code debitAccounts}, {@code creditAccounts}: tài khoản trong bút toán phần hàng hóa (không gồm dịch vụ, thuế GTGT).
  * {@code totalAmount}: cộng tiền hàng; {@code taxRates}: các thuế suất GTGT (%) của dòng hàng hóa; {@code taxAmount},
  * {@code paymentAmount}: tiền thuế và tổng thanh toán của dòng hàng hóa. Đơn giá, thành tiền sau chiết khấu, trước
- * thuế; chỉ dòng hàng hóa.
+ * thuế; chỉ dòng hàng hóa. {@code warehouseCode}, {@code warehouseName}: các kho nhận (D-76) nối bằng dấu phẩy; kho
+ * của từng dòng ở {@link Line#warehouseCode()}.
  */
 public record StockInSlipResponse(
         String companyName,
@@ -39,6 +40,7 @@ public record StockInSlipResponse(
             int lineNo,
             String productCode,
             String productName,
+            String warehouseCode,
             String lotNo,
             LocalDate expiryDate,
             Long unitId,

@@ -1,9 +1,15 @@
 package com.company.erp.inventory.application;
 
 import com.company.erp.common.application.BusinessCalendar;
+import com.company.erp.common.domain.BusinessException;
+import com.company.erp.inventory.domain.InventoryDocumentType;
 import com.company.erp.inventory.domain.InventoryLot;
 import com.company.erp.inventory.infrastructure.persistence.InventoryLotRepository;
 import com.company.erp.inventory.infrastructure.persistence.ReceiptSourceJdbc;
+import com.company.erp.masterdata.application.MasterDataQueryService;
+import com.company.erp.masterdata.application.MasterDataQueryService.ProductInfo;
+import com.company.erp.masterdata.application.MasterDataQueryService.WarehouseInfo;
+import com.company.erp.system.application.CurrentUser;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Collection;
@@ -24,10 +30,14 @@ public class ReceiptSourceService {
     /** Tối đa số dòng trả về một lần (đủ cho một hàng tại một kho; nhiều hơn thì người dùng lọc lô). */
     static final int LIMIT = 500;
 
-    /** Dòng nhập còn tồn; số lượng theo đơn vị cơ sở, {@code availableQuantity} là tồn ĐẠT của lô / serial tại kho. */
+    /**
+     * Dòng nhập còn tồn; số lượng theo đơn vị cơ sở, {@code availableQuantity} là tồn ĐẠT của lô / serial tại kho;
+     * {@code lotId}: lô để chứng từ kho xuất đích danh (D-79).
+     */
     public record ReceiptSource(Long transactionId, String documentType, Long documentId, String documentNo,
                                 LocalDate postingDate, String lotNo, LocalDate expiryDate, String serialNo,
-                                BigDecimal receivedQuantity, BigDecimal unitCost, BigDecimal availableQuantity) {
+                                BigDecimal receivedQuantity, BigDecimal unitCost, BigDecimal availableQuantity,
+                                Long lotId) {
     }
 
     /** Dòng nhập để kiểm tra liên kết từ chứng từ xuất. */
@@ -42,12 +52,33 @@ public class ReceiptSourceService {
     private final ReceiptSourceJdbc jdbc;
     private final InventoryLotRepository lotRepository;
     private final BusinessCalendar calendar;
+    private final InventoryAccess access;
+    private final MasterDataQueryService masterData;
 
     public ReceiptSourceService(ReceiptSourceJdbc jdbc, InventoryLotRepository lotRepository,
-                                BusinessCalendar calendar) {
+                                BusinessCalendar calendar, InventoryAccess access, MasterDataQueryService masterData) {
         this.jdbc = jdbc;
         this.lotRepository = lotRepository;
         this.calendar = calendar;
+        this.access = access;
+        this.masterData = masterData;
+    }
+
+    /**
+     * F8 trên phiếu xuất kho lập tay (D-79): quyền lập phiếu xuất, kho trong phạm vi và đang hoạt động. Hàng không
+     * quản lý lô / serial: danh sách rỗng.
+     */
+    @Transactional(readOnly = true)
+    public List<ReceiptSource> availableForIssue(CurrentUser actor, Long warehouseId, Long productId) {
+        access.requirePermission(actor, InventoryDocumentType.PXK.permission("create"));
+        WarehouseInfo warehouse = access.usableWarehouse(actor, warehouseId, "warehouseId");
+        ProductInfo product = masterData.product(productId)
+                .filter(found -> found.companyId().equals(warehouse.companyId()))
+                .orElseThrow(() -> BusinessException.invalidField("productId", "Hàng hóa không tồn tại."));
+        if (!product.lotTracked() && !product.serialTracked()) {
+            return List.of();
+        }
+        return available(warehouse.companyId(), warehouseId, productId);
     }
 
     @Transactional(readOnly = true)
@@ -55,7 +86,7 @@ public class ReceiptSourceService {
         return jdbc.available(companyId, warehouseId, productId, calendar.today(), LIMIT).stream()
                 .map(row -> new ReceiptSource(row.transactionId(), row.referenceType(), row.referenceId(),
                         row.referenceNo(), row.postingDate(), row.lotNo(), row.expiryDate(), row.serialNo(),
-                        row.receivedQuantity(), row.unitCost(), row.availableQuantity()))
+                        row.receivedQuantity(), row.unitCost(), row.availableQuantity(), row.lotId()))
                 .toList();
     }
 

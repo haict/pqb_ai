@@ -51,7 +51,7 @@ flowchart LR
 ```
 | Bước | Kiểm tra chính | Mã BR |
 |---|---|---|
-| Lập đơn mua | NCC có vai trò SUPPLIER; kho vật lý cùng chi nhánh; chỉ VND; lô / hạn dùng theo cấu hình hàng, số serial bằng số lượng cơ sở; hóa đơn NCC đủ ký hiệu, số, ngày hoặc để trống, không trùng (MST, ký hiệu, số). Không qua duyệt (D-61); đơn nháp không cộng hàng đang về; hủy đơn đã duyệt trước D-61: − hàng đang về | BR-PUR-04, 09 |
+| Lập đơn mua | NCC có vai trò SUPPLIER; kho nhận theo từng dòng hàng hóa, kho vật lý cùng chi nhánh, tự gợi ý theo nhóm hàng (D-76); chỉ VND; lô / hạn dùng theo cấu hình hàng, số serial bằng số lượng cơ sở; hóa đơn NCC: ký hiệu, số, ngày không bắt buộc (D-75), có số hóa đơn thì không trùng (MST, ký hiệu, số). Không qua duyệt (D-61); đơn nháp không cộng hàng đang về; hủy đơn đã duyệt trước D-61: − hàng đang về | BR-PUR-04, 09 |
 | Ghi sổ đơn mua | Đơn nháp (hoặc đã duyệt trước D-61); kỳ chưa khóa; tổng tiền từ ngưỡng `purchasing.order-approval-threshold` cần quyền `purchase-order:post-over-threshold` (422 `AUTHORITY_LIMIT_EXCEEDED`). Lập phiếu nhập kho PNK nguồn `DMH` cho dòng hàng hóa (đơn giá sau chiết khấu), ghi sổ ngay; − hàng đang về (đơn đã duyệt trước D-61); khoản công nợ phải trả (hạn = ngày hóa đơn / ngày hạch toán + số ngày nợ); bút toán theo quy tắc DMH | BR-PUR-08, 09, BR-INV-01..02, 11, D-34 |
 | Đảo đơn mua | Chặn khi còn trả hàng / giảm giá / phân bổ chưa đảo, hàng đã xuất (đảo phiếu nhập bị chặn), đã thanh toán; đảo phiếu nhập, công nợ, bút toán; giải phóng số hóa đơn | BR-GEN-04, 21 |
 | Trả hàng / giảm giá (5D) | Theo dòng đơn mua đã ghi sổ; trả không vượt số còn trả, đúng serial của dòng; giảm giá không vượt giá trị còn lại | BR-PUR-14 |

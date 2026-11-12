@@ -43,9 +43,6 @@ public class PurchaseReturn extends PurchaseDocument {
     @Column(name = "purchase_order_id", nullable = false, updatable = false)
     private Long purchaseOrderId;
 
-    @Column(name = "warehouse_id", updatable = false)
-    private Long warehouseId;
-
     @Column(name = "inventory_document_id")
     private Long inventoryDocumentId;
 
@@ -82,12 +79,11 @@ public class PurchaseReturn extends PurchaseDocument {
     }
 
     public PurchaseReturn(Long companyId, Long branchId, String documentNo, PurchaseReturnType documentType,
-                          Long supplierId, Long purchaseOrderId, Long warehouseId) {
+                          Long supplierId, Long purchaseOrderId) {
         super(companyId, branchId, documentNo);
         this.documentType = documentType;
         this.supplierId = supplierId;
         this.purchaseOrderId = purchaseOrderId;
-        this.warehouseId = warehouseId;
     }
 
     @Override
@@ -158,10 +154,6 @@ public class PurchaseReturn extends PurchaseDocument {
 
     public Long getPurchaseOrderId() {
         return purchaseOrderId;
-    }
-
-    public Long getWarehouseId() {
-        return warehouseId;
     }
 
     public Long getInventoryDocumentId() {

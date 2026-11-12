@@ -77,7 +77,7 @@ class InventoryDocumentMapper {
         Map<Long, InventorySerial> serials = serials(transactions.stream().map(InventoryTransaction::getSerialId)
                 .filter(Objects::nonNull).collect(Collectors.toSet()));
         List<InventoryLineResponse> lines = document.getLines().stream()
-                .map(line -> toLine(line, products.get(line.getProductId()), lots.get(line.getLotId())))
+                .map(line -> toLine(document, line, products.get(line.getProductId()), lots.get(line.getLotId())))
                 .toList();
         List<InventoryTransactionResponse> ledger = transactions.stream()
                 .map(transaction -> toTransaction(transaction, products, lots, serials))
@@ -128,7 +128,8 @@ class InventoryDocumentMapper {
                 .collect(Collectors.toMap(InventorySerial::getId, Function.identity()));
     }
 
-    private static InventoryLineResponse toLine(InventoryDocumentLine line, ProductInfo product, InventoryLot lot) {
+    private static InventoryLineResponse toLine(InventoryDocument document, InventoryDocumentLine line,
+                                                ProductInfo product, InventoryLot lot) {
         return new InventoryLineResponse(line.getId(), line.getLineNo(), line.getProductId(),
                 product == null ? null : product.code(), product == null ? null : product.name(), line.getUnitId(),
                 line.getConversionFactor(), line.getQuantity(), line.getBaseQuantity(), line.getDirection(),
@@ -136,7 +137,7 @@ class InventoryDocumentMapper {
                 lot != null ? lot.getLotNo() : line.getLotNo(), line.getManufactureDate(),
                 lot != null ? lot.getExpiryDate() : line.getExpiryDate(), line.getQualityStatus(),
                 line.getTargetQualityStatus(), line.getUnitCost(), line.getAmount(), line.getLotOverrideReason(),
-                line.getNote(), line.getSerialNumbers(), line.getItemCondition());
+                line.getNote(), line.getSerialNumbers(), line.getItemCondition(), document.warehouseOf(line));
     }
 
     private String documentNo(Long documentId) {

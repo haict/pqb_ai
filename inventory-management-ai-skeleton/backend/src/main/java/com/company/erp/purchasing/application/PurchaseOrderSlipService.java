@@ -76,12 +76,12 @@ public class PurchaseOrderSlipService {
         List<PurchaseOrderLine> goods = order.getLines().stream().filter(line -> !line.isServiceLine()).toList();
         CompanyRef company = printCompany(actor, order, printCompanyId);
         PartnerInfo supplier = access.partners(List.of(order.getSupplierId())).get(order.getSupplierId());
-        WarehouseInfo warehouse = access.warehouses(List.of(order.getWarehouseId())).get(order.getWarehouseId());
+        Map<Long, WarehouseInfo> warehouses = access.warehouses(order.warehouseIds());
         SourceAccounts accounts = journals.accountsBySource(order.getCompanyId(), PurchaseOrder.TYPE_CODE,
                 order.getId(), goods.stream().map(PurchaseOrderLine::getId).collect(Collectors.toSet()));
         String slipNo = order.getInventoryDocumentId() == null ? null
                 : stockIn.documentNumbers(Set.of(order.getInventoryDocumentId())).get(order.getInventoryDocumentId());
-        List<StockInSlipResponse.Line> lines = lines(goods);
+        List<StockInSlipResponse.Line> lines = lines(goods, warehouses);
         BigDecimal total = lines.stream().map(StockInSlipResponse.Line::amount).reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal tax = goods.stream().map(PurchaseOrderLine::getTaxAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
         List<BigDecimal> taxRates = goods.stream().map(PurchaseOrderLine::getTaxRate).filter(Objects::nonNull)
@@ -92,7 +92,9 @@ public class PurchaseOrderSlipService {
                 supplier == null ? null : supplier.name(), supplier == null ? null : supplier.address(),
                 supplier == null ? null : supplier.taxCode(), description(order, supplier),
                 order.getInvoiceSeries(), order.getInvoiceNo(), order.getInvoiceDate(),
-                warehouse == null ? null : warehouse.code(), warehouse == null ? null : warehouse.name(), lines, total,
+                order.warehouseIds().stream().map(warehouses::get).filter(Objects::nonNull)
+                        .map(WarehouseInfo::code).collect(Collectors.joining(", ")),
+                PurchasingAccess.warehouseNames(order.warehouseIds(), warehouses), lines, total,
                 taxRates, tax, total.add(tax));
     }
 
@@ -111,14 +113,16 @@ public class PurchaseOrderSlipService {
         return company;
     }
 
-    private List<StockInSlipResponse.Line> lines(List<PurchaseOrderLine> goods) {
+    private List<StockInSlipResponse.Line> lines(List<PurchaseOrderLine> goods, Map<Long, WarehouseInfo> warehouses) {
         Map<Long, ProductInfo> products = access.products(goods.stream().map(PurchaseOrderLine::getProductId)
                 .toList());
         List<StockInSlipResponse.Line> lines = new ArrayList<>();
         for (PurchaseOrderLine line : goods) {
             ProductInfo product = products.get(line.getProductId());
+            WarehouseInfo warehouse = warehouses.get(line.getWarehouseId());
             lines.add(new StockInSlipResponse.Line(lines.size() + 1, product == null ? null : product.code(),
-                    product == null ? null : product.name(), line.getLotNo(), line.getExpiryDate(), line.getUnitId(),
+                    product == null ? null : product.name(), warehouse == null ? null : warehouse.code(),
+                    line.getLotNo(), line.getExpiryDate(), line.getUnitId(),
                     line.getQuantity(), line.netUnitPrice(), line.netAmount()));
         }
         return lines;

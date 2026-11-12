@@ -20,7 +20,8 @@ import java.util.List;
 
 /**
  * Dòng chứng từ kho. Lưu số lượng theo đơn vị giao dịch, hệ số tại thời điểm lập và số lượng quy đổi về đơn vị cơ
- * sở (BR-MD-21). Lô: {@code lotId} cho lô đã có, hoặc {@code lotNo} + hạn dùng cho lô nhập mới.
+ * sở (BR-MD-21). Lô: {@code lotId} cho lô đã có, hoặc {@code lotNo} + hạn dùng cho lô nhập mới. {@code warehouseId}:
+ * kho của dòng khi phiếu sinh từ đơn có nhiều kho (D-76); trống thì dùng kho ở đầu phiếu.
  */
 @Entity
 @Table(name = "inventory_document_lines")
@@ -51,6 +52,9 @@ public class InventoryDocumentLine {
     @Enumerated(EnumType.STRING)
     @Column(name = "direction", length = 3)
     private MovementDirection direction;
+
+    @Column(name = "warehouse_id")
+    private Long warehouseId;
 
     @Column(name = "location_id")
     private Long locationId;
@@ -128,6 +132,7 @@ public class InventoryDocumentLine {
         this.note = values.note();
         this.serialNumbers.addAll(values.serialNumbers());
         this.itemCondition = values.itemCondition();
+        this.warehouseId = values.warehouseId();
     }
 
     /** Giá trị một dòng sau khi đã kiểm tra và quy đổi ở tầng application. */
@@ -136,7 +141,7 @@ public class InventoryDocumentLine {
                              Long destinationLocationId, Long lotId, String lotNo, LocalDate manufactureDate,
                              LocalDate expiryDate, QualityStatus qualityStatus, QualityStatus targetQualityStatus,
                              BigDecimal unitCost, String lotOverrideReason, String note, List<String> serialNumbers,
-                             ItemCondition itemCondition) {
+                             ItemCondition itemCondition, Long warehouseId) {
 
         public LineValues {
             serialNumbers = serialNumbers == null ? List.of() : List.copyOf(serialNumbers);
@@ -173,6 +178,11 @@ public class InventoryDocumentLine {
 
     public MovementDirection getDirection() {
         return direction;
+    }
+
+    /** Kho riêng của dòng (D-76); {@code null}: kho ở đầu phiếu. */
+    public Long getWarehouseId() {
+        return warehouseId;
     }
 
     public Long getLocationId() {

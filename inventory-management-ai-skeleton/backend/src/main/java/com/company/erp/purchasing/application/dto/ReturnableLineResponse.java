@@ -7,7 +7,8 @@ import java.util.List;
 
 /**
  * Dòng đơn mua đã ghi sổ còn trả / giảm giá được. Số lượng theo đơn vị của dòng đơn mua (dòng dịch vụ: 0, chỉ giảm
- * giá); {@code unitPrice}: đơn giá sau chiết khấu; {@code remainingAmount}: giá trị còn giảm được.
+ * giá); {@code unitPrice}: đơn giá sau chiết khấu; {@code remainingAmount}: giá trị còn giảm được. {@code warehouseId}:
+ * kho nhận của dòng đơn mua (D-76), trả hàng xuất từ kho này.
  */
 public record ReturnableLineResponse(
         Long orderId,

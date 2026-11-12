@@ -97,7 +97,7 @@ function toView(slip: StockOutSlip, unitName: (id: number | null) => string): In
         productName: line.productName,
         productNote: serials.length > 0 ? `Serial: ${serials.join(', ')}` : undefined,
         ...lotRows(line),
-        warehouseCode: slip.warehouseCode,
+        warehouseCode: line.warehouseCode ?? slip.warehouseCode,
         unitName: unitName(line.unitId),
         quantity: line.quantity,
         unitPrice: line.unitPrice,

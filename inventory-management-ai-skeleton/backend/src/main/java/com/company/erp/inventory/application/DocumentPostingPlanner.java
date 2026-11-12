@@ -93,7 +93,7 @@ class DocumentPostingPlanner {
             StockKey key = out.key().withPlace(targetWarehouseId, location);
             movements.add(new StockMovement(out.lineId(), MovementDirection.IN, TransactionType.TRANSFER_IN,
                     key.productId(), key.warehouseId(), key.locationId(), key.lotId(), key.serialId(),
-                    key.qualityStatus(), out.quantity(), null, null, null, false));
+                    key.qualityStatus(), out.quantity(), null, null, null));
         }
         return movements;
     }
@@ -113,14 +113,13 @@ class DocumentPostingPlanner {
             movements.add(new StockMovement(transaction.getReferenceLineId(), MovementDirection.OUT,
                     TransactionType.TRANSFER_OUT, key.productId(), key.warehouseId(), key.locationId(), key.lotId(),
                     key.serialId(), key.qualityStatus(), transaction.getQuantity(), null,
-                    StockMovement.OutRule.EXACT_STATUS, null, true));
+                    StockMovement.OutRule.EXACT_STATUS, null));
             InventoryDocumentLine line = lines.get(transaction.getReferenceLineId());
             Long location = line != null && line.getDestinationLocationId() != null
                     ? line.getDestinationLocationId() : destinationDefault;
             movements.add(new StockMovement(transaction.getReferenceLineId(), MovementDirection.IN,
                     TransactionType.TRANSFER_IN, key.productId(), document.getDestinationWarehouseId(), location,
-                    key.lotId(), key.serialId(), key.qualityStatus(), transaction.getQuantity(), null, null, null,
-                    false));
+                    key.lotId(), key.serialId(), key.qualityStatus(), transaction.getQuantity(), null, null, null));
         }
         return movements;
     }
@@ -141,7 +140,7 @@ class DocumentPostingPlanner {
                     wasIn ? MovementDirection.OUT : MovementDirection.IN, TransactionType.REVERSAL, key.productId(),
                     key.warehouseId(), key.locationId(), key.lotId(), key.serialId(), key.qualityStatus(),
                     original.getQuantity(), wasIn ? null : original.getUnitCost(),
-                    wasIn ? StockMovement.OutRule.EXACT_STATUS : null, original.getId(), true,
+                    wasIn ? StockMovement.OutRule.EXACT_STATUS : null, original.getId(),
                     wasIn ? null : original.getItemCondition()));
         }
         return movements;
@@ -153,34 +152,35 @@ class DocumentPostingPlanner {
         Long lotId = items.lotForReceipt(document.getCompanyId(), product, line.getLotId(), line.getLotNo(),
                 line.getManufactureDate(), line.getExpiryDate(), line.getItemCondition(), actorId,
                 field + ".lotNo");
-        Long location = line.getLocationId() != null ? line.getLocationId() : defaultLocation(document.getWarehouseId());
+        Long warehouseId = document.warehouseOf(line);
+        Long location = line.getLocationId() != null ? line.getLocationId() : defaultLocation(warehouseId);
         if (product.serialTracked()) {
             List<Long> serials = items.serialsForReceipt(document.getCompanyId(), product, line.getSerialNumbers(),
                     lotId, line.getItemCondition(), actorId);
             return serials.stream()
                     .map(serialId -> new StockMovement(line.getId(), MovementDirection.IN, type, product.id(),
-                            document.getWarehouseId(), location, lotId, serialId, status, BigDecimal.ONE,
-                            unitCostPerBase(line), null, null, false, line.getItemCondition()))
+                            warehouseId, location, lotId, serialId, status, BigDecimal.ONE,
+                            unitCostPerBase(line), null, null, line.getItemCondition()))
                     .toList();
         }
         return List.of(new StockMovement(line.getId(), MovementDirection.IN, type, product.id(),
-                document.getWarehouseId(), location, lotId, null, status, line.getBaseQuantity(), unitCostPerBase(line),
-                null, null, false, line.getItemCondition()));
+                warehouseId, location, lotId, null, status, line.getBaseQuantity(), unitCostPerBase(line),
+                null, null, line.getItemCondition()));
     }
 
     private List<StockMovement> issue(InventoryDocument document, InventoryDocumentLine line, ProductInfo product,
                                       TransactionType type, StockMovement.OutRule rule, QualityStatus status) {
-        boolean justified = line.getLotOverrideReason() != null && !line.getLotOverrideReason().isBlank();
+        Long warehouseId = document.warehouseOf(line);
         if (product.serialTracked()) {
             return items.serialsForIssue(product, line.getSerialNumbers()).stream()
                     .map(serialId -> new StockMovement(line.getId(), MovementDirection.OUT, type, product.id(),
-                            document.getWarehouseId(), line.getLocationId(), line.getLotId(), serialId, status,
-                            BigDecimal.ONE, null, rule, null, true))
+                            warehouseId, line.getLocationId(), line.getLotId(), serialId, status,
+                            BigDecimal.ONE, null, rule, null))
                     .toList();
         }
         return List.of(new StockMovement(line.getId(), MovementDirection.OUT, type, product.id(),
-                document.getWarehouseId(), line.getLocationId(), line.getLotId(), null, status, line.getBaseQuantity(),
-                null, rule, null, justified));
+                warehouseId, line.getLocationId(), line.getLotId(), null, status, line.getBaseQuantity(),
+                null, rule, null));
     }
 
     /**
@@ -238,7 +238,7 @@ class DocumentPostingPlanner {
                     StockKey key = out.key().withStatus(lines.get(out.lineId()).getTargetQualityStatus());
                     return new StockMovement(out.lineId(), MovementDirection.IN, TransactionType.STATUS_IN,
                             key.productId(), key.warehouseId(), key.locationId(), key.lotId(), key.serialId(),
-                            key.qualityStatus(), out.quantity(), null, null, null, false);
+                            key.qualityStatus(), out.quantity(), null, null, null);
                 })
                 .toList();
     }

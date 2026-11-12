@@ -32,7 +32,7 @@ public class BacklogReportJdbc {
         StringBuilder where = new StringBuilder("""
                 h.company_id = :companyId AND h.status IN ('DRAFT', 'APPROVED') AND l.service_line = FALSE""");
         if (warehouseIds != null) {
-            where.append(" AND h.warehouse_id IN (:warehouseIds)");
+            where.append(" AND l.warehouse_id IN (:warehouseIds)");
             params.addValue("warehouseIds", warehouseIds);
         }
         if (productIds != null && !productIds.isEmpty()) {
@@ -47,11 +47,11 @@ public class BacklogReportJdbc {
                        o.warehouse_id, w.code AS warehouse_code, o.ordered, o.order_count,
                        COALESCE(s.on_hand_quantity, 0) AS on_hand, COALESCE(s.reserved_quantity, 0) AS reserved,
                        COALESCE(s.incoming_quantity, 0) AS incoming
-                FROM (SELECT l.product_id, h.warehouse_id, SUM(l.base_quantity) AS ordered,
+                FROM (SELECT l.product_id, l.warehouse_id, SUM(l.base_quantity) AS ordered,
                              COUNT(DISTINCT h.id) AS order_count
                       FROM sales_orders h JOIN sales_order_lines l ON l.order_id = h.id
                       WHERE %s
-                      GROUP BY l.product_id, h.warehouse_id) o
+                      GROUP BY l.product_id, l.warehouse_id) o
                 JOIN products p ON p.id = o.product_id
                 JOIN units u ON u.id = p.base_unit_id
                 JOIN warehouses w ON w.id = o.warehouse_id

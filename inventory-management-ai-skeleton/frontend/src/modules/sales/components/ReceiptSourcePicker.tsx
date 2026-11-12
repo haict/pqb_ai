@@ -8,7 +8,7 @@ import type { ReceiptSource } from '../types';
 import type { ReceiptPick } from './salesLines';
 
 interface Props {
-  branchId: number;
+  branchId?: number;
   warehouseId: number;
   productId: number;
   productLabel?: string;
@@ -16,18 +16,26 @@ interface Props {
   baseUnitName: string;
   onCancel(): void;
   onPick(picks: ReceiptPick[], lotOverrideReason: string | undefined): void;
+  /** Nguồn dữ liệu khác API đơn bán (phiếu xuất kho lập tay, D-79). */
+  fetchSources?: () => Promise<ReceiptSource[]>;
+  /** Chứng từ nhận các dòng chọn (mặc định "đơn bán"). */
+  targetLabel?: string;
 }
 
 /**
  * Hộp chọn chứng từ nhập (F8, xuất đích danh như MISA, D-63): dòng nhập theo lô / serial còn tồn tại kho của đơn, xếp
- * FEFO. Chọn lô khác lô hết hạn sớm nhất phải nhập lý do (BR-INV-21). Tồn hiện có là tồn của lô / serial tại kho; lô
+ * FEFO. Chọn lô khác lô hết hạn sớm nhất được ghi lý do, không bắt buộc (BR-INV-21). Tồn hiện có là tồn của lô / serial tại kho; lô
  * nhập nhiều lần dùng chung tồn nên tổng lấy theo lô không vượt tồn đó.
  */
 export function ReceiptSourcePicker(props: Props) {
-  const { branchId, warehouseId, productId, productLabel, baseUnitName, onCancel, onPick } = props;
+  const { branchId, warehouseId, productId, productLabel, baseUnitName, onCancel, onPick, fetchSources } =
+    props;
   const query = useQuery({
-    queryKey: ['receipt-sources', branchId, warehouseId, productId],
-    queryFn: () => salesOrderApi.receiptSources({ branchId, warehouseId, productId }),
+    queryKey: ['receipt-sources', fetchSources ? 'inventory' : 'sales', branchId, warehouseId, productId],
+    queryFn: () =>
+      fetchSources
+        ? fetchSources()
+        : salesOrderApi.receiptSources({ branchId: branchId as number, warehouseId, productId }),
   });
   const rows = query.data ?? [];
   const [selected, setSelected] = useState<number[]>([]);
@@ -39,7 +47,7 @@ export function ReceiptSourcePicker(props: Props) {
   const quantityOf = (row: ReceiptSource) =>
     row.serialNo ? 1 : (quantities[row.transactionId] ?? row.availableQuantity);
   const fefoLot = rows.find((row) => row.lotNo)?.lotNo ?? null;
-  const needsReason = chosen.some((row) => row.lotNo && row.lotNo !== fefoLot);
+  const otherLot = chosen.some((row) => row.lotNo && row.lotNo !== fefoLot);
 
   const confirm = () => {
     if (chosen.length === 0) {
@@ -61,13 +69,9 @@ export function ReceiptSourcePicker(props: Props) {
       }
       byLot.set(lotKey, total);
     }
-    if (needsReason && !reason.trim()) {
-      setError('Nhập lý do chọn lô khác lô hết hạn sớm nhất (BR-INV-21).');
-      return;
-    }
     onPick(
       chosen.map((row) => ({ source: row, quantity: quantityOf(row) })),
-      needsReason ? reason.trim() : undefined,
+      otherLot ? reason.trim() || undefined : undefined,
     );
   };
 
@@ -121,7 +125,7 @@ export function ReceiptSourcePicker(props: Props) {
     >
       <Typography.Paragraph type="secondary" style={{ marginBottom: 8 }}>
         Số lượng theo đơn vị cơ sở ({baseUnitName}). Xếp theo hạn dùng sớm nhất (FEFO). Mỗi chứng từ / lô được
-        chọn thành một dòng đơn bán.
+        chọn thành một dòng {props.targetLabel ?? 'đơn bán'}.
       </Typography.Paragraph>
       {query.isError && <Alert type="error" showIcon message="Không tải được chứng từ nhập." />}
       <Table<ReceiptSource>
@@ -141,11 +145,11 @@ export function ReceiptSourcePicker(props: Props) {
           },
         }}
       />
-      {needsReason && (
+      {otherLot && (
         <Input
           style={{ marginTop: 12 }}
           maxLength={500}
-          placeholder="Lý do chọn lô khác lô hết hạn sớm nhất (bắt buộc)"
+          placeholder="Lý do chọn lô khác lô hết hạn sớm nhất (không bắt buộc)"
           value={reason}
           onChange={(event) => setReason(event.target.value)}
         />

@@ -20,6 +20,7 @@ import com.company.erp.system.application.CurrentUser;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -38,6 +39,10 @@ import org.springframework.stereotype.Component;
 class InventoryDocumentBuilder {
 
     static final int QUANTITY_SCALE = 3;
+
+    /** Loại phiếu chọn kho theo dòng (D-76, D-77); phiếu chuyển kho giữ kho xuất / kho nhận ở đầu phiếu. */
+    private static final Set<InventoryDocumentType> LINE_WAREHOUSE_TYPES = EnumSet.of(InventoryDocumentType.PNK,
+            InventoryDocumentType.PXK, InventoryDocumentType.PXH, InventoryDocumentType.PDC, InventoryDocumentType.PCL);
 
     /** Đầu và dòng đã kiểm tra, cùng chi nhánh sở hữu (theo kho). */
     record Built(Long companyId, Long branchId, InventoryDocument.Header header,
@@ -62,12 +67,19 @@ class InventoryDocumentBuilder {
         this.machineProducts = machineProducts;
     }
 
+    /**
+     * Kho theo dòng (D-76, D-77) với {@link #LINE_WAREHOUSE_TYPES}: kho dòng trống thì lấy {@code warehouseId} đầu phiếu;
+     * kho đầu phiếu lưu = kho dòng đầu tiên. Kho dòng phải trong phạm vi người dùng, đang hoạt động, cùng chi nhánh.
+     */
     Built build(CurrentUser actor, InventoryDocumentRequest request, Long documentId) {
         InventoryDocumentType type = request.documentType();
         if (type == InventoryDocumentType.PDK) {
             throw BusinessException.invalidField("documentType", "Chứng từ đảo chỉ lập bằng thao tác đảo chứng từ gốc.");
         }
-        WarehouseInfo warehouse = access.usableWarehouse(actor, request.warehouseId(), "warehouseId");
+        List<Long> lineWarehouseIds = lineWarehouseIds(type, request);
+        WarehouseInfo warehouse = lineWarehouseIds == null
+                ? access.usableWarehouse(actor, request.warehouseId(), "warehouseId")
+                : access.usableWarehouse(actor, lineWarehouseIds.get(0), "lines[0].warehouseId");
         String subType = subType(type, request.subType());
         WarehouseInfo destination = null;
         Long transitId = null;
@@ -81,8 +93,59 @@ class InventoryDocumentBuilder {
                 warehouse.id(), destination == null ? null : destination.id(), transitId, request.partnerId(),
                 request.reasonId(), trim(request.reasonText()), trim(request.note()), request.recallId(), null,
                 request.issuePolicyId(), null);
-        List<InventoryDocumentLine> lines = lines(type, request, warehouse, destination);
+        List<WarehouseInfo> lineWarehouses = lineWarehouses(actor, warehouse, lineWarehouseIds, request.lines().size());
+        List<InventoryDocumentLine> lines = lines(type, request, warehouse, lineWarehouses, lineWarehouseIds != null,
+                destination);
         return new Built(warehouse.companyId(), warehouse.branchId(), header, lines);
+    }
+
+    /** Kho hiệu lực từng dòng; {@code null} với phiếu một kho (chuyển kho). */
+    private static List<Long> lineWarehouseIds(InventoryDocumentType type, InventoryDocumentRequest request) {
+        List<InventoryLineRequest> lines = request.lines();
+        if (!LINE_WAREHOUSE_TYPES.contains(type)) {
+            for (int index = 0; index < lines.size(); index++) {
+                if (lines.get(index).warehouseId() != null) {
+                    throw BusinessException.invalidField("lines[" + index + "].warehouseId",
+                            "Phiếu chuyển kho chọn kho xuất và kho nhận ở đầu phiếu.");
+                }
+            }
+            if (request.warehouseId() == null) {
+                throw BusinessException.invalidField("warehouseId", "Phải chọn kho.");
+            }
+            return null;
+        }
+        if (lines.isEmpty()) {
+            throw BusinessException.invalidField("lines", "Chứng từ phải có ít nhất một dòng.");
+        }
+        List<Long> ids = new ArrayList<>();
+        for (int index = 0; index < lines.size(); index++) {
+            Long id = lines.get(index).warehouseId() != null ? lines.get(index).warehouseId() : request.warehouseId();
+            if (id == null) {
+                throw BusinessException.invalidField("lines[" + index + "].warehouseId", "Phải chọn kho của dòng.");
+            }
+            ids.add(id);
+        }
+        return ids;
+    }
+
+    private List<WarehouseInfo> lineWarehouses(CurrentUser actor, WarehouseInfo header, List<Long> lineWarehouseIds,
+                                               int size) {
+        List<WarehouseInfo> result = new ArrayList<>();
+        for (int index = 0; index < size; index++) {
+            Long id = lineWarehouseIds == null ? null : lineWarehouseIds.get(index);
+            if (id == null || id.equals(header.id())) {
+                result.add(header);
+                continue;
+            }
+            String field = "lines[" + index + "].warehouseId";
+            WarehouseInfo warehouse = access.usableWarehouse(actor, id, field);
+            if (!warehouse.branchId().equals(header.branchId())) {
+                throw BusinessException.invalidField(field, "Kho " + warehouse.code()
+                        + " không cùng chi nhánh với các dòng khác.");
+            }
+            result.add(warehouse);
+        }
+        return result;
     }
 
     private static String subType(InventoryDocumentType type, String subType) {
@@ -157,7 +220,8 @@ class InventoryDocumentBuilder {
     }
 
     private List<InventoryDocumentLine> lines(InventoryDocumentType type, InventoryDocumentRequest request,
-                                              WarehouseInfo warehouse, WarehouseInfo destination) {
+                                              WarehouseInfo warehouse, List<WarehouseInfo> lineWarehouses,
+                                              boolean storeLineWarehouse, WarehouseInfo destination) {
         if (request.lines().isEmpty()) {
             throw BusinessException.invalidField("lines", "Chứng từ phải có ít nhất một dòng.");
         }
@@ -171,8 +235,9 @@ class InventoryDocumentBuilder {
             InventoryLineRequest line = request.lines().get(index);
             String field = "lines[" + index + "]";
             ProductInfo product = product(products.get(line.productId()), warehouse.companyId(), field);
-            lines.add(new InventoryDocumentLine(index + 1,
-                    lineValues(type, request, line, product, warehouse, destination, field)));
+            WarehouseInfo lineWarehouse = lineWarehouses.get(index);
+            lines.add(new InventoryDocumentLine(index + 1, lineValues(type, request, line, product, lineWarehouse,
+                    storeLineWarehouse ? lineWarehouse.id() : null, destination, field)));
             requireCondition(product, line, direction(type, line, field) == MovementDirection.IN,
                     machineCategories, field);
         }
@@ -181,8 +246,8 @@ class InventoryDocumentBuilder {
 
     private InventoryDocumentLine.LineValues lineValues(InventoryDocumentType type, InventoryDocumentRequest request,
                                                         InventoryLineRequest line, ProductInfo product,
-                                                        WarehouseInfo warehouse, WarehouseInfo destination,
-                                                        String field) {
+                                                        WarehouseInfo warehouse, Long lineWarehouseId,
+                                                        WarehouseInfo destination, String field) {
         BigDecimal factor = masterData.conversionFactor(product.id(), line.unitId(), request.documentDate());
         BigDecimal baseQuantity = baseQuantity(line.quantity(), factor, field);
         MovementDirection direction = direction(type, line, field);
@@ -202,7 +267,7 @@ class InventoryDocumentBuilder {
                 line.destinationLocationId(), line.lotId(), inbound && line.lotId() == null ? trim(line.lotNo()) : null,
                 inbound ? line.manufactureDate() : null, inbound ? line.expiryDate() : null, line.qualityStatus(),
                 line.targetQualityStatus(), inbound ? line.unitCost() : null, trim(line.lotOverrideReason()),
-                trim(line.note()), serials, inbound ? line.itemCondition() : null);
+                trim(line.note()), serials, inbound ? line.itemCondition() : null, lineWarehouseId);
     }
 
     private static ProductInfo product(ProductInfo product, Long companyId, String field) {

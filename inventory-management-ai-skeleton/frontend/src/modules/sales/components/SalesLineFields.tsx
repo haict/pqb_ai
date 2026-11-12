@@ -14,12 +14,17 @@ import {
   Typography,
   type FormInstance,
 } from 'antd';
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { formatMoney } from '../../accounting/labels';
 import { formatDate } from '../../inventory/labels';
 import { moneyInputProps } from '../../finance/components/debtInputs';
 import { ProductSelect } from '../../masterdata/components/EntitySelects';
-import { useTaxRates } from '../../masterdata/lookups';
+import {
+  useCachedSuggestedWarehouse,
+  useSuggestedWarehouse,
+  useTaxRates,
+  useWarehouses,
+} from '../../masterdata/lookups';
 import { useProductUnits } from '../../purchasing/components/productUnits';
 import { salesOrderApi, salesPriceApi } from '../api';
 import { PRICE_SOURCES } from '../labels';
@@ -34,8 +39,8 @@ import { DATE_INPUT_FORMAT } from '../../../shared/dateInput';
 
 /**
  * Danh sách dòng đơn bán trong form (tên trường {@code lines}): giá, chiết khấu, thuế, lô / serial chỉ định. F8 trên
- * một dòng (hoặc nút "Chọn CT nhập") mở danh sách chứng từ nhập còn tồn để xuất đích danh (D-63); form cần có
- * {@code branchId}, {@code warehouseId}. Dòng hiện dạng bảng, mỗi dòng một hàng; {@code actions}: nút đặt cùng hàng
+ * một dòng (hoặc nút "Chọn CT nhập") mở danh sách chứng từ nhập còn tồn tại kho xuất của dòng để xuất đích danh
+ * (D-63); form cần có {@code branchId}. Kho xuất theo từng dòng, tự gợi ý theo tên nhóm hàng (D-76). Dòng hiện dạng bảng, mỗi dòng một hàng; {@code actions}: nút đặt cùng hàng
  * tiêu đề (nhập Excel, nhận dạng chứng từ).
  */
 export function SalesLinesEditor<T extends { lines?: SalesLineForm[]; customerId?: number }>({
@@ -53,7 +58,7 @@ export function SalesLinesEditor<T extends { lines?: SalesLineForm[]; customerId
       {(fields, { add, remove }) => (
         <LineGrid
           columns={columns}
-          minWidth={withExpectedDate ? 1830 : 1700}
+          minWidth={withExpectedDate ? 2000 : 1870}
           onAdd={() => add({ quantity: 1, unitPrice: 0 })}
           actions={actions}
         >
@@ -76,6 +81,7 @@ export function SalesLinesEditor<T extends { lines?: SalesLineForm[]; customerId
 function lineColumns(withExpectedDate?: boolean): LineGridColumn[] {
   return [
     { title: 'Hàng hóa / dịch vụ', width: '260px' },
+    { title: 'Kho xuất', width: '170px', tooltip: 'Tự gợi ý theo tên nhóm hàng; sửa được' },
     { title: 'Đơn vị', width: '100px' },
     { title: 'Số lượng', width: '100px' },
     { title: 'Đơn giá', width: '130px', tooltip: 'Trống: theo bảng giá' },
@@ -96,7 +102,7 @@ function lineColumns(withExpectedDate?: boolean): LineGridColumn[] {
     {
       title: 'Lý do khác FEFO',
       width: '180px',
-      tooltip: 'Bắt buộc khi lô chỉ định không phải lô hết hạn sớm nhất (BR-INV-21)',
+      tooltip: 'Ghi khi chỉ định lô không phải lô hết hạn sớm nhất, không bắt buộc (BR-INV-21)',
     },
     {
       title: 'Serial chỉ định',
@@ -114,7 +120,7 @@ function SalesLineFields({
   withExpectedDate,
   onRemove,
 }: {
-  form: FormInstance<{ lines?: SalesLineForm[]; customerId?: number }>;
+  form: FormInstance<{ lines?: SalesLineForm[]; customerId?: number; branchId?: number }>;
   name: number;
   columns: LineGridColumn[];
   withExpectedDate?: boolean;
@@ -128,6 +134,27 @@ function SalesLineFields({
   const receiptNo = Form.useWatch(['lines', name, 'receiptNo'], form) as string | undefined;
   const { options, product, unitName } = useProductUnits(productId);
   const [picker, setPicker] = useState<{ branchId: number; warehouseId: number } | null>(null);
+  const branchId = Form.useWatch('branchId', form) as number | undefined;
+  const service = product?.productType === 'SERVICE';
+  const warehouses = useWarehouses();
+  const suggested = useSuggestedWarehouse(service ? undefined : branchId, productId);
+  const cachedSuggestion = useCachedSuggestedWarehouse();
+  const warehouseOptions = warehouses.items
+    .filter((warehouse) => warehouse.branchId === branchId && warehouse.warehouseType === 'NORMAL')
+    .map((warehouse) => ({ value: warehouse.id, label: `${warehouse.code} - ${warehouse.name}` }));
+  useEffect(() => {
+    // D-76: kho trống thì điền kho gợi ý theo nhóm hàng (nhập tay, Excel, nhận dạng chứng từ); không đè kho đã chọn.
+    if (suggested && !form.getFieldValue(['lines', name, 'warehouseId'])) {
+      form.setFieldValue(['lines', name, 'warehouseId'], suggested);
+    }
+  }, [form, name, productId, suggested]);
+  useEffect(() => {
+    // ĐVT trống khi đã có hàng (nhận dạng chứng từ không đọc / không khớp ĐVT, nhập Excel): điền ĐVT cơ sở của hàng.
+    if (product && product.id === productId && !form.getFieldValue(['lines', name, 'unitId'])) {
+      form.setFieldValue(['lines', name, 'unitId'], product.baseUnitId);
+    }
+  }, [form, name, product, productId]);
+  const lineWarehouse = () => form.getFieldValue(['lines', name, 'warehouseId']) as number | undefined;
 
   const clearReceipt = () => {
     form.setFieldValue(['lines', name, 'receiptTransactionId'], undefined);
@@ -138,16 +165,12 @@ function SalesLineFields({
   /** Lô gõ tay: lấy hạn dùng của lô từ danh sách lô còn tồn tại kho xuất (cùng nguồn với F8). */
   const lookupExpiry = async () => {
     const lotNo = (form.getFieldValue(['lines', name, 'lotNo']) as string | undefined)?.trim();
-    const header = form.getFieldsValue(true) as { branchId?: number; warehouseId?: number };
-    if (!lotNo || !productId || !header.branchId || !header.warehouseId) {
+    const warehouseId = lineWarehouse();
+    if (!lotNo || !productId || !branchId || !warehouseId) {
       return;
     }
     try {
-      const sources = await salesOrderApi.receiptSources({
-        branchId: header.branchId,
-        warehouseId: header.warehouseId,
-        productId,
-      });
+      const sources = await salesOrderApi.receiptSources({ branchId, warehouseId, productId });
       const lot = sources.find((source) => source.lotNo === lotNo);
       form.setFieldValue(['lines', name, 'expiryDate'], lot?.expiryDate ?? undefined);
     } catch {
@@ -155,17 +178,17 @@ function SalesLineFields({
     }
   };
 
-  /** F8: chọn chứng từ nhập còn tồn của hàng tại kho của đơn (D-63). */
+  /** F8: chọn chứng từ nhập còn tồn của hàng tại kho xuất của dòng (D-63, D-76). */
   const openPicker = () => {
-    const header = form.getFieldsValue(true) as { branchId?: number; warehouseId?: number };
+    const warehouseId = lineWarehouse();
     if (!productId || !product) {
       message.info('Chọn hàng trước khi nhấn F8.');
-    } else if (!header.branchId || !header.warehouseId) {
-      message.info('Chọn chi nhánh và kho xuất trước khi nhấn F8.');
+    } else if (!branchId || !warehouseId) {
+      message.info('Chọn chi nhánh và kho xuất của dòng trước khi nhấn F8.');
     } else if (!product.lotTracked && !product.serialTracked) {
       message.info('Hàng không quản lý lô / serial: kho xuất theo FEFO khi ghi sổ.');
     } else {
-      setPicker({ branchId: header.branchId, warehouseId: header.warehouseId });
+      setPicker({ branchId, warehouseId });
     }
   };
 
@@ -209,6 +232,7 @@ function SalesLineFields({
   return (
     <LineGridRow
       columns={columns}
+      lineNo={name + 1}
       onKeyDown={(event) => {
         if (event.key === 'F8') {
           event.preventDefault();
@@ -274,6 +298,11 @@ function SalesLineFields({
           selectedLabel={form.getFieldValue(['lines', name, 'productLabel'])}
           onProduct={(product) => {
             clearReceipt();
+            // Đổi hàng: kho theo gợi ý của hàng mới (không có gợi ý thì để người dùng chọn).
+            form.setFieldValue(
+              ['lines', name, 'warehouseId'],
+              product && product.productType !== 'SERVICE' ? cachedSuggestion(branchId, product.id) : undefined,
+            );
             if (product) {
               form.setFieldValue(['lines', name, 'unitId'], product.baseUnitId);
               form.setFieldValue(['lines', name, 'unitPrice'], 0);
@@ -283,6 +312,17 @@ function SalesLineFields({
           }}
         />
       </Form.Item>
+      {service ? (
+        <Input disabled value="—" style={lineCellStyle} aria-label="Không áp dụng" />
+      ) : (
+        <Form.Item
+          name={[name, 'warehouseId']}
+          style={lineCellStyle}
+          rules={[{ required: true, message: 'Chọn kho' }]}
+        >
+          <Select showSearch optionFilterProp="label" options={warehouseOptions} onChange={clearReceipt} />
+        </Form.Item>
+      )}
       <Form.Item
         name={[name, 'unitId']}
         style={lineCellStyle}

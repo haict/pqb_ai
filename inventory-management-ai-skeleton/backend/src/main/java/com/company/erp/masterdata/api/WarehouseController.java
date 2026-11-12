@@ -26,13 +26,16 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import com.company.erp.masterdata.application.WarehouseService;
+import com.company.erp.masterdata.application.WarehouseSuggestionService;
 import com.company.erp.masterdata.application.dto.LocationRequest;
 import com.company.erp.masterdata.application.dto.LocationResponse;
 import com.company.erp.masterdata.application.dto.UpdateWarehouseRequest;
 import com.company.erp.masterdata.application.dto.WarehouseRequest;
 import com.company.erp.masterdata.application.dto.WarehouseResponse;
+import com.company.erp.masterdata.application.dto.WarehouseSuggestionResponse;
 import com.company.erp.masterdata.domain.WarehouseType;
 import java.util.List;
+import java.util.Map;
 
 /** Kho (BR-MD-40, BR-MD-41). Kho ngoài phạm vi dữ liệu (chi nhánh / kho được gán) trả 404. */
 @Tag(name = "Kho")
@@ -41,9 +44,11 @@ import java.util.List;
 public class WarehouseController {
 
     private final WarehouseService warehouseService;
+    private final WarehouseSuggestionService suggestionService;
 
-    public WarehouseController(WarehouseService warehouseService) {
+    public WarehouseController(WarehouseService warehouseService, WarehouseSuggestionService suggestionService) {
         this.warehouseService = warehouseService;
+        this.suggestionService = suggestionService;
     }
 
     @GetMapping
@@ -88,6 +93,19 @@ public class WarehouseController {
     public ApiResponse<WarehouseResponse> changeStatus(@AuthenticationPrincipal CurrentUser user, @PathVariable Long id,
                                             @Valid @RequestBody ChangeStatusRequest request) {
         return ApiResponse.ok(warehouseService.changeStatus(user, id, request));
+    }
+
+    @Operation(summary = "Gợi ý kho theo nhóm hàng",
+            description = "Kho vật lý đang hoạt động của chi nhánh, trong phạm vi người dùng, có tên khớp gần đúng tên "
+                    + "nhóm hàng (hoặc nhóm cha) của từng hàng (D-76). Không có kho duy nhất thì warehouseId trống.")
+    @GetMapping("/suggestions")
+    @PreAuthorize("hasAuthority('warehouse:view')")
+    public ApiResponse<List<WarehouseSuggestionResponse>> suggestions(@AuthenticationPrincipal CurrentUser user,
+                                                                      @RequestParam Long branchId,
+                                                                      @RequestParam List<Long> productIds) {
+        Map<Long, Long> suggested = suggestionService.suggest(user, branchId, productIds);
+        return ApiResponse.ok(productIds.stream().distinct()
+                .map(productId -> new WarehouseSuggestionResponse(productId, suggested.get(productId))).toList());
     }
 
     @GetMapping("/{id}/locations")

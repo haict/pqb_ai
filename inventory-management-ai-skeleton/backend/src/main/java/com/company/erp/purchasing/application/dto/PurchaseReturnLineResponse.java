@@ -9,6 +9,7 @@ public record PurchaseReturnLineResponse(
         Long id,
         int lineNo,
         Long orderLineId,
+        Long warehouseId,
         Long productId,
         String productCode,
         String productName,

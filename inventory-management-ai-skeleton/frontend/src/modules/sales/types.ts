@@ -65,6 +65,9 @@ export interface SalesLine {
   taxAmount: number;
   promotional: boolean;
   serviceLine: boolean;
+  /** Kho xuất của dòng hàng hóa (D-76); null với dòng dịch vụ. */
+  warehouseId: number | null;
+  warehouseCode: string | null;
   expectedDate: string | null;
   lotNo: string | null;
   /** Hạn dùng của lô chỉ định, lấy từ lô trong kho (chỉ đọc). */
@@ -116,9 +119,9 @@ export interface SalesOrder extends SalesDocumentBase {
   deliveryAddress: string | null;
   receiverName: string | null;
   receiverPhone: string | null;
-  warehouseId: number;
-  warehouseCode: string | null;
-  warehouseName: string | null;
+  /** Các kho xuất theo dòng (D-76); tên nối bằng dấu phẩy. */
+  warehouseIds: number[];
+  warehouseNames: string | null;
   expectedDate: string | null;
   paymentTermDays: number | null;
   dueDate: string | null;
@@ -189,7 +192,6 @@ export interface SalesReturn extends SalesDocumentBase {
   salesOrderId: number;
   salesOrderNo: string | null;
   invoiceLabel: string | null;
-  warehouseId: number | null;
   inventoryDocumentId: number | null;
   inventoryDocumentNo: string | null;
   amount: number;
@@ -289,6 +291,8 @@ export interface StockOutSlipLine {
   lineNo: number;
   productCode: string | null;
   productName: string | null;
+  /** Kho xuất của dòng (D-76). */
+  warehouseCode: string | null;
   unitId: number;
   quantity: number;
   unitPrice: number;
@@ -434,4 +438,6 @@ export interface ReceiptSource {
   unitCost: number | null;
   /** Tồn ĐẠT hiện có của lô / serial tại kho (lô nhập nhiều lần dùng chung). */
   availableQuantity: number;
+  /** Lô của dòng nhập; chỉ API F8 của chứng từ kho trả (D-79). */
+  lotId?: number | null;
 }

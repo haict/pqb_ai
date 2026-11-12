@@ -19,7 +19,9 @@ import java.time.LocalDate;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -124,6 +126,13 @@ class PurchasingAccess {
     /** Chuỗi bỏ khoảng trắng hai đầu; rỗng thành {@code null}. */
     static String trim(String value) {
         return value == null || value.isBlank() ? null : value.trim();
+    }
+
+    /** Tên các kho theo thứ tự, nối bằng dấu phẩy (kho theo dòng, D-76); không có kho thì {@code null}. */
+    static String warehouseNames(List<Long> warehouseIds, Map<Long, WarehouseInfo> warehouses) {
+        String names = warehouseIds.stream().map(warehouses::get).filter(Objects::nonNull)
+                .map(WarehouseInfo::name).collect(Collectors.joining(", "));
+        return names.isEmpty() ? null : names;
     }
 
     /** Kho nhận hàng: kho vật lý đang hoạt động, thuộc chi nhánh của chứng từ. */

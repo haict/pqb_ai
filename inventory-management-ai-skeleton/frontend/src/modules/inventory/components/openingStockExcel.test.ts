@@ -27,6 +27,7 @@ function line(overrides: Partial<InventoryLine>): InventoryLine {
     note: null,
     serialNumbers: [],
     itemCondition: null,
+    warehouseId: 1,
     ...overrides,
   };
 }

@@ -103,7 +103,8 @@ class PurchaseOrderUnpostIntegrationTest extends PurchasingIntegrationSupport {
         long order = postedTubeOrder("2", lot);
         String issue = "{\"documentType\":\"PXK\",\"documentDate\":\"" + DATE + "\",\"warehouseId\":"
                 + warehouse("HH") + ",\"lines\":[{\"productId\":" + product("VT_ONG_01") + ",\"unitId\":"
-                + unit("HOP") + ",\"quantity\":1,\"lotNo\":\"" + lot + "\"}]}";
+                + unit("HOP") + ",\"quantity\":1,\"lotId\":" + id("SELECT id FROM inventory_lots WHERE lot_no = '" + lot
+                + "'") + "}]}";
         long document = jsonId(send(keeper, post("/api/v1/inventory-documents"), issue, newKey())
                 .andExpect(status().isCreated()).andReturn());
         act(keeper, "/api/v1/inventory-documents", document, "post", null)
