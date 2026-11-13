@@ -574,7 +574,11 @@ export function DocumentFormFields({
       </Row>
       <Form.List name="lines">
         {(fields, { add, remove }) => (
-          <LineGrid columns={layout.columns} minWidth={layout.minWidth} onAdd={() => add({ unitCost: 0 })}>
+          <LineGrid
+            columns={layout.columns}
+            minWidth={layout.minWidth}
+            onAdd={(index) => add({ unitCost: 0 }, index)}
+          >
             {fields.map((field) => (
               <LineFields
                 key={field.key}

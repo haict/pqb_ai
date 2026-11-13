@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { Alert, Input, InputNumber, Modal, Table, Typography, type TableColumnsType } from 'antd';
+import { Alert, Input, InputNumber, Modal, Table, Tag, Typography, type TableColumnsType } from 'antd';
 import { useState } from 'react';
 import { formatDate } from '../../inventory/labels';
 import { formatAmount, formatQuantity } from '../../../shared/format';
@@ -46,7 +46,8 @@ export function ReceiptSourcePicker(props: Props) {
   const chosen = rows.filter((row) => selected.includes(row.transactionId));
   const quantityOf = (row: ReceiptSource) =>
     row.serialNo ? 1 : (quantities[row.transactionId] ?? row.availableQuantity);
-  const fefoLot = rows.find((row) => row.lotNo)?.lotNo ?? null;
+  // Lô FEFO là lô còn hạn sớm nhất; lô hết hạn vẫn chọn được (D-80) nhưng không phải đề xuất.
+  const fefoLot = rows.find((row) => row.lotNo && !row.expired)?.lotNo ?? null;
   const otherLot = chosen.some((row) => row.lotNo && row.lotNo !== fefoLot);
 
   const confirm = () => {
@@ -79,7 +80,21 @@ export function ReceiptSourcePicker(props: Props) {
     { title: 'Số chứng từ', dataIndex: 'documentNo', width: 170 },
     { title: 'Ngày nhập', dataIndex: 'postingDate', width: 100, render: formatDate },
     { title: 'Lô', dataIndex: 'lotNo', width: 120 },
-    { title: 'Hạn dùng', dataIndex: 'expiryDate', width: 100, render: formatDate },
+    {
+      title: 'Hạn dùng',
+      dataIndex: 'expiryDate',
+      width: 150,
+      render: (value: string | null, row) => (
+        <>
+          {formatDate(value)}
+          {row.expired && (
+            <Tag color="red" style={{ marginInlineStart: 4 }}>
+              Hết hạn
+            </Tag>
+          )}
+        </>
+      ),
+    },
     { title: 'Serial', dataIndex: 'serialNo', width: 140 },
     { title: 'SL nhập', dataIndex: 'receivedQuantity', align: 'right', width: 90, render: formatQuantity },
     { title: 'Đơn giá nhập', dataIndex: 'unitCost', align: 'right', width: 110, render: formatAmount },

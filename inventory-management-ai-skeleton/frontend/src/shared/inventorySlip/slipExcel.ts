@@ -1,5 +1,4 @@
 import ExcelJS from 'exceljs';
-import { moneyInWords } from '../moneyWords';
 import {
   longDate,
   ORIGINAL_DOCUMENTS_LINE,
@@ -9,6 +8,7 @@ import {
   signerSpans,
   SLIP_COLUMN_KEYS,
   SLIP_COLUMNS,
+  paymentInWords,
   taxRatesText,
   type InventorySlipView,
 } from './slipContent';
@@ -110,7 +110,7 @@ export async function slipToExcelBuffer(slip: InventorySlipView) {
   centered(totalRow.getCell(3));
   totalRow.getCell(10).numFmt = AMOUNT_FORMAT;
 
-  const summaryRow = (left: string, label: string, amount: number) => {
+  const summaryRow = (left: string, label: string, amount: number | null) => {
     const excelRow = tableRow([left, '', '', '', '', '', label, '', '', amount]);
     sheet.mergeCells(row - 1, 1, row - 1, 6);
     sheet.mergeCells(row - 1, 7, row - 1, 9);
@@ -122,7 +122,7 @@ export async function slipToExcelBuffer(slip: InventorySlipView) {
   summaryRow('', 'Tổng tiền thanh toán:', slip.paymentAmount);
 
   row += 1;
-  text(`- Số tiền bằng chữ: ${moneyInWords(slip.paymentAmount)}`);
+  text(`- Số tiền bằng chữ: ${paymentInWords(slip)}`);
   row += 1;
   text(ORIGINAL_DOCUMENTS_LINE);
   row += 1;

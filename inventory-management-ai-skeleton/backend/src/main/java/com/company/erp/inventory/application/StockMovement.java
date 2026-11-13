@@ -37,6 +37,11 @@ public record StockMovement(
     public enum OutRule {
         /** Xuất bán / nội bộ: chỉ ĐẠT, chưa hết hạn, không khóa; kiểm tra tồn khả dụng (BR-INV-20, BR-INV-23). */
         SELLABLE,
+        /**
+         * Xuất bán / nội bộ theo lô / serial chỉ định (D-80): như {@link #SELLABLE} nhưng nhận cả lô đã hết hạn; phần
+         * lấy từ lô hết hạn không thuộc tồn bán được nên không trừ vào tồn khả dụng.
+         */
+        SELLABLE_SPECIFIED,
         /** Xuất hủy: CÁCH LY, KHÔNG ĐẠT, HẾT HẠN, THU HỒI, hoặc lô đã quá hạn (BR-INV-23, BR-INV-33). */
         DISPOSABLE,
         /** Điều chỉnh, chuyển trạng thái, đảo: đúng trạng thái đã chỉ định, chỉ kiểm tra không âm. */

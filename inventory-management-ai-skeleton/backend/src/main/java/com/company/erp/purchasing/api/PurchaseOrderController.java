@@ -78,10 +78,12 @@ public class PurchaseOrderController {
             @RequestParam(required = false) Long warehouseId,
             @RequestParam(required = false) PurchaseDocumentStatus status,
             @RequestParam(required = false) LocalDate dateFrom, @RequestParam(required = false) LocalDate dateTo,
+            @RequestParam(required = false) LocalDate postingDateFrom,
+            @RequestParam(required = false) LocalDate postingDateTo,
             @RequestParam(required = false) String keyword, Pageable pageable) {
-        return ApiResponse.ok(PageResponse.from(service.search(user, new PurchaseOrderService.OrderFilter(companyId, branchId,
-                status, supplierId, warehouseId,
-                dateFrom, dateTo, keyword), pageable), Function.identity()));
+        return ApiResponse.ok(PageResponse.from(service.search(user, new PurchaseOrderService.OrderFilter(companyId,
+                branchId, status, supplierId, warehouseId, dateFrom, dateTo, postingDateFrom, postingDateTo, keyword),
+                pageable), Function.identity()));
     }
 
     @GetMapping("/{id}")

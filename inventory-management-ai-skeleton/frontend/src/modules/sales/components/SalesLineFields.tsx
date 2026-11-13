@@ -59,7 +59,7 @@ export function SalesLinesEditor<T extends { lines?: SalesLineForm[]; customerId
         <LineGrid
           columns={columns}
           minWidth={withExpectedDate ? 2000 : 1870}
-          onAdd={() => add({ quantity: 1, unitPrice: 0 })}
+          onAdd={(index) => add({ quantity: 1, unitPrice: 0 }, index)}
           actions={actions}
         >
           {fields.map((field) => (

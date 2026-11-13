@@ -1,5 +1,4 @@
 import type { CSSProperties } from 'react';
-import { moneyInWords } from '../moneyWords';
 import {
   AMOUNT_DIGITS,
   formatDecimal as decimal,
@@ -11,9 +10,12 @@ import {
   SIGN_HINT,
   SLIP_COLUMN_KEYS as COLUMN_KEYS,
   SLIP_COLUMNS as COLUMNS,
+  paymentInWords,
   taxRatesText,
+  withoutPrices,
   type InventorySlipView,
 } from '../inventorySlip/slipContent';
+import { useFinancialPosting } from '../ui/postingMode';
 
 export type { InventorySlipView, SlipLineView } from '../inventorySlip/slipContent';
 
@@ -31,8 +33,9 @@ function Stacked({ values }: { values: string[] }) {
   );
 }
 
-/** Bố cục in chung cho phiếu nhập kho, phiếu xuất kho (BR-PUR-08, BR-SAL-21). */
-export function InventorySlipLayout({ slip }: { slip: InventorySlipView }) {
+/** Bố cục in chung cho phiếu nhập kho, phiếu xuất kho (BR-PUR-08, BR-SAL-21); chỉ quản lý kho thì để trống phần giá (D-73). */
+export function InventorySlipLayout({ slip: source }: { slip: InventorySlipView }) {
+  const slip = useFinancialPosting() ? source : withoutPrices(source);
   return (
     <div style={PAGE}>
       <div style={{ fontWeight: 'bold' }}>{slip.companyName}</div>
@@ -132,7 +135,7 @@ export function InventorySlipLayout({ slip }: { slip: InventorySlipView }) {
       <div style={{ marginTop: 12, lineHeight: 1.8 }}>
         <div>
           - Số tiền bằng chữ:{' '}
-          <strong style={{ fontStyle: 'italic' }}>{moneyInWords(slip.paymentAmount)}</strong>
+          <strong style={{ fontStyle: 'italic' }}>{paymentInWords(slip)}</strong>
         </div>
         <div>{ORIGINAL_DOCUMENTS_LINE}</div>
       </div>

@@ -48,7 +48,7 @@ public class SalesReceiptSourceService {
                 .map(source -> new ReceiptSourceResponse(source.transactionId(), source.documentType(),
                         source.documentId(), source.documentNo(), source.postingDate(), source.lotNo(),
                         source.expiryDate(), source.serialNo(), source.receivedQuantity(), source.unitCost(),
-                        source.availableQuantity()))
+                        source.availableQuantity(), source.expired()))
                 .toList();
     }
 

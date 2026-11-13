@@ -14,6 +14,7 @@ function source(overrides: Partial<ReceiptSource>): ReceiptSource {
     receivedQuantity: 10,
     unitCost: 50000,
     availableQuantity: 10,
+    expired: false,
     ...overrides,
   };
 }

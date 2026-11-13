@@ -3,7 +3,8 @@ import { App, Button, Dropdown } from 'antd';
 import type { MenuProps } from 'antd';
 import { useState } from 'react';
 import { toApiError } from '../api/apiError';
-import { saveBlob, slipFileName, type InventorySlipView } from './slipContent';
+import { saveBlob, slipFileName, withoutPrices, type InventorySlipView } from './slipContent';
+import { useFinancialPosting } from '../ui/postingMode';
 import { useUiAction } from '../ui/uiFeatures';
 
 type Format = 'xlsx' | 'docx' | 'pdf';
@@ -28,13 +29,16 @@ const ITEMS: MenuProps['items'] = [
 export function SlipDownloadButton({ load }: { load(): Promise<InventorySlipView> }) {
   const { message } = App.useApp();
   const [busy, setBusy] = useState(false);
+  const financial = useFinancialPosting();
   const items = useUiAction('excel-export') ? ITEMS : ITEMS?.filter((item) => item?.key !== 'xlsx');
 
   const download: MenuProps['onClick'] = async ({ key }) => {
     const format = key as Format;
     setBusy(true);
     try {
-      const slip = await load();
+      const loaded = await load();
+      // D-73: chỉ quản lý kho thì file tải về cũng để trống phần giá như bản in.
+      const slip = financial ? loaded : withoutPrices(loaded);
       saveBlob(await BUILDERS[format](slip), slipFileName(slip, format));
     } catch (error) {
       message.error(toApiError(error).message || 'Không tạo được file, vui lòng thử lại.');

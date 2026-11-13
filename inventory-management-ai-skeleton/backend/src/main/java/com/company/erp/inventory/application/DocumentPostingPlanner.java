@@ -196,7 +196,13 @@ class DocumentPostingPlanner {
                     status == QualityStatus.PASSED ? null : status);
         }
         return issue(document, line, product, SALE.equals(document.getSubType()) ? TransactionType.SALES_ISSUE
-                : TransactionType.INTERNAL_ISSUE, StockMovement.OutRule.SELLABLE, null);
+                : TransactionType.INTERNAL_ISSUE, sellableRule(line, product), null);
+    }
+
+    /** D-80: dòng chỉ định lô / serial được xuất cả lô đã hết hạn; dòng để kho chọn (FEFO) vẫn bỏ qua lô hết hạn. */
+    private static StockMovement.OutRule sellableRule(InventoryDocumentLine line, ProductInfo product) {
+        return line.getLotId() != null || product.serialTracked() ? StockMovement.OutRule.SELLABLE_SPECIFIED
+                : StockMovement.OutRule.SELLABLE;
     }
 
     private static TransactionType receiptType(InventoryDocument document) {

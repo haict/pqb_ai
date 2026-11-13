@@ -93,7 +93,20 @@ httpClient.interceptors.response.use(
  * Tạo một lần khi người dùng mở thao tác; dùng lại cùng key khi gửi lại thao tác đó.
  */
 export function newIdempotencyKey(): string {
-  return crypto.randomUUID();
+  // randomUUID chỉ có ở secure context (HTTPS, localhost); máy client mở HTTP qua IP nội bộ thì tự sinh UUID v4.
+  if (typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return uuidV4FromRandomBytes(crypto.getRandomValues(new Uint8Array(16)));
+}
+
+/** UUID v4 (RFC 4122) từ 16 byte ngẫu nhiên. */
+export function uuidV4FromRandomBytes(bytes: Uint8Array): string {
+  const octets = Array.from(bytes);
+  octets[6] = ((octets[6] ?? 0) & 0x0f) | 0x40;
+  octets[8] = ((octets[8] ?? 0) & 0x3f) | 0x80;
+  const hex = octets.map((octet) => octet.toString(16).padStart(2, '0')).join('');
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`;
 }
 
 export function isApiError(error: unknown): error is ApiError {

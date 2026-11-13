@@ -14,6 +14,7 @@ const source = (id: number, lotId: number, serialNo: string | null): ReceiptSour
   unitCost: 1000,
   availableQuantity: 10,
   lotId,
+  expired: false,
 });
 
 describe('issueLinesFromReceipts (D-79)', () => {

@@ -336,6 +336,11 @@ Hạn chế: chưa có test bỏ ghi sổ khi kỳ gốc đã khóa (dùng chung
 |---|---|---|---|---|
 | F8 / nút cạnh ô Lô xuất trên dòng phiếu xuất kho lập tay: chọn chứng từ nhập còn tồn tại kho của dòng, mỗi lô thành một dòng | D-79 | Hoàn thành, chưa thử trên trình duyệt | `InventoryIntegrationTest.receiptSourcesForIssue`; `receiptPicks.test.ts` | Chỉ phiếu xuất kho (PXK); danh sách chỉ hàng ĐẠT, lô chưa hết hạn nên không dùng cho xuất hủy `[Giả định]` |
 
+## D-80 - Xuất đích danh lô đã hết hạn (2026-11-12)
+| Chức năng | Mã | Trạng thái | Test | Ghi chú |
+|---|---|---|---|---|
+| F8 trên dòng đơn bán và phiếu xuất kho lập tay liệt kê cả lô hết hạn (nhãn "Hết hạn"); dòng chỉ định lô / serial ghi sổ được lô hết hạn, không trừ tồn khả dụng; dòng không chỉ định lô vẫn FEFO bỏ qua lô hết hạn | D-80, BR-INV-04 | Hoàn thành, chưa thử trên trình duyệt | `InventoryIntegrationTest.issueSpecifiedExpiredLot`; `SalesReceiptSourceIntegrationTest.pickExpiredReceiptSource` | Khách có hạn dùng còn lại tối thiểu (D-07) vẫn bị chặn khi ghi sổ đơn bán; chuyển kho, trả NCC, giữ hàng vẫn loại lô hết hạn |
+
 ## Sao chép đơn mua / đơn bán (2026-10-21, chỉ frontend)
 | Chức năng | Mã | Trạng thái | Test | Ghi chú |
 |---|---|---|---|---|
@@ -361,6 +366,7 @@ Hạn chế: nút "Xóa" vẫn hiện trên đơn nháp đã từng ghi sổ (re
 |---|---|---|---|---|
 | `posting.mode` + `PostingModeService`, `GET /posting-mode`; ghi sổ đơn mua / đơn bán chỉ kho; `financial_posted`; bỏ ghi sổ / đảo / trả hàng theo cờ; đơn giá trống = 0; bỏ kiểm tra giá, tín dụng; phân bổ chi phí 422 | D-73 | Hoàn thành | `SalesInventoryOnlyIntegrationTest` (2 test: chỉ kho, đổi chế độ giữa chừng), `PurchaseInventoryOnlyIntegrationTest` (1 test) | Chưa có test tự động cho trả hàng / giảm giá và phân bổ chi phí ở `INVENTORY_ONLY`; không chặn API công nợ / kế toán / thu chi (theo yêu cầu, chỉ ẩn menu); chưa có đánh giá lại giá trị tồn khi chuyển sang `FULL` |
 | Frontend: tự ẩn menu tài chính, chỉ tiêu tiền trên dashboard; nhập - xuất - tồn chỉ số lượng; đơn giá không bắt buộc, không lấy bảng giá | D-73 | Hoàn thành, chưa thử trên trình duyệt | `postingMode.test.ts` (2), `inventoryReports.test.ts` (1 test D-73) | Màn hình chứng từ kho vẫn hiện đơn giá vốn (0) |
+| Frontend: mẫu in và file tải về (Excel, Word, PDF) phiếu nhập kho / phiếu xuất kho để trống đơn giá, thành tiền, thuế suất, tiền thuế, tổng thanh toán, số tiền bằng chữ (2026-11-12) | D-73 | Hoàn thành, chưa thử trên trình duyệt | `slipExport.test.ts` (3 test D-73) | Ẩn ở tầng hiển thị; API phiếu vẫn trả số tiền. Tài khoản Nợ / Có vẫn in |
 
 ## D-72 - Tùy biến giao diện theo khách hàng (2026-11-06, V43)
 | Hạng mục | Mã | Trạng thái | Test chứng minh | Hạn chế đã biết |

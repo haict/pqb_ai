@@ -86,9 +86,12 @@ public class SalesOrderController {
             @RequestParam(required = false) Long customerId,
             @RequestParam(required = false) SalesDocumentStatus status,
             @RequestParam(required = false) LocalDate dateFrom, @RequestParam(required = false) LocalDate dateTo,
+            @RequestParam(required = false) LocalDate postingDateFrom,
+            @RequestParam(required = false) LocalDate postingDateTo,
             @RequestParam(required = false) String keyword, Pageable pageable) {
         return ApiResponse.ok(PageResponse.from(service.search(user, new SalesOrderService.OrderFilter(companyId,
-                branchId, status, customerId, dateFrom, dateTo, keyword), pageable), Function.identity()));
+                branchId, status, customerId, dateFrom, dateTo, postingDateFrom, postingDateTo, keyword), pageable),
+                Function.identity()));
     }
 
     @GetMapping("/{id}")

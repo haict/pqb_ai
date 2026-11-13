@@ -161,6 +161,27 @@ body {
   padding-right: 4px;
 }
 
+/*
+ * Bảng dòng chứng từ (LineGrid): cột STT và cột đầu tiên (hàng hóa / dòng nguồn) đứng yên khi kéo ngang.
+ * Bóng phải che khe gap 4px để chữ cột khác không lộ qua khi cuộn. Biến CSS do LineGrid.tsx đặt.
+ */
+.line-grid-cells > :nth-child(1),
+.line-grid-cells > :nth-child(2) {
+  position: sticky;
+  z-index: 1;
+  background: var(--line-grid-bg, #fff);
+}
+.line-grid-cells > :nth-child(1) {
+  left: 0;
+  box-shadow: 4px 0 0 0 var(--line-grid-bg, #fff);
+}
+.line-grid-cells > :nth-child(2) {
+  left: var(--line-grid-second-left, 40px);
+  box-shadow:
+    4px 0 0 0 var(--line-grid-bg, #fff),
+    8px 0 6px -4px rgba(5, 5, 5, 0.12);
+}
+
 /* In báo giá, biên bản giao nhận (BR-SAL-04, BR-SAL-22): chỉ in vùng .print-area. */
 @media print {
   body * {

@@ -176,7 +176,7 @@ public class InventoryPostingService {
 
     private List<Allocation> allocate(StockMovement movement, PostingCommand command) {
         Set<QualityStatus> statuses = switch (movement.outRule()) {
-            case SELLABLE -> Set.of(QualityStatus.PASSED);
+            case SELLABLE, SELLABLE_SPECIFIED -> Set.of(QualityStatus.PASSED);
             case DISPOSABLE -> Set.of();
             case EXACT_STATUS -> Set.of(Objects.requireNonNull(movement.qualityStatus(), "qualityStatus"));
         };
@@ -203,6 +203,7 @@ public class InventoryPostingService {
     private boolean matchesRule(LockedBalance balance, StockMovement.OutRule rule, LocalDate postingDate) {
         return switch (rule) {
             case SELLABLE -> isSellable(balance, postingDate);
+            case SELLABLE_SPECIFIED -> isSellableIgnoringExpiry(balance);
             case DISPOSABLE -> DISPOSABLE_STATUSES.contains(balance.key().qualityStatus())
                     || (balance.expiryDate() != null && balance.expiryDate().isBefore(postingDate));
             case EXACT_STATUS -> true;
@@ -210,9 +211,16 @@ public class InventoryPostingService {
     }
 
     private static boolean isSellable(LockedBalance balance, LocalDate postingDate) {
+        return isSellableIgnoringExpiry(balance) && !isExpired(balance, postingDate);
+    }
+
+    private static boolean isSellableIgnoringExpiry(LockedBalance balance) {
         return balance.key().qualityStatus() == QualityStatus.PASSED && !balance.lotBlocked()
-                && !balance.serialBlocked()
-                && (balance.expiryDate() == null || !balance.expiryDate().isBefore(postingDate));
+                && !balance.serialBlocked();
+    }
+
+    private static boolean isExpired(LockedBalance balance, LocalDate postingDate) {
+        return balance.expiryDate() != null && balance.expiryDate().isBefore(postingDate);
     }
 
     /** Lỗi thiếu tồn rõ nguyên nhân: lô hết hạn, lô / serial không bán được, chứng từ phụ thuộc khi đảo, hay thiếu số. */
@@ -226,12 +234,12 @@ public class InventoryPostingService {
             return new BusinessException(ErrorCode.HAS_DEPENDENT_DOCUMENTS, "Hàng của chứng từ gốc đã được xuất "
                     + "bởi chứng từ khác; phải đảo các chứng từ này trước: " + String.join(", ", dependents));
         }
-        if (movement.outRule() == StockMovement.OutRule.SELLABLE && (movement.lotId() != null
+        boolean specified = movement.outRule() == StockMovement.OutRule.SELLABLE_SPECIFIED;
+        if ((movement.outRule() == StockMovement.OutRule.SELLABLE || specified) && (movement.lotId() != null
                 || movement.serialId() != null)) {
             List<LockedBalance> any = ledger.lockCandidates(movement.productId(), movement.warehouseId(),
                     movement.locationId(), movement.lotId(), movement.serialId(), Set.of());
-            if (any.stream().anyMatch(balance -> balance.expiryDate() != null
-                    && balance.expiryDate().isBefore(command.postingDate()))) {
+            if (!specified && any.stream().anyMatch(balance -> isExpired(balance, command.postingDate()))) {
                 return new BusinessException(ErrorCode.LOT_EXPIRED, "Lô đã hết hạn, không xuất bán / sử dụng (BR-INV-04).");
             }
             if (!any.isEmpty() && found.signum() == 0) {
@@ -252,7 +260,7 @@ public class InventoryPostingService {
                                    PostingCommand command) {
         Map<ProductWarehouse, BigDecimal> sellableOut = new TreeMap<>();
         outs.stream()
-                .filter(allocation -> allocation.movement().outRule() == StockMovement.OutRule.SELLABLE)
+                .filter(allocation -> consumesSellable(allocation, command.postingDate()))
                 .forEach(allocation -> sellableOut.merge(pw(allocation.balance().key()), allocation.quantity(),
                         BigDecimal::add));
         for (Map.Entry<ProductWarehouse, BigDecimal> entry : sellableOut.entrySet()) {
@@ -274,6 +282,15 @@ public class InventoryPostingService {
                     .orElseThrow(() -> BusinessException.invalidField("issuePolicyId", "Chính sách không tồn tại."));
             policy.consume(command.referenceId(), key.warehouseId(), key.productId(), command.postingDate(), excess);
         }
+    }
+
+    /** Phần lấy từ tồn bán được (ĐẠT, còn hạn); lô hết hạn xuất theo chỉ định (D-80) nằm ngoài tồn khả dụng. */
+    private static boolean consumesSellable(Allocation allocation, LocalDate postingDate) {
+        return switch (allocation.movement().outRule()) {
+            case SELLABLE -> true;
+            case SELLABLE_SPECIFIED -> !isExpired(allocation.balance(), postingDate);
+            case DISPOSABLE, EXACT_STATUS -> false;
+        };
     }
 
     private void lockSerials(PostingCommand command, List<Allocation> outs) {

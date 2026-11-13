@@ -5,7 +5,8 @@ import java.time.LocalDate;
 
 /**
  * Chứng từ nhập còn tồn để chọn cho dòng đơn bán (D-63, F8): dòng nhập theo lô / serial, số lượng theo đơn vị cơ sở;
- * {@code availableQuantity} là tồn ĐẠT hiện có của lô / serial tại kho (lô nhập nhiều lần dùng chung tồn).
+ * {@code availableQuantity} là tồn ĐẠT hiện có của lô / serial tại kho (lô nhập nhiều lần dùng chung tồn);
+ * {@code expired}: lô đã hết hạn, vẫn chọn được để xuất đích danh (D-80).
  */
 public record ReceiptSourceResponse(
         Long transactionId,
@@ -18,5 +19,6 @@ public record ReceiptSourceResponse(
         String serialNo,
         BigDecimal receivedQuantity,
         BigDecimal unitCost,
-        BigDecimal availableQuantity) {
+        BigDecimal availableQuantity,
+        boolean expired) {
 }

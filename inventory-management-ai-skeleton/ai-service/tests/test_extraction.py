@@ -101,3 +101,46 @@ def test_numeric_field_contract():
     assert field.status == FieldStatus.OK
     assert field.page == 1 and len(field.box) == 4
     assert field.matchKey is None
+
+
+def _token(text: str, x1: int, x2: int, y: int):
+    from app.ocr.engine import Token
+    return Token(text=text, score=0.99, box=(x1, y, x2, y + 30), poly=((x1, y), (x2, y), (x2, y + 30), (x1, y + 30)),
+                 page=1)
+
+
+def test_english_lot_and_date_headers_without_stt():
+    # Bảng NCC nước ngoài (Glenbio): không có STT, tiêu đề "LOT" / "date" thay cho "Số lô" / "Hạn dùng".
+    columns = ((375, 660), (666, 1620), (1620, 1800), (1800, 2079), (2079, 2355))
+    rows = (("Mã hàng", "Tên hàng", "số lượng", "LOT", "date"),
+            ("GLAU2204", "HbA1c 4x14ml, 4x6ml, 4x9ml, 4x32ml", "5", "A058", "31/10/2027"),
+            ("GLM406", "CK MB 3x35ml 2x10ml", "2", "9991", "31/12/2027"))
+    tokens = [_token(text, x1, x2, 300 + 40 * r) for r, row in enumerate(rows) for text, (x1, x2) in zip(row, columns)]
+    lines = extract(tokens, SPECS[DocumentType.PURCHASE_ORDER], POLICY).lines
+    assert [(l["code"].value, l["quantity"].value, l["lotNo"].value, l["expiryDate"].value) for l in lines] == [
+        ("GLAU2204", "5", "A058", "2027-10-31"), ("GLM406", "2", "9991", "2027-12-31")]
+
+
+def test_short_headers_ma_ten_with_warehouse_column_on_sales_order():
+    # Bảng kê xuất (Glenbio): tiêu đề chỉ "Mã" / "Tên", có cột "KHO XUẤT", "ĐVT chính" hai dòng, không STT.
+    columns = ((30, 165), (170, 990), (995, 1270), (1275, 1410), (1415, 1580), (1585, 1675), (1680, 1770))
+    header = ("Mã", "Tên", "KHO XUẤT", "LOT", "DATE", None, "Số lượng")
+    rows = (("GDOA9613", "ALCOHOL CALIBRATOR Hộp/ R1: 1x5ml, R2: 1x5ml (Glenbio/Anh)", "SINH HÓA", "9813",
+             "30/05/2027", "Hộp", "2.0"),
+            ("H031111 N", "BloodTrol 3D (N) Bộ/3 lọ x 3ml (SFRI SAS/ Pháp)", "SINH HÓA", None, "ĐANG BAY", "Lọ",
+             "8.0"),
+            ("GL8S304", "CRP (6x20ml 6x4ml)", "SINH HÓA", None, None, "Hộp", "2.0"))
+    tokens = [_token(text, x1, x2, 60) for text, (x1, x2) in zip(header, columns) if text]
+    tokens += [_token("ĐVT", 1590, 1650, 42), _token("chính", 1590, 1660, 78)]
+    tokens += [_token(text, x1, x2, 120 + 40 * r) for r, row in enumerate(rows)
+               for text, (x1, x2) in zip(row, columns) if text]
+    result = extract(tokens, SPECS[DocumentType.SALES_ORDER], POLICY)
+    assert [(l["code"].value, l["unit"].value, l["quantity"].value, l["lotNo"].value, l["expiryDate"].value)
+            for l in result.lines] == [("GDOA9613", "Hộp", "2", "9813", "2027-05-30"),
+                                        ("H031111 N", "Lọ", "8", None, None),
+                                        ("GL8S304", "Hộp", "2", None, None)]
+    assert result.lines[0]["name"].value.startswith("ALCOHOL CALIBRATOR")
+    # Tiêu đề cột và hạn dùng trong bảng không bị lấy làm khách hàng / ngày đơn.
+    assert result.header["partnerName"].value is None
+    assert result.header["documentDate"].value is None
+    assert result.warnings == []

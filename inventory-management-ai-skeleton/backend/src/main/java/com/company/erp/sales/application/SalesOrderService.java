@@ -73,8 +73,10 @@ public class SalesOrderService {
     private static final Set<SalesDocumentStatus> NOT_POSTED = EnumSet.of(SalesDocumentStatus.DRAFT,
             SalesDocumentStatus.SUBMITTED, SalesDocumentStatus.REJECTED, SalesDocumentStatus.APPROVED);
 
+    /** {@code postingDateFrom}, {@code postingDateTo}: ngày hạch toán = ngày xuất kho của đơn (D-54). */
     public record OrderFilter(Long companyId, Long branchId, SalesDocumentStatus status, Long customerId,
-                              LocalDate dateFrom, LocalDate dateTo, String keyword) {
+                              LocalDate dateFrom, LocalDate dateTo, LocalDate postingDateFrom,
+                              LocalDate postingDateTo, String keyword) {
     }
 
     private final SalesOrderRepository repository;
@@ -121,8 +123,14 @@ public class SalesOrderService {
     public Page<SalesOrderResponse> search(CurrentUser actor, OrderFilter filter, Pageable pageable) {
         Page<SalesOrder> page = flow.search(actor, VIEW, repository, new SalesDocumentFlow.Filter<SalesOrder>(
                 filter.companyId(), filter.branchId(), filter.status(), filter.dateFrom(), filter.dateTo(),
-                filter.keyword(), (root, query, cb) -> filter.customerId() == null ? cb.conjunction()
-                : cb.equal(root.get("customerId"), filter.customerId())), pageable);
+                filter.keyword(), (root, query, cb) -> cb.and(
+                        filter.customerId() == null ? cb.conjunction()
+                                : cb.equal(root.get("customerId"), filter.customerId()),
+                        filter.postingDateFrom() == null ? cb.conjunction()
+                                : cb.greaterThanOrEqualTo(root.<LocalDate>get("postingDate"), filter.postingDateFrom()),
+                        filter.postingDateTo() == null ? cb.conjunction()
+                                : cb.lessThanOrEqualTo(root.<LocalDate>get("postingDate"), filter.postingDateTo()))),
+                pageable);
         Map<Long, PartnerInfo> customers = access.partners(page.getContent().stream()
                 .map(SalesOrder::getCustomerId).toList());
         Map<Long, UserRef> users = access.users(page.getContent().stream().map(SalesOrder::getSalesUserId).toList());

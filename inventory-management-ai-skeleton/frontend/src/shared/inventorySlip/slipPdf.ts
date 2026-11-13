@@ -1,5 +1,4 @@
 import type { Content, TableCell, TDocumentDefinitions } from 'pdfmake/interfaces';
-import { moneyInWords } from '../moneyWords';
 import {
   AMOUNT_DIGITS,
   formatDecimal,
@@ -12,13 +11,14 @@ import {
   SIGN_HINT,
   SLIP_COLUMN_KEYS,
   SLIP_COLUMNS,
+  paymentInWords,
   taxRatesText,
   type InventorySlipView,
 } from './slipContent';
 
 const COLUMN_WIDTHS = [18, 45, '*', 48, 48, 32, 30, 46, 56, 62];
 
-function summaryRow(left: string, label: string, amount: number): TableCell[] {
+function summaryRow(left: string, label: string, amount: number | null): TableCell[] {
   return [
     { text: left, colSpan: 6 },
     '',
@@ -36,7 +36,7 @@ function summaryRow(left: string, label: string, amount: number): TableCell[] {
 function linesTable(slip: InventorySlipView): Content {
   const header = (labels: string[]): TableCell[] =>
     labels.map((label) => ({ text: label, bold: true, alignment: 'center' }));
-  const right = (value: number, digits: number): TableCell => ({
+  const right = (value: number | null, digits: number): TableCell => ({
     text: formatDecimal(value, digits),
     alignment: 'right',
   });
@@ -112,7 +112,7 @@ export function slipPdfDefinition(slip: InventorySlipView): TDocumentDefinitions
       linesTable(slip),
       {
         margin: [0, 10, 0, 0],
-        text: ['- Số tiền bằng chữ: ', { text: moneyInWords(slip.paymentAmount), bold: true, italics: true }],
+        text: ['- Số tiền bằng chữ: ', { text: paymentInWords(slip), bold: true, italics: true }],
       },
       { text: ORIGINAL_DOCUMENTS_LINE, margin: [0, 4, 0, 0] },
       { text: SIGN_DATE_LINE, italics: true, alignment: 'right', margin: [0, 8, 0, 4] },

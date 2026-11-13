@@ -479,7 +479,7 @@ function ReturnFields({
             <LineGrid
               columns={columns}
               minWidth={goods ? 1100 : 800}
-              onAdd={() => add({})}
+              onAdd={(index) => add({}, index)}
               actions={
                 <Button icon={<PlusOutlined />} disabled={sources.length === 0} onClick={addAll}>
                   Thêm mọi dòng còn lại

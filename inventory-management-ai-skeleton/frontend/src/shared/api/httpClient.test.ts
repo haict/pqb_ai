@@ -5,7 +5,7 @@ import {
   type AxiosResponse,
   type InternalAxiosRequestConfig,
 } from 'axios';
-import { authClient, httpClient } from './httpClient';
+import { authClient, httpClient, newIdempotencyKey, uuidV4FromRandomBytes } from './httpClient';
 import { sessionStore } from '../auth/sessionStore';
 
 function response(config: InternalAxiosRequestConfig, status: number, data: unknown): AxiosResponse {
@@ -93,5 +93,26 @@ describe('httpClient', () => {
     await httpClient.get('/x');
 
     expect(branchHeader).toBe('2');
+  });
+});
+
+describe('newIdempotencyKey', () => {
+  const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+
+  it('ghép UUID v4 đúng phiên bản, biến thể từ 16 byte', () => {
+    expect(uuidV4FromRandomBytes(new Uint8Array(16).fill(0xff))).toBe('ffffffff-ffff-4fff-bfff-ffffffffffff');
+    expect(uuidV4FromRandomBytes(new Uint8Array(16))).toBe('00000000-0000-4000-8000-000000000000');
+  });
+
+  it('HTTP qua IP (không có crypto.randomUUID) vẫn sinh key, không lỗi', () => {
+    const original = crypto.randomUUID;
+    Object.defineProperty(crypto, 'randomUUID', { value: undefined, configurable: true });
+    try {
+      const first = newIdempotencyKey();
+      expect(first).toMatch(UUID_V4);
+      expect(newIdempotencyKey()).not.toBe(first);
+    } finally {
+      Object.defineProperty(crypto, 'randomUUID', { value: original, configurable: true });
+    }
   });
 });

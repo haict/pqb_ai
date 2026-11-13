@@ -12,19 +12,21 @@ from app.ocr.normalize import is_integer, parse_number
 
 LINE_COLUMNS = ("code", "name", "unit", "quantity", "unitPrice", "discountPercent", "taxRate", "amount", "lotNo",
                 "expiryDate")
-# Cột có trên chứng từ nhưng form không dùng: đơn giá sau thuế, số lượng quy đổi, kho xuất ("Từ").
+# Cột có trên chứng từ nhưng form không dùng: đơn giá sau thuế, số lượng quy đổi, kho xuất ("Từ", "Kho xuất").
 IGNORED = "ignored"
 _NUMERIC = frozenset(("quantity", "unitPrice", "discountPercent", "taxRate", "amount"))
 
 # Thứ tự kiểm tra quan trọng: "Thành tiền chưa thuế" phải vào amount trước khi xét taxRate.
 _COLUMN_RULES = (
     ("stt", re.compile(r"^stt")),
-    (IGNORED, re.compile(r"gia sau thu|^sl quy|^tu$")),
+    (IGNORED, re.compile(r"gia sau thu|^sl quy|^tu$|^kho\b")),
     ("amount", re.compile(r"^thanh\b|^ti\w*n$")),
-    ("lotNo", re.compile(r"^(m\w?|s\w?) (lo|l0|16)\b|^lo\b")),
-    ("expiryDate", re.compile(r"^h\w*n (sd|s\w* d|d\w*ng)|^hsd\b")),
-    ("code", re.compile(r"^m\w? hang")),
-    ("name", re.compile(r"^t\w*n hang|hang hoa|d\w*ch v|^di\w*n g\w*i|^s\w*n ph")),
+    # Chứng từ NCC nước ngoài dùng tiêu đề tiếng Anh: "LOT", "Lot No", "Batch"; "date" / "Exp" là hạn dùng.
+    ("lotNo", re.compile(r"^(m\w?|s\w?) (lo|l0|16)\b|^lo\b|^l[o0]t\b|^batch\b")),
+    ("expiryDate", re.compile(r"^h\w*n (sd|s\w* d|d\w*ng)|^hsd\b|^exp\w*\b|^date$")),
+    # Bảng kê rút gọn chỉ ghi "Mã" / "Tên" (cả ô, không kèm chữ khác).
+    ("code", re.compile(r"^m\w? hang|^ma$")),
+    ("name", re.compile(r"^t\w*n hang|hang hoa|d\w*ch v|^di\w*n g\w*i|^s\w*n ph|^ten$")),
     ("unit", re.compile(r"^dvt|^d\w*n v\w* tinh|^tinh$|^d\w*n v\w*$")),
     ("quantity", re.compile(r"^s\w?$|^so\b|^s\w? l\w*ng|^l\w*ng$|\bl\w*ng$")),
     ("unitPrice", re.compile(r"gia\b|^d\w* g\w*a$")),

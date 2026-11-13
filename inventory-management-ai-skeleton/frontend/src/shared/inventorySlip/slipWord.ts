@@ -10,7 +10,6 @@ import {
   TextRun,
   WidthType,
 } from 'docx';
-import { moneyInWords } from '../moneyWords';
 import {
   AMOUNT_DIGITS,
   formatDecimal,
@@ -23,6 +22,7 @@ import {
   SIGN_HINT,
   SLIP_COLUMN_KEYS,
   SLIP_COLUMNS,
+  paymentInWords,
   taxRatesText,
   type InventorySlipView,
 } from './slipContent';
@@ -126,7 +126,7 @@ function linesTable(slip: InventorySlipView) {
         cell(label, { bold: true, align: AlignmentType.CENTER, width: COLUMN_WIDTHS[index] }),
       ),
     });
-  const summary = (left: string, label: string, amount: number) =>
+  const summary = (left: string, label: string, amount: number | null) =>
     new TableRow({
       children: [
         cell(left, { columnSpan: 6, width: spanWidth(0, 6) }),
@@ -217,7 +217,7 @@ export function slipToWordDocument(slip: InventorySlipView) {
           ...slip.infoRows.map((info) => paragraph(`- ${info}`)),
           linesTable(slip),
           paragraph(''),
-          paragraph(`- Số tiền bằng chữ: ${moneyInWords(slip.paymentAmount)}`),
+          paragraph(`- Số tiền bằng chữ: ${paymentInWords(slip)}`),
           paragraph(ORIGINAL_DOCUMENTS_LINE),
           paragraph(SIGN_DATE_LINE, { italic: true, align: AlignmentType.RIGHT }),
           signersTable(slip),

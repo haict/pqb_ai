@@ -51,8 +51,10 @@ public class PurchaseOrderService {
     static final String ENTITY = "PURCHASE_ORDER";
     static final String DOMESTIC_CURRENCY = "VND";
 
+    /** {@code postingDateFrom}, {@code postingDateTo}: ngày hạch toán = ngày nhập kho của đơn (D-54). */
     public record OrderFilter(Long companyId, Long branchId, PurchaseDocumentStatus status, Long supplierId,
-                              Long warehouseId, LocalDate dateFrom, LocalDate dateTo, String keyword) {
+                              Long warehouseId, LocalDate dateFrom, LocalDate dateTo, LocalDate postingDateFrom,
+                              LocalDate postingDateTo, String keyword) {
     }
 
     private final PurchaseOrderRepository repository;
@@ -82,7 +84,11 @@ public class PurchaseOrderService {
                         filter.supplierId() == null ? cb.conjunction()
                                 : cb.equal(root.get("supplierId"), filter.supplierId()),
                         filter.warehouseId() == null ? cb.conjunction()
-                                : hasLineWarehouse(root, query, cb, filter.warehouseId()))),
+                                : hasLineWarehouse(root, query, cb, filter.warehouseId()),
+                        filter.postingDateFrom() == null ? cb.conjunction()
+                                : cb.greaterThanOrEqualTo(root.<LocalDate>get("postingDate"), filter.postingDateFrom()),
+                        filter.postingDateTo() == null ? cb.conjunction()
+                                : cb.lessThanOrEqualTo(root.<LocalDate>get("postingDate"), filter.postingDateTo()))),
                 pageable);
         Map<Long, PartnerInfo> suppliers = access.partners(page.getContent().stream()
                 .map(PurchaseOrder::getSupplierId).toList());

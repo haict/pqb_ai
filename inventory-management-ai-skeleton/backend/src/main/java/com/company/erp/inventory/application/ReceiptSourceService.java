@@ -32,12 +32,12 @@ public class ReceiptSourceService {
 
     /**
      * Dòng nhập còn tồn; số lượng theo đơn vị cơ sở, {@code availableQuantity} là tồn ĐẠT của lô / serial tại kho;
-     * {@code lotId}: lô để chứng từ kho xuất đích danh (D-79).
+     * {@code lotId}: lô để chứng từ kho xuất đích danh (D-79); {@code expired}: lô đã hết hạn, vẫn chọn được (D-80).
      */
     public record ReceiptSource(Long transactionId, String documentType, Long documentId, String documentNo,
                                 LocalDate postingDate, String lotNo, LocalDate expiryDate, String serialNo,
                                 BigDecimal receivedQuantity, BigDecimal unitCost, BigDecimal availableQuantity,
-                                Long lotId) {
+                                Long lotId, boolean expired) {
     }
 
     /** Dòng nhập để kiểm tra liên kết từ chứng từ xuất. */
@@ -86,7 +86,8 @@ public class ReceiptSourceService {
         return jdbc.available(companyId, warehouseId, productId, calendar.today(), LIMIT).stream()
                 .map(row -> new ReceiptSource(row.transactionId(), row.referenceType(), row.referenceId(),
                         row.referenceNo(), row.postingDate(), row.lotNo(), row.expiryDate(), row.serialNo(),
-                        row.receivedQuantity(), row.unitCost(), row.availableQuantity(), row.lotId()))
+                        row.receivedQuantity(), row.unitCost(), row.availableQuantity(), row.lotId(),
+                        row.expired()))
                 .toList();
     }
 

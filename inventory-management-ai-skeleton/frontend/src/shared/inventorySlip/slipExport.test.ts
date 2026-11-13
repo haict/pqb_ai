@@ -1,7 +1,7 @@
 import ExcelJS from 'exceljs';
 import { Packer } from 'docx';
 import JSZip from 'jszip';
-import { signerSpans, slipFileName, type InventorySlipView } from './slipContent';
+import { signerSpans, slipFileName, withoutPrices, type InventorySlipView } from './slipContent';
 import { slipToExcelBuffer } from './slipExcel';
 import { slipPdfDefinition } from './slipPdf';
 import { slipToWordDocument } from './slipWord';
@@ -90,5 +90,41 @@ describe('tải phiếu kho', () => {
     expect(text).toContain('Thuế suất GTGT: 10%');
     expect(text).toContain('1.100.000');
     expect(text).toContain('Một triệu một trăm nghìn đồng chẵn.');
+  });
+
+  describe('chỉ quản lý kho (D-73): để trống phần giá', () => {
+    const hidden = withoutPrices(slip);
+
+    it('giữ số lượng, lô; xóa đơn giá, thành tiền, thuế, tổng', () => {
+      expect(hidden.lines[0]).toMatchObject({ quantity: 2, lots: ['L01', 'L02'], unitPrice: null, amount: null });
+      expect(hidden).toMatchObject({ totalAmount: null, taxRates: [], taxAmount: null, paymentAmount: null });
+    });
+
+    it('Excel: không còn số tiền, thuế suất, tiền bằng chữ', async () => {
+      const workbook = new ExcelJS.Workbook();
+      await workbook.xlsx.load(await slipToExcelBuffer(hidden));
+      const values: unknown[] = [];
+      workbook.worksheets[0]?.eachRow((row) => row.eachCell((cell) => values.push(cell.value)));
+
+      expect(values).toContain(2);
+      expect(values).not.toContain(500000);
+      expect(values).not.toContain(1000000);
+      expect(values).not.toContain(1100000);
+      expect(values).toContain('Thuế suất GTGT: ');
+      expect(values).toContain('- Số tiền bằng chữ: ');
+    });
+
+    it('Word, PDF: không còn số tiền', async () => {
+      const buffer = await Packer.toBuffer(slipToWordDocument(hidden));
+      const xml = await (await JSZip.loadAsync(buffer)).file('word/document.xml')?.async('string');
+      const pdf = JSON.stringify(slipPdfDefinition(hidden));
+
+      [xml, pdf].forEach((content) => {
+        expect(content).toContain('Tổng tiền thanh toán:');
+        expect(content).not.toContain('500.000');
+        expect(content).not.toContain('1.100.000');
+        expect(content).not.toContain('đồng chẵn');
+      });
+    });
   });
 });

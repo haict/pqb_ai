@@ -442,6 +442,39 @@ class InventoryIntegrationTest extends InventoryIntegrationSupport {
         assertLedgerConsistent(product);
     }
 
+    @Test
+    @DisplayName("D-80: F8 trên phiếu xuất kho trả cả lô hết hạn; xuất chỉ định lô hết hạn ghi sổ được, không trừ tồn"
+            + " khả dụng; dòng không chỉ định lô vẫn bỏ qua lô hết hạn")
+    void issueSpecifiedExpiredLot() throws Exception {
+        long warehouse = warehouse(1);
+        long product = product(true, true, false);
+        createAndPost(manager, "PNK", warehouse, List.of(receiptLine(product, 4, "EXP1", "2026-09-30", null)));
+        createAndPost(manager, "PNK", warehouse, List.of(receiptLine(product, 3, "LIVE1", "2099-12-31", null)));
+        MvcResult sources = mockMvc.perform(as(manager, get("/api/v1/inventory/receipt-sources")
+                        .param("warehouseId", String.valueOf(warehouse)).param("productId", String.valueOf(product))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.length()").value(2))
+                .andExpect(jsonPath("$.data[0].lotNo").value("EXP1"))
+                .andExpect(jsonPath("$.data[0].expired").value(true))
+                .andExpect(jsonPath("$.data[1].expired").value(false))
+                .andReturn();
+        long expiredLot = jsonValue(sources, "$.data[0].lotId", Integer.class);
+
+        // Xuất hết 4 của lô hết hạn: tồn khả dụng (3, lô còn hạn) không bị trừ nên không báo thiếu.
+        createAndPost(manager, "PXK", warehouse, List.of(issueLine(product, 4, expiredLot, null)));
+        assertThat(onHand(product, warehouse)).isEqualByComparingTo("3");
+
+        createAndPost(manager, "PNK", warehouse, List.of(receiptLine(product, 2, "EXP1", "2026-09-30", null)));
+        long fefo = create(manager, "PXK", warehouse, List.of(issueLine(product, 5, null, null)));
+        action(manager, fefo, "post", null).andExpect(status().isUnprocessableEntity());
+        createAndPost(manager, "PXK", warehouse, List.of(issueLine(product, 3, null, null)));
+        assertThat(jdbc.queryForObject("SELECT COALESCE(SUM(b.on_hand_quantity), 0) FROM inventory_balances b "
+                + "JOIN inventory_lots l ON l.id = b.lot_id WHERE b.product_id = ? AND l.lot_no = 'LIVE1'",
+                BigDecimal.class, product)).isEqualByComparingTo("0");
+        assertThat(onHand(product, warehouse)).isEqualByComparingTo("2");
+        assertLedgerConsistent(product);
+    }
+
     private static String atWarehouse(String line, long warehouse) {
         return line.substring(0, line.length() - 1) + ",\"warehouseId\":" + warehouse + "}";
     }

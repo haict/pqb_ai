@@ -1,4 +1,5 @@
 import { formatFixed } from '../format';
+import { moneyInWords } from '../moneyWords';
 /** Một dòng hàng trên phiếu kho; một dòng có thể xuất nhiều lô (mỗi lô / hạn dùng một dòng trong ô). */
 export interface SlipLineView {
   lineNo: number;
@@ -11,8 +12,9 @@ export interface SlipLineView {
   warehouseCode: string | null;
   unitName: string;
   quantity: number;
-  unitPrice: number;
-  amount: number;
+  /** null: để trống (bản cài đặt chỉ quản lý kho, D-73). */
+  unitPrice: number | null;
+  amount: number | null;
 }
 
 /** Nội dung phiếu nhập / xuất kho theo mẫu doanh nghiệp; dùng chung cho bản in và file tải về. */
@@ -27,13 +29,13 @@ export interface InventorySlipView {
   /** Các dòng thông tin chung, in theo thứ tự, mỗi dòng bắt đầu bằng "- ". */
   infoRows: string[];
   lines: SlipLineView[];
-  /** Cộng tiền hàng (trước thuế). */
-  totalAmount: number;
+  /** Cộng tiền hàng (trước thuế); null: để trống phần tiền (D-73). */
+  totalAmount: number | null;
   /** Thuế suất GTGT (%) của các dòng; nhiều mức thì in cách nhau dấu phẩy. */
   taxRates: number[];
-  taxAmount: number;
+  taxAmount: number | null;
   /** Tổng tiền thanh toán = tiền hàng + thuế; số tiền bằng chữ đọc theo số này. */
-  paymentAmount: number;
+  paymentAmount: number | null;
   signers: string[];
 }
 
@@ -59,8 +61,29 @@ export const ORIGINAL_DOCUMENTS_LINE =
 export const SIGN_DATE_LINE = 'Ngày ..... tháng ..... năm ........';
 export const SIGN_HINT = '(Ký, họ tên)';
 
-export function formatDecimal(value: number, fractionDigits: number) {
-  return formatFixed(value, fractionDigits);
+/** null in ô trống (phần giá bị ẩn). */
+export function formatDecimal(value: number | null, fractionDigits: number) {
+  return value === null ? '' : formatFixed(value, fractionDigits);
+}
+
+/** Số tiền bằng chữ theo tổng thanh toán; trống khi phần giá bị ẩn. */
+export function paymentInWords(slip: InventorySlipView) {
+  return slip.paymentAmount === null ? '' : moneyInWords(slip.paymentAmount);
+}
+
+/**
+ * Bản cài đặt chỉ quản lý kho (D-73, posting.mode = INVENTORY_ONLY): phiếu nhập / xuất kho để trống đơn giá, thành
+ * tiền, thuế suất, tiền thuế, tổng thanh toán và số tiền bằng chữ; giữ nguyên số lượng, lô, hạn dùng.
+ */
+export function withoutPrices(slip: InventorySlipView): InventorySlipView {
+  return {
+    ...slip,
+    lines: slip.lines.map((line) => ({ ...line, unitPrice: null, amount: null })),
+    totalAmount: null,
+    taxRates: [],
+    taxAmount: null,
+    paymentAmount: null,
+  };
 }
 
 /** "Ngày 07 tháng 10 năm 2026" từ ngày dạng YYYY-MM-DD. */

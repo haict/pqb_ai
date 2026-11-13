@@ -5,7 +5,11 @@ import static com.company.erp.support.ApiTestSupport.newKey;
 import static com.company.erp.support.ApiTestSupport.unique;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.everyItem;
+import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasItems;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.not;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
@@ -95,6 +99,32 @@ class SalesOrderIntegrationTest extends SalesIntegrationSupport {
         long managerOrder = jsonId(send(manager, post(ORDERS), order(partner("KH_BV01"), store, false, List.of(
                 line(tube, box, "1", null, null))), newKey()).andExpect(status().isCreated()).andReturn());
         mockMvc.perform(as(seller, get(ORDERS + "/" + managerOrder))).andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("BR-UI-04: danh sách đơn bán lọc theo ngày xuất kho (ngày hạch toán) và khách hàng ở server")
+    void searchByPostingDateAndCustomer() throws Exception {
+        long clinic = partner("KH_PK01");
+        long tube = product("VT_ONG_01");
+        long store = warehouse("HH");
+        long order = jsonId(send(manager, post(ORDERS), order(clinic, store, false, List.of(line(tube, unit("HOP"), "1",
+                null, null))), newKey()).andExpect(status().isCreated()).andReturn());
+        jdbc.update("UPDATE sales_orders SET posting_date = '2026-10-09' WHERE id = ?", order);
+
+        mockMvc.perform(as(manager, get(ORDERS)).param("companyId", "1").param("customerId", String.valueOf(clinic))
+                        .param("postingDateFrom", "2026-10-09").param("postingDateTo", "2026-10-09").param("size", "200"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items[*].id", hasItem((int) order)))
+                .andExpect(jsonPath("$.data.items[*].customerId", everyItem(is((int) clinic))));
+        mockMvc.perform(as(manager, get(ORDERS)).param("companyId", "1").param("postingDateFrom", "2026-10-10")
+                        .param("size", "200"))
+                .andExpect(jsonPath("$.data.items[*].id", not(hasItem((int) order))));
+        mockMvc.perform(as(manager, get(ORDERS)).param("companyId", "1").param("postingDateTo", "2026-10-08")
+                        .param("size", "200"))
+                .andExpect(jsonPath("$.data.items[*].id", not(hasItem((int) order))));
+        mockMvc.perform(as(manager, get(ORDERS)).param("companyId", "1")
+                        .param("customerId", String.valueOf(partner("KH_DL01"))).param("size", "200"))
+                .andExpect(jsonPath("$.data.items[*].id", not(hasItem((int) order))));
     }
 
     @Test

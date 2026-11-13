@@ -152,6 +152,9 @@ export function SalesOrdersPage() {
   const units = useCatalog('units');
   const [keyword, setKeyword] = useState('');
   const [status, setStatus] = useState<SalesDocumentStatus>();
+  const [customerId, setCustomerId] = useState<number>();
+  // Ngày xuất kho = ngày hạch toán của đơn (D-54: ghi sổ đơn bán là xuất kho).
+  const [issueRange, setIssueRange] = useState<[Dayjs | null, Dayjs | null] | null>(null);
   // Mở thẳng chứng từ từ liên kết ?id= (truy ngược từ sổ chi tiết bán hàng, BR-RPT-11).
   const [searchParams] = useSearchParams();
   const [selected, setSelected] = useState<number | null>(() => Number(searchParams.get('id')) || null);
@@ -160,7 +163,14 @@ export function SalesOrdersPage() {
   const [copySource, setCopySource] = useState<SalesOrder | null>(null);
   const [confirming, setConfirming] = useState<SalesOrder | null>(null);
   const [einvoice, setEinvoice] = useState<SalesOrder | null>(null);
-  const { tableProps } = useServerTable('sales-orders', salesOrderApi.list, { companyId, keyword, status });
+  const { tableProps } = useServerTable('sales-orders', salesOrderApi.list, {
+    companyId,
+    keyword,
+    status,
+    customerId,
+    postingDateFrom: issueRange?.[0]?.format('YYYY-MM-DD'),
+    postingDateTo: issueRange?.[1]?.format('YYYY-MM-DD'),
+  });
 
   const refresh = (id: number) => {
     void queryClient.invalidateQueries({ queryKey: ['sales-order', id] });
@@ -292,14 +302,30 @@ export function SalesOrdersPage() {
         searchPlaceholder="Số đơn, diễn giải"
         onSearch={setKeyword}
         extraFilters={
-          <Select
-            allowClear
-            placeholder="Trạng thái"
-            style={{ width: 170 }}
-            value={status}
-            onChange={setStatus}
-            options={ORDER_STATUSES.map((value) => ({ value, label: statusLabel(value) }))}
-          />
+          <>
+            <PartnerSelect
+              allowClear
+              role="CUSTOMER"
+              placeholder="Khách hàng"
+              style={{ width: 260 }}
+              value={customerId}
+              onChange={(value) => setCustomerId(value ?? undefined)}
+            />
+            <DatePicker.RangePicker
+              format={DATE_INPUT_FORMAT}
+              placeholder={['Xuất kho từ ngày', 'đến ngày']}
+              value={issueRange}
+              onChange={(value) => setIssueRange(value)}
+            />
+            <Select
+              allowClear
+              placeholder="Trạng thái"
+              style={{ width: 170 }}
+              value={status}
+              onChange={setStatus}
+              options={ORDER_STATUSES.map((value) => ({ value, label: statusLabel(value) }))}
+            />
+          </>
         }
         createLabel="Lập đơn bán"
         onCreate={

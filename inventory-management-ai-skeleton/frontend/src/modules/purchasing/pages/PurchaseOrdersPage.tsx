@@ -176,6 +176,9 @@ export function PurchaseOrdersPage() {
   const units = useCatalog('units');
   const [keyword, setKeyword] = useState('');
   const [status, setStatus] = useState<PurchaseDocumentStatus>();
+  const [supplierId, setSupplierId] = useState<number>();
+  // Ngày nhập kho = ngày hạch toán của đơn (D-54: ghi sổ đơn mua là nhập kho).
+  const [receiptRange, setReceiptRange] = useState<[Dayjs | null, Dayjs | null] | null>(null);
   // Mở thẳng chứng từ từ liên kết ?id= (truy ngược từ sổ chi tiết mua hàng, BR-RPT-11).
   const [searchParams] = useSearchParams();
   const [selected, setSelected] = useState<number | null>(() => Number(searchParams.get('id')) || null);
@@ -186,6 +189,9 @@ export function PurchaseOrdersPage() {
     companyId,
     keyword,
     status,
+    supplierId,
+    postingDateFrom: receiptRange?.[0]?.format('YYYY-MM-DD'),
+    postingDateTo: receiptRange?.[1]?.format('YYYY-MM-DD'),
   });
 
   const save = async (values: OrderForm, key: string) => {
@@ -311,14 +317,30 @@ export function PurchaseOrdersPage() {
         searchPlaceholder="Số đơn, diễn giải"
         onSearch={setKeyword}
         extraFilters={
-          <Select
-            allowClear
-            placeholder="Trạng thái"
-            style={{ width: 160 }}
-            value={status}
-            onChange={setStatus}
-            options={ORDER_STATUSES.map((value) => ({ value, label: statusLabel(value) }))}
-          />
+          <>
+            <PartnerSelect
+              allowClear
+              role="SUPPLIER"
+              placeholder="Nhà cung cấp"
+              style={{ width: 260 }}
+              value={supplierId}
+              onChange={(value) => setSupplierId(value ?? undefined)}
+            />
+            <DatePicker.RangePicker
+              format={DATE_INPUT_FORMAT}
+              placeholder={['Nhập kho từ ngày', 'đến ngày']}
+              value={receiptRange}
+              onChange={(value) => setReceiptRange(value)}
+            />
+            <Select
+              allowClear
+              placeholder="Trạng thái"
+              style={{ width: 160 }}
+              value={status}
+              onChange={setStatus}
+              options={ORDER_STATUSES.map((value) => ({ value, label: statusLabel(value) }))}
+            />
+          </>
         }
         createLabel="Lập đơn mua"
         onCreate={
@@ -647,7 +669,7 @@ function OrderFields({
             <LineGrid
               columns={LINE_COLUMNS}
               minWidth={LINE_GRID_MIN_WIDTH}
-              onAdd={() => add({ unitPrice: 0 })}
+              onAdd={(index) => add({ unitPrice: 0 }, index)}
               actions={
                 <Space>
                   <PurchaseOcrButton form={form} companyId={companyId} onNotes={setOcrNotes} />
@@ -771,7 +793,9 @@ function OrderLineFields({
             // Đổi hàng: kho theo gợi ý của hàng mới (không có gợi ý thì để người dùng chọn).
             form.setFieldValue(
               ['lines', name, 'warehouseId'],
-              product && product.productType !== 'SERVICE' ? cachedSuggestion(branchId, product.id) : undefined,
+              product && product.productType !== 'SERVICE'
+                ? cachedSuggestion(branchId, product.id)
+                : undefined,
             );
             if (product) {
               form.setFieldValue(['lines', name, 'unitId'], product.baseUnitId);

@@ -82,6 +82,35 @@ class SalesReceiptSourceIntegrationTest extends SalesIntegrationSupport {
         assertThat(lotOnHand(earlier)).isEqualByComparingTo("3");
     }
 
+    @Test
+    @DisplayName("D-80: F8 liệt kê cả lô hết hạn (cờ expired), đơn bán chỉ định lô hết hạn ghi sổ được; dòng không chỉ"
+            + " định lô vẫn bỏ qua lô hết hạn (FEFO)")
+    void pickExpiredReceiptSource() throws Exception {
+        long item = newProduct(true, false);
+        long piece = unit("CAI");
+        long store = warehouse("HH");
+        String expired = unique("L");
+        stockIn(item, "5", expired, "2026-09-30", null);
+
+        MvcResult listed = sources(manager, store, item).andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.length()").value(1))
+                .andExpect(jsonPath("$.data[0].lotNo").value(expired))
+                .andExpect(jsonPath("$.data[0].expired").value(true)).andReturn();
+        long receipt = ((Number) json(listed, "$.data[0].transactionId")).longValue();
+
+        // KH_DL01 không yêu cầu hạn dùng còn lại tối thiểu (D-07 vẫn áp dụng cho khách có yêu cầu).
+        long customer = partner("KH_DL01");
+        long order = jsonId(send(manager, post(ORDERS), order(customer, store, false, List.of(
+                pickedLine(item, piece, "2", expired, receipt))), newKey()).andExpect(status().isCreated()).andReturn());
+        postWithAuthority(keeper, order).andExpect(jsonPath("$.data.status").value("POSTED"));
+        assertThat(lotOnHand(expired)).isEqualByComparingTo("3");
+
+        long unspecified = jsonId(send(manager, post(ORDERS), order(customer, store, false, List.of(
+                line(item, piece, "1", "100000", null))), newKey()).andExpect(status().isCreated()).andReturn());
+        act(manager, ORDERS, unspecified, "post", null).andExpect(status().isUnprocessableEntity());
+        assertThat(lotOnHand(expired)).isEqualByComparingTo("3");
+    }
+
     private ResultActions sources(com.company.erp.support.ApiTestSupport.Session session, long store, long product)
             throws Exception {
         return mockMvc.perform(as(session, get(ORDERS + "/receipt-sources")).param("branchId", "1")

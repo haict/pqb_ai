@@ -22,7 +22,7 @@ public class ReceiptSourceJdbc {
     public record ReceiptRow(Long transactionId, String referenceType, Long referenceId, String referenceNo,
                              LocalDate postingDate, String lotNo, LocalDate expiryDate, String serialNo,
                              BigDecimal receivedQuantity, BigDecimal unitCost, BigDecimal availableQuantity,
-                             Long lotId) {
+                             Long lotId, boolean expired) {
     }
 
     /** Thông tin dòng nhập để kiểm tra liên kết; {@code usable}: chiều nhập, không phải dòng đảo, chưa bị đảo. */
@@ -42,12 +42,16 @@ public class ReceiptSourceJdbc {
         this.jdbc = jdbc;
     }
 
-    /** Dòng nhập còn tồn bán được (lô / serial không khóa, lô chưa hết hạn tại {@code today}), FEFO rồi ngày nhập. */
+    /**
+     * Dòng nhập còn tồn bán được (lô / serial không khóa), FEFO rồi ngày nhập. Gồm cả lô đã hết hạn tại {@code today}
+     * (cờ {@code expired}): xuất đích danh được lô hết hạn (D-80).
+     */
     public List<ReceiptRow> available(Long companyId, Long warehouseId, Long productId, LocalDate today, int limit) {
         return jdbc.query("""
                 SELECT * FROM (
                     SELECT t.id, t.reference_type, t.reference_id, t.reference_no, t.posting_date, l.lot_no,
                            t.lot_id, l.expiry_date, s.serial_no, t.quantity, t.unit_cost,
+                           COALESCE(l.expiry_date < ?, FALSE) AS expired,
                     """ + AVAILABLE + """
                            AS available_quantity
                     FROM inventory_transactions t
@@ -57,12 +61,11 @@ public class ReceiptSourceJdbc {
                       AND t.reversal_of_id IS NULL AND (t.lot_id IS NOT NULL OR t.serial_id IS NOT NULL)
                       AND NOT EXISTS (SELECT 1 FROM inventory_transactions r WHERE r.reversal_of_id = t.id)
                       AND COALESCE(l.blocked, FALSE) = FALSE AND COALESCE(s.blocked, FALSE) = FALSE
-                      AND (l.expiry_date IS NULL OR l.expiry_date >= ?)
                 ) rows_left
                 WHERE available_quantity > 0
                 ORDER BY expiry_date IS NULL, expiry_date, posting_date, id
                 LIMIT ?
-                """, ReceiptSourceJdbc::row, companyId, warehouseId, productId, Date.valueOf(today), limit);
+                """, ReceiptSourceJdbc::row, Date.valueOf(today), companyId, warehouseId, productId, limit);
     }
 
     public Optional<ReceiptKey> find(Long transactionId) {
@@ -86,6 +89,6 @@ public class ReceiptSourceJdbc {
                 rs.getString("reference_no"), rs.getDate("posting_date").toLocalDate(), rs.getString("lot_no"),
                 expiry == null ? null : expiry.toLocalDate(), rs.getString("serial_no"), rs.getBigDecimal("quantity"),
                 rs.getBigDecimal("unit_cost"), rs.getBigDecimal("available_quantity"),
-                rs.getObject("lot_id", Long.class));
+                rs.getObject("lot_id", Long.class), rs.getBoolean("expired"));
     }
 }

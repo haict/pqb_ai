@@ -4,8 +4,11 @@ import static com.company.erp.support.ApiTestSupport.login;
 import static com.company.erp.support.ApiTestSupport.newKey;
 import static com.company.erp.support.ApiTestSupport.unique;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.everyItem;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasItems;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.not;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
@@ -207,6 +210,29 @@ class PurchaseOrderIntegrationTest extends PurchasingIntegrationSupport {
         send(buyer, delete(ORDERS + "/" + order), REASON, newKey()).andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("INVALID_DOCUMENT_STATE"));
         assertThat(incoming(machine, warehouse)).isEqualByComparingTo(incomingBefore);
+    }
+
+    @Test
+    @DisplayName("BR-UI-04: danh sách đơn mua lọc theo ngày nhập kho (ngày hạch toán) và nhà cung cấp ở server")
+    void searchByPostingDateAndSupplier() throws Exception {
+        long supplier = partner("NCC_01");
+        long machine = product("MAY_XN_01");
+        String body = order(supplier, warehouse("HH"), List.of(orderLine(machine, unit("CAI"), "1", "1000000", null,
+                null).replaceFirst("}$", ",\"serialNumbers\":[\"" + unique("SN") + "\"]}")));
+        long draft = jsonId(send(buyer, post(ORDERS), body, newKey()).andExpect(status().isCreated()).andReturn());
+        jdbc.update("UPDATE purchase_orders SET posting_date = '2026-10-09' WHERE id = ?", draft);
+
+        mockMvc.perform(as(buyer, get(ORDERS)).param("companyId", "1").param("supplierId", String.valueOf(supplier))
+                        .param("postingDateFrom", "2026-10-09").param("postingDateTo", "2026-10-09").param("size", "200"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items[*].id", hasItem((int) draft)))
+                .andExpect(jsonPath("$.data.items[*].supplierId", everyItem(is((int) supplier))));
+        mockMvc.perform(as(buyer, get(ORDERS)).param("companyId", "1").param("postingDateFrom", "2026-10-10")
+                        .param("size", "200"))
+                .andExpect(jsonPath("$.data.items[*].id", not(hasItem((int) draft))));
+        mockMvc.perform(as(buyer, get(ORDERS)).param("companyId", "1").param("postingDateTo", "2026-10-08")
+                        .param("size", "200"))
+                .andExpect(jsonPath("$.data.items[*].id", not(hasItem((int) draft))));
     }
 
     @Test

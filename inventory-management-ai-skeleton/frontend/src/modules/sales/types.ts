@@ -440,4 +440,6 @@ export interface ReceiptSource {
   availableQuantity: number;
   /** Lô của dòng nhập; chỉ API F8 của chứng từ kho trả (D-79). */
   lotId?: number | null;
+  /** Lô đã hết hạn: vẫn chọn được để xuất đích danh (D-80). */
+  expired: boolean;
 }
