@@ -11,6 +11,7 @@ import com.company.erp.inventory.domain.InventoryDocumentType;
 import com.company.erp.inventory.domain.InventoryLot;
 import com.company.erp.inventory.domain.InventorySerial;
 import com.company.erp.inventory.domain.InventoryTransaction;
+import com.company.erp.inventory.domain.MovementDirection;
 import com.company.erp.inventory.infrastructure.persistence.InventoryDocumentRepository;
 import com.company.erp.inventory.infrastructure.persistence.InventoryTransactionRepository;
 import com.company.erp.masterdata.application.MasterDataQueryService;
@@ -34,7 +35,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Mẫu in phiếu nhập kho (PNK) / phiếu xuất kho (PXK, PXH) của chứng từ kho đã ghi sổ (D-78); quyền xem theo loại chứng
+ * Mẫu in phiếu nhập kho (PNK) / phiếu xuất kho (PXK, PXH) / phiếu chuyển kho (PCK, in được cả khi đang vận chuyển)
+ * của chứng từ kho đã ghi sổ (D-78); quyền xem theo loại chứng
  * từ, ngoài phạm vi kho trả 404. Đầu phiếu theo công ty người in chọn (D-58), in theo công ty khác ghi nhật ký.
  */
 @Service
@@ -42,7 +44,7 @@ public class InventorySlipService {
 
     static final String PRINT_AS_COMPANY = "PRINT_AS_COMPANY";
     private static final Set<InventoryDocumentType> PRINTABLE = EnumSet.of(InventoryDocumentType.PNK,
-            InventoryDocumentType.PXK, InventoryDocumentType.PXH);
+            InventoryDocumentType.PXK, InventoryDocumentType.PXH, InventoryDocumentType.PCK);
     private static final int PRICE_SCALE = 4;
 
     private final InventoryDocumentRepository documentRepository;
@@ -83,9 +85,9 @@ public class InventorySlipService {
         documentService.requireVisible(actor, document);
         if (!PRINTABLE.contains(document.getDocumentType())) {
             throw new BusinessException(ErrorCode.INVALID_DOCUMENT_STATE, "Chỉ in phiếu nhập kho, phiếu xuất kho, "
-                    + "phiếu xuất hủy.");
+                    + "phiếu xuất hủy, phiếu chuyển kho.");
         }
-        if (document.getStatus() != InventoryDocumentStatus.POSTED) {
+        if (!printableStatus(document)) {
             throw new BusinessException(ErrorCode.INVALID_DOCUMENT_STATE, "Chứng từ " + document.getDocumentNo()
                     + " chưa ghi sổ (hoặc đã đảo) nên chưa in phiếu được.");
         }
@@ -99,13 +101,36 @@ public class InventorySlipService {
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         List<WarehouseInfo> slipWarehouses = document.getLines().stream().map(document::warehouseOf).distinct()
                 .map(warehouses::get).filter(Objects::nonNull).toList();
+        WarehouseInfo destination = document.getDestinationWarehouseId() == null ? null
+                : warehouses.get(document.getDestinationWarehouseId());
         return new InventorySlipResponse(company == null ? null : company.name(),
                 company == null ? null : company.address(), document.getId(), document.getDocumentType(),
                 document.getDocumentNo(), document.getPostingDate(), partner == null ? null : partner.name(),
                 partner == null ? null : partner.address(), partner == null ? null : partner.taxCode(),
                 description(document), document.getSourceNo(),
                 slipWarehouses.stream().map(WarehouseInfo::code).collect(Collectors.joining(", ")),
-                slipWarehouses.stream().map(WarehouseInfo::name).collect(Collectors.joining(", ")), lines, total);
+                slipWarehouses.stream().map(WarehouseInfo::name).collect(Collectors.joining(", ")), lines, total,
+                destination == null ? null : destination.code(), destination == null ? null : destination.name());
+    }
+
+    /** Ghi sổ xong; riêng chuyển kho khác chi nhánh in được từ khi hàng rời kho nguồn (đang vận chuyển). */
+    private static boolean printableStatus(InventoryDocument document) {
+        return document.getStatus() == InventoryDocumentStatus.POSTED
+                || document.getDocumentType() == InventoryDocumentType.PCK
+                && document.getStatus() == InventoryDocumentStatus.IN_TRANSIT;
+    }
+
+    /**
+     * Dòng sổ kho của phiếu in. Chuyển kho có cả dòng xuất kho nguồn lẫn dòng nhập kho đích / kho đang vận chuyển:
+     * chỉ lấy dòng xuất khỏi kho nguồn để lô, serial, giá trị không bị tính hai lần.
+     */
+    private static boolean slipTransaction(InventoryDocument document, InventoryTransaction transaction) {
+        if (transaction.getReversalOfId() != null) {
+            return false;
+        }
+        return document.getDocumentType() != InventoryDocumentType.PCK
+                || transaction.getDirection() == MovementDirection.OUT
+                && document.getWarehouseId().equals(transaction.getWarehouseId());
     }
 
     private CompanyRef printCompany(CurrentUser actor, InventoryDocument document, Long printCompanyId) {
@@ -126,7 +151,7 @@ public class InventorySlipService {
     private List<InventorySlipResponse.Line> lines(InventoryDocument document, Map<Long, WarehouseInfo> warehouses) {
         List<InventoryTransaction> transactions = transactionRepository
                 .findByReferenceTypeAndReferenceIdOrderByIdAsc(document.getDocumentType().name(), document.getId())
-                .stream().filter(transaction -> transaction.getReversalOfId() == null).toList();
+                .stream().filter(transaction -> slipTransaction(document, transaction)).toList();
         Map<Long, List<InventoryTransaction>> byLine = transactions.stream()
                 .filter(transaction -> transaction.getReferenceLineId() != null)
                 .collect(Collectors.groupingBy(InventoryTransaction::getReferenceLineId));
@@ -187,6 +212,7 @@ public class InventorySlipService {
         String text = switch (document.getDocumentType()) {
             case PNK -> "Nhập kho";
             case PXH -> "Xuất hủy";
+            case PCK -> "Chuyển kho";
             default -> "Xuất kho";
         };
         return document.getSourceNo() == null ? text : text + " theo " + document.getSourceNo();

@@ -100,11 +100,22 @@ describe('báo cáo kho M10', () => {
       ],
     };
     const report = movementReport(movement);
-    expect(report.columns).toHaveLength(11);
-    expect(report.columns[3]).toMatchObject({ title: 'Số lượng', group: 'Đầu kỳ' });
-    expect(report.rows[0]).toMatchObject({ group: true, labelSpan: 3 });
+    expect(report.columns).toHaveLength(14);
+    expect(report.columns.slice(0, 6).map((column) => column.title)).toEqual([
+      'Mã hàng',
+      'Tên hàng',
+      'Số lô',
+      'Hạn SD',
+      'Serial',
+      'ĐVT',
+    ]);
+    expect(report.columns[6]).toMatchObject({ title: 'Số lượng', group: 'Đầu kỳ' });
+    expect(report.rows[0]).toMatchObject({ group: true, labelSpan: 6 });
     expect(report.rows[0]?.cells).toEqual([
       'Tên kho : Kho HN (2)',
+      null,
+      null,
+      null,
       null,
       null,
       2,
@@ -116,10 +127,10 @@ describe('báo cáo kho M10', () => {
       9,
       350000,
     ]);
-    expect(report.rows[1]?.cells.slice(3)).toEqual([0, 0, 11, 550000, 4, 200000, 7, 350000]);
+    expect(report.rows[1]?.cells.slice(6)).toEqual([0, 0, 11, 550000, 4, 200000, 7, 350000]);
     const line = report.rows[1]?.cells ?? [];
-    expect(reportCellText(report, line, 3)).toBe('0,00');
-    expect(reportCellText(report, line, 6)).toBe('550.000');
+    expect(reportCellText(report, line, 6)).toBe('0,00');
+    expect(reportCellText(report, line, 9)).toBe('550.000');
     expect(report.notes?.some((note) => note.includes('tạm tính'))).toBe(true);
   });
 
@@ -152,10 +163,60 @@ describe('báo cáo kho M10', () => {
       ],
     };
     const report = movementReport(movement, true);
-    expect(report.columns).toHaveLength(7);
+    expect(report.columns).toHaveLength(10);
     expect(report.columns.some((column) => column.title === 'Giá trị')).toBe(false);
-    expect(report.rows[1]?.cells).toEqual(['VT01', 'Ống nghiệm', 'Hộp', 1, 11, 4, 8]);
+    expect(report.rows[1]?.cells).toEqual(['VT01', 'Ống nghiệm', '', '', '', 'Hộp', 1, 11, 4, 8]);
     expect(report.notes?.some((note) => note.includes('tạm tính'))).toBe(false);
+  });
+
+  it('BR-RPT-22: tách dòng theo lô (giữ thứ tự hạn dùng), dòng cộng theo hàng; máy có serial', () => {
+    const base = {
+      productId: 5,
+      productCode: 'GLM104',
+      productName: 'Triglycerides',
+      unitName: 'Hộp',
+      warehouseId: 1,
+      warehouseCode: 'SH',
+      warehouseName: 'Kho Sinh Hóa',
+      opening: 0,
+      outQuantity: 0,
+      averageUnitCost: null,
+      openingValue: null,
+      inValue: null,
+      outValue: null,
+      closingValue: null,
+    };
+    const movement: InventoryMovement = {
+      dateFrom: '2026-11-01',
+      dateTo: '2026-11-15',
+      valueAvailable: false,
+      valueProvisional: true,
+      generatedAt: '2026-11-15T03:00:00Z',
+      rows: [
+        { ...base, lotNo: '9942', expiryDate: '2027-08-30', inQuantity: 6, closing: 6 },
+        { ...base, lotNo: '9950', expiryDate: '2027-12-31', inQuantity: 4, closing: 4 },
+        {
+          ...base,
+          productId: 9,
+          productCode: '1120109',
+          productName: 'Máy COADATA',
+          unitName: 'Cái',
+          serialNo: 'SN001',
+          inQuantity: 1,
+          closing: 1,
+        },
+      ],
+    };
+    const report = movementReport(movement, true);
+
+    // Theo mã hàng: '1120109' trước 'GLM104'; trong hàng giữ thứ tự lô server trả
+    expect(report.rows[0]?.cells[0]).toBe('Tên kho : Kho Sinh Hóa (2)');
+    expect(report.rows[1]?.cells).toEqual(['1120109', 'Máy COADATA', '', '', 'SN001', 'Cái', 0, 1, 0, 1]);
+    expect(report.rows[2]?.cells).toEqual(['GLM104', 'Triglycerides', '9942', '30/08/2027', '', 'Hộp', 0, 6, 0, 6]);
+    expect(report.rows[3]?.cells.slice(2, 4)).toEqual(['9950', '31/12/2027']);
+    expect(report.rows[4]).toMatchObject({ bold: true, labelSpan: 6 });
+    expect(report.rows[4]?.cells).toEqual(['Cộng GLM104', null, null, null, null, null, 0, 10, 0, 10]);
+    expect(report.rows).toHaveLength(5);
   });
 
   it('BR-RPT-24: truy xuất lô ghi tổng theo khách và tồn hiện tại', () => {

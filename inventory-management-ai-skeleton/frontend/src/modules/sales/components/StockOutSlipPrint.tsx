@@ -70,9 +70,6 @@ function lotRows(line: StockOutSlipLine) {
 
 function toView(slip: StockOutSlip, unitName: (id: number | null) => string): InventorySlipView {
   const receiver = [slip.customerName, slip.receiverName].filter(Boolean).join(' - ');
-  const einvoice = slip.einvoiceNo
-    ? `${slip.einvoiceSeries ?? ''}-${slip.einvoiceNo} ngày ${formatDate(slip.einvoiceDate)}`
-    : '';
   return {
     title: 'PHIẾU XUẤT KHO',
     companyName: slip.companyName,
@@ -85,8 +82,8 @@ function toView(slip: StockOutSlip, unitName: (id: number | null) => string): In
       `Họ và tên người nhận hàng: ${receiver}`,
       `Địa chỉ: ${slip.customerAddress ?? ''}`,
       `Mã số thuế: ${slip.customerTaxCode ?? ''}`,
+      // Số đơn bán đã có trong diễn giải; bỏ dòng "Theo đơn bán số ... hóa đơn số" (người dùng yêu cầu 2026-11-15)
       `Diễn giải: ${slip.description}`,
-      `Theo đơn bán số ${slip.orderNo} ngày ${formatDate(slip.orderDate)}; hóa đơn số ${einvoice}`,
       `Xuất tại kho: ${slip.warehouseName ?? ''}`,
     ],
     lines: slip.lines.map((line) => {

@@ -41,6 +41,10 @@ export interface MovementRow {
   warehouseId: number;
   warehouseCode: string;
   warehouseName: string;
+  /** Dòng theo hàng × kho × lô × serial; hàng không theo lô / serial thì trống. */
+  lotNo?: string | null;
+  expiryDate?: string | null;
+  serialNo?: string | null;
   opening: number;
   inQuantity: number;
   outQuantity: number;

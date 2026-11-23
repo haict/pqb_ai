@@ -56,4 +56,29 @@ describe('toSlipView (D-78)', () => {
     expect(view.title).toBe('PHIẾU NHẬP KHO');
     expect(view.infoRows[0]).toBe('Họ và tên người giao hàng: NCC B');
   });
+
+  it('phiếu chuyển kho: tiêu đề, kho xuất / kho nhận, người nhận là khách, 4 người ký', () => {
+    const view = toSlipView(
+      {
+        ...slip,
+        documentType: 'PCK',
+        partnerName: 'BV Bạch Mai',
+        warehouseCode: 'SH',
+        warehouseName: 'Kho Sinh Hóa',
+        destinationWarehouseCode: 'CV',
+        destinationWarehouseName: 'Kho cho vay',
+      },
+      () => 'Cái',
+    );
+
+    expect(view.title).toBe('PHIẾU CHUYỂN KHO');
+    expect(view.infoRows).toEqual(
+      expect.arrayContaining([
+        'Họ và tên người nhận hàng: BV Bạch Mai',
+        'Xuất tại kho: Kho Sinh Hóa',
+        'Nhập tại kho: Kho cho vay',
+      ]),
+    );
+    expect(view.signers).toEqual(['Người lập phiếu', 'Thủ kho xuất', 'Người nhận hàng', 'Thủ kho nhập']);
+  });
 });

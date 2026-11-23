@@ -414,6 +414,38 @@ class InventoryIntegrationTest extends InventoryIntegrationSupport {
     }
 
     @Test
+    @DisplayName("D-78: in phiếu chuyển kho từ khi đang vận chuyển; dòng theo sổ xuất kho nguồn, không nhân đôi lô")
+    void printTransferSlip() throws Exception {
+        long source = warehouse(1);
+        long destination = warehouse(2);
+        long product = product(true, true, false);
+        createAndPost(manager, "PNK", source, List.of(receiptLine(product, 6, "LC" + product, "2027-08-31", null)));
+        String body = document("PCK", source, List.of(issueLine(product, 4, null, null)), "2026-10-07")
+                .replace("\"lines\"", "\"destinationWarehouseId\":" + destination + ",\"lines\"");
+        long transfer = jsonValue(send(manager, post(DOCS), body, newKey()).andExpect(status().isCreated()).andReturn(),
+                "$.data.id", Integer.class);
+        mockMvc.perform(as(manager, get(DOCS + "/" + transfer + "/slip"))).andExpect(status().isConflict());
+
+        action(manager, transfer, "post", null).andExpect(jsonPath("$.data.status").value("IN_TRANSIT"));
+        String destinationCode = jdbc.queryForObject("SELECT code FROM warehouses WHERE id = ?", String.class,
+                destination);
+        mockMvc.perform(as(manager, get(DOCS + "/" + transfer + "/slip"))).andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.documentType").value("PCK"))
+                .andExpect(jsonPath("$.data.destinationWarehouseCode").value(destinationCode))
+                .andExpect(jsonPath("$.data.lines.length()").value(1))
+                .andExpect(jsonPath("$.data.lines[0].quantity").value(4))
+                .andExpect(jsonPath("$.data.lines[0].items.length()").value(1))
+                .andExpect(jsonPath("$.data.lines[0].items[0].lotNo").value("LC" + product))
+                .andExpect(jsonPath("$.data.lines[0].items[0].baseQuantity").value(4));
+
+        action(login(mockMvc, "kho.hcm"), transfer, "receive", "{\"postingDate\":\"2026-10-08\"}")
+                .andExpect(jsonPath("$.data.status").value("POSTED"));
+        mockMvc.perform(as(manager, get(DOCS + "/" + transfer + "/slip"))).andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.lines[0].items.length()").value(1))
+                .andExpect(jsonPath("$.data.lines[0].items[0].baseQuantity").value(4));
+    }
+
+    @Test
     @DisplayName("D-79: F8 trên phiếu xuất kho trả chứng từ nhập còn tồn kèm lotId để xuất đích danh")
     void receiptSourcesForIssue() throws Exception {
         long warehouse = warehouse(1);
@@ -439,6 +471,32 @@ class InventoryIntegrationTest extends InventoryIntegrationSupport {
                 .andExpect(status().isOk()).andExpect(jsonPath("$.data.length()").value(0));
         mockMvc.perform(get("/api/v1/inventory/receipt-sources").param("warehouseId", String.valueOf(warehouse))
                 .param("productId", String.valueOf(product))).andExpect(status().isUnauthorized());
+        assertLedgerConsistent(product);
+    }
+
+    @Test
+    @DisplayName("D-79: F8 trên phiếu chuyển kho chọn lô đích danh; kho nhận nhận đúng lô đã chọn")
+    void transferSpecifiedLotFromReceiptSources() throws Exception {
+        long source = warehouse(1);
+        long destination = warehouse(1);
+        long product = product(true, true, false);
+        createAndPost(manager, "PNK", source, List.of(receiptLine(product, 3, "TF1", "2027-06-30", null)));
+        createAndPost(manager, "PNK", source, List.of(receiptLine(product, 5, "TF2", "2027-12-31", null)));
+        MvcResult sources = mockMvc.perform(as(manager, get("/api/v1/inventory/receipt-sources")
+                        .param("warehouseId", String.valueOf(source)).param("productId", String.valueOf(product))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.length()").value(2))
+                .andReturn();
+        long lateLot = jsonValue(sources, "$.data[1].lotId", Integer.class);
+
+        long transfer = createDocument(manager, withHeader(document("PCK", source,
+                List.of(issueLine(product, 2, lateLot, null)), "2026-10-07"),
+                "\"destinationWarehouseId\":" + destination));
+        postDocument(manager, transfer);
+        assertThat(jdbc.queryForObject("SELECT l.lot_no FROM inventory_balances b JOIN inventory_lots l "
+                + "ON l.id = b.lot_id WHERE b.product_id = ? AND b.warehouse_id = ? AND b.on_hand_quantity > 0",
+                String.class, product, destination)).isEqualTo("TF2");
+        assertThat(onHand(product, source)).isEqualByComparingTo("6");
         assertLedgerConsistent(product);
     }
 

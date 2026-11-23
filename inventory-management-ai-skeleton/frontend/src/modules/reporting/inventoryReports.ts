@@ -135,42 +135,84 @@ function sumCells(rows: (number | null)[][]): (number | null)[] {
   });
 }
 
+/** Số cột mô tả trước nhóm số liệu: mã hàng, tên hàng, số lô, hạn dùng, serial, ĐVT. */
+const MOVEMENT_LABEL_COLUMNS = 6;
+
+/** Các dòng lô / serial của một hàng trong kho; nhiều dòng thì thêm dòng cộng theo hàng. */
+function productRows(items: MovementRow[], quantityOnly: boolean): ReportRow[] {
+  const lines: ReportRow[] = items.map((row) => ({
+    cells: [
+      row.productCode,
+      row.productName,
+      row.lotNo ?? '',
+      displayDate(row.expiryDate),
+      row.serialNo ?? '',
+      row.unitName,
+      ...movementCells(row, quantityOnly),
+    ],
+  }));
+  if (items.length < 2) {
+    return lines;
+  }
+  return [
+    ...lines,
+    {
+      cells: [
+        `Cộng ${items[0]?.productCode ?? ''}`,
+        ...Array.from({ length: MOVEMENT_LABEL_COLUMNS - 1 }, () => null),
+        ...sumCells(items.map((row) => movementCells(row, quantityOnly))),
+      ],
+      bold: true,
+      labelSpan: MOVEMENT_LABEL_COLUMNS,
+    },
+  ];
+}
+
+/** Nhóm liên tiếp theo khóa, giữ thứ tự. */
+function groupBy<T>(items: T[], key: (item: T) => number): T[][] {
+  const groups = new Map<number, T[]>();
+  items.forEach((item) => groups.set(key(item), [...(groups.get(key(item)) ?? []), item]));
+  return [...groups.values()];
+}
+
 /**
- * Nhập - xuất - tồn nhóm theo kho, mỗi kho một dòng tổng; số lượng và giá trị theo từng nhóm cột (BR-RPT-22).
+ * Nhập - xuất - tồn nhóm theo kho, mỗi kho một dòng tổng; mỗi hàng tách dòng theo lô / serial (kèm số lô, hạn dùng,
+ * serial), hàng nhiều lô có dòng cộng; số lượng và giá trị theo từng nhóm cột (BR-RPT-22).
  * {@code quantityOnly}: chế độ chỉ quản lý kho (D-73) bỏ các cột giá trị.
  */
 export function movementReport(movement: InventoryMovement, quantityOnly = false): TableReport {
   const columns: ReportColumn[] = [
     { title: 'Mã hàng', width: 14 },
     { title: 'Tên hàng', width: 30 },
+    { title: 'Số lô', width: 12 },
+    { title: 'Hạn SD', width: 11 },
+    { title: 'Serial', width: 14 },
     { title: 'ĐVT', width: 8 },
     ...MOVEMENT_SECTIONS.flatMap((group): ReportColumn[] => [
       { title: 'Số lượng', digits: QUANTITY, width: 12, group },
       ...(quantityOnly ? [] : [{ title: 'Giá trị', digits: AMOUNT, width: 15, group }]),
     ]),
   ];
-  const warehouses = new Map<number, MovementRow[]>();
-  [...movement.rows]
-    .sort(
-      (a, b) => a.warehouseCode.localeCompare(b.warehouseCode) || a.productCode.localeCompare(b.productCode),
-    )
-    .forEach((row) => warehouses.set(row.warehouseId, [...(warehouses.get(row.warehouseId) ?? []), row]));
-  const rows: ReportRow[] = [...warehouses.values()].flatMap((items) => [
-    {
-      cells: [
-        `Tên kho : ${items[0]?.warehouseName ?? ''} (${items.length})`,
-        null,
-        null,
-        ...sumCells(items.map((row) => movementCells(row, quantityOnly))),
-      ],
-      bold: true,
-      group: true,
-      labelSpan: 3,
-    },
-    ...items.map((row) => ({
-      cells: [row.productCode, row.productName, row.unitName, ...movementCells(row, quantityOnly)],
-    })),
-  ]);
+  // Sắp xếp ổn định: giữ thứ tự lô (hạn dùng gần trước) server trả trong cùng hàng
+  const sorted = [...movement.rows].sort(
+    (a, b) => a.warehouseCode.localeCompare(b.warehouseCode) || a.productCode.localeCompare(b.productCode),
+  );
+  const rows: ReportRow[] = groupBy(sorted, (row) => row.warehouseId).flatMap((items) => {
+    const products = groupBy(items, (row) => row.productId);
+    return [
+      {
+        cells: [
+          `Tên kho : ${items[0]?.warehouseName ?? ''} (${products.length})`,
+          ...Array.from({ length: MOVEMENT_LABEL_COLUMNS - 1 }, () => null),
+          ...sumCells(items.map((row) => movementCells(row, quantityOnly))),
+        ],
+        bold: true,
+        group: true,
+        labelSpan: MOVEMENT_LABEL_COLUMNS,
+      },
+      ...products.flatMap((productItems) => productRows(productItems, quantityOnly)),
+    ];
+  });
   return {
     title: 'TỔNG HỢP NHẬP - XUẤT - TỒN',
     subtitle: period(movement.dateFrom, movement.dateTo),

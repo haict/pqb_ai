@@ -10,6 +10,8 @@ import java.util.List;
  * {@code warehouseName}: các kho của phiếu nối bằng dấu phẩy; kho từng dòng ở {@link Line#warehouseCode()}.
  * Đơn giá, thành tiền: phiếu nhập theo đơn giá nhập của dòng; phiếu xuất theo giá trị đã ghi trên sổ kho, chưa có giá
  * vốn thì bằng 0 (D-51). {@code sourceNo}: chứng từ nguồn (đơn mua / đơn bán) nếu phiếu sinh tự động.
+ * Phiếu chuyển kho: {@code warehouseCode/Name} là kho xuất, {@code destinationWarehouseCode/Name} là kho nhận (loại
+ * khác để trống); dòng, lô, giá trị theo dòng sổ xuất khỏi kho xuất.
  */
 public record InventorySlipResponse(
         String companyName,
@@ -26,7 +28,9 @@ public record InventorySlipResponse(
         String warehouseCode,
         String warehouseName,
         List<Line> lines,
-        BigDecimal totalAmount) {
+        BigDecimal totalAmount,
+        String destinationWarehouseCode,
+        String destinationWarehouseName) {
 
     public record Line(
             int lineNo,

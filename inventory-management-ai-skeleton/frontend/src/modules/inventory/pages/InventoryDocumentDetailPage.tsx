@@ -15,7 +15,13 @@ import { DocumentActions } from '../components/DocumentActions';
 import { InventorySlipDownload, InventorySlipPrint } from '../components/InventorySlipPrint';
 import { openingStockToExcel } from '../components/openingStockExcel';
 import { DocumentFormFields } from '../components/DocumentForm';
-import { DOCUMENT_FIELDS, toDocumentInput, type DocumentFormValues } from '../components/documentFormValues';
+import {
+  DOCUMENT_FIELDS,
+  partnerField,
+  toDocumentInput,
+  type DocumentFormValues,
+} from '../components/documentFormValues';
+import { partnerApi } from '../../masterdata/api';
 import {
   DOCUMENT_TYPES,
   OPENING_SUB_TYPE,
@@ -29,8 +35,21 @@ import { DocumentStatusTag, ItemConditionTag, QualityTag } from '../components/S
 import type { InventoryDocument, InventoryLine, InventoryTransaction, ItemCondition } from '../types';
 import { UiAction } from '../../../shared/ui/UiAction';
 
-/** Loại chứng từ in được phiếu nhập / xuất kho (D-78). */
-const PRINTABLE_TYPES: InventoryDocument['documentType'][] = ['PNK', 'PXK', 'PXH'];
+/** Nút in theo loại chứng từ (D-78); chuyển kho khác chi nhánh in được từ khi đang vận chuyển. */
+function printLabel(document: InventoryDocument): string | null {
+  const posted = document.status === 'POSTED';
+  switch (document.documentType) {
+    case 'PNK':
+      return posted ? 'In phiếu nhập kho' : null;
+    case 'PXK':
+    case 'PXH':
+      return posted ? 'In phiếu xuất kho' : null;
+    case 'PCK':
+      return posted || document.status === 'IN_TRANSIT' ? 'In phiếu chuyển kho' : null;
+    default:
+      return null;
+  }
+}
 
 function editValues(document: InventoryDocument): Partial<DocumentFormValues> {
   return {
@@ -88,6 +107,12 @@ export function InventoryDocumentDetailPage() {
     enabled: Number.isFinite(documentId),
   });
   const document = query.data;
+  const partnerId = document?.partnerId;
+  const partner = useQuery({
+    queryKey: ['partners', partnerId],
+    queryFn: () => partnerApi.get(partnerId as number),
+    enabled: typeof partnerId === 'number',
+  }).data;
 
   if (query.isLoading) {
     return <Spin />;
@@ -237,9 +262,9 @@ export function InventoryDocumentDetailPage() {
               </Button>
             </UiAction>
           )}
-          {document.status === 'POSTED' && PRINTABLE_TYPES.includes(document.documentType) && (
+          {printLabel(document) && (
             <CompanyPrintButton
-              label={document.documentType === 'PNK' ? 'In phiếu nhập kho' : 'In phiếu xuất kho'}
+              label={printLabel(document) ?? ''}
               queryKey="inventory-documents"
               fetchCompanies={documentApi.printCompanies}
               defaultCompanyId={document.companyId}
@@ -270,6 +295,11 @@ export function InventoryDocumentDetailPage() {
         {document.transitWarehouseId && (
           <Descriptions.Item label="Kho đang vận chuyển">
             {warehouseName(document.transitWarehouseId)}
+          </Descriptions.Item>
+        )}
+        {document.partnerId && (
+          <Descriptions.Item label={partnerField(document.documentType, document.subType)?.label ?? 'Đối tác'}>
+            {partner ? `${partner.code} - ${partner.name}` : ''}
           </Descriptions.Item>
         )}
         {document.receivePostingDate && (

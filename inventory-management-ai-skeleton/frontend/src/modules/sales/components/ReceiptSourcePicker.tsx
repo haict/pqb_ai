@@ -20,6 +20,8 @@ interface Props {
   fetchSources?: () => Promise<ReceiptSource[]>;
   /** Chứng từ nhận các dòng chọn (mặc định "đơn bán"). */
   targetLabel?: string;
+  /** Ẩn lô đã hết hạn: chứng từ không được xuất lô hết hạn (chuyển kho, D-80). */
+  excludeExpired?: boolean;
 }
 
 /**
@@ -28,8 +30,17 @@ interface Props {
  * nhập nhiều lần dùng chung tồn nên tổng lấy theo lô không vượt tồn đó.
  */
 export function ReceiptSourcePicker(props: Props) {
-  const { branchId, warehouseId, productId, productLabel, baseUnitName, onCancel, onPick, fetchSources } =
-    props;
+  const {
+    branchId,
+    warehouseId,
+    productId,
+    productLabel,
+    baseUnitName,
+    onCancel,
+    onPick,
+    fetchSources,
+    excludeExpired,
+  } = props;
   const query = useQuery({
     queryKey: ['receipt-sources', fetchSources ? 'inventory' : 'sales', branchId, warehouseId, productId],
     queryFn: () =>
@@ -37,7 +48,7 @@ export function ReceiptSourcePicker(props: Props) {
         ? fetchSources()
         : salesOrderApi.receiptSources({ branchId: branchId as number, warehouseId, productId }),
   });
-  const rows = query.data ?? [];
+  const rows = (query.data ?? []).filter((row) => !excludeExpired || !row.expired);
   const [selected, setSelected] = useState<number[]>([]);
   const [quantities, setQuantities] = useState<Record<number, number | null>>({});
   const [reason, setReason] = useState('');

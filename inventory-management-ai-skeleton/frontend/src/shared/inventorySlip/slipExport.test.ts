@@ -1,7 +1,13 @@
 import ExcelJS from 'exceljs';
 import { Packer } from 'docx';
 import JSZip from 'jszip';
-import { signerSpans, slipFileName, withoutPrices, type InventorySlipView } from './slipContent';
+import {
+  ORIGINAL_DOCUMENTS_LINE,
+  signerSpans,
+  slipFileName,
+  withoutPrices,
+  type InventorySlipView,
+} from './slipContent';
 import { slipToExcelBuffer } from './slipExcel';
 import { slipPdfDefinition } from './slipPdf';
 import { slipToWordDocument } from './slipWord';
@@ -90,6 +96,29 @@ describe('tải phiếu kho', () => {
     expect(text).toContain('Thuế suất GTGT: 10%');
     expect(text).toContain('1.100.000');
     expect(text).toContain('Một triệu một trăm nghìn đồng chẵn.');
+  });
+
+  it('dòng hàng căn giữa theo chiều dọc; số chứng từ gốc không có dấu chấm', async () => {
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(await slipToExcelBuffer(slip));
+    let codeCell: ExcelJS.Cell | undefined;
+    workbook.worksheets[0]?.eachRow((row) =>
+      row.eachCell((cell) => {
+        if (cell.value === 'MAY_01') {
+          codeCell = cell;
+        }
+      }),
+    );
+    const buffer = await Packer.toBuffer(slipToWordDocument(slip));
+    const xml = await (await JSZip.loadAsync(buffer)).file('word/document.xml')?.async('string');
+    const pdf = JSON.stringify(slipPdfDefinition(slip));
+
+    expect(codeCell?.alignment).toMatchObject({ horizontal: 'center', vertical: 'middle' });
+    expect(xml).toContain('<w:vAlign w:val="center"/>');
+    expect(pdf).toContain('"text":"MAY_01","alignment":"center","verticalAlignment":"middle"');
+    expect(pdf).toContain('"text":"Máy xét nghiệm\\nSerial: S1, S2","alignment":"left"');
+    expect(ORIGINAL_DOCUMENTS_LINE).toBe('- Số chứng từ gốc kèm theo:');
+    expect(pdf).not.toContain('.....................');
   });
 
   describe('chỉ quản lý kho (D-73): để trống phần giá', () => {

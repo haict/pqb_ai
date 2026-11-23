@@ -61,12 +61,13 @@ public class StockController {
         this.receiptSources = receiptSources;
     }
 
-    @Operation(summary = "Chứng từ nhập còn tồn (F8) cho phiếu xuất kho",
-            description = "D-79: dòng nhập theo lô / serial còn tồn ĐẠT của hàng tại kho (FEFO), để phiếu xuất kho lập "
-                    + "tay chọn lô / serial đích danh; số lượng theo đơn vị cơ sở. Quyền inventory-issue:create; kho "
-                    + "ngoài phạm vi: 400 tại warehouseId. Hàng không quản lý lô / serial: danh sách rỗng.")
+    @Operation(summary = "Chứng từ nhập còn tồn (F8) cho phiếu xuất kho / phiếu chuyển kho",
+            description = "D-79: dòng nhập theo lô / serial còn tồn ĐẠT của hàng tại kho (FEFO), để phiếu xuất kho, "
+                    + "phiếu chuyển kho lập tay chọn lô / serial đích danh; số lượng theo đơn vị cơ sở; cờ expired: "
+                    + "lô đã hết hạn (D-80). Quyền inventory-issue:create hoặc inventory-transfer:create; kho ngoài "
+                    + "phạm vi: 400 tại warehouseId. Hàng không quản lý lô / serial: danh sách rỗng.")
     @GetMapping("/receipt-sources")
-    @PreAuthorize("hasAuthority('inventory-issue:create')")
+    @PreAuthorize("hasAnyAuthority('inventory-issue:create', 'inventory-transfer:create')")
     public ApiResponse<List<ReceiptSourceService.ReceiptSource>> receiptSources(
             @AuthenticationPrincipal CurrentUser user, @RequestParam Long warehouseId, @RequestParam Long productId) {
         return ApiResponse.ok(receiptSources.availableForIssue(user, warehouseId, productId));

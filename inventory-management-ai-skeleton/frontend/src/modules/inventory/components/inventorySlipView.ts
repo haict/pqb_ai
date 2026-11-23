@@ -23,24 +23,51 @@ function lotRows(line: InventorySlipLine) {
   };
 }
 
-export function toSlipView(slip: InventorySlip, unitName: (id: number | null) => string): InventorySlipView {
+type SlipHeader = Pick<InventorySlipView, 'title' | 'infoRows' | 'signers'>;
+
+function partnerRows(slip: InventorySlip, role: string) {
+  return [
+    `Họ và tên ${role}: ${slip.partnerName ?? ''}`,
+    `Địa chỉ: ${slip.partnerAddress ?? ''}`,
+    `Mã số thuế: ${slip.partnerTaxCode ?? ''}`,
+    `Diễn giải: ${slip.description}`,
+  ];
+}
+
+/** Đầu phiếu theo loại: nhập kho, chuyển kho (thêm kho nhận; người nhận hàng là khách của phiếu), còn lại xuất kho. */
+function header(slip: InventorySlip): SlipHeader {
+  if (slip.documentType === 'PCK') {
+    return {
+      title: 'PHIẾU CHUYỂN KHO',
+      infoRows: [
+        ...partnerRows(slip, 'người nhận hàng'),
+        `Xuất tại kho: ${slip.warehouseName ?? ''}`,
+        `Nhập tại kho: ${slip.destinationWarehouseName ?? ''}`,
+      ],
+      signers: ['Người lập phiếu', 'Thủ kho xuất', 'Người nhận hàng', 'Thủ kho nhập'],
+    };
+  }
   const inbound = slip.documentType === 'PNK';
   return {
     title: inbound ? 'PHIẾU NHẬP KHO' : 'PHIẾU XUẤT KHO',
+    infoRows: [
+      ...partnerRows(slip, inbound ? 'người giao hàng' : 'người nhận hàng'),
+      `Theo chứng từ số: ${slip.sourceNo ?? ''}`,
+      `${inbound ? 'Nhập' : 'Xuất'} tại kho: ${slip.warehouseName ?? ''}`,
+    ],
+    signers: ['Người lập phiếu', inbound ? 'Người giao hàng' : 'Người nhận hàng', 'Thủ kho', 'Kế toán trưởng'],
+  };
+}
+
+export function toSlipView(slip: InventorySlip, unitName: (id: number | null) => string): InventorySlipView {
+  return {
+    ...header(slip),
     companyName: slip.companyName,
     companyAddress: slip.companyAddress,
     slipDate: slip.slipDate,
     slipNo: slip.documentNo,
     debitAccounts: [],
     creditAccounts: [],
-    infoRows: [
-      `Họ và tên ${inbound ? 'người giao hàng' : 'người nhận hàng'}: ${slip.partnerName ?? ''}`,
-      `Địa chỉ: ${slip.partnerAddress ?? ''}`,
-      `Mã số thuế: ${slip.partnerTaxCode ?? ''}`,
-      `Diễn giải: ${slip.description}`,
-      `Theo chứng từ số: ${slip.sourceNo ?? ''}`,
-      `${inbound ? 'Nhập' : 'Xuất'} tại kho: ${slip.warehouseName ?? ''}`,
-    ],
     lines: slip.lines.map((line) => {
       const serials = line.items.map((item) => item.serialNo).filter(Boolean);
       return {
@@ -60,11 +87,5 @@ export function toSlipView(slip: InventorySlip, unitName: (id: number | null) =>
     taxRates: [],
     taxAmount: 0,
     paymentAmount: slip.totalAmount,
-    signers: [
-      'Người lập phiếu',
-      inbound ? 'Người giao hàng' : 'Người nhận hàng',
-      'Thủ kho',
-      'Kế toán trưởng',
-    ],
   };
 }

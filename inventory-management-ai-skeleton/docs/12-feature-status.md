@@ -247,7 +247,7 @@ Trạng thái: **Hoàn thành** (test đạt) / **Đã code, chưa kiểm chứn
 | Hạng mục | Mã yêu cầu | Trạng thái | Test chứng minh | Ghi chú / hạn chế |
 |---|---|---|---|---|
 | Thẻ kho theo hàng / kho / lô, lịch sử serial: tồn đầu, phát sinh có tồn lũy kế, tồn cuối khớp số dư | BR-RPT-21, AT-12 | Hoàn thành | `InventoryReportIntegrationTest.ledgerAndTraceability` | Đơn vị cơ sở; tối đa 20.000 dòng mỗi lần xem |
-| Nhập - xuất - tồn theo kỳ nhóm theo kho (dòng tổng kho), Số lượng + Giá trị tạm tính (đơn giá nhập bình quân); đảo trừ đúng chiều chứng từ gốc; số âm đỏ trong ngoặc | BR-RPT-22, AT-09, D-57 | Một phần (giá trị tạm tính) | `ledgerAndTraceability`; `inventoryReports.test.ts` | Giá trị chưa phải giá vốn: thay ở Giai đoạn 8 (D-02). Tổng số lượng dòng kho cộng các hàng khác đơn vị tính (theo mẫu D-57). Kiểm thử thủ công trên trình duyệt: chưa thực hiện |
+| Nhập - xuất - tồn theo kỳ nhóm theo kho (dòng tổng kho), Số lượng + Giá trị tạm tính (đơn giá nhập bình quân); đảo trừ đúng chiều chứng từ gốc; số âm đỏ trong ngoặc. Từ 2026-11-15 (người dùng yêu cầu): tách dòng theo lô / serial, cột Số lô, Hạn SD, Serial; hàng nhiều dòng có dòng "Cộng <mã hàng>"; số đếm ở dòng kho là số mặt hàng | BR-RPT-22, AT-09, D-57 | Một phần (giá trị tạm tính) | `ledgerAndTraceability`; `movementByLot`; `inventoryReports.test.ts` | Giá trị chưa phải giá vốn: thay ở Giai đoạn 8 (D-02). Tổng số lượng dòng kho cộng các hàng khác đơn vị tính (theo mẫu D-57). Kiểm thử thủ công trên trình duyệt: chưa thực hiện |
 | Hàng tồn lâu (tham số `inventory.slow-moving-days`), hàng ngoại lệ (hết hạn, chất lượng khác ĐẠT, lô / serial khóa), hàng thiếu hồ sơ bắt buộc | BR-RPT-23 | Hoàn thành | `exceptionsAndMissingDocuments` | Sắp hết hạn, dưới định mức: đã có ở cảnh báo kho (BR-INV-40). Ngưỡng 180 ngày `[Giả định]`. "Thiếu hồ sơ" chỉ xét hồ sơ áp dụng cho hàng hóa (không xét lô / serial) `[Suy luận]` |
 | Truy xuất lô / serial → nơi nhập, khách nhận (xuất − trả lại), tồn còn lại; khách → lô / serial | BR-RPT-24, BR-INV-42 | Hoàn thành | `ledgerAndTraceability` (gồm người xem chi nhánh khác không thấy dòng) | Dòng đảo lấy đối tượng của dòng gốc |
 | Phân quyền, phạm vi kho, điều kiện sai | AT-10, BR-RPT-12 | Hoàn thành | `accessAndValidation` | |
@@ -325,16 +325,20 @@ Hạn chế: chưa có test bỏ ghi sổ khi kỳ gốc đã khóa (dùng chung
 | Chức năng | Mã | Trạng thái | Test | Ghi chú |
 |---|---|---|---|---|
 | Phiếu nhập, xuất, xuất hủy, điều chỉnh, chuyển trạng thái: form chọn chi nhánh, cột Kho trên từng dòng (gợi ý theo nhóm hàng); ghi sổ / đảo theo kho dòng; lỗi đúng trường khi thiếu kho / khác chi nhánh | D-77 | Hoàn thành | `InventoryIntegrationTest.lineWarehouses`; `documentFormValues.test.ts` | Phiếu chuyển kho, kiểm kê vẫn một kho; danh sách chứng từ kho hiện kho đầu phiếu (kho dòng đầu tiên) `[Giả định]` |
+| Đối tác trên chứng từ kho lập tay (người dùng yêu cầu 2026-11-15): phiếu nhập kho = Nhà cung cấp, phiếu xuất kho / chuyển kho = Khách hàng (không bắt buộc, thêm nhanh đối tác được); nhập thu hồi giữ Khách trả hàng (bắt buộc); tồn đầu kỳ, xuất hủy, điều chỉnh, chuyển trạng thái không có. Trang chi tiết hiện đối tác; phiếu in lấy tên, địa chỉ, MST đối tác làm người giao / nhận hàng | - | Hoàn thành | `documentFormValues.test.ts` (`partnerField`, `toDocumentInput`) | Chỉ đổi frontend: API `partnerId` và cột `inventory_documents.partner_id` có sẵn. Server chỉ kiểm tra đối tác cùng công ty, đang hoạt động; không kiểm tra vai trò NCC / khách `[Giả định]` |
 
 ## D-78 - In phiếu nhập / xuất kho từ chứng từ kho (2026-11-10)
 | Chức năng | Mã | Trạng thái | Test | Ghi chú |
 |---|---|---|---|---|
 | Nút "In phiếu nhập kho" / "In phiếu xuất kho" và tải Excel / Word / PDF ở chi tiết chứng từ kho đã ghi sổ (PNK, PXK, PXH), chọn công ty in đầu phiếu | D-78 | Hoàn thành, chưa thử trên trình duyệt | `InventoryIntegrationTest.printSlip`; `inventorySlipView.test.ts` | Phiếu xuất chưa tính giá vốn in đơn giá / thành tiền 0; ô Nợ / Có trống `[Giả định]` |
+| "In phiếu chuyển kho" (PCK, người dùng yêu cầu 2026-11-15): in khi đã ghi sổ hoặc đang vận chuyển (khác chi nhánh); tiêu đề PHIẾU CHUYỂN KHO, người nhận hàng = khách của phiếu, xuất tại kho / nhập tại kho, ký: người lập, thủ kho xuất, người nhận hàng, thủ kho nhập; dòng / lô / giá trị theo sổ xuất khỏi kho xuất (không nhân đôi). API slip thêm `destinationWarehouseCode/Name` | D-78 | Hoàn thành, chưa thử trên trình duyệt | `InventoryIntegrationTest.printTransferSlip`; `inventorySlipView.test.ts` | Mẫu nội bộ của hệ thống, không phải mẫu "phiếu xuất kho kiêm vận chuyển nội bộ" theo quy định hóa đơn `[Giả định]` |
+| Chỉnh mẫu in phiếu nhập / xuất / chuyển kho (2026-11-15): ô bảng hàng căn giữa theo chiều dọc; STT, mã hàng, số lô, hạn dùng, mã kho, ĐVT căn giữa theo chiều ngang (bản in, Excel, Word, PDF; số căn phải, tên hàng căn trái); "Số chứng từ gốc kèm theo:" bỏ dãy dấu chấm | D-78 | Hoàn thành, chưa thử trên trình duyệt | `slipExport.test.ts` | Chế độ chỉ quản lý kho để trống giá đã có từ D-73 (`withoutPrices`), không đổi |
 
 ## D-79 - F8 chọn chứng từ nhập trên phiếu xuất kho (2026-11-10)
 | Chức năng | Mã | Trạng thái | Test | Ghi chú |
 |---|---|---|---|---|
 | F8 / nút cạnh ô Lô xuất trên dòng phiếu xuất kho lập tay: chọn chứng từ nhập còn tồn tại kho của dòng, mỗi lô thành một dòng | D-79 | Hoàn thành, chưa thử trên trình duyệt | `InventoryIntegrationTest.receiptSourcesForIssue`; `receiptPicks.test.ts` | Chỉ phiếu xuất kho (PXK); danh sách chỉ hàng ĐẠT, lô chưa hết hạn nên không dùng cho xuất hủy `[Giả định]` |
+| F8 / nút cạnh ô Lô xuất trên dòng phiếu chuyển kho (2026-11-16): chọn chứng từ nhập còn tồn tại kho xuất đầu phiếu | D-79 | Hoàn thành, chưa thử trên trình duyệt | `InventoryIntegrationTest.transferSpecifiedLotFromReceiptSources` | Ẩn lô hết hạn vì chuyển kho vẫn loại lô hết hạn (D-80); quyền `inventory-transfer:create` cũng gọi được API F8 |
 
 ## D-80 - Xuất đích danh lô đã hết hạn (2026-11-12)
 | Chức năng | Mã | Trạng thái | Test | Ghi chú |

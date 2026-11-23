@@ -390,4 +390,7 @@ export interface InventorySlip {
   warehouseName: string | null;
   lines: InventorySlipLine[];
   totalAmount: number;
+  /** Phiếu chuyển kho: kho nhận (kho xuất ở `warehouseCode/Name`); loại khác để trống. */
+  destinationWarehouseCode?: string | null;
+  destinationWarehouseName?: string | null;
 }

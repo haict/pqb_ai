@@ -65,12 +65,14 @@ public class ReceiptSourceService {
     }
 
     /**
-     * F8 trên phiếu xuất kho lập tay (D-79): quyền lập phiếu xuất, kho trong phạm vi và đang hoạt động. Hàng không
-     * quản lý lô / serial: danh sách rỗng.
+     * F8 trên phiếu xuất kho / phiếu chuyển kho lập tay (D-79): quyền lập một trong hai loại phiếu, kho trong phạm vi
+     * và đang hoạt động. Hàng không quản lý lô / serial: danh sách rỗng.
      */
     @Transactional(readOnly = true)
     public List<ReceiptSource> availableForIssue(CurrentUser actor, Long warehouseId, Long productId) {
-        access.requirePermission(actor, InventoryDocumentType.PXK.permission("create"));
+        if (!actor.hasPermission(InventoryDocumentType.PXK.permission("create"))) {
+            access.requirePermission(actor, InventoryDocumentType.PCK.permission("create"));
+        }
         WarehouseInfo warehouse = access.usableWarehouse(actor, warehouseId, "warehouseId");
         ProductInfo product = masterData.product(productId)
                 .filter(found -> found.companyId().equals(warehouse.companyId()))

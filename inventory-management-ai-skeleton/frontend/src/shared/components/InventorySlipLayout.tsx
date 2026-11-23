@@ -20,8 +20,11 @@ import { useFinancialPosting } from '../ui/postingMode';
 export type { InventorySlipView, SlipLineView } from '../inventorySlip/slipContent';
 
 const PAGE: CSSProperties = { fontFamily: '"Times New Roman", serif', fontSize: 14, color: '#000' };
-const CELL: CSSProperties = { border: '1px solid #000', padding: '2px 4px', verticalAlign: 'top' };
+// Căn giữa theo chiều dọc: tên hàng dài xuống dòng thì mã hàng, lô, kho... vẫn ở giữa ô
+const CELL: CSSProperties = { border: '1px solid #000', padding: '2px 4px', verticalAlign: 'middle' };
 const HEAD: CSSProperties = { ...CELL, textAlign: 'center', fontWeight: 'bold' };
+/** Mã hàng, số lô, hạn dùng, mã kho, ĐVT: căn giữa; tên hàng căn trái, số căn phải. */
+const CENTER: CSSProperties = { ...CELL, textAlign: 'center' };
 const NUMBER: CSSProperties = { ...CELL, textAlign: 'right', whiteSpace: 'nowrap' };
 function Stacked({ values }: { values: string[] }) {
   return (
@@ -76,20 +79,20 @@ export function InventorySlipLayout({ slip: source }: { slip: InventorySlipView 
         <tbody>
           {slip.lines.map((line) => (
             <tr key={line.lineNo}>
-              <td style={{ ...CELL, textAlign: 'center' }}>{line.lineNo}</td>
-              <td style={CELL}>{line.productCode}</td>
+              <td style={CENTER}>{line.lineNo}</td>
+              <td style={CENTER}>{line.productCode}</td>
               <td style={CELL}>
                 {line.productName}
                 {line.productNote && <div style={{ fontSize: 12 }}>{line.productNote}</div>}
               </td>
-              <td style={CELL}>
+              <td style={CENTER}>
                 <Stacked values={line.lots} />
               </td>
-              <td style={CELL}>
+              <td style={CENTER}>
                 <Stacked values={line.expiries} />
               </td>
-              <td style={CELL}>{line.warehouseCode}</td>
-              <td style={CELL}>{line.unitName}</td>
+              <td style={CENTER}>{line.warehouseCode}</td>
+              <td style={CENTER}>{line.unitName}</td>
               <td style={NUMBER}>{decimal(line.quantity, QUANTITY_DIGITS)}</td>
               <td style={NUMBER}>{decimal(line.unitPrice, PRICE_DIGITS)}</td>
               <td style={NUMBER}>{decimal(line.amount, AMOUNT_DIGITS)}</td>

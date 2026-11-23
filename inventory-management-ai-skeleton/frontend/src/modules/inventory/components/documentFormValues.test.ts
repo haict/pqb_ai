@@ -1,5 +1,5 @@
 import dayjs from 'dayjs';
-import { toDocumentInput } from './documentFormValues';
+import { partnerField, toDocumentInput } from './documentFormValues';
 
 describe('toDocumentInput', () => {
   it('đổi ngày sang YYYY-MM-DD, giữ nguyên số lượng và đơn giá', () => {
@@ -78,5 +78,28 @@ describe('toDocumentInput', () => {
     expect(issue.lines.map((line) => line.warehouseId)).toEqual([3, 4]);
     expect(transfer.warehouseId).toBe(3);
     expect(transfer.lines.map((line) => line.warehouseId)).toEqual([undefined, undefined]);
+  });
+
+  it('chỉ gửi đối tác cho loại chứng từ có ô đối tác', () => {
+    const base = { documentDate: dayjs('2026-11-15'), warehouseId: 3, partnerId: 11, lines: [] };
+
+    expect(toDocumentInput({ ...base, documentType: 'PNK' }).partnerId).toBe(11);
+    expect(toDocumentInput({ ...base, documentType: 'PXK' }).partnerId).toBe(11);
+    expect(toDocumentInput({ ...base, documentType: 'PCK' }).partnerId).toBe(11);
+    expect(toDocumentInput({ ...base, documentType: 'PNK', subType: 'OPENING' }).partnerId).toBeUndefined();
+    expect(toDocumentInput({ ...base, documentType: 'PXH' }).partnerId).toBeUndefined();
+    expect(toDocumentInput({ ...base, documentType: 'PDC' }).partnerId).toBeUndefined();
+  });
+});
+
+describe('partnerField', () => {
+  it('nhập kho = nhà cung cấp; xuất / chuyển kho = khách hàng; nhập thu hồi bắt buộc khách trả hàng', () => {
+    expect(partnerField('PNK', undefined)).toEqual({ label: 'Nhà cung cấp', role: 'SUPPLIER', required: false });
+    expect(partnerField('PXK', null)).toEqual({ label: 'Khách hàng', role: 'CUSTOMER', required: false });
+    expect(partnerField('PCK', null)).toEqual({ label: 'Khách hàng', role: 'CUSTOMER', required: false });
+    expect(partnerField('PNK', 'RECALL_IN')).toEqual({ label: 'Khách trả hàng', role: 'CUSTOMER', required: true });
+    expect(partnerField('PNK', 'OPENING')).toBeNull();
+    expect(partnerField('PXH', null)).toBeNull();
+    expect(partnerField('PCL', null)).toBeNull();
   });
 });

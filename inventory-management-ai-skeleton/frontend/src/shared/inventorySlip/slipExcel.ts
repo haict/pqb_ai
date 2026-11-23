@@ -80,7 +80,7 @@ export async function slipToExcelBuffer(slip: InventorySlipView) {
       cell.value = value;
       cell.font = { name: FONT, size: 11, bold };
       cell.border = BORDER;
-      cell.alignment = { vertical: 'top', wrapText: true };
+      cell.alignment = { vertical: 'middle', wrapText: true };
     });
     row += 1;
     return excelRow;
@@ -101,7 +101,10 @@ export async function slipToExcelBuffer(slip: InventorySlipView) {
       line.unitPrice,
       line.amount,
     ]);
-    excelRow.getCell(1).alignment = { horizontal: 'center', vertical: 'top' };
+    // STT, mã hàng, số lô, hạn dùng, mã kho, ĐVT căn giữa; tên hàng căn trái, số căn phải
+    [1, 2, 4, 5, 6, 7].forEach((column) => {
+      excelRow.getCell(column).alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+    });
     excelRow.getCell(8).numFmt = QUANTITY_FORMAT;
     excelRow.getCell(9).numFmt = QUANTITY_FORMAT;
     excelRow.getCell(10).numFmt = AMOUNT_FORMAT;

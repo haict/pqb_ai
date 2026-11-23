@@ -8,6 +8,7 @@ import {
   TableCell,
   TableRow,
   TextRun,
+  VerticalAlignTable,
   WidthType,
 } from 'docx';
 import {
@@ -78,6 +79,7 @@ function cell(text: string, style: RunStyle & { columnSpan?: number; width?: num
     columnSpan: style.columnSpan,
     width: style.width ? { size: style.width, type: WidthType.DXA } : undefined,
     margins: { left: 60, right: 60 },
+    verticalAlign: VerticalAlignTable.CENTER,
     children: [paragraph(text, { size: TABLE_SIZE, ...style })],
   });
 }
@@ -118,6 +120,8 @@ function headerTable(slip: InventorySlipView) {
 
 function linesTable(slip: InventorySlipView) {
   const right = { align: AlignmentType.RIGHT };
+  // Mã hàng, số lô, hạn dùng, mã kho, ĐVT căn giữa; tên hàng căn trái, số căn phải
+  const center = { align: AlignmentType.CENTER };
   const strongRight = { align: AlignmentType.RIGHT, bold: true };
   const header = (labels: string[]) =>
     new TableRow({
@@ -144,13 +148,13 @@ function linesTable(slip: InventorySlipView) {
         (line) =>
           new TableRow({
             children: [
-              cell(String(line.lineNo), { align: AlignmentType.CENTER }),
-              cell(line.productCode ?? ''),
+              cell(String(line.lineNo), center),
+              cell(line.productCode ?? '', center),
               cell(productText(line)),
-              cell(line.lots.join('\n')),
-              cell(line.expiries.join('\n')),
-              cell(line.warehouseCode ?? ''),
-              cell(line.unitName),
+              cell(line.lots.join('\n'), center),
+              cell(line.expiries.join('\n'), center),
+              cell(line.warehouseCode ?? '', center),
+              cell(line.unitName, center),
               cell(formatDecimal(line.quantity, QUANTITY_DIGITS), right),
               cell(formatDecimal(line.unitPrice, PRICE_DIGITS), right),
               cell(formatDecimal(line.amount, AMOUNT_DIGITS), right),

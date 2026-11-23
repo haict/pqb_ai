@@ -56,8 +56,7 @@ export const SLIP_COLUMN_KEYS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', '1', '2', '3
 export const QUANTITY_DIGITS = 2;
 export const PRICE_DIGITS = 2;
 export const AMOUNT_DIGITS = 0;
-export const ORIGINAL_DOCUMENTS_LINE =
-  '- Số chứng từ gốc kèm theo: ..............................................................';
+export const ORIGINAL_DOCUMENTS_LINE = '- Số chứng từ gốc kèm theo:';
 export const SIGN_DATE_LINE = 'Ngày ..... tháng ..... năm ........';
 export const SIGN_HINT = '(Ký, họ tên)';
 

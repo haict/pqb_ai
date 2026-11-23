@@ -14,7 +14,7 @@ import {
   Tooltip,
   type FormInstance,
 } from 'antd';
-import { productApi } from '../../masterdata/api';
+import { partnerApi, productApi } from '../../masterdata/api';
 import { PartnerSelect, ProductSelect } from '../../masterdata/components/EntitySelects';
 import { RemoteSelect } from '../../masterdata/components/RemoteSelect';
 import { QUALITY_STATUSES } from '../../masterdata/labels';
@@ -30,10 +30,12 @@ import type { QualityStatus } from '../../masterdata/types';
 import { policyApi, stockApi } from '../api';
 import { CREATABLE_TYPES, DOCUMENT_TYPES, OPENING_SUB_TYPE, RECEIPT_SUB_TYPES } from '../labels';
 import type { InventoryDocumentType, Lot, StockIssuePolicy } from '../types';
-import { hasLineWarehouse, type DocumentFormValues } from './documentFormValues';
+import { hasLineWarehouse, partnerField, type DocumentFormValues } from './documentFormValues';
 import { useEffect, useState } from 'react';
 import { ReceiptSourcePicker } from '../../sales/components/ReceiptSourcePicker';
 import { issueLinesFromReceipts } from './receiptPicks';
+import { BRANCH_VISIBLE } from '../../../shared/branch';
+import { BranchCol } from '../../../shared/components/BranchCol';
 import { DecimalInput } from '../../../shared/components/DecimalInput';
 import { LineGrid, LineGridRow, NotApplicable } from '../../../shared/components/LineGrid';
 import { lineCellStyle, type LineGridColumn } from '../../../shared/components/lineGridStyles';
@@ -47,6 +49,11 @@ const QUALITY_OPTIONS = (Object.keys(QUALITY_STATUSES) as QualityStatus[]).map((
 /** Loại dòng theo loại chứng từ: nhập (khai báo lô mới, đơn giá) hay xuất (chọn lô có sẵn hoặc để FEFO). */
 function isInbound(type: InventoryDocumentType, direction?: string) {
   return type === 'PNK' || (type === 'PDC' && direction === 'IN');
+}
+
+/** Chứng từ chọn lô / serial xuất theo chứng từ nhập bằng F8 (D-79). */
+function canPickReceipts(type: InventoryDocumentType) {
+  return type === 'PXK' || type === 'PCK';
 }
 
 /** Cột bảng dòng hàng theo loại chứng từ; ô không áp dụng cho dòng (hàng không theo lô, dòng giảm tồn) hiện dấu –. */
@@ -90,7 +97,7 @@ function lineLayout(type: InventoryDocumentType, openingStock: boolean): LineLay
             title: 'Lô xuất',
             width: '180px',
             tooltip:
-              type === 'PXK'
+              canPickReceipts(type)
                 ? 'Để trống: hệ thống chọn lô hết hạn sớm nhất (FEFO). F8: chọn theo chứng từ nhập'
                 : 'Để trống: hệ thống chọn lô hết hạn sớm nhất (FEFO).',
           },
@@ -170,16 +177,21 @@ function LineFields({
   const issueLot = product?.lotTracked && !inbound && (type !== 'PDC' || direction === 'OUT');
   const { message } = App.useApp();
   const [picker, setPicker] = useState<number | null>(null);
-  /** F8 trên phiếu xuất kho (D-79): chọn chứng từ nhập còn tồn của hàng tại kho của dòng. */
+  /**
+   * F8 trên phiếu xuất kho / phiếu chuyển kho (D-79): chọn chứng từ nhập còn tồn của hàng tại kho xuất (kho của dòng;
+   * phiếu chuyển kho: kho xuất của phiếu).
+   */
   const openPicker = () => {
-    const warehouseId = form.getFieldValue(['lines', name, 'warehouseId']) as number | undefined;
-    if (type !== 'PXK') {
+    if (!canPickReceipts(type)) {
       return;
     }
+    const warehouseId = form.getFieldValue(lineWarehouse ? ['lines', name, 'warehouseId'] : 'warehouseId') as
+      | number
+      | undefined;
     if (!product) {
       message.info('Chọn hàng trước khi nhấn F8.');
     } else if (!warehouseId) {
-      message.info('Chọn kho của dòng trước khi nhấn F8.');
+      message.info(lineWarehouse ? 'Chọn kho của dòng trước khi nhấn F8.' : 'Chọn kho xuất trước khi nhấn F8.');
     } else if (!product.lotTracked && !product.serialTracked) {
       message.info('Hàng không quản lý lô / serial: kho xuất theo FEFO khi ghi sổ.');
     } else {
@@ -192,7 +204,7 @@ function LineFields({
       columns={layout.columns}
       lineNo={name + 1}
       onKeyDown={(event) => {
-        if (event.key === 'F8' && type === 'PXK') {
+        if (event.key === 'F8' && canPickReceipts(type)) {
           event.preventDefault();
           openPicker();
         }
@@ -205,7 +217,8 @@ function LineFields({
             productId={product.id}
             productLabel={`${product.code} - ${product.name}`}
             baseUnitName={units.nameOf(product.baseUnitId) || ''}
-            targetLabel="phiếu xuất"
+            targetLabel={type === 'PCK' ? 'phiếu chuyển kho' : 'phiếu xuất'}
+            excludeExpired={type === 'PCK'}
             fetchSources={() => stockApi.receiptSources(picker, product.id)}
             onCancel={() => setPicker(null)}
             onPick={(picks, reason) => {
@@ -362,7 +375,7 @@ function LineFields({
                   })}
                 />
               </Form.Item>
-              {type === 'PXK' && (
+              {canPickReceipts(type) && (
                 <Tooltip title="Chọn chứng từ nhập (F8)">
                   <Button
                     icon={<FileSearchOutlined />}
@@ -443,6 +456,14 @@ export function DocumentFormFields({
   const type = (Form.useWatch('documentType', form) ?? 'PNK') as InventoryDocumentType;
   const subType = Form.useWatch('subType', form) as string | undefined;
   const layout = lineLayout(type, type === 'PNK' && subType === OPENING_SUB_TYPE);
+  const partner = partnerField(type, subType);
+  const partnerId = Form.useWatch('partnerId', form) as number | undefined;
+  // Tên đối tác đã lưu khi mở sửa phiếu (ô chọn chỉ có kết quả tìm kiếm)
+  const selectedPartner = useQuery({
+    queryKey: ['partners', partnerId],
+    queryFn: () => partnerApi.get(partnerId as number),
+    enabled: partner !== null && typeof partnerId === 'number',
+  }).data;
   const machineCategories = useQuery({
     queryKey: ['machine-categories', companyId],
     queryFn: () => stockApi.machineCategories(companyId),
@@ -470,7 +491,7 @@ export function DocumentFormFields({
           </Form.Item>
         </Col>
         {hasLineWarehouse(type) ? (
-          <Col xs={24} md={8}>
+          <BranchCol xs={24} md={8}>
             <Form.Item
               name="branchId"
               label="Chi nhánh"
@@ -491,7 +512,7 @@ export function DocumentFormFields({
                 }
               />
             </Form.Item>
-          </Col>
+          </BranchCol>
         ) : (
           <Col xs={24} md={8}>
             <Form.Item name="warehouseId" label="Kho xuất" rules={[{ required: true, message: 'Chọn kho' }]}>
@@ -505,7 +526,7 @@ export function DocumentFormFields({
               name="destinationWarehouseId"
               label="Kho nhận"
               rules={[{ required: true, message: 'Chọn kho nhận' }]}
-              extra="Khác chi nhánh: hàng qua kho đang vận chuyển, kho nhận xác nhận."
+              extra={BRANCH_VISIBLE ? 'Khác chi nhánh: hàng qua kho đang vận chuyển, kho nhận xác nhận.' : undefined}
             >
               <Select showSearch optionFilterProp="label" options={warehouses.options} />
             </Form.Item>
@@ -523,14 +544,20 @@ export function DocumentFormFields({
             </Form.Item>
           </Col>
         )}
-        {type === 'PNK' && subType === 'RECALL_IN' && (
+        {partner && (
           <Col xs={24} md={8}>
             <Form.Item
               name="partnerId"
-              label="Khách trả hàng"
-              rules={[{ required: true, message: 'Chọn khách' }]}
+              label={partner.label}
+              rules={[{ required: partner.required, message: `Chọn ${partner.label.toLowerCase()}` }]}
             >
-              <PartnerSelect role="CUSTOMER" />
+              <PartnerSelect
+                key={partner.role}
+                role={partner.role}
+                creatable
+                allowClear={!partner.required}
+                selectedLabel={selectedPartner ? `${selectedPartner.code} - ${selectedPartner.name}` : undefined}
+              />
             </Form.Item>
           </Col>
         )}

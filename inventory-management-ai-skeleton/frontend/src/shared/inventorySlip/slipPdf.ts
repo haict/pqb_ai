@@ -36,9 +36,11 @@ function summaryRow(left: string, label: string, amount: number | null): TableCe
 function linesTable(slip: InventorySlipView): Content {
   const header = (labels: string[]): TableCell[] =>
     labels.map((label) => ({ text: label, bold: true, alignment: 'center' }));
-  const right = (value: number | null, digits: number): TableCell => ({
-    text: formatDecimal(value, digits),
-    alignment: 'right',
+  // Căn giữa theo chiều dọc: tên hàng dài xuống dòng thì mã hàng, lô, kho... vẫn ở giữa ô
+  const middle = (text: string, alignment: 'left' | 'center' | 'right' = 'left'): TableCell => ({
+    text,
+    alignment,
+    verticalAlignment: 'middle',
   });
   return {
     margin: [0, 6, 0, 0],
@@ -50,16 +52,16 @@ function linesTable(slip: InventorySlipView): Content {
         header(SLIP_COLUMNS),
         header(SLIP_COLUMN_KEYS),
         ...slip.lines.map((line): TableCell[] => [
-          { text: String(line.lineNo), alignment: 'center' },
-          line.productCode ?? '',
-          productText(line),
-          line.lots.join('\n'),
-          line.expiries.join('\n'),
-          line.warehouseCode ?? '',
-          line.unitName,
-          right(line.quantity, QUANTITY_DIGITS),
-          right(line.unitPrice, PRICE_DIGITS),
-          right(line.amount, AMOUNT_DIGITS),
+          middle(String(line.lineNo), 'center'),
+          middle(line.productCode ?? '', 'center'),
+          middle(productText(line)),
+          middle(line.lots.join('\n'), 'center'),
+          middle(line.expiries.join('\n'), 'center'),
+          middle(line.warehouseCode ?? '', 'center'),
+          middle(line.unitName, 'center'),
+          middle(formatDecimal(line.quantity, QUANTITY_DIGITS), 'right'),
+          middle(formatDecimal(line.unitPrice, PRICE_DIGITS), 'right'),
+          middle(formatDecimal(line.amount, AMOUNT_DIGITS), 'right'),
         ]),
         [
           '',

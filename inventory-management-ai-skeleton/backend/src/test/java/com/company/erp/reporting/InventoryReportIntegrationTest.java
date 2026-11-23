@@ -35,6 +35,28 @@ class InventoryReportIntegrationTest extends ReportIntegrationSupport {
     }
 
     @Test
+    @DisplayName("BR-RPT-22: nhập - xuất - tồn tách dòng theo lô, kèm số lô, hạn dùng; lô hạn gần trước")
+    void movementByLot() throws Exception {
+        long item = newProduct("CONSUMABLE");
+        String later = unique("LB");
+        String sooner = unique("LA");
+        stockIn(item, "6", later, "2028-12-31");
+        stockIn(item, "4", sooner, "2027-06-30");
+
+        mockMvc.perform(report(keeper, "/inventory-movement").param("productIds", String.valueOf(item))
+                        .param("dateFrom", DATE).param("dateTo", DATE))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.rows.length()").value(2))
+                .andExpect(jsonPath("$.data.rows[0].lotNo").value(sooner))
+                .andExpect(jsonPath("$.data.rows[0].expiryDate").value("2027-06-30"))
+                .andExpect(jsonPath("$.data.rows[0].inQuantity").value(4))
+                .andExpect(jsonPath("$.data.rows[0].closing").value(4))
+                .andExpect(jsonPath("$.data.rows[0].serialNo").isEmpty())
+                .andExpect(jsonPath("$.data.rows[1].lotNo").value(later))
+                .andExpect(jsonPath("$.data.rows[1].closing").value(6));
+    }
+
+    @Test
     @DisplayName("BR-RPT-21, 22, 24, AT-12, AT-09: thẻ kho, nhập - xuất - tồn khớp số dư; đảo trừ đúng chiều; lô → khách")
     void ledgerAndTraceability() throws Exception {
         long item = newProduct("CONSUMABLE");

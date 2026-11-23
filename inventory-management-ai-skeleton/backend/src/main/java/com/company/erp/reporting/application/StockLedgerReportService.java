@@ -136,7 +136,8 @@ public class StockLedgerReportService {
     private static InventoryMovementResponse.Row toMovementRow(MovementRow row, BigDecimal unitCost) {
         BigDecimal closing = row.opening().add(row.inQuantity()).subtract(row.outQuantity());
         return new InventoryMovementResponse.Row(row.productId(), row.productCode(), row.productName(),
-                row.unitName(), row.warehouseId(), row.warehouseCode(), row.warehouseName(), row.opening(),
+                row.unitName(), row.warehouseId(), row.warehouseCode(), row.warehouseName(), row.lotNo(),
+                row.expiryDate(), row.serialNo(), row.opening(),
                 row.inQuantity(), row.outQuantity(), closing,
                 unitCost == null ? null : unitCost.setScale(UNIT_COST_SCALE, RoundingMode.HALF_UP),
                 value(row.opening(), unitCost), value(row.inQuantity(), unitCost),

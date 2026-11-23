@@ -35,7 +35,8 @@ public class StockLedgerReportJdbc {
 
     /** Một dòng nhập - xuất - tồn theo hàng × kho. */
     public record MovementRow(Long productId, String productCode, String productName, String unitName,
-                              Long warehouseId, String warehouseCode, String warehouseName, BigDecimal opening,
+                              Long warehouseId, String warehouseCode, String warehouseName, Long lotId, String lotNo,
+                              LocalDate expiryDate, Long serialId, String serialNo, BigDecimal opening,
                               BigDecimal inQuantity, BigDecimal outQuantity) {
     }
 
@@ -106,7 +107,8 @@ public class StockLedgerReportJdbc {
     }
 
     /**
-     * Nhập - xuất - tồn theo hàng × kho: tồn đầu (trước {@code from}), nhập, xuất trong kỳ. Dòng đảo trừ vào chiều của
+     * Nhập - xuất - tồn theo hàng × kho × lô × serial (hàng không theo lô / serial: một dòng, lô / serial trống): tồn
+     * đầu (trước {@code from}), nhập, xuất trong kỳ. Dòng đảo trừ vào chiều của
      * chứng từ gốc (đảo phiếu xuất giảm số xuất, không tăng số nhập); chuyển trạng thái chất lượng không tính.
      */
     public List<MovementRow> movement(Scope scope, Collection<Long> productIds, Collection<Long> categoryIds,
@@ -128,9 +130,11 @@ public class StockLedgerReportJdbc {
         }
         String sql = """
                 SELECT m.product_id, pr.code AS product_code, pr.name AS product_name, u.name AS unit_name,
-                       m.warehouse_id, w.code AS warehouse_code, w.name AS warehouse_name, m.opening, m.in_qty, m.out_qty
+                       m.warehouse_id, w.code AS warehouse_code, w.name AS warehouse_name,
+                       m.lot_id, l.lot_no, l.expiry_date, m.serial_id, s.serial_no,
+                       m.opening, m.in_qty, m.out_qty
                 FROM (
-                  SELECT t.product_id, t.warehouse_id,
+                  SELECT t.product_id, t.warehouse_id, t.lot_id, t.serial_id,
                          SUM(IF(t.posting_date < :from, IF(t.direction = 'IN', t.quantity, -t.quantity), 0)) AS opening,
                          SUM(IF(t.posting_date >= :from AND kind = 'MOVE',
                                 CASE WHEN t.transaction_type <> 'REVERSAL' AND t.direction = 'IN' THEN t.quantity
@@ -144,17 +148,22 @@ public class StockLedgerReportJdbc {
                         LEFT JOIN inventory_transactions o ON o.id = t.reversal_of_id) t
                   JOIN products pr ON pr.id = t.product_id
                   WHERE %s
-                  GROUP BY t.product_id, t.warehouse_id
+                  GROUP BY t.product_id, t.warehouse_id, t.lot_id, t.serial_id
                 ) m
                 JOIN products pr ON pr.id = m.product_id
                 JOIN units u ON u.id = pr.base_unit_id
                 JOIN warehouses w ON w.id = m.warehouse_id
+                LEFT JOIN inventory_lots l ON l.id = m.lot_id
+                LEFT JOIN inventory_serials s ON s.id = m.serial_id
                 WHERE m.opening <> 0 OR m.in_qty <> 0 OR m.out_qty <> 0
-                ORDER BY pr.code, w.code
+                ORDER BY pr.code, w.code, l.expiry_date IS NULL, l.expiry_date, l.lot_no, s.serial_no
                 """.formatted(MOVEMENT_TYPE, where);
         return jdbc.query(sql, params, (rs, i) -> new MovementRow(rs.getLong("product_id"),
                 rs.getString("product_code"), rs.getString("product_name"), rs.getString("unit_name"),
                 rs.getLong("warehouse_id"), rs.getString("warehouse_code"), rs.getString("warehouse_name"),
+                rs.getObject("lot_id", Long.class), rs.getString("lot_no"),
+                rs.getObject("expiry_date", LocalDate.class), rs.getObject("serial_id", Long.class),
+                rs.getString("serial_no"),
                 rs.getBigDecimal("opening"), rs.getBigDecimal("in_qty"), rs.getBigDecimal("out_qty")));
     }
 
